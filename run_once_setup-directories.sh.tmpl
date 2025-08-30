@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Setup common directory structure
+# This script runs once during initial setup
+
+echo "Setting up directory structure..."
+
+# Create common directories
+mkdir -p ~/.local/bin
+mkdir -p ~/.local/share
+mkdir -p ~/.config
+mkdir -p ~/Projects
+mkdir -p ~/Scripts
+
+# Ensure ~/.local/bin is in PATH (will be handled by shell configurations)
+echo "Directory structure created successfully"
+
+# Set up basic Git configuration if not present
+if command -v git &>/dev/null && ! git config --get user.name &>/dev/null; then
+    echo "Setting up basic Git configuration..."
+    git config --global init.defaultBranch main
+    git config --global pull.rebase false
+    git config --global core.autocrlf input
+    echo "Basic Git configuration complete"
+fi
