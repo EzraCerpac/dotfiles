@@ -18,6 +18,7 @@ desktop.ini
 *.bak.*
 *.backup
 *.orig
+setup.sh.backup
 
 # Editor files
 .vscode/
