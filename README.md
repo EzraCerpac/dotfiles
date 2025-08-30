@@ -10,7 +10,7 @@ The simplest way to install these dotfiles is using chezmoi's one-liner:
 
 ```bash
 # Install dotfiles using chezmoi
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac/dotfiles
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 ```
 
 This command will:
@@ -28,7 +28,7 @@ If you prefer to install step-by-step:
 sh -c "$(curl -fsLS get.chezmoi.io)"
 
 # Then initialize and apply dotfiles
-chezmoi init --apply EzraCerpac/dotfiles
+chezmoi init --apply EzraCerpac
 ```
 
 ## 📁 Repository Structure
