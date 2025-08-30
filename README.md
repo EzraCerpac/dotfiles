@@ -6,99 +6,93 @@ A modular and comprehensive dotfiles repository managed with [chezmoi](https://w
 
 ### One-Command Installation
 
+The simplest way to install these dotfiles is using chezmoi's one-liner:
+
 ```bash
-# Complete setup with automated installation
-curl -fsSL https://raw.githubusercontent.com/EzraCerpac/dotfiles/main/setup.sh | bash
+# Install dotfiles using chezmoi
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 ```
 
-### Alternative Methods
+This command will:
+1. Install chezmoi if not present
+2. Clone this repository
+3. Run all setup scripts automatically
+4. Apply all configurations
+
+### Alternative Installation
+
+If you prefer to install step-by-step:
 
 ```bash
-# Using chezmoi directly
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
+# Install chezmoi first
+sh -c "$(curl -fsLS get.chezmoi.io)"
 
-# Using make (if repository is already cloned)
-make install
-
-# For existing installations
-make update
+# Then initialize and apply dotfiles
+chezmoi init --apply EzraCerpac
 ```
 
 ## 📁 Repository Structure
 
-This repository uses a modular structure with automated installation and management:
+This repository uses chezmoi's native script functionality for automated setup:
 
 ```
 dotfiles/
-├── 📁 install/                 # Platform-specific installation scripts
-│   ├── common/setup.sh        # Cross-platform common setup
-│   ├── macos/setup.sh          # macOS-specific installation (Homebrew, defaults)
-│   └── linux/setup.sh          # Linux-specific installation (apt, dnf)
-├── 📁 scripts/                 # Maintenance and utility scripts
-│   ├── utils/logging.sh        # Shared logging utilities
-│   ├── health-check.sh         # Comprehensive system health check
-│   ├── validate.sh             # Configuration validation
-│   └── backup/create-backup.sh # Automated backup system
-├── 📁 dot_config/              # Maps to ~/.config/ (chezmoi managed)
-│   ├── fish/                   # → ~/.config/fish/
-│   ├── nvim/                   # → ~/.config/nvim/
-│   ├── git/                    # → ~/.config/git/
-│   └── ...                     # All other config directories
-├── setup.sh                    # One-command installation script
-├── Makefile                    # Common operations and workflows
-├── Dockerfile                  # Docker testing environment
-└── README.md                   # This file
+├── 📁 dot_config/                    # Maps to ~/.config/ (chezmoi managed)
+│   ├── fish/                         # → ~/.config/fish/
+│   ├── nvim/                         # → ~/.config/nvim/
+│   ├── git/                          # → ~/.config/git/
+│   └── ...                           # All other config directories
+├── 📁 scripts/                       # Validation and utility scripts  
+│   ├── utils/logging.sh              # Shared logging utilities
+│   ├── health-check.sh               # System health check
+│   └── validate.sh                   # Configuration validation
+├── 📁 install-deprecated/            # Old installation scripts (no longer used)
+├── 📄 run_once_before_install-chezmoi.sh.tmpl        # Install chezmoi
+├── 📄 run_once_install-homebrew-macos.sh.tmpl        # Install Homebrew (macOS)
+├── 📄 run_once_install-packages-macos.sh.tmpl        # Install macOS packages  
+├── 📄 run_once_install-packages-linux.sh.tmpl        # Install Linux packages
+├── 📄 run_once_setup-directories.sh.tmpl             # Setup directory structure
+├── 📄 run_after_setup-shell.sh.tmpl                  # Final shell setup
+├── Makefile                          # Simplified development commands
+└── README.md                         # This file
 ```
 
-## 🛠️ Management Commands
+The `run_once_*` and `run_after_*` scripts handle all installation and setup automatically when you run `chezmoi apply`.
 
-### Daily Operations
+## 🛠️ Daily Operations
+
+Most operations should use chezmoi commands directly instead of the Makefile:
+
 ```bash
-# Update dotfiles from repository
-make update
+# Check what needs to be updated/applied
+chezmoi status
 
-# Check what would be changed
-make status
+# Show differences between current and target state
+chezmoi diff
 
-# Show differences
-make diff
+# Apply configurations to your system
+chezmoi apply
 
-# Apply configurations
-make apply
+# Update from repository and apply changes
+chezmoi update
 
-# Run health check
-make health
+# Run system diagnostics
+chezmoi doctor
+```
 
-# Validate configurations
+### Development Commands
+
+For development and maintenance, some make targets are available:
+
+```bash
+# Run validation scripts
 make validate
-```
 
-### Development & Testing
-```bash
-# Watch for changes (requires watchexec)
-make watch
+# Run chezmoi doctor
+make doctor
 
-# Test in Docker environment
-make docker-test
-
-# Run comprehensive health check
-make health
-
-# Create backup
-make backup
-```
-
-### Git Operations
-```bash
-# Add and commit changes
-make git-add
-make git-commit MSG="your message"
-
-# Push to remote
-make git-push
-
-# Combined commit and push
-make commit-and-push MSG="your message"
+# Clean temporary files
+make clean
 ```
 
 ### Using chezmoi directly
@@ -241,7 +235,7 @@ chezmoi add --template ~/.config/app/config.yaml
 ```bash
 # Method 1: Edit with chezmoi (recommended)
 chezmoi edit ~/.config/fish/config.fish
-# This opens the source file, and you can apply with 'chezmoi apply'
+# This opens the source file, apply changes with 'chezmoi apply'
 
 # Method 2: Edit directly and re-add
 $EDITOR ~/.config/fish/config.fish
@@ -254,7 +248,7 @@ chezmoi re-add ~/.config/fish/config.fish
 # Pull latest changes and apply
 chezmoi update
 
-# Push your changes (if auto-push is disabled)
+# Push your changes
 chezmoi cd
 git add -A && git commit -m "Update configurations" && git push
 exit  # Return to original directory
@@ -278,28 +272,26 @@ chezmoi forget ~/.config/old-app/config.conf
 
 ## 🚨 Migration from Existing Setup
 
-If you have an existing dotfiles setup, use the migration script:
+If you have an existing dotfiles setup, you can migrate to this chezmoi-based approach:
 
 ```bash
-# Preview what will be migrated (dry run)
-./migrate-to-chezmoi.sh --dry-run
+# Backup your current dotfiles first
+tar -czf dotfiles-backup-$(date +%Y%m%d).tar.gz ~/.config ~/.local/bin ~/.zshrc ~/.bashrc
 
-# Perform the migration (creates automatic backup)
-./migrate-to-chezmoi.sh
+# Install and initialize this repository
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac/dotfiles
 
-# Or with verbose output
-./migrate-to-chezmoi.sh --verbose
+# If there are conflicts, resolve them manually:
+chezmoi diff
+chezmoi apply --dry-run  # Preview changes
+chezmoi apply            # Apply when ready
 ```
 
-The migration script will:
-
-1. ✅ Create a comprehensive backup of your current setup
-2. ✅ Install chezmoi if not present  
-3. ✅ Initialize chezmoi repository
-4. ✅ Convert all configuration directories
-5. ✅ Set up ignore patterns and templates
-6. ✅ Create management scripts
-7. ✅ Provide rollback capability on failure
+The automated scripts will:
+1. ✅ Install chezmoi and required tools
+2. ✅ Set up directory structure  
+3. ✅ Install platform-specific packages
+4. ✅ Configure shell and development tools
 
 ## 🚨 Troubleshooting
 
@@ -307,14 +299,15 @@ The migration script will:
 
 #### Installation Problems
 ```bash
-# Check system health
-make health
+# Check system health with chezmoi
+chezmoi doctor
 
-# Validate configurations
+# Check what's managed and what needs applying  
+chezmoi status
+chezmoi diff
+
+# Run validation if available
 make validate
-
-# Run Docker test
-make docker-test
 ```
 
 #### Permission Issues
@@ -331,9 +324,10 @@ chmod +x ~/.local/bin/*
 which fish nvim git
 echo $PATH | tr ':' '\n' | grep ".local/bin"
 
-# Reinstall missing tools
-./install/macos/setup.sh  # macOS
-./install/linux/setup.sh  # Linux
+# If packages are missing, chezmoi scripts should have installed them
+# You can re-run the installation scripts by forcing them:
+chezmoi state delete-bucket --bucket=scriptState
+chezmoi apply  # This will re-run all run_once_ scripts
 ```
 
 #### Configuration Conflicts
@@ -342,29 +336,32 @@ echo $PATH | tr ':' '\n' | grep ".local/bin"
 chezmoi doctor
 chezmoi verify
 
+# See what conflicts exist
+chezmoi diff
+
 # Reset to clean state (use with caution)
-make reset
+chezmoi apply --force
 ```
 
 ### Getting Help
 
-1. **Check the health status**: `make health`
-2. **Validate configurations**: `make validate`
-3. **Review logs**: Check `~/.dotfiles-health-*.log`
-4. **Test in isolation**: Use `make docker-test`
+1. **Check the system status**: `chezmoi doctor`
+2. **Validate configurations**: `make validate` (if available)  
+3. **Review what's managed**: `chezmoi status`
+4. **Check for differences**: `chezmoi diff`
 5. **Create an issue**: [GitHub Issues](https://github.com/EzraCerpac/dotfiles/issues)
 
 ## 🔄 Daily Workflow
 
 ### Recommended Daily Commands
 ```bash
-# Quick health check and update
-make daily-update
+# Check and update dotfiles
+chezmoi status      # Check what needs updating  
+chezmoi update      # Pull and apply changes
+chezmoi doctor      # Verify everything works
 
-# Or step by step:
-make status        # Check what needs updating
-make update        # Pull and apply changes
-make health        # Verify everything works
+# Or use the classic command:
+# make validate     # Run validation if available
 ```
 
 ### Making Changes
@@ -376,7 +373,9 @@ chezmoi edit ~/.config/fish/config.fish
 chezmoi add ~/.config/new-app/config.yaml
 
 # Commit and push changes
-make commit-and-push MSG="Add new-app configuration"
+chezmoi cd
+git add -A && git commit -m "Add new-app configuration" && git push
+exit
 ```
 
 ### Common Issues
@@ -443,15 +442,25 @@ chezmoi add --encrypt ~/.ssh/private_key
 
 ### Scripts and Hooks
 
-Automate setup with scripts:
+This repository uses chezmoi's native scripting capabilities:
 
 ```bash
-# Create run-once script
-chezmoi add --template ~/.local/share/chezmoi/run_once_install-packages.sh
+# Scripts that run once during initial setup
+run_once_before_install-chezmoi.sh.tmpl    # Install chezmoi
+run_once_install-homebrew-macos.sh.tmpl    # Install Homebrew (macOS)
+run_once_install-packages-macos.sh.tmpl    # Install packages (macOS)
+run_once_install-packages-linux.sh.tmpl    # Install packages (Linux)
+run_once_setup-directories.sh.tmpl         # Setup directory structure
 
-# Create script that runs after applying
-chezmoi add --template ~/.local/share/chezmoi/run_after_setup-permissions.sh
+# Scripts that run after applying configurations
+run_after_setup-shell.sh.tmpl              # Final shell setup
 ```
+
+These scripts handle:
+- Installing chezmoi if not present
+- OS detection and platform-specific package installation
+- Setting up development tools and shell configurations
+- Creating necessary directories and permissions
 
 ### External Dependencies
 
