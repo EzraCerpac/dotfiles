@@ -1,43 +1,105 @@
 # Dotfiles
 
-A comprehensive dotfiles repository managed with [chezmoi](https://www.chezmoi.io/) for easy installation, maintenance, and portability across machines.
+A modular and comprehensive dotfiles repository managed with [chezmoi](https://www.chezmoi.io/) for easy installation, maintenance, and portability across machines. Inspired by modern dotfiles practices with automated installation, validation, and cross-platform support.
 
 ## 🚀 Quick Start
 
-### New Machine Setup
+### One-Command Installation
 
 ```bash
-# One-command setup - downloads and applies everything
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
-
-### Existing Machine
-
-```bash
-# Check what needs to be applied
-chezmoi status
-
-# Apply pending changes
-chezmoi apply
-
-## 📁 Structure
-
-This repository uses chezmoi to manage dotfiles with a clean, organized structure:
-
+# Complete setup with automated installation
+curl -fsSL https://raw.githubusercontent.com/EzraCerpac/dotfiles/main/setup.sh | bash
 ```
 
-dotfiles/
-├── dot_config/              # Maps to ~/.config/
-│   ├── fish/               # → ~/.config/fish/
-│   ├── nvim/               # → ~/.config/nvim/
-│   ├── git/                # → ~/.config/git/
-│   └── ...                 # All other config directories
-├── dot_local/              # Maps to ~/.local/
-│   └── bin/                # → ~/.local/bin/ (scripts)
-└── README.md               # This file
+### Alternative Methods
 
+```bash
+# Using chezmoi directly
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
+
+# Using make (if repository is already cloned)
+make install
+
+# For existing installations
+make update
+```
+
+## 📁 Repository Structure
+
+This repository uses a modular structure with automated installation and management:
+
+```
+dotfiles/
+├── 📁 install/                 # Platform-specific installation scripts
+│   ├── common/setup.sh        # Cross-platform common setup
+│   ├── macos/setup.sh          # macOS-specific installation (Homebrew, defaults)
+│   └── linux/setup.sh          # Linux-specific installation (apt, dnf)
+├── 📁 scripts/                 # Maintenance and utility scripts
+│   ├── utils/logging.sh        # Shared logging utilities
+│   ├── health-check.sh         # Comprehensive system health check
+│   ├── validate.sh             # Configuration validation
+│   └── backup/create-backup.sh # Automated backup system
+├── 📁 dot_config/              # Maps to ~/.config/ (chezmoi managed)
+│   ├── fish/                   # → ~/.config/fish/
+│   ├── nvim/                   # → ~/.config/nvim/
+│   ├── git/                    # → ~/.config/git/
+│   └── ...                     # All other config directories
+├── setup.sh                    # One-command installation script
+├── Makefile                    # Common operations and workflows
+├── Dockerfile                  # Docker testing environment
+└── README.md                   # This file
 ```
 
 ## 🛠️ Management Commands
+
+### Daily Operations
+```bash
+# Update dotfiles from repository
+make update
+
+# Check what would be changed
+make status
+
+# Show differences
+make diff
+
+# Apply configurations
+make apply
+
+# Run health check
+make health
+
+# Validate configurations
+make validate
+```
+
+### Development & Testing
+```bash
+# Watch for changes (requires watchexec)
+make watch
+
+# Test in Docker environment
+make docker-test
+
+# Run comprehensive health check
+make health
+
+# Create backup
+make backup
+```
+
+### Git Operations
+```bash
+# Add and commit changes
+make git-add
+make git-commit MSG="your message"
+
+# Push to remote
+make git-push
+
+# Combined commit and push
+make commit-and-push MSG="your message"
+```
 
 ### Using chezmoi directly
 
@@ -97,6 +159,32 @@ chezmoi update
 - **atuin** - Shell history synchronization
 - **bat** - Better cat with syntax highlighting
 - And many more...
+
+## 🔧 Features
+
+### Automated Installation
+- **Cross-platform support**: macOS and Linux (Ubuntu/Fedora)
+- **Package management**: Homebrew (macOS), apt/dnf (Linux)
+- **Shell setup**: Automatic Fish shell configuration
+- **Tool installation**: Modern CLI tools (bat, eza, fzf, rg, etc.)
+
+### Health & Validation
+- **Health checks**: Comprehensive system and configuration validation
+- **Syntax validation**: Automatic checking of config file syntax
+- **Broken symlink detection**: Find and report broken symbolic links
+- **Permission validation**: Check file and directory permissions
+
+### Backup & Recovery
+- **Automated backups**: Timestamped configuration backups
+- **Package lists**: Export installed packages for restoration
+- **System information**: Capture environment details
+- **Retention management**: Automatic cleanup of old backups
+
+### Development Support
+- **Docker testing**: Test configurations in isolated environment
+- **Live reloading**: Watch mode for development
+- **Template validation**: Check chezmoi template syntax
+- **Git integration**: Streamlined version control workflows
 
 ## 🔧 Configuration
 
@@ -214,6 +302,82 @@ The migration script will:
 7. ✅ Provide rollback capability on failure
 
 ## 🚨 Troubleshooting
+
+### Common Issues
+
+#### Installation Problems
+```bash
+# Check system health
+make health
+
+# Validate configurations
+make validate
+
+# Run Docker test
+make docker-test
+```
+
+#### Permission Issues
+```bash
+# Fix common permission problems
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_*
+chmod +x ~/.local/bin/*
+```
+
+#### Tool Not Found
+```bash
+# Check if tools are properly installed
+which fish nvim git
+echo $PATH | tr ':' '\n' | grep ".local/bin"
+
+# Reinstall missing tools
+./install/macos/setup.sh  # macOS
+./install/linux/setup.sh  # Linux
+```
+
+#### Configuration Conflicts
+```bash
+# Check for configuration issues
+chezmoi doctor
+chezmoi verify
+
+# Reset to clean state (use with caution)
+make reset
+```
+
+### Getting Help
+
+1. **Check the health status**: `make health`
+2. **Validate configurations**: `make validate`
+3. **Review logs**: Check `~/.dotfiles-health-*.log`
+4. **Test in isolation**: Use `make docker-test`
+5. **Create an issue**: [GitHub Issues](https://github.com/EzraCerpac/dotfiles/issues)
+
+## 🔄 Daily Workflow
+
+### Recommended Daily Commands
+```bash
+# Quick health check and update
+make daily-update
+
+# Or step by step:
+make status        # Check what needs updating
+make update        # Pull and apply changes
+make health        # Verify everything works
+```
+
+### Making Changes
+```bash
+# Edit a config file
+chezmoi edit ~/.config/fish/config.fish
+
+# Add a new file
+chezmoi add ~/.config/new-app/config.yaml
+
+# Commit and push changes
+make commit-and-push MSG="Add new-app configuration"
+```
 
 ### Common Issues
 
