@@ -23,6 +23,7 @@ end, { desc = "Open mini.files (Directory of Current File)" })
 
 require("fzf-lua").setup({
   files = {
+    hidden = false,
     actions = {
       -- remap toggle hidden from Alt-h to Ctrl-h
       ["ctrl-h"] = require("fzf-lua.actions").toggle_hidden,
@@ -33,8 +34,13 @@ require("fzf-lua").setup({
         end
         local file = selected[1]
 
-        -- 1. Strip nerd font icon + whitespace if present
-        file = file:gsub("^%s*[\u{e000}-\u{f8ff}]%s*", "")
+        -- 1. Strip any leading icons + whitespace
+        --    Nerd Font icons live in private use area (E000–F8FF), but sometimes
+        --    other Unicode glyphs slip in, so just nuke non-path-safe chars.
+        file = file:gsub("^[%z\1-\31\u{E000}-\u{F8FF}\u{2000}-\u{200B}]+", "")
+        file = file:gsub("^%s+", "")
+        -- keep only printable chars after the last icon/space run
+        file = file:match("([%w%p%/%.%_%-~]+.*)")
 
         -- 2. Expand relative paths like `.config/...` → `$HOME/.config/...`
         if not file:match("^/") then
