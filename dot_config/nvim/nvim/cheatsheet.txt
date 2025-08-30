@@ -1,2 +1,0 @@
-Open personal cheat sheet file    | <leader>ce
-Replace word/selection -> go next occurrence | <leader>j

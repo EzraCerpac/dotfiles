@@ -2,7 +2,7 @@
     command = "nvim"
 
 [git]
-    autoCommit = false
+    autoCommit = true
     autoPush = true
 
 [data]
@@ -15,7 +15,12 @@
 
 [merge]
     command = "nvim"
-    args = ["-c", "DiffEditor {{ .Destination }}", "{{ .Source }}", "{{ .Target }}"]
+    args = [
+        "-c", "DiffEditor",
+        {{ printf "%q" "{{ .Destination }}" }},
+        {{ printf "%q" "{{ .Source }}" }},
+        {{ printf "%q" "{{ .Target }}" }}
+    ]
 
 [template]
     options = ["missingkey=error"]
