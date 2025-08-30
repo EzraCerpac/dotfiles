@@ -10,7 +10,9 @@ backups/   # ignore the backups folder, but not its contents
 backups/** # ignore the contents of backups folder but not the folder itself
 *bak
 **/*bak
-
+**/*.bak
+**/*.bak*
+**/*.log
 **/*.lock
 dot_config/nvim/lazy-lock.json
 dot_config/nvim/lazyvim.json
