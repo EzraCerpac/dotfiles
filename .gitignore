@@ -1,12 +1,70 @@
+# System files
 .DS_Store
+**/.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
 *.log
 *.tmp
+*.swp
+*.swo
 *~
-.git/
+.*.swp
+.*.swo
+
+# Backup files
+*.bak
+*.bak.*
+*.backup
+*.orig
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-*
+.vim/
+.nvim/
+
+# Development
 node_modules/
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
-.vscode/
-.idea/
+.coverage
+.tox/
+dist/
+build/
+*.egg-info/
+
+# Chezmoi specific
+.chezmoi.toml.local
+
+# Tool-specific ignores
+karabiner/automatic_backups/
+nvim/lazy-lock.json
+configstore/update-notifier-*
+gh-copilot/temp/
+.npm/
+.yarn/
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+
+# Personal/sensitive
+secrets/
+local-overrides/
+*.local
+.env
+.env.local
+
+# Archive directory (for development)
+archive/drafts/
+
+# OS specific
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 
