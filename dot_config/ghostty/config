@@ -1,0 +1,32 @@
+theme = catppccin-mocha
+font-size = 14
+mouse-hide-while-typing = true
+window-decoration = false
+keybind = global:cmd+/=toggle_quick_terminal
+macos-option-as-alt = true
+background-opacity = 0.7
+background-blur-radius = 20
+
+# AeroSpace-like native pane bindings (focus/resize/split) — 2025-08-28
+# Actions verified via `ghostty +list-actions` and defaults via `ghostty +list-keybinds --default`.
+
+# Create splits (Option A) — remapped to ctrl+alt to avoid AeroSpace conflicts:
+#   ctrl+alt+minus      → split horizontally (top/bottom)
+#   ctrl+alt+backslash  → split vertically (left/right)
+keybind = global:ctrl+alt+minus=new_split:down
+keybind = global:ctrl+alt+backslash=new_split:right
+
+# Focus panes (match AeroSpace directions, but use ctrl+alt)
+keybind = global:ctrl+alt+h=goto_split:left
+keybind = global:ctrl+alt+j=goto_split:down
+keybind = global:ctrl+alt+k=goto_split:up
+keybind = global:ctrl+alt+l=goto_split:right
+
+# Resize panes (~10-cell steps) — use ctrl+alt+shift
+#   ctrl+alt+shift+minus → shrink current pane
+#   ctrl+alt+shift+equal → grow current pane
+keybind = global:ctrl+alt+shift+minus=resize_split:left,10
+keybind = global:ctrl+alt+shift+equal=resize_split:right,10
+
+# Balance/equalize pane sizes
+keybind = global:ctrl+alt+shift+zero=equalize_splits

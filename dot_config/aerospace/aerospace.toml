@@ -1,0 +1,151 @@
+# 'start-at-login' needs to be 'true' for 'after-login-command' to work
+# Available commands: https://nikitabobko.github.io/AeroSpace/commands
+after-login-command = []
+
+# You can use it to add commands that run after AeroSpace startup.
+# 'after-startup-command' is run after 'after-login-command'
+# Available commands : https://nikitabobko.github.io/AeroSpace/commands
+after-startup-command = [
+  # JankyBorders has a built-in detection of already running process,
+  # so it won't be run twice on AeroSpace restart
+  'exec-and-forget /opt/homebrew/opt/sketchybar/bin/sketchybar',
+  'exec-and-forget borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0',
+  # 'exec-and-forget /opt/homebrew/opt/borders/bin/borders active_color="glow(0xd943ff64)" inactive_color=0x20494d64 width=8.0'
+]
+
+exec-on-workspace-change = [
+    '/bin/bash',
+    '-c',
+    '/opt/homebrew/opt/sketchybar/bin/sketchybar --trigger aerospace_workspace_change AEROSPACE_FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE AEROSPACE_PREV_WORKSPACE=$AEROSPACE_PREV_WORKSPACE',
+]
+
+# Start AeroSpace at login
+start-at-login = true
+
+# Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
+# enable-normalization-flatten-containers = false
+# enable-normalization-opposite-orientation-for-nested-containers = false
+
+accordion-padding = 30
+# automatically-unhide-macos-hidden-apps = true
+default-root-container-layout = "tiles"
+default-root-container-orientation = "auto"
+# on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+# on-focus-changed = ['move-mouse window-lazy-center']
+
+[gaps.inner]
+horizontal = 10
+vertical = 10
+
+[gaps.outer]
+bottom = 10
+left = 10
+right = 10
+top = 10
+
+[key-mapping]
+preset = "qwerty"
+
+[workspace-to-monitor-force-assignment]
+1 = 'main'
+2 = 'main'
+
+[mode.main.binding]
+
+# Focus
+alt-f = "fullscreen"
+alt-h = 'focus left --boundaries all-monitors-outer-frame'
+alt-j = 'focus down --boundaries all-monitors-outer-frame'
+alt-k = 'focus up --boundaries all-monitors-outer-frame'
+alt-l = 'focus right --boundaries all-monitors-outer-frame'
+
+# Move
+alt-shift-h = "move left"
+alt-shift-j = "move down"
+alt-shift-k = "move up"
+alt-shift-l = "move right"
+
+# Resize
+alt-shift-minus = "resize smart -50"
+alt-shift-equal = "resize smart +50"
+alt-shift-0 = "balance-sizes"
+
+# Workspaces
+alt-1 = "workspace 1"
+alt-2 = "workspace 2"
+alt-3 = "workspace 3"
+alt-4 = "workspace 4"
+alt-b = "workspace B"
+alt-m = "workspace M"
+alt-t = "workspace T"
+alt-shift-1 = "move-node-to-workspace 1 --focus-follows-window"
+alt-shift-2 = "move-node-to-workspace 2 --focus-follows-window"
+alt-shift-3 = "move-node-to-workspace 3 --focus-follows-window"
+alt-shift-4 = "move-node-to-workspace 4 --focus-follows-window"
+alt-shift-b = "move-node-to-workspace B --focus-follows-window"
+alt-shift-m = "move-node-to-workspace M --focus-follows-window"
+alt-shift-t = "move-node-to-workspace T --focus-follows-window"
+
+# Layout
+alt-comma = "layout accordion horizontal vertical"
+alt-slash = "layout tiles horizontal vertical"
+
+alt-tab = "workspace-back-and-forth"
+alt-shift-tab = [
+  "move-workspace-to-monitor --wrap-around next",
+  'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
+]
+
+# Modes
+alt-shift-semicolon = "mode service"
+
+[mode.service.binding]
+esc = ["reload-config", "mode main"]
+alt-shift-h = ["join-with left", "mode main"]
+alt-shift-j = ["join-with down", "mode main"]
+alt-shift-k = ["join-with up", "mode main"]
+alt-shift-l = ["join-with right", "mode main"]
+h = ["join-with left", "mode main"]
+j = ["join-with down", "mode main"]
+k = ["join-with up", "mode main"]
+l = ["join-with right", "mode main"]
+backspace = ["close-all-windows-but-current", "mode main"]
+f = ["layout floating tiling", "mode main"]
+r = ["flatten-workspace-tree", "mode main"] # reset layout
+alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
+
+[[on-window-detected]]
+run = "move-node-to-workspace 1"
+
+[on-window-detected.if]
+app-name-regex-substring = "finder"
+
+[[on-window-detected]]
+run = "move-node-to-workspace 4"
+
+[on-window-detected.if]
+app-name-regex-substring = "whatsapp"
+
+[[on-window-detected]]
+run = "move-node-to-workspace T"
+
+[on-window-detected.if]
+app-name-regex-substring = "wezterm|kitty|ghostty"
+
+[[on-window-detected]]
+run = "move-node-to-workspace B"
+
+[on-window-detected.if]
+app-name-regex-substring = "zen|arc|safari|brave|orion"
+
+[[on-window-detected]]
+run = "move-node-to-workspace M"
+
+[on-window-detected.if]
+app-name-regex-substring = "spotify|music"
+
+[[on-window-detected]]
+run = ["layout floating"]
+
+[on-window-detected.if]
+app-name-regex-substring = "weather|contacts"

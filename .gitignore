@@ -1,0 +1,12 @@
+.DS_Store
+*.log
+*.tmp
+*~
+.git/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.idea/
+

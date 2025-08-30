@@ -1,0 +1,4 @@
+tabsize = 2
+tabchar = "space"
+sentence_wrap = true
+#line_length = 0  # Disable character-based wrappin

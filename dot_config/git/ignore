@@ -1,0 +1,32 @@
+**/.claude/settings.local.json
+
+# Mac specific
+.DS_Store
+**/.DS_Store
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+.hypothesis/
+.ruff_cache/
+.ropeproject/
+
+# Rust specific
+target/
+
+# Zig specific
+.zig-cache/
+zig-out/
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json
+
+**/.claude/settings.local.json

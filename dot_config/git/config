@@ -1,0 +1,103 @@
+[user]
+	name = Ezra Cerpac
+	email = e.cerpac@icloud.com
+	signingkey = D041C1286F71DBDF
+[commit]
+; 	gpgSign = true
+[includeIf "gitdir:/Users/ezracerpac/PhpstormProjects/"]
+	path = /Users/ezracerpac/PhpstormProjects/.gitconfig
+[filter "lfs"]
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+[core]
+	excludesfile = /Users/ezracerpac/.gitignore
+	autocrlf = input
+	pager = diff-so-fancy | less --tabs=4 -RFX
+	compression = 9
+	whitespace = error
+	preloadindex = true
+[advice]
+	addEmptyPathspec = false
+	pushNonFastForward = false
+	statusHints = false
+[init]
+	defaultBranch = main
+[credential "https://git.overleaf.com"]
+	helper = cache
+	username = e.cerpac@student.tudelft.nl
+[url "git@github.com:"]
+	insteadOf = "gh:"
+[url "git@github.com:EzraCerpac/"]
+	insteadOf = "ec:"
+[status]
+	branch = true
+	showStash = true
+[diff]
+	context = 3
+	renames = copies
+	interHunkContext = 10
+[pager]
+	diff = diff-so-fancy | $PAGER
+[diff-so-fancy]
+	markEmptyLines = false
+[color "diff"]
+	meta = black bold
+	frag = magenta
+	context = white
+	whitespace = yellow reverse
+	old = red
+[http]
+	postBuffer = 524288000
+	maxRequests = 20
+	version = HTTP/1.1
+[interactive]
+	diffFilter = diff-so-fancy --patch
+	singleKey = true
+[alias]
+	staash = stash --all
+	blameC = blame -w -C -C -C
+[rerere]
+	enabled = true
+[column]
+	ui = auto
+[fetch]
+	writeCommitGraph = true
+[push]
+	autoSetupRemote = true
+	default = current
+	followTags = true
+	recurseSubmodules = on-demand
+[pull]
+	default = current
+	rebase = false
+[rebase]
+	autoStash = true
+	missingCommitsCheck = warn
+	updateRefs = true
+[log]
+	abbrevCommit = true
+	graphColors = blue, yellow, cyan, magenta, green, red
+[color "decorate"]
+	HEAD = red
+	branch = blue
+	tag = yellow
+	remoteBranch = magenta
+[branch]
+	sort = -committerdate
+[tag]
+	sort = -taggerdate
+[color "branch"]
+	current = magenta
+	local = default
+	remote = yellow
+	upstream = green
+	plain = blue
+[credential]
+	helper = store
+	helper = store
+	helper = store
+	helper = --add
+[submodule]
+	recurse = true

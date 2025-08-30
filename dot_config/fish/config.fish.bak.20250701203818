@@ -1,0 +1,30 @@
+# Add Homebrew to PATH
+fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
+
+if status is-interactive
+    # Commands to run in interactive sessions can go here
+    atuin init fish --disable-up-arrow | source
+end
+
+# Auto-Warpify
+status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
+
+function fish_greeting
+    random choice "Hello!" Hi "G'day" Howdy "Hey, stranger!"
+end
+
+# extensions
+zoxide init fish --cmd cd | source
+
+# Add Rust cargo to PATH
+fish_add_path ~/.cargo/bin
+
+# Add uutils-coreutils to PATH (unprefixed commands)
+fish_add_path /opt/homebrew/opt/uutils-coreutils/libexec/uubin
+
+# Replace ls with eza
+alias ls='eza'
+
+# Added by OrbStack: command-line tools and integration
+# This won't be added again if you remove it.
+source ~/.orbstack/shell/init2.fish 2>/dev/null || :

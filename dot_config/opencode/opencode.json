@@ -1,0 +1,27 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "basic-memory": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "basic-memory",
+        "mcp"
+      ],
+      "enabled": true
+    },
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "enabled": true
+    },
+    "archon": {
+      "type": "remote",
+      "url": "http://localhost:8051/mcp"
+    }
+  }
+}
