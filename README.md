@@ -14,6 +14,7 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 ```
 
 This command will:
+
 1. Install chezmoi if not present
 2. Clone this repository
 3. Run all setup scripts automatically
@@ -80,41 +81,6 @@ chezmoi update
 chezmoi doctor
 ```
 
-### Development Commands
-
-For development and maintenance, some make targets are available:
-
-```bash
-# Run validation scripts
-make validate
-
-# Run chezmoi doctor
-make doctor
-
-# Clean temporary files
-make clean
-```
-
-### Using chezmoi directly
-
-```bash
-# Check status and differences
-chezmoi status
-chezmoi diff
-
-# Edit configurations (opens in your $EDITOR)
-chezmoi edit ~/.config/fish/config.fish
-
-# Apply changes to your system
-chezmoi apply
-
-# Add new files to management
-chezmoi add ~/.new_config_file
-
-# Update from repository
-chezmoi update
-```
-
 ## 📦 Available Configurations
 
 ### Core System
@@ -157,24 +123,28 @@ chezmoi update
 ## 🔧 Features
 
 ### Automated Installation
+
 - **Cross-platform support**: macOS and Linux (Ubuntu/Fedora)
 - **Package management**: Homebrew (macOS), apt/dnf (Linux)
 - **Shell setup**: Automatic Fish shell configuration
 - **Tool installation**: Modern CLI tools (bat, eza, fzf, rg, etc.)
 
 ### Health & Validation
+
 - **Health checks**: Comprehensive system and configuration validation
 - **Syntax validation**: Automatic checking of config file syntax
 - **Broken symlink detection**: Find and report broken symbolic links
 - **Permission validation**: Check file and directory permissions
 
 ### Backup & Recovery
+
 - **Automated backups**: Timestamped configuration backups
 - **Package lists**: Export installed packages for restoration
 - **System information**: Capture environment details
 - **Retention management**: Automatic cleanup of old backups
 
 ### Development Support
+
 - **Docker testing**: Test configurations in isolated environment
 - **Live reloading**: Watch mode for development
 - **Template validation**: Check chezmoi template syntax
@@ -270,6 +240,8 @@ chezmoi diff ~/.config/nvim/init.lua
 chezmoi forget ~/.config/old-app/config.conf
 ```
 
+<<<<<<< HEAD
+
 ## 🚨 Migration from Existing Setup
 
 If you have an existing dotfiles setup, you can migrate to this chezmoi-based approach:
@@ -288,16 +260,21 @@ chezmoi apply            # Apply when ready
 ```
 
 The automated scripts will:
+
 1. ✅ Install chezmoi and required tools
 2. ✅ Set up directory structure  
 3. ✅ Install platform-specific packages
 4. ✅ Configure shell and development tools
 
+=======
+>>>>>>> c9740d0 (Update README.md)
+>>>>>>>
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
 #### Installation Problems
+
 ```bash
 # Check system health with chezmoi
 chezmoi doctor
@@ -311,6 +288,7 @@ make validate
 ```
 
 #### Permission Issues
+
 ```bash
 # Fix common permission problems
 chmod 700 ~/.ssh
@@ -319,6 +297,7 @@ chmod +x ~/.local/bin/*
 ```
 
 #### Tool Not Found
+
 ```bash
 # Check if tools are properly installed
 which fish nvim git
@@ -331,6 +310,7 @@ chezmoi apply  # This will re-run all run_once_ scripts
 ```
 
 #### Configuration Conflicts
+
 ```bash
 # Check for configuration issues
 chezmoi doctor
@@ -354,6 +334,7 @@ chezmoi apply --force
 ## 🔄 Daily Workflow
 
 ### Recommended Daily Commands
+
 ```bash
 # Check and update dotfiles
 chezmoi status      # Check what needs updating  
@@ -365,6 +346,7 @@ chezmoi doctor      # Verify everything works
 ```
 
 ### Making Changes
+
 ```bash
 # Edit a config file
 chezmoi edit ~/.config/fish/config.fish
@@ -457,6 +439,7 @@ run_after_setup-shell.sh.tmpl              # Final shell setup
 ```
 
 These scripts handle:
+
 - Installing chezmoi if not present
 - OS detection and platform-specific package installation
 - Setting up development tools and shell configurations

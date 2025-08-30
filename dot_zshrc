@@ -10,3 +10,4 @@ export GIT_EDITOR="$EDITOR"
 
 # Alias: quick launch nvim with `v`
 alias v='nvim'
+eval "$(gh copilot alias -- zsh)"
