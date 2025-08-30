@@ -97,7 +97,8 @@ chezmoi doctor
 - **opencode** - VS Code configuration  
 - **ruff** - Python formatter and linter settings
 - **uv** - Python package manager configuration
-- **lazygit** - Git TUI configuration
+- **gitui** - Git TUI configuration
+- **jjui** - jj TUI configuration
 - **gh** - GitHub CLI configuration
 - **gh-copilot** - GitHub Copilot CLI settings
 
