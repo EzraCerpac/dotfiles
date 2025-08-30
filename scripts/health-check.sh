@@ -46,7 +46,6 @@ function check_shell_tools() {
         "starship:Starship prompt"
         "git:Git version control"
         "gh:GitHub CLI"
-        "lazygit:LazyGit TUI"
         "nvim:Neovim editor"
         "fzf:Fuzzy finder"
         "rg:ripgrep"
@@ -54,7 +53,6 @@ function check_shell_tools() {
         "bat:bat (cat alternative)"
         "eza:eza (ls alternative)"
         "zoxide:zoxide (cd alternative)"
-        "jq:JSON processor"
     )
     
     local missing_tools=()
@@ -84,9 +82,6 @@ function check_development_tools() {
     log_step "Checking development tools"
     
     local dev_tools=(
-        "python3:Python 3"
-        "node:Node.js"
-        "go:Go language"
         "rust:Rust language" 
         "uv:UV Python package manager"
         "ruff:Ruff Python linter"
@@ -101,9 +96,6 @@ function check_development_tools() {
         if command -v "$tool" &>/dev/null; then
             local version=""
             case $tool in
-                python3) version="$(python3 --version 2>&1 | cut -d' ' -f2)" ;;
-                node) version="$(node --version)" ;;
-                go) version="$(go version | awk '{print $3}')" ;;
                 rust) version="$(rustc --version | awk '{print $2}')" ;;
                 uv) version="$(uv --version 2>/dev/null | awk '{print $2}' || echo 'installed')" ;;
                 ruff) version="$(ruff --version 2>/dev/null | awk '{print $2}' || echo 'installed')" ;;

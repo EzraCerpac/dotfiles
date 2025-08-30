@@ -23,7 +23,6 @@ function install_essential_tools() {
         "wget"
         "unzip"
         "tar"
-        "jq"
     )
     
     for tool in "${tools[@]}"; do

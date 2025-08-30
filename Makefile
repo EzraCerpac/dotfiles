@@ -135,28 +135,15 @@ restore: ## Restore from backup (requires backup file)
 
 ##@ Git Operations
 
-.PHONY: git-status
-git-status: ## Show git status in chezmoi source directory
-	@echo -e "$(BLUE)Git status in source directory...$(NC)"
-	@chezmoi git status
-
-.PHONY: git-add
-git-add: ## Add all changes in chezmoi source directory
-	@echo -e "$(BLUE)Adding changes...$(NC)"
-	@chezmoi git add -A
-
-.PHONY: git-commit
-git-commit: ## Commit changes with message (use MSG="your message")
-	@echo -e "$(BLUE)Committing changes...$(NC)"
+.PHONY: commit-and-push
+commit-and-push: ## Commit and push changes (use MSG="your message")
+	@echo -e "$(BLUE)Adding, committing, and pushing changes...$(NC)"
 	@if [ -z "$(MSG)" ]; then \
-		echo -e "$(RED)Please provide a commit message: make git-commit MSG=\"your message\"$(NC)"; \
+		echo -e "$(RED)Please provide a commit message: make commit-and-push MSG=\"your message\"$(NC)"; \
 		exit 1; \
 	fi
+	@chezmoi git add -A
 	@chezmoi git commit -m "$(MSG)"
-
-.PHONY: git-push
-git-push: ## Push changes to remote repository
-	@echo -e "$(BLUE)Pushing changes...$(NC)"
 	@chezmoi git push
 
 ##@ Docker Support
@@ -234,8 +221,3 @@ quick-setup: setup-homebrew install ## Quick setup for new machines (macOS)
 
 .PHONY: daily-update
 daily-update: update validate ## Daily update routine
-
-.PHONY: commit-and-push
-commit-and-push: git-add ## Commit and push changes (use MSG="your message")
-	@$(MAKE) git-commit MSG="$(MSG)"
-	@$(MAKE) git-push

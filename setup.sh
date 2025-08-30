@@ -265,7 +265,7 @@ function show_completion_message() {
 🎉 Dotfiles setup completed successfully!
 
 Next steps:
-  1. Restart your terminal or run: source ~/.zshrc (or ~/.bashrc)
+  1. Restart your terminal or reload your shell: source ~/.zshrc (or ~/.bashrc for bash, ~/.config/fish/config.fish for fish)
   2. Check configuration: chezmoi doctor
   3. Update dotfiles: chezmoi update
   4. Edit configurations: chezmoi edit <file>
