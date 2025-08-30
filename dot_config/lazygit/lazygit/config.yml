@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jesseduffield/lazygit/master/schema/config.json
+# Basic lazygit configuration
+gui:
+  # The number of lines you scroll by when scrolling the main window  
+  scrollHeight: 2
+  
+  # If true, allow scrolling past the bottom of the content in the main window
+  scrollPastBottom: true
+  
+  # The number of spaces per tab; used for everything that's shown in the main view
+  tabWidth: 4
+  
+  # If true, capture mouse events
+  mouseEvents: true
+  
+  # Fraction of the total screen width to use for the left side section
+  sidePanelWidth: 0.3333
+  
+  # Language setting - auto will use system language
+  language: auto
+  
+  # Format used when displaying time
+  timeFormat: "02 Jan 06"
+  shortTimeFormat: "3:04PM"
+  
+  # Basic theme configuration
+  theme:
+    activeBorderColor:
+      - green
+      - bold
+    inactiveBorderColor:
+      - default
+    selectedLineBgColor:
+      - blue
+    unstagedChangesColor:
+      - red
+
+# Git configuration
+git:
+  # Paging configuration
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+  
+  # Commit configuration  
+  commit:
+    signOff: false
+  
+  # Merging configuration
+  merging:
+    # Only applicable to unix users
+    manualCommit: false
+    
+# If true, show the '5 of 20' footer at the bottom of list views
+showListFooter: true
+
+# If true, show branch head information next to branch names
+showBranchCommitHash: false
+
+# If true, show the command log
+showCommandLog: true

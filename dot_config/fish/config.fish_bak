@@ -1,0 +1,80 @@
+# Add Homebrew to PATH
+fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
+
+# Enable vi key bindings
+fish_vi_key_bindings
+
+# ---------- Key bindings ----------
+# Alt/Meta + arrow keys for word navigation
+bind -M insert \e\[1\;3C forward-word  # Alt+Right
+bind -M insert \e\[1\;3D backward-word # Alt+Left
+bind -M default \e\[1\;3C forward-word  # Alt+Right
+bind -M default \e\[1\;3D backward-word # Alt+Left
+
+# Alt/Meta + backspace for backward word deletion
+bind -M insert \e\x7f backward-kill-word # Alt+Backspace
+bind -M default \e\x7f backward-kill-word # Alt+Backspace
+
+# Alt/Meta + delete for forward word deletion
+bind -M insert \e\[3\;3~ kill-word # Alt+Delete
+bind -M default \e\[3\;3~ kill-word # Alt+Delete
+
+# Cmd key bindings for line operations (terminal dependent)
+# Cmd+Backspace - delete to beginning of line
+bind -M insert \e\[1\;5D backward-kill-line # Ctrl+Left (fallback)
+bind -M insert \cU backward-kill-line # Ctrl+U (universal)
+
+# Cmd+Delete - delete to end of line
+bind -M insert \e\[1\;5C kill-line # Ctrl+Right (fallback)
+bind -M insert \cK kill-line # Ctrl+K (universal)
+
+if status is-interactive
+    # Commands to run in interactive sessions can go here
+    atuin init fish --disable-up-arrow | source
+end
+
+# Auto-Warpify
+status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
+
+function fish_greeting
+    random choice "Hello!" Hi "G'day" Howdy "Hey, stranger!"
+end
+
+# extensions
+zoxide init fish --cmd cd | source
+
+# Add Rust cargo to PATH
+fish_add_path ~/.cargo/bin
+
+# Add uutils-coreutils to PATH (unprefixed commands)
+fish_add_path /opt/homebrew/opt/uutils-coreutils/libexec/uubin
+
+# ---------- Default editor ----------
+set -gx EDITOR /opt/homebrew/bin/nvim
+set -gx VISUAL $EDITOR
+set -gx GIT_EDITOR $EDITOR   # Fallback for tools that check this var
+
+# ---------- XDG Config ----------
+set -gx XDG_CONFIG_HOME /Users/ezracerpac/.config
+
+# ---------- D-Bus ----------  (for zathura pdf reader)
+set -gx DBUS_SESSION_BUS_ADDRESS "unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
+
+# Replace ls with eza
+alias ls='eza'
+
+# ---------- Navigation aliases ----------
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias .....='cd ../../../..'
+alias ......='cd ../../../../..'
+
+# ---------- Editor and tools ----------
+alias v='nvim'
+alias tree='eza --tree --level=2 --icons --git'
+
+# Added by OrbStack: command-line tools and integration
+# This won't be added again if you remove it.
+source ~/.orbstack/shell/init2.fish 2>/dev/null || :
+alias grealpath realpath

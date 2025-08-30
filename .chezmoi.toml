@@ -1,0 +1,17 @@
+[edit]
+    command = "nvim"
+
+[git]
+    autoCommit = false
+    autoPush = true
+
+[data]
+    name = "Ezra Cerpac"
+    email = "47384389+EzraCerpac@users.noreply.github.com"
+
+[diff]
+    exclude = ["scripts"]
+
+[template]
+    options = ["missingkey=error"]
+

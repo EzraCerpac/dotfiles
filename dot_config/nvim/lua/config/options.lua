@@ -1,0 +1,51 @@
+-- Options are automatically loaded before lazy.nvim startup
+-- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
+-- Add any additional options here
+
+vim.opt.winbar = "%=%m %f"
+vim.opt.wrap = true
+vim.g.codeium_os = "Darwin"
+vim.g.codeium_arch = "arm64"
+
+-- Set XDG_CONFIG_HOME to ensure lazygit uses ~/.config/lazygit
+vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
+
+-- LSP Server configurations
+-- require("lspconfig").harper_ls.setup({
+--   settings = {
+--     ["harper-ls"] = {
+--       userDictPath = "",
+--       workspaceDictPath = "",
+--       fileDictPath = "",
+--       linters = {
+--         SpellCheck = true,
+--         SpelledNumbers = true,
+--         AnA = true,
+--         SentenceCapitalization = false,
+--         UnclosedQuotes = true,
+--         WrongQuotes = false,
+--         LongSentences = true,
+--         RepeatedWords = true,
+--         Spaces = true,
+--         Matcher = true,
+--         CorrectNumberSuffix = true,
+--       },
+--       codeActions = {
+--         ForceStable = false,
+--       },
+--       markdown = {
+--         IgnoreLinkTitle = false,
+--       },
+--       diagnosticSeverity = "hint",
+--       isolateEnglish = false,
+--       dialect = "American",
+--       maxFileLength = 120000,
+--       ignoredLintsPath = {},
+--     },
+--   },
+-- })
+
+-- LSP Server to use for Python.
+vim.g.lazyvim_python_lsp = "pyright"
+vim.g.lazyvim_python_ruff = "ruff"
+vim.lsp.enable("ty")
