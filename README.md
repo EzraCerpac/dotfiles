@@ -8,7 +8,7 @@ A comprehensive dotfiles repository managed with [chezmoi](https://www.chezmoi.i
 
 ```bash
 # One-command setup - downloads and applies everything
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 
 ### Existing Machine
 
@@ -353,4 +353,3 @@ chezmoi status
 ```
 
 For issues or questions, open an issue in this repository.
-
