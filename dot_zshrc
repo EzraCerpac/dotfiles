@@ -1,0 +1,12 @@
+export PATH="$HOME/.local/bin:$PATH"
+
+# opencode
+export PATH=/Users/ezracerpac/.opencode/bin:$PATH
+
+# Default editor
+export EDITOR="nvim"
+export VISUAL="$EDITOR"
+export GIT_EDITOR="$EDITOR"
+
+# Alias: quick launch nvim with `v`
+alias v='nvim'
