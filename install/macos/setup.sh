@@ -36,7 +36,6 @@ function install_homebrew_packages() {
         "starship"
         "git"
         "gh"
-        "lazygit"
         "neovim"
         "tmux"
         "fzf"
@@ -46,19 +45,15 @@ function install_homebrew_packages() {
         "eza"
         "zoxide"
         "delta"
-        "jq"
         "curl"
         "wget"
         "tree"
         "htop"
         "btop"
-        "python@3.12"
     )
     
     # Development tools
     local dev_tools=(
-        "node"
-        "go"
         "rust"
         "uv"
         "ruff"
@@ -66,13 +61,8 @@ function install_homebrew_packages() {
     
     # GUI applications via Homebrew Cask
     local cask_apps=(
-        "visual-studio-code"
-        "zed"
-        "iterm2"
         "raycast"
         "aerospace"
-        "karabiner-elements"
-        "qbittorrent"
         "ghostty"
     )
     
@@ -166,7 +156,7 @@ function setup_fish_shell() {
     if [[ "$SHELL" != "$fish_path" ]]; then
         log_info "Changing default shell to Fish..."
         chsh -s "$fish_path"
-        log_info "Shell changed to Fish. Please restart your terminal."
+        log_info "Shell changed to Fish. Please restart your terminal or run: exec fish"
     fi
     
     log_success "Fish shell setup complete"
@@ -184,7 +174,7 @@ function main() {
     setup_fish_shell
     
     log_success "macOS setup completed!"
-    log_info "Please restart your terminal to use the new shell and configurations."
+    log_info "Please restart your terminal or run: exec fish (to start Fish shell immediately)"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

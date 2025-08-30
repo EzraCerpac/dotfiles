@@ -32,7 +32,6 @@ function backup_configurations() {
         ".config/git"
         ".config/gh"
         ".config/starship.toml"
-        ".config/zed"
         ".config/raycast"
         ".config/aerospace"
         ".local/bin"
@@ -152,23 +151,13 @@ function backup_package_lists() {
         fi
         
         # Python packages
-        if command -v pip3 &>/dev/null; then
+        if command -v uv &>/dev/null; then
+            echo "=== Python Packages (uv) ==="
+            uv pip list --format=freeze 2>/dev/null || true
+            echo
+        elif command -v pip3 &>/dev/null; then
             echo "=== Python Packages (pip) ==="
             pip3 list --format=freeze 2>/dev/null || true
-            echo
-        fi
-        
-        # Node packages
-        if command -v npm &>/dev/null; then
-            echo "=== Node Global Packages ==="
-            npm list -g --depth=0 2>/dev/null || true
-            echo
-        fi
-        
-        # Go packages
-        if command -v go &>/dev/null; then
-            echo "=== Go Packages ==="
-            go list -m all 2>/dev/null || true
             echo
         fi
         
@@ -211,7 +200,6 @@ function backup_system_info() {
         command -v fish &>/dev/null && echo "fish: $(fish --version)"
         command -v git &>/dev/null && echo "git: $(git --version)"
         command -v nvim &>/dev/null && echo "nvim: $(nvim --version | head -1)"
-        command -v zed &>/dev/null && echo "zed: $(zed --version)"
         echo
         
         echo "=== Disk Usage ==="

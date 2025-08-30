@@ -46,15 +46,9 @@ function install_packages_ubuntu() {
         "ripgrep"
         "fd-find"
         "bat"
-        "jq"
         "tree"
         "htop"
         "btop"
-        "python3"
-        "python3-pip"
-        "python3-venv"
-        "nodejs"
-        "npm"
     )
     
     for package in "${packages[@]}"; do
@@ -121,14 +115,9 @@ function install_packages_fedora() {
         "ripgrep"
         "fd-find"
         "bat"
-        "jq"
         "tree"
         "htop"
         "btop"
-        "python3"
-        "python3-pip"
-        "nodejs"
-        "npm"
         "gcc"
         "gcc-c++"
         "make"
@@ -189,7 +178,7 @@ function setup_fish_shell_linux() {
     if [[ "$SHELL" != "$fish_path" ]]; then
         log_info "Changing default shell to Fish..."
         chsh -s "$fish_path"
-        log_info "Shell changed to Fish. Please restart your terminal."
+        log_info "Shell changed to Fish. Please restart your terminal or run: exec fish"
     fi
     
     log_success "Fish shell setup complete"
@@ -207,21 +196,10 @@ function install_development_tools() {
     # Install ruff (Python linter/formatter)
     if ! command -v ruff &>/dev/null; then
         log_info "Installing ruff via pip..."
-        python3 -m pip install --user ruff || log_warning "Failed to install ruff"
-    fi
-    
-    # Install Go if not available
-    if ! command -v go &>/dev/null; then
-        log_info "Installing Go..."
-        local go_version="1.21.5"
-        wget "https://golang.org/dl/go${go_version}.linux-amd64.tar.gz"
-        sudo rm -rf /usr/local/go
-        sudo tar -C /usr/local -xzf "go${go_version}.linux-amd64.tar.gz"
-        rm "go${go_version}.linux-amd64.tar.gz"
-        
-        # Add to PATH
-        if ! grep -q "/usr/local/go/bin" ~/.profile 2>/dev/null; then
-            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+        if command -v python3 &>/dev/null && command -v pip3 &>/dev/null; then
+            python3 -m pip install --user ruff || log_warning "Failed to install ruff - python3/pip3 not available"
+        else
+            log_warning "Python3/pip3 not available, skipping ruff installation"
         fi
     fi
     
@@ -254,7 +232,7 @@ function main() {
     setup_fish_shell_linux
     
     log_success "Linux setup completed!"
-    log_info "Please restart your terminal to use the new shell and configurations."
+    log_info "Please restart your terminal or run: exec fish (to start Fish shell immediately)"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
