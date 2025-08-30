@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Setup shell after applying configurations
+# This script runs after chezmoi applies all configurations
+
+echo "Setting up shell configuration..."
+
+# Add ~/.local/bin to PATH if not present
+export PATH="${PATH}:${HOME}/.local/bin"
+
+# Set up Fish as default shell if it's installed and not already the default
+if command -v fish &>/dev/null && [[ "$SHELL" != *"fish"* ]]; then
+    echo "Fish shell detected. To make it your default shell, run:"
+    echo "  chsh -s $(which fish)"
+fi
+
+echo "Shell setup complete"
+
+# Display completion message
+cat << 'EOF'
+
+🎉 Dotfiles setup completed successfully!
+
+Next steps:
+  1. Restart your terminal or reload your shell
+  2. Check configuration: chezmoi doctor
+  3. Update dotfiles: chezmoi update
+  4. Edit configurations: chezmoi edit <file>
+
+For more information:
+  - chezmoi help
+  - Visit: https://github.com/EzraCerpac/dotfiles
+
+EOF
