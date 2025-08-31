@@ -1,0 +1,27 @@
+[edit]
+    command = "nvim"
+
+[git]
+    autoCommit = true
+    autoPush = true
+
+[data]
+    name = "Ezra Cerpac"
+    email = "e.cerpac@icloud.com"
+
+[diff]
+    pager = "delta"
+    exclude = ["scripts"]
+
+[merge]
+    command = "nvim"
+    args = [
+        "-c", "DiffEditor",
+        "{{ .Destination }}",
+        "{{ .Source }}",
+        "{{ .Target }}"
+    ]
+
+[template]
+    options = ["missingkey=error"]
+
