@@ -20,6 +20,7 @@
       "enabled": true
     },
     "archon": {
+      "enabled": false,
       "type": "remote",
       "url": "http://localhost:8051/mcp"
     }

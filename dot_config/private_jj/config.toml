@@ -8,7 +8,7 @@ email = "e.cerpac@icloud.com"
 default-command = "log"
 paginate = "never"
 editor = "nvim"
-merge-editor = "nvim"
+merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 
 [git]
@@ -17,3 +17,36 @@ private-commits = "description(glob:'private:*') | description(glob:'private-*:*
 
 [snapshot]
 max-new-file-size = "1MiB"  # Default
+
+[merge-tools.diffconflicts]
+program = "nvim"
+merge-args = [
+    "-c", "let g:jj_diffconflicts_marker_length=$marker_length",
+    "-c", "JJDiffConflicts!", "$output", "$base", "$left", "$right",
+]
+merge-tool-edits-conflict-markers = true
+
+[merge-tools.pycharm]
+program = "pycharm"
+diff-args = ["diff",  "$left", "$right"]
+edit-args = ["diff",  "$left", "$right"]
+merge-args = ["merge", "$left", "$right", "$base", "$output"]
+
+[merge-tools.test]
+program = "cat"
+merge-args = ["$left", "$right", "$base", "$output"]
+merge-tool-edits-conflict-markers = true
+
+[revset-aliases]
+# Like Git's HEAD~n: look back n parents from the current change
+"p(n)" = "roots(@ | ancestors(@-, n))"
+# Default showing more (n)
+"default(n)" = "present(@) | ancestors(immutable_heads().., n) | present(trunk())"
+# All changes authored by you
+"mine()" = "author_email(exact-i:e.cerpac@icloud.com)"
+# Get all WIP or TODO changes based on description pattern
+"wip" = "description(regex:\"^[(wip|WIP|todo|TODO)]|(wip|WIP|todo|TODO):?\")"
+# All changes with 'Bug XXXXX' in subject (find heads/roots as below)
+"bug_all(x)" = "mutable() & subject(glob:\"Bug *\") & subject(x)"
+"bug(x)" = "heads(bug_all(x))"
+"bug_root(x)" = "roots(bug_all(x))"

@@ -49,6 +49,8 @@ preset = "qwerty"
 [workspace-to-monitor-force-assignment]
 1 = 'main'
 2 = 'main'
+4 = 'secondary'
+M = 'secondary'
 
 [mode.main.binding]
 
@@ -136,7 +138,7 @@ app-name-regex-substring = "wezterm|kitty|ghostty"
 run = "move-node-to-workspace B"
 
 [on-window-detected.if]
-app-name-regex-substring = "zen|arc|safari|brave|orion"
+app-name-regex-substring = "zen|arc|safari|brave|orion|comet"
 
 [[on-window-detected]]
 run = "move-node-to-workspace M"

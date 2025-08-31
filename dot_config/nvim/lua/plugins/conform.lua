@@ -1,5 +1,4 @@
--- Using conform.nvim and trying to get LSP formatters _not_ to
--- run because they always clobber my extmarks
+local HOME = os.getenv("HOME")
 return {
   {
     "stevearc/conform.nvim",
@@ -14,6 +13,23 @@ return {
         typescriptreact = { "biome", stop_after_first = true },
         typescript = { "biome", stop_after_first = true },
         ["_"] = { "trim_whitespace" },
+      },
+    },
+  },
+  {
+    "mfussenegger/nvim-lint",
+    optional = true,
+    opts = {
+      linters = {
+        ["markdownlint-cli2"] = {
+          args = {
+            "--config",
+            HOME .. "/.markdownlint.toml",
+            "--rules",
+            "sentences-per-line",
+            "--",
+          },
+        },
       },
     },
   },
