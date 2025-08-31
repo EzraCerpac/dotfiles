@@ -17,9 +17,9 @@
     command = "nvim"
     args = [
         "-c", "DiffEditor",
-        "{{ .Destination }}",
-        "{{ .Source }}",
-        "{{ .Target }}"
+        {{ printf "%q" "{{ .Destination }}" }},
+        {{ printf "%q" "{{ .Source }}" }},
+        {{ printf "%q" "{{ .Target }}" }}
     ]
 
 [template]

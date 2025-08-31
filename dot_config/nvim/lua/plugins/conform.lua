@@ -1,4 +1,3 @@
-local HOME = os.getenv("HOME")
 return {
   {
     "stevearc/conform.nvim",
@@ -14,9 +13,20 @@ return {
         typescript = { "biome", stop_after_first = true },
         ["_"] = { "trim_whitespace" },
       },
+      formatters = {
+        ["markdownlint-cli2"] = {
+          args = {
+            "--config",
+            vim.fn.expand("$HOME/.markdownlint-cli2.yaml"),
+            "--fix",
+            "$FILENAME",
+          },
+        },
+      },
     },
   },
   {
+    -- BUG: Not working I believe
     "mfussenegger/nvim-lint",
     optional = true,
     opts = {
@@ -24,7 +34,7 @@ return {
         ["markdownlint-cli2"] = {
           args = {
             "--config",
-            HOME .. "/.markdownlint-cli2.yaml",
+            vim.fn.expand("$HOME/.markdownlint-cli2.yaml"),
             -- "--rules",
             -- "sentences-per-line",
             "--",
