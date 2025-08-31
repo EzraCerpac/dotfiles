@@ -24,9 +24,9 @@ return {
         ["markdownlint-cli2"] = {
           args = {
             "--config",
-            HOME .. "/.markdownlint.toml",
-            "--rules",
-            "sentences-per-line",
+            HOME .. "/.markdownlint-cli2.yaml",
+            -- "--rules",
+            -- "sentences-per-line",
             "--",
           },
         },
