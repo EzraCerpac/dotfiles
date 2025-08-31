@@ -21,53 +21,102 @@ vim.keymap.set("n", "<leader>e", function()
 	require("mini.files").open(vim.api.nvim_buf_get_name(0), true)
 end, { desc = "Open mini.files (Directory of Current File)" })
 
+local actions = require("fzf-lua.actions")
+
+-- TODO: Split into files
+-- classify “home dot targets”
+local function is_home_dot_target(abs, home)
+	if not vim.startswith(abs, home .. "/") then
+		return false
+	end
+	local tail = abs:sub(#home + 2) -- strip "$HOME/"
+	return tail:match("^%.") -- ~/.zshrc, ~/.github/...
+		or tail:match("^%.config/")
+		or tail:match("^%.local/")
+		or tail:match("^%.ssh/")
+end
+
+-- convert a chezmoi source path -> target path under $HOME
+local function source_to_target(src_abs, chezmoi_dir, home)
+	local rel = src_abs:sub(#chezmoi_dir + 1)
+	local out = {}
+	for seg in rel:gmatch("[^/]+") do
+		seg = seg:gsub("^private_", "")
+			:gsub("^exact_", "")
+			:gsub("^executable_", "")
+			:gsub("^readonly_", "")
+			:gsub("^literal_", "")
+			:gsub("^encrypted_", "")
+		if seg:sub(1, 4) == "dot_" then
+			seg = "." .. seg:sub(5)
+		end
+		seg = seg:gsub("slash", "/")
+		seg = seg:gsub("%.tmpl$", "")
+		table.insert(out, seg)
+	end
+	return home .. "/" .. table.concat(out, "/")
+end
+
+-- normalize one fzf-lua line into an absolute path
+local function normalize_selected(line)
+	if not line or line == "" then
+		return nil
+	end
+	-- strip nerd-font icons / unicode spaces
+	line = line:gsub("^[%z\1-\31\u{E000}-\u{F8FF}\u{2000}-\u{200B}]+", ""):gsub("^%s+", "")
+	-- keep printable path-ish chars
+	line = line:match("([%w%p%/%.%_%-~]+.*)") or line
+
+	-- expand to absolute:
+	if line:sub(1, 1) == "~" then
+		return vim.fn.expand(line)
+	elseif line:sub(1, 1) == "/" then
+		return line
+	else
+		-- heuristic: “dotfile-like” relative paths belong under $HOME,
+		-- everything else is relative to cwd
+		if line:match("^%.") then
+			return vim.fn.expand("~/" .. line)
+		else
+			return vim.fn.getcwd() .. "/" .. line
+		end
+	end
+end
+
 require("fzf-lua").setup({
 	files = {
-		hidden = false,
+		hidden = false, -- your pref
 		actions = {
-			["ctrl-h"] = require("fzf-lua.actions").toggle_hidden,
+			["ctrl-h"] = actions.toggle_hidden, -- your remap
 
-			["default"] = function(selected)
-				if not selected or #selected == 0 then
+			["default"] = function(sel)
+				if not sel or #sel == 0 then
 					return
 				end
-				local file = selected[1]
+				local raw = sel[1]
+				local file = normalize_selected(raw)
+				if not file then
+					return
+				end
 
-				-- 1. Strip leading icons / whitespace
-				file = file:gsub("^[%z\1-\31\u{E000}-\u{F8FF}\u{2000}-\u{200B}]+", "")
-				file = file:gsub("^%s+", "")
-				file = file:match("([%w%p%/%.%_%-~]+.*)")
-
-				local chezmoi_dir = vim.fn.expand("~/.local/share/chezmoi/")
 				local home = vim.fn.expand("~")
+				local chezmoi_dir = vim.fn.expand("~/.local/share/chezmoi/")
 
-				-- 2. Expand relative paths intelligently
-				if not file:match("^/") and not file:match("^~") then
-					if file:match("^%.") then
-						-- dotfiles: prefer chezmoi source dir
-						local candidate = chezmoi_dir .. file:gsub("^%.", "dot_")
-						if vim.fn.filereadable(candidate) == 1 or vim.fn.isdirectory(candidate) == 1 then
-							file = candidate
-						else
-							-- fallback to $HOME
-							file = home .. "/" .. file
-						end
-					else
-						-- normal relative path → project cwd
-						file = vim.fn.getcwd() .. "/" .. file
-					end
-				end
-
-				-- 3. If path is inside chezmoi’s source dir, map to target
-				if file:sub(1, #chezmoi_dir) == chezmoi_dir then
-					local target = file:gsub(chezmoi_dir, home .. "/")
-					target = target:gsub("^dot_", ".")
-					target = target:gsub("private_", "")
-					target = target:gsub("slash", "/")
+				if vim.startswith(file, chezmoi_dir) then
+					-- selected a source path: map to target, then ChezmoiEdit
+					local target = source_to_target(file, chezmoi_dir, home)
 					vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(target))
-				else
-					vim.cmd("edit " .. vim.fn.fnameescape(file))
+					return
 				end
+
+				if is_home_dot_target(file, home) then
+					-- selected a home “dot target”: always go through chezmoi
+					vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(file))
+					return
+				end
+
+				-- normal project file
+				vim.cmd("edit " .. vim.fn.fnameescape(file))
 			end,
 		},
 	},
