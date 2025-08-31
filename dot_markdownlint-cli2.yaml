@@ -99,7 +99,7 @@ MD022:
   lines_below: 0  # Changed from 1
 
 # MD023/heading-start-left : Headings must start at the beginning of the line : https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md023.md
-MD023: true
+MD023: false  # Changed from true
 
 # MD024/no-duplicate-heading : Multiple headings with the same content : https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md024.md
 MD024:
@@ -148,7 +148,7 @@ MD031:
   list_items: true
 
 # MD032/blanks-around-lists : Lists should be surrounded by blank lines : https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md032.md
-MD032: true
+MD032: false  # Changed from true
 
 # MD033/no-inline-html : Inline HTML : https://github.com/DavidAnson/markdownlint/blob/v0.32.1/doc/md033.md
 MD033:
