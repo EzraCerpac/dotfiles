@@ -38,6 +38,11 @@
 	context = 3
 	renames = copies
 	interHunkContext = 10
+[merge]
+    tool = pycharm
+[mergetool "pycharm"]
+    cmd = pycharm merge "$LOCAL" "$REMOTE" "$BASE" "$MERGED"
+    keepBackup = false
 [pager]
 	diff = diff-so-fancy | $PAGER
 [diff-so-fancy]

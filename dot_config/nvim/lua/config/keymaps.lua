@@ -50,13 +50,16 @@ require("fzf-lua").setup({
         -- 3. Map chezmoi source dir paths → target paths
         local chezmoi_dir = vim.fn.expand("~/.local/share/chezmoi/")
         if file:sub(1, #chezmoi_dir) == chezmoi_dir then
+          -- Map chezmoi source path back to real target
           file = file:gsub(chezmoi_dir, vim.fn.expand("~") .. "/")
-          file = file:gsub("^dot_", ".") -- dotfile convention
-          file = file:gsub("private_", "") -- strip private_ prefix
-          file = file:gsub("slash", "/") -- chezmoi escape convention
+          file = file:gsub("^dot_", ".")
+          file = file:gsub("private_", "")
+          file = file:gsub("slash", "/")
+          vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(file))
+        else
+          -- Normal files: just open directly
+          vim.cmd("edit " .. vim.fn.fnameescape(file))
         end
-
-        vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(file))
       end,
     },
   },

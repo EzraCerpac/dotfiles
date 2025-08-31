@@ -16,6 +16,7 @@ backups/** # ignore the contents of backups folder but not the folder itself
 **/*.lock
 dot_config/nvim/lazy-lock.json
 dot_config/nvim/lazyvim.json
+dot_config/nvim/spell/
 
 # Deprecated installation scripts (replaced by chezmoi run_once_ scripts)
 install-deprecated/
