@@ -11,6 +11,9 @@ editor = "nvim"
 merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 
+[template-aliases]
+"format_short_signature(signature)"= "signature.email().local()"
+
 [git]
 auto-local-bookmark = true
 private-commits = "description(glob:'private:*') | description(glob:'private-*:*')"

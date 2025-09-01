@@ -23,6 +23,11 @@
       "enabled": false,
       "type": "remote",
       "url": "http://localhost:8051/mcp"
+    },
+    "phiflow-docs": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://gitmcp.io/tum-pbs/PhiFlow"
     }
   }
 }

@@ -1,5 +1,10 @@
 # Dotfiles
 
+## TODO
+- I want to make some config files that are auto updated, update the source in this dir:
+  - spell
+  - btop
+
 A modular and comprehensive dotfiles repository managed with [chezmoi](https://www.chezmoi.io/) for easy installation, maintenance, and portability across machines. Inspired by modern dotfiles practices with automated installation, validation, and cross-platform support.
 
 ## 🚀 Quick Start

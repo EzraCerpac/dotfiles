@@ -1,0 +1,7 @@
+# Global gitignore file
+# Ignore directories named 'private' anywhere in the repository
+private/
+**/private/
+*.local.*
+*.local
+.DS_Store
