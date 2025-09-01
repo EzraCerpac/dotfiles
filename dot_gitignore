@@ -1,7 +1,29 @@
 # Global gitignore file
-# Ignore directories named 'private' anywhere in the repository
+
 private/
 **/private/
 *.local.*
 *.local
+
+**/.claude/settings.local.json
+.opencode.json
+
+# Mac specific
 .DS_Store
+**/.DS_Store
+
+# Python specific
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+.hypothesis/
+.ruff_cache/
+.ropeproject/
+
+# Rust specific
+target/
+
+# Zig specific
+.zig-cache/
+zig-out/
+
