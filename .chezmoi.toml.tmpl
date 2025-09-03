@@ -7,7 +7,7 @@ autoPush = true
 
 [data]
 readd_paths = [
-  {{ printf "%q" (joinPath .homeDir ".config/nvim/spell/") }},
+  {{ printf "%q" (joinPath .chezmoi.homeDir ".config/nvim/spell/") }},
 ]
 
 [hooks.apply.pre]
