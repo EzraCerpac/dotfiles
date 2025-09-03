@@ -1,27 +1,31 @@
 [edit]
-    command = "nvim"
+command = "nvim"
 
 [git]
-    autoCommit = true
-    autoPush = true
+autoCommit = true
+autoPush = true
+
+[hooks.apply.pre]
+command = "chezmoi"
+args = ["re-add"]
 
 [data]
-    name = "Ezra Cerpac"
-    email = "e.cerpac@icloud.com"
+name = "Ezra Cerpac"
+email = "e.cerpac@icloud.com"
 
 [diff]
-    pager = "delta"
-    exclude = ["scripts"]
+pager = "delta"
+exclude = ["scripts"]
 
-[merge]
-    command = "nvim"
-    args = [
-        "-c", "DiffEditor",
-        {{ printf "%q" "{{ .Destination }}" }},
-        {{ printf "%q" "{{ .Source }}" }},
-        {{ printf "%q" "{{ .Target }}" }}
-    ]
+[merge]  # NOTE: may need to use custom pycharm-merge tool instead (untested)
+command = "pycharm"
+args = [
+  "merge",
+  {{ printf "%q" "{{ .Destination }}" }},
+  {{ printf "%q" "{{ .Source }}" }},
+  {{ printf "%q" "{{ .Target }}" }}
+]
 
 [template]
-    options = ["missingkey=error"]
+options = ["missingkey=error"]
 
