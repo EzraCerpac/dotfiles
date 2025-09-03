@@ -6,9 +6,10 @@ autoCommit = true
 autoPush = true
 
 {{- $home := .chezmoi.homeDir -}}
+# Add more paths/dirs here…
 {{- $readd_paths := list
     (joinPath $home ".config/nvim/spell/")
-    # Add more paths/dirs here…
+    (joinPath $home ".config/btop/btop.conf")
 -}}
 
 [hooks.apply.pre]
