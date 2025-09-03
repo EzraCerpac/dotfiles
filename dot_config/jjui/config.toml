@@ -15,3 +15,7 @@ args = ["rebase", "-r", "$change_id", "--insert-before", "$change_id-"]
 [custom_commands."move commit up"]
 key = ["K"]
 args = ["rebase", "-r", "$change_id", "--insert-after", "$change_id+"]
+
+[custom_commands."new note commit"]
+key = ["N"]
+args = ["new", "--no-edit", "-A", "$change_id", "-m", "'NOTE: '"]
