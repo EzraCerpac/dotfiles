@@ -23,7 +23,9 @@ target-version = "py313"
     "D203",
     "D211", # incorrect-blank-line-before-class
     "D413", # Missing blank line after last section ("Returns")
+    "RUF001", # Allow abiguous symbols
     "RUF002", # Greek symbols
+    "DTZ005", # I don't care about enforcing the timezone
 
     # Formatter rules
 #    "COM812", "ISC001",

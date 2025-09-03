@@ -30,13 +30,12 @@ merge-args = [
 merge-tool-edits-conflict-markers = true
 
 [merge-tools.pycharm]
-program = "pycharm"
-diff-args = ["diff",  "$left", "$right"]
-edit-args = ["diff",  "$left", "$right"]
-merge-args = ["merge", "$left", "$right", "$base", "$output"]
+program = "pycharm-merge"
+merge-args = ["$left", "$right", "$base", "$output"]
+merge-tool-edits-conflict-markers = true
 
 [merge-tools.test]
-program = "cat"
+program = "echo"
 merge-args = ["$left", "$right", "$base", "$output"]
 merge-tool-edits-conflict-markers = true
 
