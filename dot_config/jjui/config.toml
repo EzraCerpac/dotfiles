@@ -18,4 +18,8 @@ args = ["rebase", "-r", "$change_id", "--insert-after", "$change_id+"]
 
 [custom_commands."new note commit"]
 key = ["N"]
-args = ["new", "--no-edit", "-A", "$change_id", "-m", "'NOTE: '"]
+args = ["new", "$change_id", "--no-edit", "-m", "NOTE: "]
+
+[custom_commands."show notes"]
+key = ["ctrl+n"]
+revset = "notes()"
