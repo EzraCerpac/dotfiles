@@ -1,0 +1,17 @@
+[custom_commands]
+# "show diff" = { key = ["U"], args = ["diff", "-r", "$change_id", "--color", "always"], show = "diff" }
+"show oplog diff" = { key = ["ctrl+o"], args = ["op", "show",  "$operation_id", "--color", "always"], show = "diff" }
+"resolve" = { key = ["R"], args = ["resolve", "--tool", "pycharm"], show = "interactive" }
+"new main" = { args = ["new", "main"] }
+"tug" = { key = ["ctrl+t"], args = ["bookmark", "move", "--from", "closest_bookmark($change_id)", "--to", "closest_pushable($change_id)"] }
+"show after revisions" = { key = ["M"], revset = "::$change_id" }  # shows descendants from selected
+
+"toggle parent" = { key = ["ctrl+p"], args = ["rebase", "-r", "@", "-d", "all:(parents(@) | $change_id) ~ (parents(@) & $change_id)"] }
+
+[custom_commands."move commit down"]
+key = ["J"]
+args = ["rebase", "-r", "$change_id", "--insert-before", "$change_id-"]
+
+[custom_commands."move commit up"]
+key = ["K"]
+args = ["rebase", "-r", "$change_id", "--insert-after", "$change_id+"]

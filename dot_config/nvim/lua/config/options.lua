@@ -7,6 +7,18 @@ vim.opt.wrap = true
 vim.g.codeium_os = "Darwin"
 vim.g.codeium_arch = "arm64"
 
+-- LazyVim picker to use.
+-- Can be one of: telescope, fzf
+-- Leave it to "auto" to automatically use the picker
+-- enabled with `:LazyExtras`
+vim.g.lazyvim_picker = "fzf"
+
+-- LazyVim completion engine to use.
+-- Can be one of: nvim-cmp, blink.cmp
+-- Leave it to "auto" to automatically use the completion engine
+-- enabled with `:LazyExtras`
+vim.g.lazyvim_cmp = "blink.cmp"
+
 -- Set XDG_CONFIG_HOME to ensure lazygit uses ~/.config/lazygit
 vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
 
