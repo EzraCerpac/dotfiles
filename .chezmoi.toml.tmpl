@@ -5,9 +5,20 @@ command = "nvim"
 autoCommit = true
 autoPush = true
 
+[data]
+readd_paths = [
+  {{ printf "%q" (joinPath .homeDir ".config/nvim/spell/") }},
+]
+
 [hooks.apply.pre]
 command = "chezmoi"
-args = ["re-add"]
+args = [
+  "re-add",
+  {{- range $i, $p := .data.readd_paths -}}
+  {{- if $i}}, {{ end -}}
+  {{ $p }}
+  {{- end -}}
+]
 
 [data]
 name = "Ezra Cerpac"
