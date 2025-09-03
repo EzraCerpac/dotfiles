@@ -1,10 +1,12 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# If needed add back:
+# $username\
+# $git_branch
+# $git_status
 format = """
-[╭](bold overlay1)$username\
-$directory\
-$git_branch\
-$git_status\
+[╭](bold overlay1)$directory\
+${custom.jj}\
 $c\
 $rust\
 $golang\
@@ -47,6 +49,14 @@ surface0 = "#2e3440"
 base = "#2e3440"
 mantle = "#3b4252"
 crust = "#434c5e"
+
+[custom.jj]
+command = "prompt"
+format = "$output"
+ignore_timeout = true
+shell = ["starship-jj", "--ignore-working-copy", "starship"]
+use_stdin = false
+when = true
 
 # OS Module
 [os]
