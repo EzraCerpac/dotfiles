@@ -5,18 +5,19 @@ command = "nvim"
 autoCommit = true
 autoPush = true
 
-[data]
-readd_paths = [
-  {{ printf "%q" (joinPath .chezmoi.homeDir ".config/nvim/spell/") }},
-]
+{{- $home := .chezmoi.homeDir -}}
+{{- $readd_paths := list
+    (joinPath $home ".config/nvim/spell/")
+    # Add more paths/dirs here…
+-}}
 
 [hooks.apply.pre]
 command = "chezmoi"
 args = [
   "re-add",
-  {{- range $i, $p := .data.readd_paths -}}
+  {{- range $i, $p := $readd_paths -}}
   {{- if $i}}, {{ end -}}
-  {{ $p }}
+  {{ printf "%q" $p }}
   {{- end -}}
 ]
 
