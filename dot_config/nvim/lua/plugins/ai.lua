@@ -33,7 +33,7 @@ return {
       terminals = {
         codex = {
           cmd = function()
-            return "codex --search"
+            return "codex --search --full-auto"
           end,
           path_header_template = "@%s", -- Default: @ prefix
         },
