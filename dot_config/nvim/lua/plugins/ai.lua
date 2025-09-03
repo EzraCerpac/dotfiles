@@ -30,6 +30,14 @@ return {
           { name = "codex", key = "c" },
         },
       },
+      terminals = {
+        codex = {
+          cmd = function()
+            return "codex --search"
+          end,
+          path_header_template = "@%s", -- Default: @ prefix
+        },
+      },
     },
   },
   -- {
