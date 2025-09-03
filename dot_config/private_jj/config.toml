@@ -45,10 +45,14 @@ merge-tool-edits-conflict-markers = true
 # Default showing more (n)
 "default(n)" = "present(@) | ancestors(immutable_heads().., n) | present(trunk())"
 # All changes authored by you
-"mine()" = "author_email(exact-i:e.cerpac@icloud.com)"
+"mine()" = "author_email(exact-i:\"e.cerpac@icloud.com\")"
 # Get all WIP or TODO changes based on description pattern
 "wip" = "description(regex:\"^[(wip|WIP|todo|TODO)]|(wip|WIP|todo|TODO):?\")"
 # All changes with 'Bug XXXXX' in subject (find heads/roots as below)
 "bug_all(x)" = "mutable() & subject(glob:\"Bug *\") & subject(x)"
 "bug(x)" = "heads(bug_all(x))"
 "bug_root(x)" = "roots(bug_all(x))"
+# Notes and connected history
+"just_notes()" = "subject(substring:\"NOTE:\")"
+"my_notes()" = "connected(mine() & just_notes())"
+"notes()" = "present(@) | just_notes() | just_notes()-"
