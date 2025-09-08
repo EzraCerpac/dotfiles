@@ -23,7 +23,7 @@ return {
     dependencies = { "folke/snacks.nvim" },
     opts = {
       auto_terminal_keymaps = {
-        prefix = "<leader>a",
+        prefix = "<leader>at",
         terminals = {
           { name = "claude", key = "a" },
           { name = "opencode", key = "o" },
@@ -38,6 +38,19 @@ return {
           path_header_template = "@%s", -- Default: @ prefix
         },
       },
+      watch_cwd = {
+        enabled = false, -- Gives buff changed messages all the time
+        ignore = {
+          "**/.git/**",
+          "**/node_modules/**",
+          "**/.venv/**",
+          "**/*.log",
+        },
+        -- Also merge ignore rules from <git root>/.gitignore
+        -- Negations (!) are supported; patterns are evaluated relative to repo root
+        gitignore = true,
+      },
+      trigger_formatting = { enabled = true },
     },
   },
   -- {
