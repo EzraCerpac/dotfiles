@@ -53,9 +53,7 @@ defaults=(
   label.color=$LABEL_COLOR
   label.padding_left=$PADDINGS
   label.padding_right=$PADDINGS
-  label.shadow.drawing=on
-  label.shadow.distance=2
-  label.shadow.color=0xff000000
+  label.shadow.drawing=off
   padding_right=$PADDINGS
   padding_left=$PADDINGS
   background.height=30
@@ -86,6 +84,7 @@ source "$ITEM_DIR/front_app.sh"
 # Right to Notch Items #####
 
 # source "$ITEM_DIR/media.sh"
+source "$ITEM_DIR/svim.sh"
 
 ##### Right Items #####
 source "$ITEM_DIR/calendar.sh"
