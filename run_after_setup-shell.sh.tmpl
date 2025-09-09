@@ -5,32 +5,41 @@ set -euo pipefail
 # Setup shell after applying configurations
 # This script runs after chezmoi applies all configurations
 
-echo "Setting up shell configuration..."
+if command -v gum &>/dev/null; then
+  gum style --foreground 213 --bold "➜ Setting up shell configuration"
+else
+  echo "Setting up shell configuration..."
+fi
 
 # Add ~/.local/bin to PATH if not present
 export PATH="${PATH}:${HOME}/.local/bin"
 
 # Set up Fish as default shell if it's installed and not already the default
 if command -v fish &>/dev/null && [[ "$SHELL" != *"fish"* ]]; then
-    echo "Fish shell detected. To make it your default shell, run:"
-    echo "  chsh -s $(which fish)"
+    if command -v gum &>/dev/null; then
+      gum style --foreground 245 "Fish detected. Make it default with:"
+      gum style --foreground 245 "  chsh -s $(which fish)"
+    else
+      echo "Fish shell detected. To make it your default shell, run:"
+      echo "  chsh -s $(which fish)"
+    fi
 fi
 
-echo "Shell setup complete"
+if command -v gum &>/dev/null; then
+  gum style --foreground 82 "✓ Shell setup complete"
+else
+  echo "Shell setup complete"
+fi
 
 # Display completion message
-cat << 'EOF'
+if command -v gum &>/dev/null; then
+  gum style --foreground 213 --bold "🎉 Dotfiles setup complete"
+  gum style --foreground 245 "Next: restart terminal • chezmoi doctor • chezmoi update"
+else
+  cat << 'EOF'
 
-🎉 Dotfiles setup completed successfully!
-
-Next steps:
-  1. Restart your terminal or reload your shell
-  2. Check configuration: chezmoi doctor
-  3. Update dotfiles: chezmoi update
-  4. Edit configurations: chezmoi edit <file>
-
-For more information:
-  - chezmoi help
-  - Visit: https://github.com/EzraCerpac/dotfiles
+🎉 Dotfiles setup complete
+Next: restart terminal • chezmoi doctor • chezmoi update
 
 EOF
+fi

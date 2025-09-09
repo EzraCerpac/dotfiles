@@ -53,6 +53,7 @@ function check_shell_tools() {
         "bat:bat (cat alternative)"
         "eza:eza (ls alternative)"
         "zoxide:zoxide (cd alternative)"
+        "gum:Charm gum (script UI)"
     )
     
     local missing_tools=()
