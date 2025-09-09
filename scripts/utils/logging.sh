@@ -14,6 +14,20 @@ readonly WHITE='\033[0;37m'
 readonly BOLD='\033[1m'
 readonly NC='\033[0m' # No Color
 
+# Gum detection
+if command -v gum >/dev/null 2>&1; then
+    readonly HAVE_GUM=1
+else
+    readonly HAVE_GUM=0
+fi
+
+# Minimal color palette (xterm-256)
+readonly COLOR_ACCENT=213   # magenta-ish
+readonly COLOR_INFO=245     # faint gray
+readonly COLOR_SUCCESS=82   # green
+readonly COLOR_WARN=178     # yellow
+readonly COLOR_ERROR=203    # red
+
 # Log levels
 readonly LOG_LEVEL_DEBUG=0
 readonly LOG_LEVEL_INFO=1
@@ -25,49 +39,82 @@ LOG_LEVEL=${LOG_LEVEL:-$LOG_LEVEL_INFO}
 
 function log_debug() {
     if [[ $LOG_LEVEL -le $LOG_LEVEL_DEBUG ]]; then
-        echo -e "${PURPLE}[DEBUG]${NC} $*" >&2
+        if [[ $HAVE_GUM -eq 1 ]]; then
+            gum style --foreground ${COLOR_INFO} "• $*" 2>/dev/null || echo -e "${PURPLE}[DEBUG]${NC} $*" >&2
+        else
+            echo -e "${PURPLE}[DEBUG]${NC} $*" >&2
+        fi
     fi
 }
 
 function log_info() {
     if [[ $LOG_LEVEL -le $LOG_LEVEL_INFO ]]; then
-        echo -e "${BLUE}[INFO]${NC} $*"
+        if [[ $HAVE_GUM -eq 1 ]]; then
+            gum style --foreground ${COLOR_INFO} "$*" 2>/dev/null || echo -e "${BLUE}[INFO]${NC} $*"
+        else
+            echo -e "${BLUE}[INFO]${NC} $*"
+        fi
     fi
 }
 
 function log_success() {
     if [[ $LOG_LEVEL -le $LOG_LEVEL_INFO ]]; then
-        echo -e "${GREEN}[SUCCESS]${NC} $*"
+        if [[ $HAVE_GUM -eq 1 ]]; then
+            gum style --foreground ${COLOR_SUCCESS} "✓ $*" 2>/dev/null || echo -e "${GREEN}[SUCCESS]${NC} $*"
+        else
+            echo -e "${GREEN}[SUCCESS]${NC} $*"
+        fi
     fi
 }
 
 function log_warning() {
     if [[ $LOG_LEVEL -le $LOG_LEVEL_WARNING ]]; then
-        echo -e "${YELLOW}[WARNING]${NC} $*" >&2
+        if [[ $HAVE_GUM -eq 1 ]]; then
+            gum style --foreground ${COLOR_WARN} "! $*" 2>/dev/null || echo -e "${YELLOW}[WARNING]${NC} $*" >&2
+        else
+            echo -e "${YELLOW}[WARNING]${NC} $*" >&2
+        fi
     fi
 }
 
 function log_error() {
     if [[ $LOG_LEVEL -le $LOG_LEVEL_ERROR ]]; then
-        echo -e "${RED}[ERROR]${NC} $*" >&2
+        if [[ $HAVE_GUM -eq 1 ]]; then
+            gum style --foreground ${COLOR_ERROR} "✗ $*" 2>/dev/null || echo -e "${RED}[ERROR]${NC} $*" >&2
+        else
+            echo -e "${RED}[ERROR]${NC} $*" >&2
+        fi
     fi
 }
 
 function log_fatal() {
-    echo -e "${RED}${BOLD}[FATAL]${NC} $*" >&2
+    if [[ $HAVE_GUM -eq 1 ]]; then
+        gum style --foreground ${COLOR_ERROR} --bold "✗ $*" 2>/dev/null || echo -e "${RED}${BOLD}[FATAL]${NC} $*" >&2
+    else
+        echo -e "${RED}${BOLD}[FATAL]${NC} $*" >&2
+    fi
     exit 1
 }
 
 function log_step() {
-    echo -e "\n${CYAN}${BOLD}==> $*${NC}"
+    if [[ $HAVE_GUM -eq 1 ]]; then
+        gum style --foreground ${COLOR_ACCENT} --bold "➜ $*" || echo -e "\n${CYAN}${BOLD}==> $*${NC}"
+    else
+        echo -e "\n${CYAN}${BOLD}==> $*${NC}"
+    fi
 }
 
 function log_substep() {
-    echo -e "  ${WHITE}-> $*${NC}"
+    if [[ $HAVE_GUM -eq 1 ]]; then
+        gum style --foreground ${COLOR_INFO} "  • $*" || echo -e "  ${WHITE}-> $*${NC}"
+    else
+        echo -e "  ${WHITE}-> $*${NC}"
+    fi
 }
 
 # Progress indicators
 function spinner() {
+    # Fallback text spinner (kept for compatibility)
     local pid=$1
     local delay=0.1
     local spinstr='|/-\'
@@ -79,6 +126,17 @@ function spinner() {
         printf "\b\b\b\b\b\b"
     done
     printf "    \b\b\b\b"
+}
+
+# Run a command with a spinner title (uses gum if available)
+function run_with_spinner() {
+    local title=$1
+    shift
+    if [[ $HAVE_GUM -eq 1 ]]; then
+        gum spin --spinner dot --title "$title" -- "$@"
+    else
+        "$@"
+    fi
 }
 
 function progress_bar() {
@@ -99,25 +157,29 @@ function progress_bar() {
 function confirm() {
     local message=${1:-"Do you want to continue?"}
     local default=${2:-"n"}
-    
-    if [[ $default == "y" ]]; then
-        local prompt="[Y/n]"
-    else
-        local prompt="[y/N]"
+    if [[ $HAVE_GUM -eq 1 ]]; then
+        local args=()
+        [[ $default == "y" ]] && args+=(--default)
+        if gum confirm "${message}" "${args[@]}"; then
+            return 0
+        else
+            return 1
+        fi
     fi
-    
+
+    # Fallback TTY confirm
+    local prompt
+    if [[ $default == "y" ]]; then
+        prompt="[Y/n]"
+    else
+        prompt="[y/N]"
+    fi
     while true; do
         read -rp "$message $prompt " choice
         case $choice in
             [Yy]* ) return 0;;
             [Nn]* ) return 1;;
-            "" ) 
-                if [[ $default == "y" ]]; then
-                    return 0
-                else
-                    return 1
-                fi
-                ;;
+            "" ) [[ $default == "y" ]] && return 0 || return 1 ;;
             * ) echo "Please answer yes or no.";;
         esac
     done

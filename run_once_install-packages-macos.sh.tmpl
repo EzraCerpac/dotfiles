@@ -11,7 +11,18 @@ if ! command -v brew &>/dev/null; then
   exit 1
 fi
 
-echo "Installing essential Homebrew packages..."
+# Ensure gum is installed first for nicer UX in subsequent scripts
+if ! command -v gum &>/dev/null; then
+  echo "Installing gum (via Homebrew) ..."
+  brew install gum
+fi
+
+# Minimal, elegant message
+if command -v gum &>/dev/null; then
+  gum style --foreground 213 --bold "➜ Installing essential Homebrew packages"
+else
+  echo "Installing essential Homebrew packages..."
+fi
 
 # Essential CLI tools
 brew install \
@@ -33,6 +44,7 @@ brew install \
   tree \
   htop \
   jq \
+  gum \
   atuin
 
 # Development tools
@@ -41,6 +53,9 @@ brew install \
   uv \
   jjui
 
-echo "Essential packages installed successfully"
+if command -v gum &>/dev/null; then
+  gum style --foreground 82 "✓ Essential packages installed"
+else
+  echo "Essential packages installed successfully"
+fi
 {{- end }}
-

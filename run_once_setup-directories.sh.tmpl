@@ -5,7 +5,11 @@ set -euo pipefail
 # Setup common directory structure
 # This script runs once during initial setup
 
-echo "Setting up directory structure..."
+if command -v gum &>/dev/null; then
+  gum style --foreground 213 --bold "➜ Setting up directory structure"
+else
+  echo "Setting up directory structure..."
+fi
 
 # Create common directories
 mkdir -p ~/.local/bin
@@ -15,13 +19,25 @@ mkdir -p ~/Projects
 mkdir -p ~/Scripts
 
 # Ensure ~/.local/bin is in PATH (will be handled by shell configurations)
-echo "Directory structure created successfully"
+if command -v gum &>/dev/null; then
+  gum style --foreground 82 "✓ Directory structure created"
+else
+  echo "Directory structure created successfully"
+fi
 
 # Set up basic Git configuration if not present
 if command -v git &>/dev/null && ! git config --get user.name &>/dev/null; then
-    echo "Setting up basic Git configuration..."
+    if command -v gum &>/dev/null; then
+      gum style --foreground 245 "Setting up basic Git configuration"
+    else
+      echo "Setting up basic Git configuration..."
+    fi
     git config --global init.defaultBranch main
     git config --global pull.rebase false
     git config --global core.autocrlf input
-    echo "Basic Git configuration complete"
+    if command -v gum &>/dev/null; then
+      gum style --foreground 82 "✓ Basic Git configuration complete"
+    else
+      echo "Basic Git configuration complete"
+    fi
 fi

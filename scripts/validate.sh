@@ -79,7 +79,7 @@ function validate_nvim_configs() {
     if command -v nvim &>/dev/null; then
         log_info "Testing Neovim configuration..."
         # Test basic neovim startup
-        if timeout 10 nvim --headless -c 'quit' 2>/dev/null; then
+        if run_with_spinner "Checking nvim startup" bash -c "timeout 10 nvim --headless -c 'quit' 2>/dev/null"; then
             log_success "Neovim configuration loads successfully"
         else
             log_error "Neovim configuration has issues"
@@ -136,7 +136,7 @@ function validate_chezmoi_templates() {
         log_info "Found template files, checking syntax..."
         
         # Test template parsing
-        if chezmoi execute-template --init false </dev/null &>/dev/null; then
+        if run_with_spinner "Checking template syntax" bash -c 'chezmoi execute-template --init false </dev/null &>/dev/null'; then
             log_success "Template syntax is valid"
         else
             log_error "Template syntax errors found"
