@@ -5,16 +5,32 @@
         "-y",
         "@upstash/context7-mcp"
       ],
+      "autoApprove": [
+        "resolve-library-id",
+        "get-library-docs"
+      ],
       "command": "npx",
       "env": {
         "DEFAULT_MINIMUM_TOKENS": 6000
       }
     },
     "github": {
+      "autoApprove": [],
       "headers": {
         "Authorization": "Bearer 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"
       },
       "url": "https://api.githubcopilot.com/mcp/"
+    }
+  },
+  "nativeMCPServers": {
+    "mcphub": {
+      "autoApprove": [
+        "get_current_servers",
+        "toggle_mcp_server"
+      ]
+    },
+    "neovim": {
+      "autoApprove": []
     }
   }
 }
