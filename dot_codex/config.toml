@@ -1,4 +1,2 @@
 [mcp_servers.mcphub]
-command = "npx"
-args = ["-y", "mcphub", "mcp", "-t", "stdio"]
-startup_timeout_ms = 5000
+url = "http://localhost:40075/mcp"
