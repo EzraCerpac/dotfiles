@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "context7": {
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "command": "npx",
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": 6000
+      }
+    },
+    "github": {
+      "headers": {
+        "Authorization": "Bearer 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"
+      },
+      "url": "https://api.githubcopilot.com/mcp/"
+    }
+  }
+}
