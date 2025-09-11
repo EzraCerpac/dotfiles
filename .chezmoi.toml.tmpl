@@ -9,8 +9,9 @@ autoPush = true
 # Add more paths/dirs here…
 {{- $readd_paths := list
     (joinPath $home ".config/nvim/spell/")
-    (joinPath $home ".config/btop/btop.conf")
 -}}
+
+[unimportant]
 
 [hooks.apply.pre]
 command = "chezmoi"
