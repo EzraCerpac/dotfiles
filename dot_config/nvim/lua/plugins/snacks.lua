@@ -6,5 +6,6 @@ return {
   opts = {
     -- You can configure snacks options here if needed
     -- For basic usage, the defaults should work fine
+    image = {},
   },
 }

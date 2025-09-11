@@ -13,11 +13,9 @@ vim.g.codeium_arch = "arm64"
 -- enabled with `:LazyExtras`
 vim.g.lazyvim_picker = "fzf"
 
--- LazyVim completion engine to use.
--- Can be one of: nvim-cmp, blink.cmp
--- Leave it to "auto" to automatically use the completion engine
--- enabled with `:LazyExtras`
-vim.g.lazyvim_cmp = "blink.cmp"
+-- Temporarily prefer nvim-cmp to rule out blink.cmp issues on NVIM 0.12-dev.
+-- Switch back to "blink.cmp" once LSP/completion is stable again.
+vim.g.lazyvim_cmp = "nvim-cmp"
 
 -- Set XDG_CONFIG_HOME to ensure lazygit uses ~/.config/lazygit
 vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
