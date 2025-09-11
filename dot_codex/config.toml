@@ -1,0 +1,3 @@
+[mcp_servers.mcphub]
+command = "npx"
+args = ["-y", "mcphub", "mcp", "-t", "stdio"]

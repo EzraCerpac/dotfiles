@@ -2,6 +2,10 @@ return {
   {
     "nvim-treesitter/nvim-treesitter",
     opts = {
+      ensure_installed = {
+        "latex",
+        "typst",
+      },
       textobjects = {
         swap = {
           enable = true,

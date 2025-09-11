@@ -5,17 +5,173 @@ return {
       vim.g.copilot_nes_debounce = 500
       vim.lsp.enable("copilot_ls")
       vim.keymap.set("n", "<tab>", function()
-        -- Try to jump to the start of the suggestion edit.
-        -- If already at the start, then apply the pending suggestion and jump to the end of the edit.
-        local _ = require("copilot-lsp.nes").walk_cursor_start_edit()
-          or (require("copilot-lsp.nes").apply_pending_nes() and require("copilot-lsp.nes").walk_cursor_end_edit())
-      end)
+        local bufnr = vim.api.nvim_get_current_buf()
+        local state = vim.b[bufnr].nes_state
+        if state then
+          -- Try to jump to the start of the suggestion edit.
+          -- If already at the start, then apply the pending suggestion and jump to the end of the edit.
+          local _ = require("copilot-lsp.nes").walk_cursor_start_edit()
+            or (require("copilot-lsp.nes").apply_pending_nes() and require("copilot-lsp.nes").walk_cursor_end_edit())
+          return nil
+        else
+          -- Resolving the terminal's inability to distinguish between `TAB` and `<C-i>` in normal mode
+          return "<C-i>"
+        end
+      end, { desc = "Accept Copilot NES suggestion", expr = true })
+      -- Clear copilot suggestion with Esc if visible, otherwise preserve default Esc behavior
+      vim.keymap.set("n", "<esc>", function()
+        ---@diagnostic disable-next-line: empty-block
+        if not require("copilot-lsp.nes").clear() then
+          -- fallback to other functionality
+        end
+      end, { desc = "Clear Copilot suggestion or fallback" })
     end,
-    vim.keymap.set("n", "<esc>", function()
-      if not require("copilot-lsp.nes").clear() then
-        -- fallback to other functionality
-      end
-    end, { desc = "Clear Copilot suggestion or fallback" }),
+  },
+  {
+    "olimorris/codecompanion.nvim",
+    opts = {
+      adapters = {
+        copilot = function()
+          return require("codecompanion.adapters").extend("copilot", {
+            schema = {
+              model = {
+                default = "gpt-5",
+              },
+            },
+          })
+        end,
+      },
+      strategies = {
+        chat = {
+          adapter = {
+            name = "copilot",
+            model = "gpt-5",
+          },
+        },
+        completion = {
+          adapter = {
+            name = "copilot",
+            model = "gpt-5-mini",
+          },
+        },
+        inline = {
+          adapter = {
+            name = "copilot",
+            model = "gpt-5",
+          },
+        },
+      },
+    },
+    dependencies = {
+      { "nvim-lua/plenary.nvim" },
+      { "ravitemer/mcphub.nvim" },
+    },
+    config = function()
+      require("codecompanion").setup({
+        extensions = {
+          mcphub = {
+            callback = "mcphub.extensions.codecompanion",
+            opts = {
+              make_vars = true,
+              make_slash_commands = true,
+              show_result_in_chat = true,
+            },
+          },
+          ---@module "vectorcode"
+          vectorcode = {
+            ---@type VectorCode.CodeCompanion.ExtensionOpts
+            opts = {
+              tool_group = {
+                -- this will register a tool group called `@vectorcode_toolbox` that contains all 3 tools
+                enabled = true,
+                -- a list of extra tools that you want to include in `@vectorcode_toolbox`.
+                -- if you use @vectorcode_vectorise, it'll be very handy to include
+                -- `file_search` here.
+                extras = {},
+                collapse = false, -- whether the individual tools should be shown in the chat
+              },
+              tool_opts = {
+                ---@type VectorCode.CodeCompanion.ToolOpts
+                ["*"] = {},
+                ---@type VectorCode.CodeCompanion.LsToolOpts
+                ls = {},
+                ---@type VectorCode.CodeCompanion.VectoriseToolOpts
+                vectorise = {},
+                ---@type VectorCode.CodeCompanion.QueryToolOpts
+                query = {
+                  max_num = { chunk = -1, document = -1 },
+                  default_num = { chunk = 50, document = 10 },
+                  include_stderr = false,
+                  use_lsp = false,
+                  no_duplicate = true,
+                  chunk_mode = false,
+                  ---@type VectorCode.CodeCompanion.SummariseOpts
+                  summarise = {
+                    ---@type boolean|(fun(chat: CodeCompanion.Chat, results: VectorCode.QueryResult[]):boolean)|nil
+                    enabled = false,
+                    adapter = nil,
+                    query_augmented = true,
+                  },
+                },
+                files_ls = {},
+                files_rm = {},
+              },
+            },
+          },
+        },
+      })
+      vim.keymap.set(
+        { "n", "v" },
+        "<LocalLeader>a",
+        "<cmd>CodeCompanionChat Toggle<cr>",
+        { noremap = true, silent = true }
+      )
+      vim.keymap.set("v", "ga", "<cmd>CodeCompanionChat Add<cr>", { noremap = true, silent = true })
+      vim.cmd([[cab cc CodeCompanion]])
+      vim.g.codecompanion_yolo_mode = true
+      local progress = require("fidget.progress")
+      local handles = {}
+      local group = vim.api.nvim_create_augroup("CodeCompanionFidget", {})
+      vim.api.nvim_create_autocmd("User", {
+        group = group,
+        pattern = "CodeCompanionRequestStarted",
+        callback = function(e)
+          handles[e.data.id] = progress.handle.create({
+            title = "CodeCompanion",
+            message = "Thinking...",
+            lsp_client = { name = e.data.adapter.formatted_name },
+          })
+        end,
+      })
+      vim.api.nvim_create_autocmd("User", {
+        group = group,
+        pattern = "CodeCompanionRequestFinished",
+        callback = function(e)
+          local h = handles[e.data.id]
+          if h then
+            h.message = e.data.status == "success" and "Done" or "Failed"
+            h:finish()
+            handles[e.data.id] = nil
+          end
+        end,
+      })
+    end,
+  },
+  {
+    "ravitemer/mcphub.nvim",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+    },
+    build = "npm install -g mcp-hub@latest", -- Installs `mcp-hub` node binary globally
+    config = function()
+      require("mcphub").setup()
+    end,
+  },
+  {
+    "Davidyz/VectorCode",
+    version = "*", -- optional, depending on whether you're on nightly or release
+    dependencies = { "nvim-lua/plenary.nvim" },
+    cmd = "VectorCode", -- if you're lazy-loading VectorCode
   },
   {
     -- https://github.com/aweis89/ai-terminals.nvim
