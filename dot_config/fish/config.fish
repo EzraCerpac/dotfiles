@@ -49,6 +49,7 @@ alias ......='cd ../../../../..'
 # ---------- Editor and tools ----------
 alias v='nvim'
 alias tree='eza --tree --level=2 --icons --git'
+fzf --fish | source # Set up fzf key bindings
 
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
@@ -65,6 +66,5 @@ alias DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
 # This won't be added again if you remove it.
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 alias grealpath realpath
-fish_add_path $HOME/.local/bin
-fish_add_path $HOME/.local/bin
+
 fish_add_path $HOME/.local/bin
