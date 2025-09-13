@@ -50,6 +50,7 @@ alias ......='cd ../../../../..'
 alias v='nvim'
 alias tree='eza --tree --level=2 --icons --git'
 fzf --fish | source # Set up fzf key bindings
+set -Ux fifc_editor nvim
 
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
