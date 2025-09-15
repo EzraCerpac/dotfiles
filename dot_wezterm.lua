@@ -43,14 +43,25 @@ local function to_wez_dir(dir)
 end
 
 local function is_vim(p)
-  local ok, name = pcall(function()
+  -- Prefer explicit user var if a plugin sets it (e.g., smart-splits.nvim)
+  local ok_vars, vars = pcall(function()
+    return p:get_user_vars()
+  end)
+  if ok_vars and vars and vars.IS_NVIM then
+    local v = tostring(vars.IS_NVIM):lower()
+    if v == 'true' or v == '1' or v == 'yes' then
+      return true
+    end
+  end
+  -- Fallback: foreground process name (works for local shells)
+  local ok_name, name = pcall(function()
     return p:get_foreground_process_name()
   end)
-  if not ok or not name then
+  if not ok_name or not name then
     return false
   end
   name = tostring(name):lower()
-  return name:find("/n?vim$") or name:find("nvim") or name:find("vim")
+  return name:find('nvim') or name:find(' vim$') or name:find('/n?vim$')
 end
 
 --
