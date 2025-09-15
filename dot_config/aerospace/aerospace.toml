@@ -56,8 +56,10 @@ M = 'secondary'
 
 # Focus
 alt-f = "fullscreen"
-# NOTE: Let WezTerm handle Alt+hjkl so Neovim/WezTerm panes get first chance.
-# Window fallback is handled from WezTerm via `aerospace focus <dir>` when no panes.
+alt-h = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
+alt-j = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
+alt-k = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
+alt-l = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
 
 # Move
 alt-shift-h = "move left"
