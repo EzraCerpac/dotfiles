@@ -64,44 +64,35 @@ local function is_vim(p)
   return name:find('nvim') or name:find(' vim$') or name:find('/n?vim$')
 end
 
---
--- AeroSpace integration
---
--- A tiny wrapper script in ~/.config/aerospace/bin sends a user var into WezTerm:
---   wezterm cli set-user-var AEROSPACE_FOCUS <dir>
--- We handle it here: if a pane exists in that direction, navigate inside WezTerm;
--- otherwise, fall back to AeroSpace focus in the same direction.
-wezterm.on("user-var-changed", function(window, pane, name, value)
-  if name ~= "AEROSPACE_FOCUS" or not value or value == "" then
-    return
-  end
-
-  local dir = to_wez_dir(value)
-  local tab = window:active_tab()
-  if not tab then
-    return
-  end
-
-  -- If Neovim is running in the active pane, forward Alt-h/j/k/l into it.
+-- Navigator.nvim WezTerm integration per wiki:
+local function conditional_activate(window, pane, pane_dir, vim_key)
   if is_vim(pane) then
-    local key_from_dir = { Left = "h", Down = "j", Up = "k", Right = "l" }
-    local key = key_from_dir[dir]
-    if key then
-      window:perform_action(act.SendKey({ key = key, mods = "ALT" }), pane)
-      return
-    end
-  end
-
-  -- If a pane exists in that direction, move within WezTerm.
-  if tab:get_pane_direction(dir) then
-    window:perform_action(act.ActivatePaneDirection(dir), pane)
+    window:perform_action(act.SendKey({ key = vim_key, mods = "ALT" }), pane)
     return
   end
+  local tab = window:active_tab()
+  if tab and tab:get_pane_direction(pane_dir) then
+    window:perform_action(act.ActivatePaneDirection(pane_dir), pane)
+    return
+  end
+  -- Fall back to AeroSpace window focus
+  local ok = pcall(wezterm.run_child_process, { "aerospace", "focus", string.lower(pane_dir) })
+  if not ok then
+    wezterm.log_info("AeroSpace CLI not available for focus " .. pane_dir)
+  end
+end
 
-  -- Otherwise, delegate back to AeroSpace to move between windows.
-  wezterm.log_info("No pane " .. dir .. " — delegating to AeroSpace")
-  -- Best-effort: ignore failures if aerospace is not available.
-  wezterm.run_child_process({ "aerospace", "focus", string.lower(dir) })
+wezterm.on("ActivatePaneDirection-left", function(window, pane)
+  conditional_activate(window, pane, "Left", "h")
+end)
+wezterm.on("ActivatePaneDirection-right", function(window, pane)
+  conditional_activate(window, pane, "Right", "l")
+end)
+wezterm.on("ActivatePaneDirection-up", function(window, pane)
+  conditional_activate(window, pane, "Up", "k")
+end)
+wezterm.on("ActivatePaneDirection-down", function(window, pane)
+  conditional_activate(window, pane, "Down", "j")
 end)
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
@@ -122,6 +113,11 @@ config.keys = {
   -- Copy/Paste like macOS
   { key = "c", mods = "CMD", action = act.CopyTo("Clipboard") },
   { key = "v", mods = "CMD", action = act.PasteFrom("Clipboard") },
+  -- Alt + h/j/k/l unified nav (WezTerm event approach)
+  { key = "h", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-left") },
+  { key = "j", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-down") },
+  { key = "k", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-up") },
+  { key = "l", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-right") },
 }
 
 return config
