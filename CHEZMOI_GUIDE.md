@@ -118,6 +118,49 @@ chezmoi git push
 
 # Exit source directory
 exit
+
+## 🔑 Using pass (password-store)
+
+This repo uses `pass` in templates to avoid committing secrets:
+
+- `dot_config/mcphub/servers.json.tmpl` → `{{ pass "key/github" }}` for the GitHub token
+- `dot_config/raycast/private_config.json.tmpl` → `{{ pass "key/raycast" }}`
+
+### Auto-bootstrap
+
+On first apply, `run_once_setup-pass.sh.tmpl` will:
+
+- Install `gnupg`, `pinentry`, and `pass` (via `brew`, `apt`, etc.)
+- Configure `pinentry` (macOS uses `pinentry-mac`)
+- Optionally import your GPG keys from env
+- Initialize or clone `~/.password-store` and set `.gpg-id`
+- Optionally seed pass entries from env
+
+Environment variables (set before `chezmoi apply`):
+
+- `PASS_GIT_REMOTE` – e.g., `git@github.com:<you>/password-store.git`
+- `PASS_GPG_KEY_ID` – key id or fingerprint for encryption
+- `PASS_GPG_PRIVATE_KEY_B64` / `PASS_GPG_PUBLIC_KEY_B64` – base64-encoded ASCII-armored keys
+- `PASS_GPG_PRIVATE_KEY_FILE` / `PASS_GPG_PUBLIC_KEY_FILE` – key file paths
+- `PASS_TRUST_KEY=1` – mark imported key as ultimately trusted
+- `PASS_GIT_AUTHOR_NAME` / `PASS_GIT_AUTHOR_EMAIL` – git identity for the store
+- `GITHUB_TOKEN` / `RAYCAST_TOKEN` – optional seeds for `key/github` and `key/raycast`
+
+Example (macOS):
+
+```sh
+export GPG_TTY=$(tty)
+export PASS_GIT_REMOTE=git@github.com:yourname/password-store.git
+export PASS_GPG_KEY_ID=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+export PASS_GPG_PUBLIC_KEY_FILE=$HOME/keys/pub.asc
+export PASS_GPG_PRIVATE_KEY_FILE=$HOME/keys/priv.asc
+chezmoi apply
+```
+
+Tips:
+
+- Encode for `_B64` env vars: `base64 -w0 < file.asc` (macOS: `base64 < file.asc | tr -d '\n'`)
+- You’ll be prompted locally by `gpg-agent` for your key’s passphrase when needed.
 ```
 
 ## 🎭 Advanced Features
