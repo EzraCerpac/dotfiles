@@ -124,30 +124,25 @@ alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
 
 [[on-window-detected]]
 run = "move-node-to-workspace 4"
-
 [on-window-detected.if]
 app-name-regex-substring = "whatsapp"
 
-[[on-window-detected]]
-run = "move-node-to-workspace T"
-
-[on-window-detected.if]
-app-name-regex-substring = "wezterm|kitty|ghostty"
+# [[on-window-detected]]
+# run = "move-node-to-workspace T"
+# [on-window-detected.if]
+# app-name-regex-substring = "wezterm|kitty|ghostty"
 
 [[on-window-detected]]
 run = "move-node-to-workspace B"
-
 [on-window-detected.if]
 app-name-regex-substring = "zen|arc|safari|brave|orion|comet"
 
 [[on-window-detected]]
 run = "move-node-to-workspace M"
-
 [on-window-detected.if]
 app-name-regex-substring = "spotify|music"
 
 [[on-window-detected]]
 run = ["layout floating"]
-
 [on-window-detected.if]
 app-name-regex-substring = "weather|contacts"
