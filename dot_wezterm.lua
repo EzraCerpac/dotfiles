@@ -108,7 +108,7 @@ config.keys = {
 
   -- Tabs
   { key = "t", mods = "CMD", action = act.SpawnTab("CurrentPaneDomain") },
-  { key = "w", mods = "CMD", action = act.CloseCurrentTab({ confirm = true }) },
+  { key = "w", mods = "CMD", action = act.CloseCurrentPane({ confirm = false }) },
   { key = "LeftArrow", mods = "CMD|SHIFT", action = act.ActivateTabRelative(-1) },
   { key = "RightArrow", mods = "CMD|SHIFT", action = act.ActivateTabRelative(1) },
 
