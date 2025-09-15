@@ -58,7 +58,7 @@ local direction_keys = {
 local resize_mod = "CTRL+META"
 local move_mod = "META"
 
-local function split_nav(window, resize_or_move, key)
+local function split_nav(resize_or_move, key)
   return {
     key = key,
     mods = resize_or_move == "resize" and resize_mod or move_mod,
@@ -74,9 +74,9 @@ local function split_nav(window, resize_or_move, key)
           win:perform_action({ AdjustPaneSize = { pane_dir, 3 } }, pane)
         else
           -- win:perform_action({ ActivatePaneDirection = direction_keys[key] }, pane)
-          local tab = window:active_tab()
+          local tab = win:active_tab()
           if tab and tab:get_pane_direction(pane_dir) then
-            window:perform_action(act.ActivatePaneDirection(pane_dir), pane)
+            win:perform_action(act.ActivatePaneDirection(pane_dir), pane)
             return
           end
           -- Fall back to AeroSpace window focus
