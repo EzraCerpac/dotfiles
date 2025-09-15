@@ -66,7 +66,7 @@ local function is_vim(p)
   return name:find("nvim") or name:find(" vim$") or name:find("/n?vim$")
 end
 
--- Navigator.nvim WezTerm integration per wiki:
+-- smart-splits.nvim aware navigation helpers:
 local function conditional_activate(window, pane, pane_dir, vim_key)
   if is_vim(pane) then
     window:perform_action(act.SendKey({ key = vim_key, mods = "ALT" }), pane)

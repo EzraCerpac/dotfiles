@@ -49,7 +49,7 @@ main() {
         fi
 
         # If the focused pane is Neovim, inject ESC+h/j/k/l (Alt-h/j/k/l) so
-        # Navigator.nvim can route between splits/panes intelligently.
+        # smart-splits.nvim can drive intra-Neovim navigation before delegating to WezTerm.
         if command -v python3 >/dev/null 2>&1; then
             FOCUSED=$("${WEZTERM_CLI}" cli list-clients --format json \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["focused_pane_id"])' 2>/dev/null || true)
