@@ -53,6 +53,17 @@ brew install \
   uv \
   jjui
 
+# Essential GUI apps (Homebrew casks)
+if command -v gum &>/dev/null; then
+  gum style --foreground 213 --bold "➜ Installing essential Homebrew casks (GUI apps)"
+else
+  echo "Installing essential Homebrew casks (GUI apps)..."
+fi
+
+brew install --cask \
+  wezterm \
+  raycast
+
 if command -v gum &>/dev/null; then
   gum style --foreground 82 "✓ Essential packages installed"
 else
