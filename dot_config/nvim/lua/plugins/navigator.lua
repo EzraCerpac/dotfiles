@@ -13,9 +13,9 @@ return {
     local opts = { silent = true, noremap = true }
 
     -- Alt/meta hjkl in normal and terminal modes
-    map({ "n", "t" }, "<M-h>", require("Navigator").left, vim.tbl_extend("force", opts, { desc = "Navigator left" }))
-    map({ "n", "t" }, "<M-j>", require("Navigator").down, vim.tbl_extend("force", opts, { desc = "Navigator down" }))
-    map({ "n", "t" }, "<M-k>", require("Navigator").up, vim.tbl_extend("force", opts, { desc = "Navigator up" }))
+    map({ "n", "t" }, "<A-h>", require("Navigator").left, vim.tbl_extend("force", opts, { desc = "Navigator left" }))
+    map({ "n", "t" }, "<A-j>", require("Navigator").down, vim.tbl_extend("force", opts, { desc = "Navigator down" }))
+    map({ "n", "t" }, "<A-k>", require("Navigator").up, vim.tbl_extend("force", opts, { desc = "Navigator up" }))
   end,
-  map({ "n", "t" }, "<M-l>", require("Navigator").right, vim.tbl_extend("force", opts, { desc = "Navigator right" })),
+  map({ "n", "t" }, "<A-l>", require("Navigator").right, vim.tbl_extend("force", opts, { desc = "Navigator right" })),
 }
