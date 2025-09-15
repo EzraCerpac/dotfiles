@@ -49,7 +49,7 @@ local function is_vim(p)
   end)
   if ok_vars and vars and vars.IS_NVIM then
     local v = tostring(vars.IS_NVIM):lower()
-    if v == 'true' or v == '1' or v == 'yes' then
+    if v == "true" or v == "1" or v == "yes" then
       return true
     end
   end
@@ -61,7 +61,27 @@ local function is_vim(p)
     return false
   end
   name = tostring(name):lower()
-  return name:find('nvim') or name:find(' vim$') or name:find('/n?vim$')
+  return name:find("nvim") or name:find(" vim$") or name:find("/n?vim$")
+end
+
+local function isViProcess(pane)
+  -- get_foreground_process_name On Linux, macOS and Windows,
+  -- the process can be queried to determine this path. Other operating systems
+  -- (notably, FreeBSD and other unix systems) are not currently supported
+  return pane:get_foreground_process_name():find("n?vim") ~= nil
+    or pane:get_title():find("n?vim") ~= nil
+end
+
+local function conditionalActivatePane(window, pane, pane_direction, vim_direction)
+  if isViProcess(pane) then
+    window:perform_action(
+      -- This should match the keybinds you set in Neovim.
+      act.SendKey({ key = vim_direction, mods = "ALT" }),
+      pane
+    )
+  else
+    window:perform_action(act.ActivatePaneDirection(pane_direction), pane)
+  end
 end
 
 -- Navigator.nvim WezTerm integration per wiki:
@@ -82,17 +102,29 @@ local function conditional_activate(window, pane, pane_dir, vim_key)
   end
 end
 
-wezterm.on("ActivatePaneDirection-left", function(window, pane)
-  conditional_activate(window, pane, "Left", "h")
-end)
+-- wezterm.on("ActivatePaneDirection-left", function(window, pane)
+--   conditional_activate(window, pane, "Left", "h")
+-- end)
+-- wezterm.on("ActivatePaneDirection-right", function(window, pane)
+--   conditional_activate(window, pane, "Right", "l")
+-- end)
+-- wezterm.on("ActivatePaneDirection-up", function(window, pane)
+--   conditional_activate(window, pane, "Up", "k")
+-- end)
+-- wezterm.on("ActivatePaneDirection-down", function(window, pane)
+--   conditional_activate(window, pane, "Down", "j")
+-- end)
 wezterm.on("ActivatePaneDirection-right", function(window, pane)
-  conditional_activate(window, pane, "Right", "l")
+  conditionalActivatePane(window, pane, "Right", "l")
+end)
+wezterm.on("ActivatePaneDirection-left", function(window, pane)
+  conditionalActivatePane(window, pane, "Left", "h")
 end)
 wezterm.on("ActivatePaneDirection-up", function(window, pane)
-  conditional_activate(window, pane, "Up", "k")
+  conditionalActivatePane(window, pane, "Up", "k")
 end)
 wezterm.on("ActivatePaneDirection-down", function(window, pane)
-  conditional_activate(window, pane, "Down", "j")
+  conditionalActivatePane(window, pane, "Down", "j")
 end)
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
