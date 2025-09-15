@@ -8,24 +8,42 @@ if [[ -z "${direction}" ]]; then
 fi
 
 is_wezterm_focused() {
-    local app
+    local app lower
     app=$(aerospace list-windows --focused --format "%{app-name}" 2>/dev/null || true)
-    [[ "${app,,}" == *"wezterm"* ]]
+    lower=$(printf '%s' "$app" | tr '[:upper:]' '[:lower:]')
+    [[ "$lower" == *"wezterm"* ]]
 }
 
 fallback_to_aerospace() {
-    aerospace focus --boundaries all-monitors-outer-frame "${direction}" || true
+    "${AEROSPACE_CLI:-aerospace}" focus --boundaries all-monitors-outer-frame "${direction}" || true
 }
 
 main() {
-    if ! command -v wezterm >/dev/null 2>&1; then
+    # Resolve CLIs for GUI contexts with limited PATH (AeroSpace)
+    if command -v wezterm >/dev/null 2>&1; then
+        WEZTERM_CLI=$(command -v wezterm)
+    elif [[ -x "/opt/homebrew/bin/wezterm" ]]; then
+        WEZTERM_CLI="/opt/homebrew/bin/wezterm"
+    else
+        WEZTERM_CLI=""
+    fi
+
+    if command -v aerospace >/dev/null 2>&1; then
+        AEROSPACE_CLI=$(command -v aerospace)
+    elif [[ -x "/opt/homebrew/bin/aerospace" ]]; then
+        AEROSPACE_CLI="/opt/homebrew/bin/aerospace"
+    else
+        AEROSPACE_CLI="aerospace"
+    fi
+
+    if [[ -z "${WEZTERM_CLI}" ]]; then
         fallback_to_aerospace
         exit 0
     fi
 
     if is_wezterm_focused; then
         # Try targeting the most recently interacted WezTerm client.
-        if wezterm cli set-user-var AEROSPACE_FOCUS "${direction}"; then
+        if "${WEZTERM_CLI}" cli set-user-var AEROSPACE_FOCUS "${direction}"; then
             exit 0
         fi
     fi

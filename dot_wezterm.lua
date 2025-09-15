@@ -43,18 +43,14 @@ local function to_wez_dir(dir)
 end
 
 local function is_vim(p)
-  local ok, vars = pcall(function()
-    return p:get_user_vars()
+  local ok, name = pcall(function()
+    return p:get_foreground_process_name()
   end)
-  if not ok or not vars then
+  if not ok or not name then
     return false
   end
-  local v = vars.IS_NVIM
-  if not v then
-    return false
-  end
-  v = tostring(v):lower()
-  return v == "true" or v == "1" or v == "yes"
+  name = tostring(name):lower()
+  return name:find("/n?vim$") or name:find("nvim") or name:find("vim")
 end
 
 --
