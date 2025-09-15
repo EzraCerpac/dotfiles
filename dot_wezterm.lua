@@ -55,7 +55,7 @@ local direction_keys = {
   k = "Up",
   l = "Right",
 }
-local resize_mod = "CTRL+META"
+local resize_mod = "CTRL|META"
 local move_mod = "META"
 
 local function split_nav(resize_or_move, key)
