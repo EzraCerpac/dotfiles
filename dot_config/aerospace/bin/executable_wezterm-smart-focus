@@ -47,20 +47,14 @@ main() {
             fallback_to_aerospace
             exit 0
         fi
-        # Normalize to WezTerm's direction case
-        case "$direction" in
-            left)  dir="Left" ;;
-            right) dir="Right" ;;
-            up)    dir="Up" ;;
-            down)  dir="Down" ;;
-            *)     dir="$direction" ;;
-        esac
 
-        # If there is a pane in that direction, activate it.
-        if pane_id=$("${WEZTERM_CLI}" cli get-pane-direction "$dir" 2>/dev/null); then
-            if [[ -n "$pane_id" ]]; then
-                "${WEZTERM_CLI}" cli activate-pane-direction "$dir" && exit 0
-            fi
+        # Send OSC 1337 SetUserVar=AEROSPACE_FOCUS=<b64(dir)> to the active pane.
+        # WezTerm's user-var-changed handler will: if Neovim, send Alt-h/j/k/l;
+        # else, move to a pane in that direction; else, delegate to AeroSpace.
+        b64=$(printf %s "$direction" | base64 | tr -d '\n')
+        osc=$(printf '\033]1337;SetUserVar=%s=%s\007' "AEROSPACE_FOCUS" "$b64")
+        if "${WEZTERM_CLI}" cli send-text --no-paste -- "$osc" >/dev/null 2>&1; then
+            exit 0
         fi
     fi
 
