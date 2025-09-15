@@ -4,7 +4,7 @@ return {
   lazy = false,
   config = function()
     require("Navigator").setup({
-      mux = "wezterm",
+      mux = "auto",
       auto_save = "current",
       disable_on_zoom = false,
     })
