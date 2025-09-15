@@ -1,10 +1,12 @@
 -- WezTerm config with sensible defaults and AeroSpace integration
 -- Source of integration idea: see repo docs and AeroSpace issue #412
 
+---@type Wezterm
 local wezterm = require("wezterm")
 local act = wezterm.action
 
-local config = wezterm.config_builder and wezterm.config_builder() or {}
+---@type Config
+local config = (wezterm.config_builder and wezterm.config_builder()) or {}
 
 -- Appearance
 config.color_scheme = "Catppuccin Mocha"
@@ -152,10 +154,10 @@ config.keys = {
   -- { key = "j", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-down") },
   -- { key = "k", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-up") },
   -- { key = "l", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-right") },
-  { bind_if(is_outside_vim, "h", "ALT", act.ActivatePaneDirection("Left")) },
-  { bind_if(is_outside_vim, "j", "ALT", act.ActivatePaneDirection("Down")) },
-  { bind_if(is_outside_vim, "k", "ALT", act.ActivatePaneDirection("Up")) },
-  { bind_if(is_outside_vim, "l", "ALT", act.ActivatePaneDirection("Right")) },
+  bind_if(is_outside_vim, "h", "ALT", act.ActivatePaneDirection("Left")),
+  bind_if(is_outside_vim, "j", "ALT", act.ActivatePaneDirection("Down")),
+  bind_if(is_outside_vim, "k", "ALT", act.ActivatePaneDirection("Up")),
+  bind_if(is_outside_vim, "l", "ALT", act.ActivatePaneDirection("Right")),
 }
 
 return config
