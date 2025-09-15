@@ -42,9 +42,25 @@ main() {
     fi
 
     if is_wezterm_focused; then
-        # Try targeting the most recently interacted WezTerm client.
-        if "${WEZTERM_CLI}" cli set-user-var AEROSPACE_FOCUS "${direction}"; then
+        # Ensure we can talk to a running WezTerm instance
+        if ! "${WEZTERM_CLI}" cli list-clients >/dev/null 2>&1; then
+            fallback_to_aerospace
             exit 0
+        fi
+        # Normalize to WezTerm's direction case
+        case "$direction" in
+            left)  dir="Left" ;;
+            right) dir="Right" ;;
+            up)    dir="Up" ;;
+            down)  dir="Down" ;;
+            *)     dir="$direction" ;;
+        esac
+
+        # If there is a pane in that direction, activate it.
+        if pane_id=$("${WEZTERM_CLI}" cli get-pane-direction "$dir" 2>/dev/null); then
+            if [[ -n "$pane_id" ]]; then
+                "${WEZTERM_CLI}" cli activate-pane-direction "$dir" && exit 0
+            fi
         fi
     fi
 
