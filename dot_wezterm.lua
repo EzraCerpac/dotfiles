@@ -64,26 +64,6 @@ local function is_vim(p)
   return name:find("nvim") or name:find(" vim$") or name:find("/n?vim$")
 end
 
-local function isViProcess(pane)
-  -- get_foreground_process_name On Linux, macOS and Windows,
-  -- the process can be queried to determine this path. Other operating systems
-  -- (notably, FreeBSD and other unix systems) are not currently supported
-  return pane:get_foreground_process_name():find("n?vim") ~= nil
-    or pane:get_title():find("n?vim") ~= nil
-end
-
-local function conditionalActivatePane(window, pane, pane_direction, vim_direction)
-  if isViProcess(pane) then
-    window:perform_action(
-      -- This should match the keybinds you set in Neovim.
-      act.SendKey({ key = vim_direction, mods = "ALT" }),
-      pane
-    )
-  else
-    window:perform_action(act.ActivatePaneDirection(pane_direction), pane)
-  end
-end
-
 -- Navigator.nvim WezTerm integration per wiki:
 local function conditional_activate(window, pane, pane_dir, vim_key)
   if is_vim(pane) then
@@ -102,30 +82,52 @@ local function conditional_activate(window, pane, pane_dir, vim_key)
   end
 end
 
--- wezterm.on("ActivatePaneDirection-left", function(window, pane)
---   conditional_activate(window, pane, "Left", "h")
--- end)
--- wezterm.on("ActivatePaneDirection-right", function(window, pane)
---   conditional_activate(window, pane, "Right", "l")
--- end)
--- wezterm.on("ActivatePaneDirection-up", function(window, pane)
---   conditional_activate(window, pane, "Up", "k")
--- end)
--- wezterm.on("ActivatePaneDirection-down", function(window, pane)
---   conditional_activate(window, pane, "Down", "j")
--- end)
-wezterm.on("ActivatePaneDirection-right", function(window, pane)
-  conditionalActivatePane(window, pane, "Right", "l")
-end)
 wezterm.on("ActivatePaneDirection-left", function(window, pane)
-  conditionalActivatePane(window, pane, "Left", "h")
+  conditional_activate(window, pane, "Left", "h")
+end)
+wezterm.on("ActivatePaneDirection-right", function(window, pane)
+  conditional_activate(window, pane, "Right", "l")
 end)
 wezterm.on("ActivatePaneDirection-up", function(window, pane)
-  conditionalActivatePane(window, pane, "Up", "k")
+  conditional_activate(window, pane, "Up", "k")
 end)
 wezterm.on("ActivatePaneDirection-down", function(window, pane)
-  conditionalActivatePane(window, pane, "Down", "j")
+  conditional_activate(window, pane, "Down", "j")
 end)
+
+local function is_inside_vim(pane)
+  local tty = pane:get_tty_name()
+  if tty == nil then
+    return false
+  end
+
+  local success, stdout, stderr = w.run_child_process({
+    "sh",
+    "-c",
+    "ps -o state= -o comm= -t"
+      .. w.shell_quote_arg(tty)
+      .. " | "
+      .. "grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|l?n?vim?x?)(diff)?$'",
+  })
+
+  return success
+end
+
+local function is_outside_vim(pane)
+  return not is_inside_vim(pane)
+end
+
+local function bind_if(cond, key, mods, action)
+  local function callback(win, pane)
+    if cond(pane) then
+      win:perform_action(action, pane)
+    else
+      win:perform_action(a.SendKey({ key = key, mods = mods }), pane)
+    end
+  end
+
+  return { key = key, mods = mods, action = w.action_callback(callback) }
+end
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
 config.keys = {
@@ -146,10 +148,14 @@ config.keys = {
   { key = "c", mods = "CMD", action = act.CopyTo("Clipboard") },
   { key = "v", mods = "CMD", action = act.PasteFrom("Clipboard") },
   -- Alt + h/j/k/l unified nav (WezTerm event approach)
-  { key = "h", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-left") },
-  { key = "j", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-down") },
-  { key = "k", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-up") },
-  { key = "l", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-right") },
+  -- { key = "h", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-left") },
+  -- { key = "j", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-down") },
+  -- { key = "k", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-up") },
+  -- { key = "l", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-right") },
+  bind_if(is_outside_vim, "h", "ALT", act.ActivatePaneDirection("Left")),
+  bind_if(is_outside_vim, "j", "ALT", act.ActivatePaneDirection("Down")),
+  bind_if(is_outside_vim, "k", "ALT", act.ActivatePaneDirection("Up")),
+  bind_if(is_outside_vim, "l", "ALT", act.ActivatePaneDirection("Right")),
 }
 
 return config
