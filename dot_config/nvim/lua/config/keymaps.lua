@@ -26,17 +26,19 @@ local actions = require("fzf-lua.actions")
 -- Override LazyVim defaults that move lines with Alt-j/k so Alt+hjkl can be
 -- dedicated to Navigator.nvim + WezTerm pane navigation.
 local function set_navigator_alt_keymaps()
-  local del = vim.keymap.del
-  -- Remove any existing Alt+hjkl mappings from common modes
-  for _, m in ipairs({ "n", "i", "v", "x", "s", "o", "t" }) do
-    pcall(del, m, "<A-h>")
-    pcall(del, m, "<A-j>")
-    pcall(del, m, "<A-k>")
-    pcall(del, m, "<A-l>")
-  end
-
+  -- local del = vim.keymap.del
+  -- -- Remove any existing Alt+hjkl mappings from common modes
+  -- for _, m in ipairs({ "n", "i", "v", "x", "s", "o", "t" }) do
+  --   pcall(del, m, "<A-h>")
+  --   pcall(del, m, "<A-j>")
+  --   pcall(del, m, "<A-k>")
+  --   pcall(del, m, "<A-l>")
+  -- end
+  --
   local ok, Navigator = pcall(require, "Navigator")
-  if not ok then return end
+  if not ok then
+    return
+  end
 
   local map = vim.keymap.set
   local opts = { silent = true, noremap = true }
