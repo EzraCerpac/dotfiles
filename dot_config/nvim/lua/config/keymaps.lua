@@ -23,6 +23,54 @@ end, { desc = "Open mini.files (Directory of Current File)" })
 
 local actions = require("fzf-lua.actions")
 
+-- Override LazyVim defaults that move lines with Alt-j/k so Alt+hjkl can be
+-- dedicated to Navigator.nvim + WezTerm pane navigation.
+local function set_navigator_alt_keymaps()
+  local del = vim.keymap.del
+  -- Remove any existing Alt+hjkl mappings from common modes
+  for _, m in ipairs({ "n", "i", "v", "x", "s", "o", "t" }) do
+    pcall(del, m, "<A-h>")
+    pcall(del, m, "<A-j>")
+    pcall(del, m, "<A-k>")
+    pcall(del, m, "<A-l>")
+  end
+
+  local ok, Navigator = pcall(require, "Navigator")
+  if not ok then return end
+
+  local map = vim.keymap.set
+  local opts = { silent = true, noremap = true }
+  local modes = { "n", "i", "v", "x", "s", "o", "t" }
+  for _, m in ipairs(modes) do
+    map(m, "<A-h>", Navigator.left, opts)
+    map(m, "<A-j>", Navigator.down, opts)
+    map(m, "<A-k>", Navigator.up, opts)
+    map(m, "<A-l>", Navigator.right, opts)
+  end
+end
+
+-- Run once now (this file loads on VeryLazy in LazyVim)
+set_navigator_alt_keymaps()
+
+-- Belt-and-suspenders: ensure our Alt mappings win after all plugins load
+vim.api.nvim_create_autocmd("UIEnter", {
+  once = true,
+  callback = function()
+    set_navigator_alt_keymaps()
+    -- Reassert shortly after UI starts to beat any late mappings
+    vim.defer_fn(set_navigator_alt_keymaps, 50)
+    vim.defer_fn(set_navigator_alt_keymaps, 200)
+  end,
+})
+
+-- Also after Lazy fully initializes plugins
+vim.api.nvim_create_autocmd("User", {
+  pattern = "VeryLazy",
+  callback = function()
+    set_navigator_alt_keymaps()
+  end,
+})
+
 -- TODO: Split into files
 -- classify “home dot targets”
 local function is_home_dot_target(abs, home)
