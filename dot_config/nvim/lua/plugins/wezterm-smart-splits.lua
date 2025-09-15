@@ -14,10 +14,9 @@ return {
     local opts = { silent = true, noremap = true }
 
     -- Alt/meta + hjkl to move between splits; at edge, fall through to WezTerm pane
-    map("n", "<A-h>", ss.move_cursor_left, vim.tbl_extend("force", opts, { desc = "Move left (smart-splits)" }))
-    map("n", "<A-j>", ss.move_cursor_down, vim.tbl_extend("force", opts, { desc = "Move down (smart-splits)" }))
-    map("n", "<A-k>", ss.move_cursor_up, vim.tbl_extend("force", opts, { desc = "Move up (smart-splits)" }))
-    map("n", "<A-l>", ss.move_cursor_right, vim.tbl_extend("force", opts, { desc = "Move right (smart-splits)" }))
+    map("n", "<M-h>", ss.move_cursor_left, vim.tbl_extend("force", opts, { desc = "Move left (smart-splits)" }))
+    map("n", "<M-j>", ss.move_cursor_down, vim.tbl_extend("force", opts, { desc = "Move down (smart-splits)" }))
+    map("n", "<M-k>", ss.move_cursor_up, vim.tbl_extend("force", opts, { desc = "Move up (smart-splits)" }))
+    map("n", "<M-l>", ss.move_cursor_right, vim.tbl_extend("force", opts, { desc = "Move right (smart-splits)" }))
   end,
 }
-
