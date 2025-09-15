@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+direction="${1:-}"
+if [[ -z "${direction}" ]]; then
+    echo "usage: wezterm-smart-focus <left|right|up|down>" >&2
+    exit 2
+fi
+
+is_wezterm_focused() {
+    local app
+    app=$(aerospace list-windows --focused --format "%{app-name}" 2>/dev/null || true)
+    [[ "${app,,}" == *"wezterm"* ]]
+}
+
+fallback_to_aerospace() {
+    aerospace focus --boundaries all-monitors-outer-frame "${direction}" || true
+}
+
+main() {
+    if ! command -v wezterm >/dev/null 2>&1; then
+        fallback_to_aerospace
+        exit 0
+    fi
+
+    if is_wezterm_focused; then
+        # Try targeting the most recently interacted WezTerm client.
+        if wezterm cli set-user-var AEROSPACE_FOCUS "${direction}"; then
+            exit 0
+        fi
+    fi
+
+    fallback_to_aerospace
+}
+
+main "$@"
