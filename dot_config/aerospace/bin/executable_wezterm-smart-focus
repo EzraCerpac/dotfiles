@@ -48,15 +48,15 @@ main() {
             exit 0
         fi
 
-        # If the focused pane looks like Neovim, simulate Alt-h/j/k/l directly
-        # by sending ESC+h/j/k/l so Neovim mappings (smart-splits) can decide.
+        # If the focused pane is Neovim, inject ESC+h/j/k/l (Alt-h/j/k/l) so
+        # Navigator.nvim can route between splits/panes intelligently.
         if command -v python3 >/dev/null 2>&1; then
             FOCUSED=$("${WEZTERM_CLI}" cli list-clients --format json \
                 | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["focused_pane_id"])' 2>/dev/null || true)
             if [[ -n "${FOCUSED:-}" ]]; then
-                title=$("${WEZTERM_CLI}" cli list --format json \
-                    | FOCUSED="$FOCUSED" python3 -c 'import os,sys,json; arr=json.load(sys.stdin); fid=int(os.environ["FOCUSED"]); print([x["title"] for x in arr if x["pane_id"]==fid][0])' 2>/dev/null || true)
-                lower=$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')
+                fproc=$("${WEZTERM_CLI}" cli list --format json \
+                    | FOCUSED="$FOCUSED" python3 -c 'import os,sys,json; arr=json.load(sys.stdin); fid=int(os.environ["FOCUSED"]); print([x.get("foreground_process_name","") for x in arr if x["pane_id"]==fid][0])' 2>/dev/null || true)
+                lower=$(printf '%s' "$fproc" | tr '[:upper:]' '[:lower:]')
                 case "$lower" in
                     *nvim*|*vim*)
                         case "$direction" in
