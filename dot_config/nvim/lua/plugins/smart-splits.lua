@@ -1,17 +1,19 @@
 ---@type LazySpec
 return {
   "mrjones2014/smart-splits.nvim",
+  -- https://github.com/mrjones2014/smart-splits.nvim?tab=readme-ov-file
   lazy = false,
   opts = function()
-    local wezterm_cli = vim.fn.exepath("wezterm")
-    if wezterm_cli == "" then
-      wezterm_cli = "wezterm"
-    end
+    -- local wezterm_cli = vim.fn.exepath("wezterm")
+    -- if wezterm_cli == "" then
+    --   wezterm_cli = "wezterm"
+    -- end
     return {
-      log_level = "warn",
       multiplexer_integration = "wezterm",
       disable_multiplexer_nav_when_zoomed = true,
-      wezterm_cli_path = wezterm_cli,
+      -- wezterm_cli_path = wezterm_cli,
+      default_amount = 5, -- default is 3
+      float_win_behavior = "mux",
     }
   end,
   config = function(_, opts)
