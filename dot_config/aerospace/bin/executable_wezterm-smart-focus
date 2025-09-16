@@ -84,6 +84,11 @@ main() {
       exit 0
     fi
 
+    if ! command -v jq >/dev/null 2>&1; then
+      fallback_to_aerospace
+      exit 0
+    fi
+
     local focused_pane_id
     focused_pane_id=$("${WEZTERM_CLI}" cli list-clients --format json 2>/dev/null \
       | jq -r 'map(select(.focused_pane_id != null)) | first | .focused_pane_id // empty' 2>/dev/null || true)
