@@ -91,18 +91,10 @@ local function split_nav(resize_or_move, key)
   }
 end
 
--- wezterm.on("ActivatePaneDirection-left", function(window)
---   split_nav(window, "move", "h")
--- end)
--- wezterm.on("ActivatePaneDirection-right", function(window)
---   split_nav(window, "move", "l")
--- end)
--- wezterm.on("ActivatePaneDirection-up", function(window)
---   split_nav(window, "move", "k")
--- end)
--- wezterm.on("ActivatePaneDirection-down", function(window)
---   split_nav(window, "move", "j")
--- end)
+wezterm.on("ActivatePaneDirection-left", split_nav("move", "h"))
+wezterm.on("ActivatePaneDirection-right", split_nav("move", "l"))
+wezterm.on("ActivatePaneDirection-up", split_nav("move", "k"))
+wezterm.on("ActivatePaneDirection-down", split_nav("move", "j"))
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
 config.keys = {
