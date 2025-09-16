@@ -30,10 +30,10 @@ return {
     vim.keymap.set(all_modes, "<C-A-k>", require("smart-splits").resize_up)
     vim.keymap.set(all_modes, "<C-A-l>", require("smart-splits").resize_right)
     -- moving between splits
-    vim.keymap.set(all_modes, "<A-h>", require("smart-splits").move_cursor_left)
-    vim.keymap.set(all_modes, "<A-j>", require("smart-splits").move_cursor_down)
-    vim.keymap.set(all_modes, "<A-k>", require("smart-splits").move_cursor_up)
-    vim.keymap.set(all_modes, "<A-l>", require("smart-splits").move_cursor_right)
+    vim.keymap.set(all_modes, "<A-h>", require("smart-splits").move_cursor_left, { remap = true })
+    vim.keymap.set(all_modes, "<A-j>", require("smart-splits").move_cursor_down, { remap = true })
+    vim.keymap.set(all_modes, "<A-k>", require("smart-splits").move_cursor_up, { remap = true })
+    vim.keymap.set(all_modes, "<A-l>", require("smart-splits").move_cursor_right, { remap = true })
     -- vim.keymap.set(all_modes, '<C-\\>', require('smart-splits').move_cursor_previous)
     -- swapping buffers between windows
     vim.keymap.set("n", "<leader><leader>h", require("smart-splits").swap_buf_left)
