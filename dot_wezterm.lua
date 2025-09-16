@@ -65,6 +65,35 @@ local inverse_direction_keys = {
 local resize_mod = "CTRL|META"
 local move_mod = "META"
 
+local aerospace_cli_candidates = {}
+do
+  local env_cli = os.getenv("AEROSPACE_CLI")
+  if env_cli and env_cli ~= "" then
+    table.insert(aerospace_cli_candidates, env_cli)
+  end
+  table.insert(aerospace_cli_candidates, "aerospace")
+  table.insert(aerospace_cli_candidates, "/opt/homebrew/bin/aerospace")
+end
+
+local function focus_aerospace(direction)
+  local dir = string.lower(direction)
+  for _, cli in ipairs(aerospace_cli_candidates) do
+    if cli and cli ~= "" then
+      local ok, result = pcall(wezterm.run_child_process, {
+        cli,
+        "focus",
+        "--boundaries",
+        "all-monitors-outer-frame",
+        dir,
+      })
+      if ok and result then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function split_nav_callback(resize_or_move, key)
   return function(win, pane)
     if is_vim(pane) then
@@ -81,9 +110,7 @@ local function split_nav_callback(resize_or_move, key)
           win:perform_action(act.ActivatePaneDirection(pane_dir), pane)
           return
         end
-        local ok =
-          pcall(wezterm.run_child_process, { "aerospace", "focus", string.lower(pane_dir) })
-        if not ok then
+        if not focus_aerospace(pane_dir) then
           wezterm.log_info("AeroSpace CLI not available for focus " .. pane_dir)
         end
       end
