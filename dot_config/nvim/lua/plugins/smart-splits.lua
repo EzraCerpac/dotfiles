@@ -21,7 +21,7 @@ return {
     smart_splits.setup(opts)
     -- Ensure WezTerm user vars are kept in sync for smart navigation
     require("smart-splits.mux.utils").startup()
-    local function clear_lazyvim_move()
+    local function apply_mappings()
       for _, lhs in ipairs({ "<A-j>", "<A-k>" }) do
         for _, mode in ipairs({ "n", "i", "v", "x" }) do
           if vim.fn.maparg(lhs, mode) ~= "" then
@@ -29,25 +29,27 @@ return {
           end
         end
       end
+
+      local all_modes = { "n", "i", "v", "x", "s", "o", "t" }
+      -- these keymaps will also accept a range,
+      -- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
+      vim.keymap.set(all_modes, "<C-A-h>", smart_splits.resize_left)
+      vim.keymap.set(all_modes, "<C-A-j>", smart_splits.resize_down)
+      vim.keymap.set(all_modes, "<C-A-k>", smart_splits.resize_up)
+      vim.keymap.set(all_modes, "<C-A-l>", smart_splits.resize_right)
+      -- moving between splits
+      vim.keymap.set(all_modes, "<A-h>", smart_splits.move_cursor_left, { remap = true })
+      vim.keymap.set(all_modes, "<A-j>", smart_splits.move_cursor_down, { remap = true })
+      vim.keymap.set(all_modes, "<A-k>", smart_splits.move_cursor_up, { remap = true })
+      vim.keymap.set(all_modes, "<A-l>", smart_splits.move_cursor_right, { remap = true })
     end
-    clear_lazyvim_move()
-    vim.schedule(clear_lazyvim_move)
+
+    apply_mappings()
+    vim.schedule(apply_mappings)
     vim.api.nvim_create_autocmd("User", {
       pattern = "LazyVimKeymaps",
-      callback = clear_lazyvim_move,
+      callback = apply_mappings,
     })
-    local all_modes = { "n", "i", "v", "x", "s", "o", "t" }
-    -- these keymaps will also accept a range,
-    -- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
-    vim.keymap.set(all_modes, "<C-A-h>", require("smart-splits").resize_left)
-    vim.keymap.set(all_modes, "<C-A-j>", require("smart-splits").resize_down)
-    vim.keymap.set(all_modes, "<C-A-k>", require("smart-splits").resize_up)
-    vim.keymap.set(all_modes, "<C-A-l>", require("smart-splits").resize_right)
-    -- moving between splits
-    vim.keymap.set(all_modes, "<A-h>", require("smart-splits").move_cursor_left, { remap = true })
-    vim.keymap.set(all_modes, "<A-j>", require("smart-splits").move_cursor_down, { remap = true })
-    vim.keymap.set(all_modes, "<A-k>", require("smart-splits").move_cursor_up, { remap = true })
-    vim.keymap.set(all_modes, "<A-l>", require("smart-splits").move_cursor_right, { remap = true })
     -- vim.keymap.set(all_modes, '<C-\\>', require('smart-splits').move_cursor_previous)
     -- swapping buffers between windows
     vim.keymap.set("n", "<leader><leader>h", require("smart-splits").swap_buf_left)
