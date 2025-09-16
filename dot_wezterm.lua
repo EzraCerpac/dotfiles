@@ -62,7 +62,7 @@ local inverse_direction_keys = {
   up = "k",
   right = "l",
 }
-local resize_mod = "CTRL|META"
+local resize_mod = "CTRL|ALT"
 local move_mod = "META"
 
 local aerospace_cli_candidates = {}
