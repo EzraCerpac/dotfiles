@@ -3,7 +3,7 @@ return {
   event = "VeryLazy",
   opts = {
     mappings = {
-      up = "<C-M-S-k",
+      up = "<C-M-S-k>",
       down = "<C-M-S-j>",
       left = "<C-M-S-h>",
       right = "<C-M-S-l>",
