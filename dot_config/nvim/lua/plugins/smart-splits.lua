@@ -21,9 +21,15 @@ return {
     smart_splits.setup(opts)
     -- Ensure WezTerm user vars are kept in sync for smart navigation
     require("smart-splits.mux.utils").startup()
-    -- remove previous move line maps
-    vim.keymap.del({ "n", "i", "v" }, "<A-j>")
-    vim.keymap.del({ "n", "i", "v" }, "<A-k>")
+    local function safe_del(lhs)
+      for _, mode in ipairs({ "n", "i", "v", "x" }) do
+        if vim.fn.maparg(lhs, mode) ~= "" then
+          pcall(vim.keymap.del, mode, lhs)
+        end
+      end
+    end
+    safe_del("<A-j>")
+    safe_del("<A-k>")
     local all_modes = { "n", "i", "v", "x", "s", "o", "t" }
     -- these keymaps will also accept a range,
     -- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
