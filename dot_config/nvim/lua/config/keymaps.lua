@@ -119,26 +119,26 @@ local actions = require("fzf-lua.actions")
 -- end
 
 -- Run once now (this file loads on VeryLazy in LazyVim)
-set_smart_splits_alt_keymaps()
+-- set_smart_splits_alt_keymaps()
 
 -- Belt-and-suspenders: ensure our Alt mappings win after all plugins load
-vim.api.nvim_create_autocmd("UIEnter", {
-  once = true,
-  callback = function()
-    set_smart_splits_alt_keymaps()
-    -- Reassert shortly after UI starts to beat any late mappings
-    vim.defer_fn(set_smart_splits_alt_keymaps, 50)
-    vim.defer_fn(set_smart_splits_alt_keymaps, 200)
-  end,
-})
+-- vim.api.nvim_create_autocmd("UIEnter", {
+--   once = true,
+--   callback = function()
+--     set_smart_splits_alt_keymaps()
+--     -- Reassert shortly after UI starts to beat any late mappings
+--     vim.defer_fn(set_smart_splits_alt_keymaps, 50)
+--     vim.defer_fn(set_smart_splits_alt_keymaps, 200)
+--   end,
+-- })
 
 -- Also after Lazy fully initializes plugins
-vim.api.nvim_create_autocmd("User", {
-  pattern = "VeryLazy",
-  callback = function()
-    set_smart_splits_alt_keymaps()
-  end,
-})
+-- vim.api.nvim_create_autocmd("User", {
+--   pattern = "VeryLazy",
+--   callback = function()
+--     set_smart_splits_alt_keymaps()
+--   end,
+-- })
 
 -- TODO: Split into files
 -- classify “home dot targets”
