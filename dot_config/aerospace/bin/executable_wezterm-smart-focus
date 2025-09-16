@@ -3,95 +3,95 @@ set -euo pipefail
 
 direction="${1:-}"
 if [[ -z "${direction}" ]]; then
-    echo "usage: wezterm-smart-focus <left|right|up|down>" >&2
-    exit 2
+  echo "usage: wezterm-smart-focus <left|right|up|down>" >&2
+  exit 2
 fi
 
 is_wezterm_focused() {
-    local app lower
-    app=$(aerospace list-windows --focused --format "%{app-name}" 2>/dev/null || true)
-    lower=$(printf '%s' "$app" | tr '[:upper:]' '[:lower:]')
-    [[ "$lower" == *"wezterm"* ]]
+  local app lower
+  app=$(aerospace list-windows --focused --format "%{app-name}" 2>/dev/null || true)
+  lower=$(printf '%s' "$app" | tr '[:upper:]' '[:lower:]')
+  [[ "$lower" == *"wezterm"* ]]
 }
 
 fallback_to_aerospace() {
-    "${AEROSPACE_CLI:-aerospace}" focus --boundaries all-monitors-outer-frame "${direction}" || true
+  "${AEROSPACE_CLI:-aerospace}" focus --boundaries all-monitors-outer-frame "${direction}" || true
 }
 
 main() {
-    # Resolve CLIs for GUI contexts with limited PATH (AeroSpace)
-    if command -v wezterm >/dev/null 2>&1; then
-        WEZTERM_CLI=$(command -v wezterm)
-    elif [[ -x "/opt/homebrew/bin/wezterm" ]]; then
-        WEZTERM_CLI="/opt/homebrew/bin/wezterm"
-    else
-        WEZTERM_CLI=""
-    fi
+  # Resolve CLIs for GUI contexts with limited PATH (AeroSpace)
+  if command -v wezterm >/dev/null 2>&1; then
+    WEZTERM_CLI=$(command -v wezterm)
+  elif [[ -x "/opt/homebrew/bin/wezterm" ]]; then
+    WEZTERM_CLI="/opt/homebrew/bin/wezterm"
+  else
+    WEZTERM_CLI=""
+  fi
 
-    if command -v aerospace >/dev/null 2>&1; then
-        AEROSPACE_CLI=$(command -v aerospace)
-    elif [[ -x "/opt/homebrew/bin/aerospace" ]]; then
-        AEROSPACE_CLI="/opt/homebrew/bin/aerospace"
-    else
-        AEROSPACE_CLI="aerospace"
-    fi
+  if command -v aerospace >/dev/null 2>&1; then
+    AEROSPACE_CLI=$(command -v aerospace)
+  elif [[ -x "/opt/homebrew/bin/aerospace" ]]; then
+    AEROSPACE_CLI="/opt/homebrew/bin/aerospace"
+  else
+    AEROSPACE_CLI="aerospace"
+  fi
 
-    if [[ -z "${WEZTERM_CLI}" ]]; then
-        fallback_to_aerospace
-        exit 0
-    fi
-
-    if is_wezterm_focused; then
-        # Ensure we can talk to a running WezTerm instance
-        if ! "${WEZTERM_CLI}" cli list-clients >/dev/null 2>&1; then
-            fallback_to_aerospace
-            exit 0
-        fi
-
-        # If the focused pane is Neovim, inject ESC+h/j/k/l (Alt-h/j/k/l) so
-        # smart-splits.nvim can drive intra-Neovim navigation before delegating to WezTerm.
-        if command -v python3 >/dev/null 2>&1; then
-            FOCUSED=$("${WEZTERM_CLI}" cli list-clients --format json \
-                | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["focused_pane_id"])' 2>/dev/null || true)
-            if [[ -n "${FOCUSED:-}" ]]; then
-                fproc=$("${WEZTERM_CLI}" cli list --format json \
-                    | FOCUSED="$FOCUSED" python3 -c 'import os,sys,json; arr=json.load(sys.stdin); fid=int(os.environ["FOCUSED"]); print([x.get("foreground_process_name","") for x in arr if x["pane_id"]==fid][0])' 2>/dev/null || true)
-                lower=$(printf '%s' "$fproc" | tr '[:upper:]' '[:lower:]')
-                case "$lower" in
-                    *nvim*|*vim*)
-                        case "$direction" in
-                            left)  key='h' ;;
-                            down)  key='j' ;;
-                            up)    key='k' ;;
-                            right) key='l' ;;
-                            *)     key=''  ;;
-                        esac
-                        if [[ -n "$key" ]]; then
-                            if printf %b "\033${key}" | "${WEZTERM_CLI}" cli send-text --no-paste >/dev/null 2>&1; then
-                                exit 0
-                            fi
-                        fi
-                    ;;
-                esac
-            fi
-        fi
-
-        # Otherwise try WezTerm pane move, else fall back to AeroSpace.
-        case "$direction" in
-            left)  dir="Left" ;;
-            right) dir="Right" ;;
-            up)    dir="Up" ;;
-            down)  dir="Down" ;;
-            *)     dir="$direction" ;;
-        esac
-        if pane_id=$("${WEZTERM_CLI}" cli get-pane-direction "$dir" 2>/dev/null); then
-            if [[ -n "$pane_id" ]]; then
-                "${WEZTERM_CLI}" cli activate-pane-direction "$dir" && exit 0
-            fi
-        fi
-    fi
-
+  if [[ -z "${WEZTERM_CLI}" ]]; then
     fallback_to_aerospace
+    exit 0
+  fi
+
+  if is_wezterm_focused; then
+    # Ensure we can talk to a running WezTerm instance
+    if ! "${WEZTERM_CLI}" cli list-clients >/dev/null 2>&1; then
+      fallback_to_aerospace
+      exit 0
+    fi
+
+    # If the focused pane is Neovim, inject ESC+h/j/k/l (Alt-h/j/k/l) so
+    # smart-splits.nvim can drive intra-Neovim navigation before delegating to WezTerm.
+    # if command -v python3 >/dev/null 2>&1; then
+    #     FOCUSED=$("${WEZTERM_CLI}" cli list-clients --format json \
+    #         | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["focused_pane_id"])' 2>/dev/null || true)
+    #     if [[ -n "${FOCUSED:-}" ]]; then
+    #         fproc=$("${WEZTERM_CLI}" cli list --format json \
+    #             | FOCUSED="$FOCUSED" python3 -c 'import os,sys,json; arr=json.load(sys.stdin); fid=int(os.environ["FOCUSED"]); print([x.get("foreground_process_name","") for x in arr if x["pane_id"]==fid][0])' 2>/dev/null || true)
+    #         lower=$(printf '%s' "$fproc" | tr '[:upper:]' '[:lower:]')
+    #         case "$lower" in
+    #             *nvim*|*vim*)
+    #                 case "$direction" in
+    #                     left)  key='h' ;;
+    #                     down)  key='j' ;;
+    #                     up)    key='k' ;;
+    #                     right) key='l' ;;
+    #                     *)     key=''  ;;
+    #                 esac
+    #                 if [[ -n "$key" ]]; then
+    #                     if printf %b "\033${key}" | "${WEZTERM_CLI}" cli send-text --no-paste >/dev/null 2>&1; then
+    #                         exit 0
+    #                     fi
+    #                 fi
+    #             ;;
+    #         esac
+    #     fi
+    # fi
+
+    # Otherwise try WezTerm pane move, else fall back to AeroSpace.
+    case "$direction" in
+    left) dir="Left" ;;
+    right) dir="Right" ;;
+    up) dir="Up" ;;
+    down) dir="Down" ;;
+    *) dir="$direction" ;;
+    esac
+    if pane_id=$("${WEZTERM_CLI}" cli get-pane-direction "$dir" 2>/dev/null); then
+      if [[ -n "$pane_id" ]]; then
+        "${WEZTERM_CLI}" cli activate-pane-direction "$dir" && exit 0
+      fi
+    fi
+  fi
+
+  fallback_to_aerospace
 }
 
 main "$@"
