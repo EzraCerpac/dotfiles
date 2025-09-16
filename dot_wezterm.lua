@@ -164,11 +164,6 @@ config.keys = {
   -- Copy/Paste like macOS
   { key = "c", mods = "CMD", action = act.CopyTo("Clipboard") },
   { key = "v", mods = "CMD", action = act.PasteFrom("Clipboard") },
-  -- Alt + h/j/k/l unified nav (WezTerm event approach)
-  -- { key = "h", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-left") },
-  -- { key = "j", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-down") },
-  -- { key = "k", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-up") },
-  -- { key = "l", mods = "ALT", action = act.EmitEvent("ActivatePaneDirection-right") },
   -- move between split panes
   split_nav("move", "h"),
   split_nav("move", "j"),
