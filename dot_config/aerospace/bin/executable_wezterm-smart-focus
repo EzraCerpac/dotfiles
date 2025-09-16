@@ -7,6 +7,15 @@ if [[ -z "${direction}" ]]; then
   exit 2
 fi
 
+direction_lower=$(printf '%s' "${direction}" | tr '[:upper:]' '[:lower:]')
+case "${direction_lower}" in
+  left|right|up|down) ;;
+  *)
+    echo "wezterm-smart-focus: unsupported direction '${direction}'" >&2
+    exit 2
+    ;;
+esac
+
 is_wezterm_focused() {
   local app lower
   app=$(aerospace list-windows --focused --format "%{app-name}" 2>/dev/null || true)
@@ -16,6 +25,33 @@ is_wezterm_focused() {
 
 fallback_to_aerospace() {
   "${AEROSPACE_CLI:-aerospace}" focus --boundaries all-monitors-outer-frame "${direction}" || true
+}
+
+encode_base64() {
+  printf '%s' "$1" | base64 | tr -d '\n'
+}
+
+send_user_var() {
+  local pane_id="$1"
+  local tty_name="$2"
+  local payload osc
+
+  payload=$(encode_base64 "${direction_lower}")
+  osc=$'\033]1337;SetUserVar=ActivatePaneFromAerospace='"${payload}"$'\007'
+
+  if [[ -n "${tty_name}" && -w "${tty_name}" ]]; then
+    if printf '%s' "${osc}" >"${tty_name}"; then
+      return 0
+    fi
+  fi
+
+  if [[ -n "${pane_id}" ]]; then
+    if printf '%s' "${osc}" | "${WEZTERM_CLI}" cli send-text --pane-id "${pane_id}" --no-paste >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 main() {
@@ -48,45 +84,18 @@ main() {
       exit 0
     fi
 
-    # If the focused pane is Neovim, inject ESC+h/j/k/l (Alt-h/j/k/l) so
-    # smart-splits.nvim can drive intra-Neovim navigation before delegating to WezTerm.
-    # if command -v python3 >/dev/null 2>&1; then
-    #     FOCUSED=$("${WEZTERM_CLI}" cli list-clients --format json \
-    #         | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d[0]["focused_pane_id"])' 2>/dev/null || true)
-    #     if [[ -n "${FOCUSED:-}" ]]; then
-    #         fproc=$("${WEZTERM_CLI}" cli list --format json \
-    #             | FOCUSED="$FOCUSED" python3 -c 'import os,sys,json; arr=json.load(sys.stdin); fid=int(os.environ["FOCUSED"]); print([x.get("foreground_process_name","") for x in arr if x["pane_id"]==fid][0])' 2>/dev/null || true)
-    #         lower=$(printf '%s' "$fproc" | tr '[:upper:]' '[:lower:]')
-    #         case "$lower" in
-    #             *nvim*|*vim*)
-    #                 case "$direction" in
-    #                     left)  key='h' ;;
-    #                     down)  key='j' ;;
-    #                     up)    key='k' ;;
-    #                     right) key='l' ;;
-    #                     *)     key=''  ;;
-    #                 esac
-    #                 if [[ -n "$key" ]]; then
-    #                     if printf %b "\033${key}" | "${WEZTERM_CLI}" cli send-text --no-paste >/dev/null 2>&1; then
-    #                         exit 0
-    #                     fi
-    #                 fi
-    #             ;;
-    #         esac
-    #     fi
-    # fi
+    local focused_pane_id
+    focused_pane_id=$("${WEZTERM_CLI}" cli list-clients --format json 2>/dev/null \
+      | jq -r 'map(select(.focused_pane_id != null)) | first | .focused_pane_id // empty' 2>/dev/null || true)
 
-    # Otherwise try WezTerm pane move, else fall back to AeroSpace.
-    case "$direction" in
-    left) dir="Left" ;;
-    right) dir="Right" ;;
-    up) dir="Up" ;;
-    down) dir="Down" ;;
-    *) dir="$direction" ;;
-    esac
-    if pane_id=$("${WEZTERM_CLI}" cli get-pane-direction "$dir" 2>/dev/null); then
-      if [[ -n "$pane_id" ]]; then
-        "${WEZTERM_CLI}" cli activate-pane-direction "$dir" && exit 0
+    if [[ -n "${focused_pane_id}" ]]; then
+      local focused_tty
+      focused_tty=$("${WEZTERM_CLI}" cli list --format json 2>/dev/null \
+        | jq -r --arg id "${focused_pane_id}" '.[] | select((.pane_id|tostring) == $id) | .tty_name' \
+        | head -n1 2>/dev/null || true)
+
+      if send_user_var "${focused_pane_id}" "${focused_tty}"; then
+        exit 0
       fi
     fi
   fi
