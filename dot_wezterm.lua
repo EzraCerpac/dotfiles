@@ -58,43 +58,44 @@ local direction_keys = {
 local resize_mod = "CTRL|META"
 local move_mod = "META"
 
+local function split_nav_callback(resize_or_move, key)
+  return function(win, pane)
+    if is_vim(pane) then
+      win:perform_action({
+        SendKey = { key = key, mods = resize_or_move == "resize" and resize_mod or move_mod },
+      }, pane)
+    else
+      local pane_dir = direction_keys[key]
+      if resize_or_move == "resize" then
+        win:perform_action({ AdjustPaneSize = { pane_dir, 3 } }, pane)
+      else
+        local tab = win:active_tab()
+        if tab and tab:get_pane_direction(pane_dir) then
+          win:perform_action(act.ActivatePaneDirection(pane_dir), pane)
+          return
+        end
+        local ok =
+          pcall(wezterm.run_child_process, { "aerospace", "focus", string.lower(pane_dir) })
+        if not ok then
+          wezterm.log_info("AeroSpace CLI not available for focus " .. pane_dir)
+        end
+      end
+    end
+  end
+end
+
 local function split_nav(resize_or_move, key)
   return {
     key = key,
     mods = resize_or_move == "resize" and resize_mod or move_mod,
-    action = wezterm.action_callback(function(win, pane)
-      if is_vim(pane) then
-        -- pass the keys through to vim/nvim
-        win:perform_action({
-          SendKey = { key = key, mods = resize_or_move == "resize" and resize_mod or move_mod },
-        }, pane)
-      else
-        local pane_dir = direction_keys[key]
-        if resize_or_move == "resize" then
-          win:perform_action({ AdjustPaneSize = { pane_dir, 3 } }, pane)
-        else
-          -- win:perform_action({ ActivatePaneDirection = direction_keys[key] }, pane)
-          local tab = win:active_tab()
-          if tab and tab:get_pane_direction(pane_dir) then
-            win:perform_action(act.ActivatePaneDirection(pane_dir), pane)
-            return
-          end
-          -- Fall back to AeroSpace window focus
-          local ok =
-            pcall(wezterm.run_child_process, { "aerospace", "focus", string.lower(pane_dir) })
-          if not ok then
-            wezterm.log_info("AeroSpace CLI not available for focus " .. pane_dir)
-          end
-        end
-      end
-    end),
+    action = wezterm.action_callback(split_nav_callback(resize_or_move, key)),
   }
 end
 
-wezterm.on("ActivatePaneDirection-left", split_nav("move", "h"))
-wezterm.on("ActivatePaneDirection-right", split_nav("move", "l"))
-wezterm.on("ActivatePaneDirection-up", split_nav("move", "k"))
-wezterm.on("ActivatePaneDirection-down", split_nav("move", "j"))
+-- Register pane navigation events with minimal duplication
+for dir, key in pairs({ left = "h", right = "l", up = "k", down = "j" }) do
+  wezterm.on("ActivatePaneDirection-" .. dir, split_nav_callback("move", key))
+end
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
 config.keys = {
