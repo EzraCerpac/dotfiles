@@ -55,6 +55,13 @@ local direction_keys = {
   k = "Up",
   l = "Right",
 }
+local aerospace_user_var = "ActivatePaneFromAerospace"
+local inverse_direction_keys = {
+  left = "h",
+  down = "j",
+  up = "k",
+  right = "l",
+}
 local resize_mod = "CTRL|META"
 local move_mod = "META"
 
@@ -96,6 +103,21 @@ end
 for dir, key in pairs({ left = "h", right = "l", up = "k", down = "j" }) do
   wezterm.on("ActivatePaneDirection-" .. dir, split_nav_callback("move", key))
 end
+
+wezterm.on("user-var-changed", function(window, pane, name, value)
+  if name ~= aerospace_user_var then
+    return
+  end
+  if not value or value == "" then
+    return
+  end
+  local key = inverse_direction_keys[string.lower(value)]
+  if not key then
+    wezterm.log_info("Unknown AeroSpace direction: " .. tostring(value))
+    return
+  end
+  split_nav_callback("move", key)(window, pane)
+end)
 
 -- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
 config.keys = {
