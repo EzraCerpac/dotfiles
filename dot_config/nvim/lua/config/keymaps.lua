@@ -13,6 +13,10 @@ vim.keymap.del("n", "<leader><tab>d")
 vim.keymap.del("n", "<leader><tab>[")
 -- Space
 vim.keymap.del("n", "<leader><space>")
+vim.keymap.del("n", "M-h")
+vim.keymap.del("n", "M-j")
+vim.keymap.del("n", "M-k")
+vim.keymap.del("n", "M-l")
 
 -- vim.keymap.set("n", "<leader>j", "*``cgn", { desc = "Search word under cursor and change next match" })
 --
