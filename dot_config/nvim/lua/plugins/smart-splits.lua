@@ -12,6 +12,7 @@ return {
       multiplexer_integration = "wezterm",
       disable_multiplexer_nav_when_zoomed = true,
       -- wezterm_cli_path = wezterm_cli,
+      at_edge = "stop",
       default_amount = 5, -- default is 3
       float_win_behavior = "mux",
     }
