@@ -1,7 +1,7 @@
 return {
   {
     "3rd/image.nvim",
-    -- build = false,
+    build = false,
     opts = {
       -- Rendering backend: Kitty protocol works with Ghostty/Kitty/WezTerm
       backend = "kitty",
