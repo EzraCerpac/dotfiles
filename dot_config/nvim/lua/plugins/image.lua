@@ -1,7 +1,7 @@
 return {
   {
     "3rd/image.nvim",
-    build = false,
+    -- build = false,
     opts = {
       -- Rendering backend: Kitty protocol works with Ghostty/Kitty/WezTerm
       backend = "kitty",
@@ -17,7 +17,7 @@ return {
           enabled = true,
           -- keep defaults; this version exposes only 'enabled' in defaults
         },
-        -- neorg = { enabled = true },
+        neorg = { enabled = true },
       },
 
       -- Quality-of-life options
