@@ -28,10 +28,12 @@ config.send_composed_key_when_right_alt_is_pressed = false
 local bar = wezterm.plugin.require("https://github.com/adriankarlen/bar.wezterm")
 bar.apply_to_config(config, {
   position = "top",
+  hostname = { enabled = false },
+  clock = { enabled = false },
 })
 config.hide_tab_bar_if_only_one_tab = false
--- config.tab_bar_at_bottom = false
--- config.use_fancy_tab_bar = false
+config.tab_bar_at_bottom = true
+config.use_fancy_tab_bar = false
 -- config.tab_and_split_indices_are_zero_based = true
 
 -- wezterm.on("update-right-status", function(window, _)
