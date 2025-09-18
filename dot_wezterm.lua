@@ -25,6 +25,8 @@ config.send_composed_key_when_left_alt_is_pressed = false
 config.send_composed_key_when_right_alt_is_pressed = false
 
 -- tab bar
+local bar = wezterm.plugin.require("https://github.com/adriankarlen/bar.wezterm")
+bar.apply_to_config(config)
 config.hide_tab_bar_if_only_one_tab = false
 config.tab_bar_at_bottom = false
 config.use_fancy_tab_bar = false
