@@ -24,6 +24,12 @@ config.hide_mouse_cursor_when_typing = true
 config.send_composed_key_when_left_alt_is_pressed = false
 config.send_composed_key_when_right_alt_is_pressed = false
 
+-- tab bar
+config.hide_tab_bar_if_only_one_tab = false
+config.tab_bar_at_bottom = true
+config.use_fancy_tab_bar = false
+config.tab_and_split_indices_are_zero_based = true
+
 wezterm.on("update-right-status", function(window, _)
   local SOLID_LEFT_ARROW = ""
   local ARROW_FOREGROUND = { Foreground = { Color = "#c6a0f6" } }
