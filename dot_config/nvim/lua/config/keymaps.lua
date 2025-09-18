@@ -18,8 +18,8 @@ vim.keymap.del("n", "<leader><space>")
 -- Added --
 
 -- Helix-like line nav
-vim.keymap.set({ "n", "v", "o" }, "gh", "#") -- go to beginning
-vim.keymap.set({ "n", "v", "o" }, "gl", "$") -- go to end
+vim.keymap.set({ "n", "v", "o" }, "gh", "^", { desc = "First char of line" })
+vim.keymap.set({ "n", "v", "o" }, "gl", "$", { desc = "Last char of line" })
 
 -- vim.keymap.set("n", "<leader>j", "*``cgn", { desc = "Search word under cursor and change next match" })
 --
