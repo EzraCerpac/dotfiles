@@ -3,6 +3,7 @@
 -- Add any additional keymaps here
 
 -- Removed --
+
 -- Tabs
 vim.keymap.del("n", "<leader><tab>l")
 vim.keymap.del("n", "<leader><tab>o")
@@ -13,6 +14,12 @@ vim.keymap.del("n", "<leader><tab>d")
 vim.keymap.del("n", "<leader><tab>[")
 -- Space
 vim.keymap.del("n", "<leader><space>")
+
+-- Added --
+
+-- Helix-like line nav
+vim.keymap.set({ "n", "v", "o" }, "gh", "#") -- go to beginning
+vim.keymap.set({ "n", "v", "o" }, "gl", "$") -- go to end
 
 -- vim.keymap.set("n", "<leader>j", "*``cgn", { desc = "Search word under cursor and change next match" })
 --
