@@ -15,7 +15,7 @@ vim.g.lazyvim_picker = "fzf"
 
 -- Temporarily prefer nvim-cmp to rule out blink.cmp issues on NVIM 0.12-dev.
 -- Switch back to "blink.cmp" once LSP/completion is stable again.
-vim.g.lazyvim_cmp = "nvim-cmp"
+vim.g.lazyvim_cmp = "blink.cmp"
 
 -- Set XDG_CONFIG_HOME to ensure lazygit uses ~/.config/lazygit
 vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
