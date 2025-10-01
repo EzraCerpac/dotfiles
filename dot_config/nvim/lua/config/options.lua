@@ -59,3 +59,24 @@ vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
 vim.g.lazyvim_python_lsp = "pyright"
 vim.g.lazyvim_python_ruff = "ruff"
 -- vim.lsp.enable("ty")
+
+require("lspconfig")["tinymist"].setup({ -- Alternatively, can be used `vim.lsp.config["tinymist"]`
+  -- ...
+  on_attach = function(client, bufnr)
+    vim.keymap.set("n", "<local_leader>tp", function()
+      client:exec_cmd({
+        title = "pin",
+        command = "tinymist.pinMain",
+        arguments = { vim.api.nvim_buf_get_name(0) },
+      }, { bufnr = bufnr })
+    end, { desc = "[T]inymist [P]in", noremap = true })
+
+    vim.keymap.set("n", "<local_leader>tu", function()
+      client:exec_cmd({
+        title = "unpin",
+        command = "tinymist.pinMain",
+        arguments = { vim.v.null },
+      }, { bufnr = bufnr })
+    end, { desc = "[T]inymist [U]npin", noremap = true })
+  end,
+})
