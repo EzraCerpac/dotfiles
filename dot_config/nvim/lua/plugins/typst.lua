@@ -48,6 +48,25 @@ return {
         if root then
           return root
         end
+        local project_root
+        if path_of_main_file and path_of_main_file ~= "" then
+          local start_dir = vim.fs.dirname(path_of_main_file)
+          if start_dir then
+            local git_root = vim.fs.find(".git", {
+              path = start_dir,
+              upward = true,
+              type = "directory",
+            })[1]
+            if git_root then
+              project_root = vim.fs.dirname(git_root)
+            end
+          end
+        end
+
+        if project_root then
+          return project_root
+        end
+
         return vim.fn.fnamemodify(path_of_main_file, ":p:h")
       end,
     },
