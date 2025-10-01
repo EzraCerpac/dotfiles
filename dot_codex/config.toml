@@ -1,3 +1,5 @@
+model = "gpt-5-codex"
+
 [mcp_servers.mcphub]
 command = "npx"
 args = [
