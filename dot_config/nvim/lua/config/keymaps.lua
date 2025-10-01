@@ -45,15 +45,6 @@ local actions = require("fzf-lua.actions")
 -- TODO: Split into files
 -- classify “home dot targets”
 
--- open pdf associated with typst file
-vim.api.nvim_create_user_command("OpenPdf", function()
-  local filepath = vim.api.nvim_buf_get_name(0)
-  if filepath:match("%.typ$") then
-    local pdf_path = filepath:gsub("%.typ$", ".pdf")
-    vim.system({ "open", pdf_path })
-  end
-end, {})
-
 local function is_home_dot_target(abs, home)
   if not vim.startswith(abs, home .. "/") then
     return false
