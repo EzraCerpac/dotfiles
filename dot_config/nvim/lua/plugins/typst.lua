@@ -41,7 +41,16 @@ return {
     "chomosuke/typst-preview.nvim",
     ft = "typst",
     version = "1.*",
-    opts = {},
+    opts = {
+      -- This function will be called to determine the root of the typst project
+      get_root = function(path_of_main_file)
+        local root = os.getenv("TYPST_ROOT")
+        if root then
+          return root
+        end
+        return vim.fn.fnamemodify(path_of_main_file, ":p:h")
+      end,
+    },
     config = function(_, opts)
       require("typst-preview").setup(opts)
 
