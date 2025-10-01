@@ -57,6 +57,8 @@ return {
           end, { buffer = event.buf, desc = "[T]ypst [O]pen PDF" })
         end,
       })
+
+      vim.keymap.set("n", "<localleader>tt", "<CMD>TypstPreview<CR>", { desc = "[T]ypst [T]oggle Preview" })
     end,
   },
   {
