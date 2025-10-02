@@ -20,28 +20,39 @@ case "$direction" in
 esac
 
 resolve_cli() {
-  if [[ -n "${AEROSPACE_CLI:-}" && -x "${AEROSPACE_CLI}" ]]; then
-    printf '%s' "$AEROSPACE_CLI"
-    return 0
+  local candidate
+  if [[ -n "${AEROSPACE_CLI:-}" ]]; then
+    candidate=${AEROSPACE_CLI}
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+    if [[ -x "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
   fi
-  if command -v aerospace >/dev/null 2>&1; then
-    command -v aerospace
-    return 0
-  fi
-  if [[ -x "/opt/homebrew/bin/aerospace" ]]; then
-    printf '%s' "/opt/homebrew/bin/aerospace"
-    return 0
-  fi
-  printf ''
+
+  for candidate in aerospace /opt/homebrew/bin/aerospace /usr/local/bin/aerospace; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      command -v "$candidate"
+      return 0
+    fi
+    if [[ -x "$candidate" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
-cli=$(resolve_cli || true)
-if [[ -z "$cli" ]]; then
-  # Stay quiet to avoid noisy notifications; treat as graceful failure.
-  exit 0
+if ! cli=$(resolve_cli); then
+  echo "aerospace-focus: could not locate AeroSpace CLI" >&2
+  exit 1
 fi
 
-if ! "$cli" focus --boundaries all-monitors-outer-frame "$direction" >/dev/null 2>&1; then
-  # Non-zero exit means AeroSpace rejected the focus command; still succeed so callers fall back.
-  exit 0
+if ! "$cli" focus --boundaries all-monitors-outer-frame "$direction"; then
+  echo "aerospace-focus: focus command failed for direction '$direction'" >&2
+  exit 1
 fi
