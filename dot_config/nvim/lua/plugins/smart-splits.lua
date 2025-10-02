@@ -19,6 +19,44 @@ return {
   end,
   config = function(_, opts)
     local smart_splits = require("smart-splits")
+    local aerospace_focus_script = vim.fn.expand("~/.config/aerospace/bin/aerospace-focus")
+
+    local function jobstart_detached(cmd)
+      local ok, job = pcall(vim.fn.jobstart, cmd, { detach = true })
+      if not ok then
+        return false
+      end
+      return job > 0
+    end
+
+    local function focus_with_aerospace(direction)
+      if vim.fn.executable(aerospace_focus_script) == 1 then
+        return jobstart_detached({ aerospace_focus_script, direction })
+      end
+
+      if vim.fn.executable("aerospace") == 1 then
+        return jobstart_detached({ "aerospace", "focus", "--boundaries", "all-monitors-outer-frame", direction })
+      end
+
+      local homebrew_cli = "/opt/homebrew/bin/aerospace"
+      if vim.fn.executable(homebrew_cli) == 1 then
+        return jobstart_detached({ homebrew_cli, "focus", "--boundaries", "all-monitors-outer-frame", direction })
+      end
+
+      return false
+    end
+
+    opts.at_edge = function(ctx)
+      if focus_with_aerospace(ctx.direction) then
+        return
+      end
+
+      vim.notify_once(
+        string.format("smart-splits: AeroSpace focus handoff failed for %s", tostring(ctx.direction)),
+        vim.log.levels.DEBUG
+      )
+    end
+
     smart_splits.setup(opts)
     -- Ensure WezTerm user vars are kept in sync for smart navigation
     require("smart-splits.mux.utils").startup()
