@@ -51,9 +51,7 @@ preset = "qwerty"
 
 [workspace-to-monitor-force-assignment]
 1 = 'main'
-2 = 'main'
 4 = 'secondary'
-E = 'main'
 M = 'secondary'
 
 [mode.main.binding]
