@@ -7,3 +7,6 @@ args = [
   "mcp-remote",
   "http://localhost:40075/mcp",
 ]
+
+[projects."/Users/ezracerpac/Projects/Courses/PrepCourseSciCo"]
+trust_level = "trusted"

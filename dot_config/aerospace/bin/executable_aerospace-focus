@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: aerospace-focus <left|right|up|down>" >&2
+  exit 2
+}
+
+if [[ $# -ne 1 ]]; then
+  usage
+fi
+
+direction=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+case "$direction" in
+  left|right|up|down) ;;
+  *)
+    echo "aerospace-focus: unsupported direction '$1'" >&2
+    usage
+    ;;
+esac
+
+resolve_cli() {
+  if [[ -n "${AEROSPACE_CLI:-}" && -x "${AEROSPACE_CLI}" ]]; then
+    printf '%s' "$AEROSPACE_CLI"
+    return 0
+  fi
+  if command -v aerospace >/dev/null 2>&1; then
+    command -v aerospace
+    return 0
+  fi
+  if [[ -x "/opt/homebrew/bin/aerospace" ]]; then
+    printf '%s' "/opt/homebrew/bin/aerospace"
+    return 0
+  fi
+  printf ''
+}
+
+cli=$(resolve_cli || true)
+if [[ -z "$cli" ]]; then
+  # Stay quiet to avoid noisy notifications; treat as graceful failure.
+  exit 0
+fi
+
+if ! "$cli" focus --boundaries all-monitors-outer-frame "$direction" >/dev/null 2>&1; then
+  # Non-zero exit means AeroSpace rejected the focus command; still succeed so callers fall back.
+  exit 0
+fi
