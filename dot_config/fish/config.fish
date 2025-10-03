@@ -45,13 +45,16 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias ......='cd ../../../../..'
+alias -='cd -'
 
 # ---------- Editor and tools ----------
 alias v='nvim'
 alias tree='eza --tree --level=2 --icons --git'
-fzf --fish | source # Set up fzf key bindings
-set -Ux fifc_editor nvim
-set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
+# fzf --fish | source # Set up fzf key bindings
+# set -Ux fifc_editor nvim
+# set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
+set -Ux CARAPACE_BRIDGES 'zsh,fish,bash,inshellisense' # optional
+carapace _carapace | source
 
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
