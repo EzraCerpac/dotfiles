@@ -50,7 +50,7 @@ alias -='cd -'
 # ---------- Editor and tools ----------
 alias v='nvim'
 alias tree='eza --tree --level=2 --icons --git'
-# fzf --fish | source # Set up fzf key bindings
+fzf --fish | source # Set up fzf key bindings
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
 set -Ux CARAPACE_BRIDGES 'zsh,fish,bash,inshellisense' # optional
