@@ -10,3 +10,6 @@ args = [
 
 [projects."/Users/ezracerpac/Projects/Courses/PrepCourseSciCo"]
 trust_level = "trusted"
+
+[projects."/Users/ezracerpac/.local/share/chezmoi"]
+trust_level = "trusted"
