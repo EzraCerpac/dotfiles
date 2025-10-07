@@ -8,7 +8,6 @@ private/
 **/.claude/settings.local.json
 .opencode.json
 **/codecompanion-workspace.json
-**/.vectorcode/
 
 # Mac specific
 .DS_Store
