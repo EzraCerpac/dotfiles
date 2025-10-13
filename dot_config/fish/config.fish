@@ -45,7 +45,7 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias ......='cd ../../../../..'
-alias -='cd -'
+# alias -='cd -'  # Doesn't work apparently
 
 # ---------- Editor and tools ----------
 alias v='nvim'
