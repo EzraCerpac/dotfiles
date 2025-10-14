@@ -56,6 +56,9 @@ fzf --fish | source # Set up fzf key bindings
 set -Ux CARAPACE_BRIDGES 'zsh,fish,bash,inshellisense' # optional
 carapace _carapace | source
 
+# ---------- Julia ----------
+alias pluto="julia --banner=no -e 'using Pluto; Pluto.run()'"
+
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
 # set -gx ZELLIJ_AUTO_EXIT false
