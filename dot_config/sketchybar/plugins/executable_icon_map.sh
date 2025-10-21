@@ -207,7 +207,7 @@ function __icon_map() {
   "GoLand")
     icon_result=":goland:"
     ;;
-  "Chromium" | "Google Chrome" | "Google Chrome Canary")
+  "Chromium" | "Google Chrome" | "Google Chrome Canary" | "ChatGPT Atlas")
     icon_result=":google_chrome:"
     ;;
   "Grammarly Editor")
