@@ -139,7 +139,7 @@ app-name-regex-substring = "mail|spark|outlook|superhuman|hey|thunderbird|canary
 [[on-window-detected]]
 run = "move-node-to-workspace B"
 [on-window-detected.if]
-app-name-regex-substring = "zen|arc|safari|brave|orion|comet"
+app-name-regex-substring = "zen|arc|safari|brave|orion|comet|atlas|firefox|chrome|chromium|vivaldi|edge"
 
 [[on-window-detected]]
 run = "move-node-to-workspace M"
