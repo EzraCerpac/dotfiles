@@ -33,13 +33,14 @@ return {
       log_leverl = "DEBUG",
       adapters = {
         acp = {
-          codex = function()
-            return require("codecompanion.adapters").extend("codex", {
-              defaults = {
-                auth_method = "chatgpt",
-              },
-            })
-          end,
+          codex = (function()
+            local cfg = require("codecompanion.adapters.acp.codex")
+            -- Use ChatGPT login (also supports "openai-api-key" and "codex-api-key")
+            cfg.defaults.auth_method = "chatgpt"
+            -- If codex-acp is NOT installed system-wide, uncomment to use npm:
+            -- cfg.commands.default = { "npx", "@zed-industries/codex-acp" }
+            return cfg
+          end)(),
         },
         copilot = function()
           return require("codecompanion.adapters").extend("copilot", {
