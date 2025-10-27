@@ -32,14 +32,14 @@ return {
     opts = {
       adapters = {
         acp = {
-          codex = (function()
-            local cfg = require("codecompanion.adapters.acp.codex")
-            -- Use ChatGPT login (also supports "openai-api-key" and "codex-api-key")
+          codex = function()
+            local cfg = require("codecompanion.adapters").extend("codex")
+            -- Use ChatGPT login (requires paid subscription)
             cfg.defaults.auth_method = "chatgpt"
-            -- If codex-acp is NOT installed system-wide, uncomment to use npm:
+            -- If you don’t have the codex-acp binary installed globally, use npm:
             -- cfg.commands.default = { "npx", "@zed-industries/codex-acp" }
             return cfg
-          end)(),
+          end,
         },
         copilot = function()
           return require("codecompanion.adapters").extend("copilot", {
