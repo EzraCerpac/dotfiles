@@ -30,6 +30,7 @@ return {
   {
     "olimorris/codecompanion.nvim",
     opts = {
+      log_leverl = "DEBUG",
       adapters = {
         -- acp = function()
         --   return require("codecompanion.adapters").extend("codex", {
