@@ -32,13 +32,15 @@ return {
     opts = {
       log_leverl = "DEBUG",
       adapters = {
-        -- acp = function()
-        --   return require("codecompanion.adapters").extend("codex", {
-        --     defaults = {
-        --       auth_method = "chatgpt",
-        --     },
-        --   })
-        -- end,
+        acp = {
+          codex = function()
+            return require("codecompanion.adapters").extend("codex", {
+              defaults = {
+                auth_method = "chatgpt",
+              },
+            })
+          end,
+        },
         copilot = function()
           return require("codecompanion.adapters").extend("copilot", {
             schema = {
@@ -52,20 +54,8 @@ return {
       strategies = {
         chat = {
           adapter = {
-            name = "copilot",
-            model = "gpt-5",
-          },
-        },
-        completion = {
-          adapter = {
-            name = "copilot",
-            model = "gpt-5-mini",
-          },
-        },
-        inline = {
-          adapter = {
-            name = "copilot",
-            model = "gpt-5",
+            type = "acp",
+            name = "codex",
           },
         },
       },
