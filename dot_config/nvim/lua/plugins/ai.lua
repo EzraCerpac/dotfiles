@@ -30,7 +30,6 @@ return {
   {
     "olimorris/codecompanion.nvim",
     opts = {
-      log_leverl = "DEBUG",
       adapters = {
         acp = {
           codex = (function()
