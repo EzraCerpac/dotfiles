@@ -96,35 +96,35 @@ require("fzf-lua").setup({
     actions = {
       ["ctrl-h"] = actions.toggle_hidden, -- your remap
 
-      ["default"] = function(sel)
-        if not sel or #sel == 0 then
-          return
-        end
-        local raw = sel[1]
-        local file = normalize_selected(raw)
-        if not file then
-          return
-        end
-
-        local home = vim.fn.expand("~")
-        local chezmoi_dir = vim.fn.expand("~/.local/share/chezmoi/")
-
-        if vim.startswith(file, chezmoi_dir) then
-          -- selected a source path: map to target, then ChezmoiEdit
-          local target = source_to_target(file, chezmoi_dir, home)
-          vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(target))
-          return
-        end
-
-        if is_home_dot_target(file, home) then
-          -- selected a home “dot target”: always go through chezmoi
-          vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(file))
-          return
-        end
-
-        -- normal project file
-        vim.cmd("edit " .. vim.fn.fnameescape(file))
-      end,
+      -- ["default"] = function(sel)
+      --   if not sel or #sel == 0 then
+      --     return
+      --   end
+      --   local raw = sel[1]
+      --   local file = normalize_selected(raw)
+      --   if not file then
+      --     return
+      --   end
+      --
+      --   local home = vim.fn.expand("~")
+      --   local chezmoi_dir = vim.fn.expand("~/.local/share/chezmoi/")
+      --
+      --   if vim.startswith(file, chezmoi_dir) then
+      --     -- selected a source path: map to target, then ChezmoiEdit
+      --     local target = source_to_target(file, chezmoi_dir, home)
+      --     vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(target))
+      --     return
+      --   end
+      --
+      --   if is_home_dot_target(file, home) then
+      --     -- selected a home "dot target": always go through chezmoi
+      --     vim.cmd("ChezmoiEdit " .. vim.fn.fnameescape(file))
+      --     return
+      --   end
+      --
+      --   -- normal project file
+      --   vim.cmd("edit " .. vim.fn.fnameescape(file))
+      -- end,
     },
   },
 })
