@@ -85,7 +85,7 @@ local function normalize_selected(line)
     if line:match("^%.") then
       return vim.fn.expand("~/" .. line)
     else
-      return vim.fn.getcwd() .. "/" .. line
+      return vim.fn.fnamemodify(line, ":p")
     end
   end
 end
