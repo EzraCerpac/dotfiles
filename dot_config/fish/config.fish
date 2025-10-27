@@ -53,7 +53,7 @@ alias tree='eza --tree --level=2 --icons --git'
 fzf --fish | source # Set up fzf key bindings
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
-set -Ux CARAPACE_BRIDGES 'zsh,fish,bash,inshellisense' # optional
+set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense' # optional (removed zsh)
 carapace _carapace | source
 
 # ---------- Julia ----------
