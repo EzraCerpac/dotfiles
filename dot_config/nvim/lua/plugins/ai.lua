@@ -31,13 +31,13 @@ return {
     "olimorris/codecompanion.nvim",
     opts = {
       adapters = {
-        acp = function()
-          return require("codecompanion.adapters").extend("codex", {
-            defaults = {
-              auth_method = "chatgpt",
-            },
-          })
-        end,
+        -- acp = function()
+        --   return require("codecompanion.adapters").extend("codex", {
+        --     defaults = {
+        --       auth_method = "chatgpt",
+        --     },
+        --   })
+        -- end,
         copilot = function()
           return require("codecompanion.adapters").extend("copilot", {
             schema = {
