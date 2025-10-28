@@ -108,11 +108,7 @@ return {
         end
 
         vim.keymap.set("n", "<localleader>tp", function()
-          exec_cmd({
-            title = "pin",
-            command = "tinymist.pinMain",
-            arguments = { vim.api.nvim_buf_get_name(bufnr) },
-          })
+          vim.cmd("LspTinymistPinMain")
         end, { buffer = bufnr, desc = "[T]inymist [P]in", noremap = true })
 
         vim.keymap.set("n", "<localleader>tu", function()
