@@ -83,7 +83,7 @@ return {
         "<cmd>CodeCompanionChat Toggle<cr>",
         { noremap = true, silent = true }
       )
-      vim.keymap.set("v", "ga", "<cmd>CodeCompanionChat Add<cr>", { noremap = true, silent = true })
+      vim.keymap.set("v", "<LocalLeader>ca", "<cmd>CodeCompanionChat Add<cr>", { noremap = true, silent = true })
       vim.cmd([[cab cc CodeCompanion]])
       vim.g.codecompanion_yolo_mode = true
       local progress = require("fidget.progress")
