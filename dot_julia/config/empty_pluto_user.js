@@ -1,9 +1,15 @@
-// Automatically enable Vim keybindings in Pluto using MutationObserver
-// This version is lightweight and responds instantly when new cells are added.
+// Automatically enable Vim keybindings in Pluto — safe version that waits for CodeMirror.
 
-window.addEventListener("DOMContentLoaded", () => {
-    // Load CodeMirror's Vim keymap if not already loaded
-    if (!window.CodeMirror?.keyMap?.vim) {
+(function waitForCodeMirror() {
+    if (!window.CodeMirror) {
+        console.log("[Pluto Vim] Waiting for CodeMirror...");
+        return setTimeout(waitForCodeMirror, 500);
+    }
+
+    console.log("[Pluto Vim] CodeMirror detected, loading Vim mode...");
+
+    // Load CodeMirror's Vim keymap
+    if (!window.CodeMirror.keyMap?.vim) {
         const script = document.createElement("script");
         script.src = "https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/keymap/vim.min.js";
         script.onload = () => console.log("[Pluto Vim] Vim keymap loaded");
@@ -22,18 +28,13 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    // Observe the notebook DOM for new cells
-    const observer = new MutationObserver(mutations => {
-        for (const mutation of mutations) {
-            if (mutation.addedNodes.length > 0) enableVim();
-        }
-    });
-
+    // Observe notebook DOM for new cells
+    const observer = new MutationObserver(() => enableVim());
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial activation
+    // Enable immediately for any existing cells
     enableVim();
 
-    console.log("[Pluto Vim] Auto-enable Vim mode active.");
-});
+    console.log("[Pluto Vim] Vim mode auto-enable active.");
+})();
 
