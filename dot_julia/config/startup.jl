@@ -3,3 +3,6 @@ atreplinit() do repl
         `$cmd $path:$line:$column`
     end
 end# using Revise
+
+ENV["PLUTO_USER_JS"] = expanduser("~/.julia/config/pluto_user.js")
+
