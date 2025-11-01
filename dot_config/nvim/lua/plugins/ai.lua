@@ -124,63 +124,19 @@ return {
       require("mcphub").setup()
     end,
   },
-  -- {
-  --   -- https://github.com/aweis89/ai-terminals.nvim
-  --   "aweis89/ai-terminals.nvim",
-  --   dependencies = { "folke/snacks.nvim" },
-  --   opts = {
-  --     auto_terminal_keymaps = {
-  --       prefix = "<leader>at",
-  --       terminals = {
-  --         { name = "claude", key = "a" },
-  --         { name = "opencode", key = "o" },
-  --         { name = "codex", key = "c" },
-  --       },
-  --     },
-  --     terminals = {
-  --       codex = {
-  --         cmd = function()
-  --           return "codex --search --full-auto"
-  --         end,
-  --         path_header_template = "@%s", -- Default: @ prefix
-  --       },
-  --     },
-  --     watch_cwd = {
-  --       enabled = false, -- Gives buff changed messages all the time
-  --       ignore = {
-  --         "**/.git/**",
-  --         "**/node_modules/**",
-  --         "**/.venv/**",
-  --         "**/*.log",
-  --       },
-  --       -- Also merge ignore rules from <git root>/.gitignore
-  --       -- Negations (!) are supported; patterns are evaluated relative to repo root
-  --       gitignore = true,
-  --     },
-  --     trigger_formatting = { enabled = true },
-  --   },
-  -- },
-  -- {
-  --   "NickvanDyke/opencode.nvim",
-  --   dependencies = {
-  --     "folke/snacks.nvim",
-  --   },
-  --   ---@type opencode.Config
-  --   opts = {
-  --     -- You can add custom prompts or contexts here later, e.g.:
-  --     -- prompts = { },
-  --     -- contexts = { },
-  --   },
-  -- -- stylua: ignore
-  -- keys = {
-  --   { "<leader>Ot", function() require("opencode").toggle() end, desc = "Toggle embedded opencode" },
-  --   { "<leader>Oa", function() require("opencode").ask("@cursor: ") end, desc = "Ask opencode", mode = "n" },
-  --   { "<leader>Oa", function() require("opencode").ask("@selection: ") end, desc = "Ask opencode about selection", mode = "v" },
-  --   { "<leader>Op", function() require("opencode").select_prompt() end, desc = "Select prompt", mode = { "n", "v" } },
-  --   { "<leader>On", function() require("opencode").command("session_new") end, desc = "New session" },
-  --   { "<leader>Oy", function() require("opencode").command("messages_copy") end, desc = "Copy last message" },
-  --   { "<S-C-u>",    function() require("opencode").command("messages_half_page_up") end,   desc = "Scroll messages up" },
-  --   { "<S-C-d>",    function() require("opencode").command("messages_half_page_down") end, desc = "Scroll messages down" },
-  -- },
-  -- },
+  {
+    "azorng/goose.nvim",
+    config = function()
+      require("goose").setup({})
+    end,
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      {
+        "MeanderingProgrammer/render-markdown.nvim",
+        opts = {
+          anti_conceal = { enabled = false },
+        },
+      },
+    },
+  },
 }
