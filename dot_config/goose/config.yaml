@@ -2,6 +2,19 @@ GOOSE_ENABLE_ROUTER: 'true'
 GOOSE_MODEL: claude-sonnet-4.5
 GOOSE_MODE: auto
 GOOSE_PROVIDER: github_copilot
+
+# AutoPilot models
+x-advanced-models:
+- provider: github_copilot
+  model: gpt-5-codex
+  role: deep-thinker
+- provider: github_copilot
+  model: claude-sonnet-4.5
+  role: coder
+- provider: github_copilot
+  model: claude-haiku-4.5
+  role: debugger
+
 extensions:
   autovisualiser:
     available_tools: []
