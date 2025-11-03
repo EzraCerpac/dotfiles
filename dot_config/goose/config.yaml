@@ -1,20 +1,16 @@
-GOOSE_PROVIDER: github_copilot
-GOOSE_MODEL: claude-sonnet-4.5
-GOOSE_PLANNER_PROVIDER: github_copilot
-GOOSE_PLANNER_MODEL: gpt-5
-# x-advanced-models:
-# - model: gpt-5
-#   provider: github_copilot
-#   role: deep-thinker
-# - model: claude-sonnet-4.5
-#   provider: github_copilot
-#   role: coder
-# - model: claude-haiku-4.5
-#   provider: github_copilot
-#   role: debugger
 GOOSE_CLI_THEME: dark
-GOOSE_MODE: auto
 GOOSE_ENABLE_ROUTER: 'false'
+GOOSE_MODEL: minimax/minimax-m2:free
+x-advanced-models:
+- model: gpt-5-codex
+  provider: github_copilot
+  role: deep-thinker
+- model: claude-sonnet-4.5
+  provider: github_copilot
+  role: coder
+- model: claude-haiku-4.5
+  provider: github_copilot
+  role: debugger
 extensions:
   autovisualiser:
     available_tools: []
@@ -99,3 +95,5 @@ extensions:
     enabled: true
     name: todo
     type: platform
+GOOSE_PROVIDER: openrouter
+GOOSE_MODE: auto
