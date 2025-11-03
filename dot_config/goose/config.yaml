@@ -1,7 +1,7 @@
 GOOSE_PROVIDER: github_copilot
 GOOSE_MODEL: claude-sonnet-4.5
 GOOSE_PLANNER_PROVIDER: github_copilot
-GOOSE_PLANNER_MODEL: gpt-5-codex
+GOOSE_PLANNER_MODEL: gpt-5
 # x-advanced-models:
 # - model: gpt-5
 #   provider: github_copilot
