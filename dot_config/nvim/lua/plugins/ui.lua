@@ -5,4 +5,7 @@ return {
       -- options
     },
   },
+  {
+    "HiPhish/rainbow-delimiters.nvim",
+  },
 }
