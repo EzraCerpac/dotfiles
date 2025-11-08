@@ -33,10 +33,6 @@ set -gx EDITOR /opt/homebrew/bin/nvim
 set -gx VISUAL $EDITOR
 set -gx GIT_EDITOR $EDITOR # Fallback for tools that check this var
 
-# erase the default Alt-e binding (edit_command_buffer)
-bind --erase alt-e
-# bind Ctrl-e to edit current command buffer
-bind ctrl-e edit_command_buffer
 
 # ---------- XDG Config ----------
 set -gx XDG_CONFIG_HOME /Users/ezracerpac/.config
