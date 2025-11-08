@@ -1,8 +1,13 @@
 return {
   {
     "abecodes/tabout.nvim",
-    event = "InsertEnter",
-    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    lazy = false,
+    event = "InsertCharPre",
+    priority = 1000,
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter",
+      "L3MON4D3/LuaSnip",
+    },
     opts = {
       tabkey = "<Tab>",
       backwards_tabkey = "<S-Tab>",
@@ -24,5 +29,12 @@ return {
       ignore_beginning = true,
       exclude = {},
     },
+  },
+  {
+    "L3MON4D3/LuaSnip",
+    keys = function()
+      -- Disable default tab keybinding in LuaSnip
+      return {}
+    end,
   },
 }
