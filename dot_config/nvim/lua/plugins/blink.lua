@@ -5,9 +5,9 @@ return {
     opts = {
       keymap = {
         preset = "enter",
-        -- Tab is reserved for tabout.nvim; accept completions with <C-y>
-        ["<Tab>"] = "fallback",
-        ["<S-Tab>"] = "fallback",
+        -- Tab is reserved for sidekick NES + tabout.nvim; accept completions with <C-y>
+        ["<Tab>"] = false,
+        ["<S-Tab>"] = false,
       },
     },
   },
