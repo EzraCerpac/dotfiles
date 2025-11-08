@@ -1,99 +1,129 @@
 GOOSE_CLI_THEME: dark
 GOOSE_ENABLE_ROUTER: 'false'
-GOOSE_MODEL: minimax/minimax-m2:free
-# x-advanced-models:
-# - model: gpt-5-codex
-#   provider: github_copilot
-#   role: deep-thinker
-# - model: claude-sonnet-4.5
-#   provider: github_copilot
-#   role: coder
-# - model: claude-haiku-4.5
-#   provider: github_copilot
-#   role: debugger
+GOOSE_MODEL: gpt-5
+x-advanced-models:
+- model: gpt-5-codex
+  provider: github_copilot
+  role: deep-thinker
+- model: claude-sonnet-4.5
+  provider: github_copilot
+  role: coder
+- model: claude-haiku-4.5
+  provider: github_copilot
+  role: debugger
 extensions:
   autovisualiser:
-    available_tools: []
-    bundled: true
+    enabled: false
+    type: builtin
+    name: autovisualiser
     description: Data visualisation and UI generation tools
     display_name: Auto Visualiser
-    enabled: false
-    name: autovisualiser
     timeout: 300
-    type: builtin
+    bundled: true
+    available_tools: []
   brave-search:
+    enabled: true
+    type: stdio
+    name: brave-search
+    description: Search the web
+    cmd: npx
     args:
     - -y
     - '@modelcontextprotocol/server-brave-search'
-    available_tools: []
-    bundled: null
-    cmd: npx
-    description: Search the web
-    enabled: true
+    envs: {}
     env_keys:
     - BRAVE_API_KEY
-    envs: {}
-    name: brave-search
     timeout: 300
-    type: stdio
+    bundled: null
+    available_tools: []
   context7:
+    enabled: true
+    type: stdio
+    name: context7
+    description: Getting up-to-date, version-specific code and documentation. Use frequently
+    cmd: npx
     args:
     - -y
     - '@upstash/context7-mcp'
-    available_tools: []
-    bundled: null
-    cmd: npx
-    description: Getting up-to-date, version-specific code and documentation. Use frequently
-    enabled: true
-    env_keys: []
     envs: {}
-    name: context7
+    env_keys: []
     timeout: 300
-    type: stdio
-  developer:
+    bundled: null
     available_tools: []
-    bundled: true
+  developer:
+    enabled: true
+    type: builtin
+    name: developer
     description: Code editing and shell access
     display_name: Developer Tools
-    enabled: true
-    name: developer
     timeout: 300
-    type: builtin
+    bundled: true
+    available_tools: []
   extensionmanager:
-    available_tools: []
-    bundled: true
-    description: Enable extension management tools for discovering, enabling, and disabling extensions
     enabled: true
-    name: Extension Manager
     type: platform
-  memory:
-    available_tools: []
+    name: Extension Manager
+    description: Enable extension management tools for discovering, enabling, and disabling extensions
     bundled: true
+    available_tools: []
+  memory:
+    enabled: true
+    type: builtin
+    name: memory
     description: Tools to save and retrieve durable memories
     display_name: Memory
-    enabled: true
-    name: memory
     timeout: 300
-    type: builtin
+    bundled: true
+    available_tools: []
   pdf:
+    enabled: true
+    type: stdio
+    name: pdf
+    description: Read and extract text from PDFs
+    cmd: uvx
     args:
     - mcp-read-pdf
-    available_tools: []
-    bundled: null
-    cmd: uvx
-    description: Read and extract text from PDFs
-    enabled: true
-    env_keys: []
     envs: {}
-    name: pdf
+    env_keys: []
     timeout: 300
-    type: stdio
-  todo:
+    bundled: null
     available_tools: []
-    bundled: true
-    description: Enable a todo list for Goose so it can keep track of what it is doing
+  todo:
     enabled: true
-    name: todo
     type: platform
-GOOSE_PROVIDER: openrouter
+    name: todo
+    description: Enable a todo list for Goose so it can keep track of what it is doing
+    bundled: true
+    available_tools: []
+  chatrecall:
+    enabled: true
+    type: platform
+    name: chatrecall
+    description: Search past conversations and load session summaries for contextual memory
+    bundled: true
+    available_tools: []
+  computercontroller:
+    enabled: false
+    type: builtin
+    name: computercontroller
+    description: General computer control tools that don't require you to be a developer or engineer.
+    display_name: Computer Controller
+    timeout: 300
+    bundled: true
+    available_tools: []
+  tutorial:
+    enabled: false
+    type: builtin
+    name: tutorial
+    description: Access interactive tutorials and guides
+    display_name: Tutorial
+    timeout: 300
+    bundled: true
+    available_tools: []
+GOOSE_PROVIDER: github_copilot
 GOOSE_MODE: auto
+GOOSE_LEAD_MODEL: gpt-5
+GOOSE_LEAD_FAILURE_THRESHOLD: 2
+GOOSE_LEAD_PROVIDER: github_copilot
+GOOSE_LEAD_TURNS: 3
+GOOSE_LEAD_FALLBACK_TURNS: 2
