@@ -2,7 +2,7 @@ return {
   {
     "abecodes/tabout.nvim",
     lazy = false,
-    event = "InsertCharPre",
+    event = "InsertEnter",
     priority = 1000,
     dependencies = {
       "nvim-treesitter/nvim-treesitter",
