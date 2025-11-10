@@ -2,8 +2,8 @@
 # prune-windows: remove ghost/stale windows from AeroSpace
 set -uo pipefail # no -e; we handle errors ourselves
 
-# toggle dry-run behavior (or run with DRY_RUN=false ./prune-windows)
-DRY_RUN=${DRY_RUN:-true}
+# toggle dry-run behavior (or run with DRY_RUN=true ./prune-windows)
+DRY_RUN=${DRY_RUN:-false}
 export DRY_RUN
 
 # how long to pause between closes
