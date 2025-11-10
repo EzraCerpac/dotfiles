@@ -3,6 +3,6 @@
 aerospace list-windows --all | awk '{print $1}' | while read -r id; do
     if ! ps -p "$id" >/dev/null 2>&1; then
         echo "Removing stale window $id"
-        aerospace close --window-id "$id"
+        aerospace close --window-id $id
     fi
 done
