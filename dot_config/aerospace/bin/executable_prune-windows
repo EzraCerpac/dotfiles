@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# prune-windows - safely remove AeroSpace ghost windows
+set -uo pipefail # keep -u and pipefail; avoid -e so we can handle errors explicitly
 
-DRY_RUN=true # set to false to actually close windows
+# Dry-run: change to "false" to actually close windows
+DRY_RUN=${DRY_RUN:-true}
+export DRY_RUN
 
+# small delay between close calls (tweak as needed)
+CLOSE_DELAY=0.06
+
+# get focused window id (so we never close it)
 focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
 
-aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-title}\t%{app-pid}%{newline}' |
-  while IFS=$'\t' read -r wid app title pid; do
-    [ -z "${wid:-}" ] && continue
+# Use process substitution so while loop runs in current shell (no subshell weirdness)
+while IFS=$'\t' read -r wid app title pid; do
+  # debug line for visibility
+  printf "DEBUG: DRY_RUN=%s wid=%s\n" "$DRY_RUN" "${wid:-}"
 
-    if [ "$wid" = "$focused" ]; then
-      echo "Skipping focused window $wid ($app - ${title:-<no title>})"
-      continue
-    fi
+  [ -z "${wid:-}" ] && continue
 
-    # Query live window names for this app (comma-separated list)
-    js="$(
-      osascript -e "tell application \"System Events\"
+  if [ "$wid" = "$focused" ]; then
+    echo "Skipping focused window $wid ($app - ${title:-<no title>})"
+    continue
+  fi
+
+  # get comma separated live window titles from System Events
+  js="$(
+    osascript -e "tell application \"System Events\"
       try
         if not (exists process \"$app\") then return \"__NO_PROC__\"
         set W to name of every window of process \"$app\"
@@ -26,43 +36,53 @@ aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-titl
         return \"__ERR__\" & err
       end try
     end tell"
-    )" || js="__ERR__"
+  )" || js="__ERR__"
 
-    if [[ "$js" == __ERR__* ]]; then
-      echo "System Events failed for $app — skipping to be safe."
-      continue
-    fi
+  if [[ "$js" == __ERR__* ]]; then
+    echo "System Events failed for $app — skipping to be safe."
+    continue
+  fi
 
-    # Split comma-separated window list into array safely
-    IFS=',' read -r -a live_titles <<<"$js"
-    # trim whitespace in-place
-    for i in "${!live_titles[@]}"; do
-      live_titles[$i]="$(echo "${live_titles[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-    done
+  # split on commas and trim whitespace
+  IFS=',' read -r -a live_titles <<<"$js"
+  for i in "${!live_titles[@]}"; do
+    live_titles[$i]="$(printf '%s' "${live_titles[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  done
 
-    # If there are no live windows at all, mark as stale
-    if [ "${#live_titles[@]}" -eq 0 ] || [ "${live_titles[0]}" = "__EMPTY_LIST__" ]; then
-      echo "[DRY-RUN] Would remove stale window id=$wid app='$app' (no live windows)"
-      continue
-    fi
-
-    # Substring matching (case-sensitive, safer)
+  if [ "${#live_titles[@]}" -eq 0 ] || [ "${live_titles[0]}" = "__EMPTY_LIST__" ]; then
+    matched=false
+  else
     matched=false
     for lt in "${live_titles[@]}"; do
+      # substring match both directions for robustness
       if [[ "$lt" == *"$title"* ]] || [[ "$title" == *"$lt"* ]]; then
         matched=true
         break
       fi
     done
+  fi
 
-    if [ "$matched" = true ]; then
-      echo "Keeping window id=$wid ($app - $title)"
-    else
-      if [ "$DRY_RUN" = true ]; then
-        echo "[DRY-RUN] Would remove stale window id=$wid app='$app' title='$title' (no match among: ${live_titles[*]})"
-      else
-        echo "Removing stale window id=$wid app='$app' title='$title'"
-        aerospace close --window-id "$wid" || echo "  -> aerospace close failed for $wid"
-      fi
-    fi
-  done
+  if [ "$matched" = true ]; then
+    echo "Keeping window id=$wid ($app - $title)"
+    continue
+  fi
+
+  # At this point the window looks stale
+  if [ "${DRY_RUN}" = "true" ]; then
+    echo "[DRY-RUN] Would remove stale window id=$wid app='$app' title='$title' (no match among: ${live_titles[*]})"
+    continue
+  fi
+
+  # === ACTION: close window ===
+  echo "Removing stale window id=$wid app='$app' title='$title'"
+
+  # Run close but never let a non-zero exit kill the whole script.
+  # We also tolerate transient failures: try once, print error if fails.
+  if ! aerospace close --window-id "$wid"; then
+    echo "  -> aerospace close returned non-zero for $wid; continuing"
+  fi
+
+  # give AeroSpace time to update internal state before next close
+  sleep "$CLOSE_DELAY"
+
+done < <(aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-title}\t%{app-pid}%{newline}')
