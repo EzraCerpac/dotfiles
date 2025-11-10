@@ -1,8 +1,34 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-aerospace list-windows --all | awk '{print $1}' | while read -r id; do
-    if ! ps -p "$id" >/dev/null 2>&1; then
-        echo "Removing stale window $id"
-        aerospace close --window-id $id
+DRY_RUN=true   # set to false to actually close windows
+
+# get focused window id (so we never close it)
+focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
+
+# list all windows with their window-id and app pid (empty if AeroSpace doesn't know pid)
+# format variables documented in incoming docs: window-id, app-pid, etc.
+aerospace list-windows --all --format '%{window-id} %{app-pid}%{newline}' |
+while read -r wid pid; do
+  # skip header/empty lines
+  [ -z "$wid" ] && continue
+
+  # never touch the focused window
+  if [ "$wid" = "$focused" ]; then
+    echo "Skipping focused window $wid"
+    continue
+  fi
+
+  # if pid is empty, or process doesn't exist, mark as stale
+  if [ -z "$pid" ] || ! kill -0 "$pid" >/dev/null 2>&1; then
+    if [ "$DRY_RUN" = true ]; then
+      echo "[DRY-RUN] Would remove stale window id=$wid pid=${pid:-<none>}"
+    else
+      echo "Removing stale window id=$wid pid=${pid:-<none>}"
+      # use the AeroSpace CLI to act on that window id
+      aerospace close --window-id "$wid" || \
+        echo "  -> aerospace close failed for $wid (may be already pruned by server)"
     fi
+  fi
 done
+
