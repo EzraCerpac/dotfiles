@@ -1,34 +1,79 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DRY_RUN=true   # set to false to actually close windows
+# Dry-run: set to "false" to actually close windows
+DRY_RUN=true
 
-# get focused window id (so we never close it)
+# Helper: get focused window id so we never close it
 focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
 
-# list all windows with their window-id and app pid (empty if AeroSpace doesn't know pid)
-# format variables documented in incoming docs: window-id, app-pid, etc.
-aerospace list-windows --all --format '%{window-id} %{app-pid}%{newline}' |
-while read -r wid pid; do
-  # skip header/empty lines
-  [ -z "$wid" ] && continue
+# Ask AeroSpace for window-id, app-name, window-title and app-pid separated by TABs
+aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-title}\t%{app-pid}%{newline}' |
+while IFS=$'\t' read -r wid app title pid; do
+  # skip empty/garbage lines
+  [ -z "${wid:-}" ] && continue
 
   # never touch the focused window
   if [ "$wid" = "$focused" ]; then
-    echo "Skipping focused window $wid"
+    echo "Skipping focused window $wid ($app - ${title:-<no title>})"
     continue
   fi
 
-  # if pid is empty, or process doesn't exist, mark as stale
-  if [ -z "$pid" ] || ! kill -0 "$pid" >/dev/null 2>&1; then
-    if [ "$DRY_RUN" = true ]; then
-      echo "[DRY-RUN] Would remove stale window id=$wid pid=${pid:-<none>}"
+  # Query System Events for current window names of that process (if the process exists)
+  # This returns AppleScript list like: { "Main", "Preferences" } or an error if process not found
+  # We wrap in a small shell-safe call and capture output
+  js="$(
+    osascript -e "tell application \"System Events\"
+      try
+        set W to name of every window of process \"$app\"
+        if W is {} then
+          return \"__EMPTY_LIST__\"
+        else
+          return W as string
+        end if
+      on error err
+        return \"__ERR__\" & err
+      end try
+    end tell"
+  )" || js="__ERR__"
+
+  # If apple-script returned an error string that begins with "__ERR__", treat as process not running or inaccessible
+  if [[ "$js" == __ERR__* ]]; then
+    # process either not running or not accessible (e.g., permission denied for accessibility)
+    echo "Process '$app' (pid=$pid) not reachable via System Events. Treating as not running/inaccessible."
+    # If the app process is not running at all (pid empty or ps missing), we can safely prune
+    if [ -z "${pid:-}" ] || ! ps -p "$pid" >/dev/null 2>&1; then
+      if [ "$DRY_RUN" = true ]; then
+        echo "[DRY-RUN] Would remove stale window id=$wid app='$app' title='${title:-<no title>}' pid='${pid:-<none>}' (process not present)"
+      else
+        echo "Removing stale window id=$wid (process not present)"
+        aerospace close --window-id "$wid" || echo "  -> aerospace close failed for $wid"
+      fi
     else
-      echo "Removing stale window id=$wid pid=${pid:-<none>}"
-      # use the AeroSpace CLI to act on that window id
-      aerospace close --window-id "$wid" || \
-        echo "  -> aerospace close failed for $wid (may be already pruned by server)"
+      # process exists but System Events couldn't enumerate windows (accessibility perms?). Be conservative.
+      echo "  -> Process $app (pid=$pid) exists but System Events couldn't list its windows. Skipping to be safe."
     fi
+    continue
   fi
-done
+
+  # js now contains window names joined with ", " (AppleScript coerces lists to strings like "Main, Preferences")
+  # The special marker __EMPTY_LIST__ means process has zero windows.
+  if [ "$js" = "__EMPTY_LIST__" ]; then
+    # process running but no windows visible -> stale windows likely
+    if [ "$DRY_RUN" = true ]; then
+      echo "[DRY-RUN] Would remove stale window id=$wid app='$app' title='${title:-<no title>}' (process running but no windows reported)"
+    else
+      echo "Removing stale window id=$wid app='$app' title='${title:-<no title>}' (process running but no windows reported)"
+      aerospace close --window-id "$wid" || echo "  -> aerospace close failed for $wid"
+    fi
+    continue
+  fi
+
+  # Now try to match the AeroSpace window title with one of js's window names.
+  # AppleScript returned a comma-separated string; turn into newline-separated for grep
+  # Escape title for grep
+  if [ -n "${title// /}" ]; then
+    # trim whitespace for robust matching
+    title_trimmed="$(printf '%s' "$title" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    # build a gr
 
