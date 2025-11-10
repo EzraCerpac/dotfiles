@@ -7,6 +7,7 @@ focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null |
 
 aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-title}\t%{app-pid}%{newline}' |
   while IFS=$'\t' read -r wid app title pid; do
+    echo "DEBUG: DRY_RUN=$DRY_RUN wid=$wid"
     [ -z "${wid:-}" ] && continue
 
     if [ "$wid" = "$focused" ]; then
