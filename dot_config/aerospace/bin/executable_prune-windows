@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# prune-windows - safely remove AeroSpace ghost windows
-set -uo pipefail # keep -u and pipefail; avoid -e so we can handle errors explicitly
+# prune-windows: remove ghost/stale windows from AeroSpace
+set -uo pipefail # no -e; we handle errors ourselves
 
-# Dry-run: change to "false" to actually close windows
+# toggle dry-run behavior (or run with DRY_RUN=false ./prune-windows)
 DRY_RUN=${DRY_RUN:-true}
 export DRY_RUN
 
-# small delay between close calls (tweak as needed)
+# how long to pause between closes
 CLOSE_DELAY=0.06
 
-# get focused window id (so we never close it)
+# list of stale window ids to close
+declare -a STALE_IDS=()
+
+# get focused window (never close it)
 focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
 
-# Use process substitution so while loop runs in current shell (no subshell weirdness)
+# === 1️⃣  DETECTION PASS =======================================================
 while IFS=$'\t' read -r wid app title pid; do
-  # debug line for visibility
-  printf "DEBUG: DRY_RUN=%s wid=%s\n" "$DRY_RUN" "${wid:-}"
-
   [ -z "${wid:-}" ] && continue
 
   if [ "$wid" = "$focused" ]; then
@@ -24,7 +24,6 @@ while IFS=$'\t' read -r wid app title pid; do
     continue
   fi
 
-  # get comma separated live window titles from System Events
   js="$(
     osascript -e "tell application \"System Events\"
       try
@@ -43,18 +42,17 @@ while IFS=$'\t' read -r wid app title pid; do
     continue
   fi
 
-  # split on commas and trim whitespace
   IFS=',' read -r -a live_titles <<<"$js"
   for i in "${!live_titles[@]}"; do
     live_titles[$i]="$(printf '%s' "${live_titles[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
   done
 
+  matched=false
   if [ "${#live_titles[@]}" -eq 0 ] || [ "${live_titles[0]}" = "__EMPTY_LIST__" ]; then
     matched=false
   else
-    matched=false
     for lt in "${live_titles[@]}"; do
-      # substring match both directions for robustness
+      # substring both directions
       if [[ "$lt" == *"$title"* ]] || [[ "$title" == *"$lt"* ]]; then
         matched=true
         break
@@ -64,25 +62,31 @@ while IFS=$'\t' read -r wid app title pid; do
 
   if [ "$matched" = true ]; then
     echo "Keeping window id=$wid ($app - $title)"
-    continue
+  else
+    echo "[FOUND STALE] id=$wid app='$app' title='$title'"
+    STALE_IDS+=("$wid")
   fi
-
-  # At this point the window looks stale
-  if [ "${DRY_RUN}" = "true" ]; then
-    echo "[DRY-RUN] Would remove stale window id=$wid app='$app' title='$title' (no match among: ${live_titles[*]})"
-    continue
-  fi
-
-  # === ACTION: close window ===
-  echo "Removing stale window id=$wid app='$app' title='$title'"
-
-  # Run close but never let a non-zero exit kill the whole script.
-  # We also tolerate transient failures: try once, print error if fails.
-  if ! aerospace close --window-id "$wid"; then
-    echo "  -> aerospace close returned non-zero for $wid; continuing"
-  fi
-
-  # give AeroSpace time to update internal state before next close
-  sleep "$CLOSE_DELAY"
-
 done < <(aerospace list-windows --all --format $'%{window-id}\t%{app-name}\t%{window-title}\t%{app-pid}%{newline}')
+
+# === 2️⃣  CLEANUP PASS ==========================================================
+if [ "${#STALE_IDS[@]}" -eq 0 ]; then
+  echo "No stale windows found."
+  exit 0
+fi
+
+echo
+echo "→ Found ${#STALE_IDS[@]} stale windows: ${STALE_IDS[*]}"
+if [ "$DRY_RUN" = true ]; then
+  echo "Dry-run mode: nothing will be closed."
+  exit 0
+fi
+
+for wid in "${STALE_IDS[@]}"; do
+  echo "Closing stale window id=$wid"
+  if ! aerospace close --window-id "$wid"; then
+    echo "  ⚠️  close failed for $wid (may already be gone)"
+  fi
+  sleep "$CLOSE_DELAY"
+done
+
+echo "✅ Done pruning stale windows."
