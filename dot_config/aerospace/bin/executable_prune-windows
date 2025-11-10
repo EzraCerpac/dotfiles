@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DRY_RUN=true # set to false to actually close windows
+DRY_RUN=false # set to false to actually close windows
 
 focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
 
