@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# aerospace-cleanup: close ghost/stale AeroSpace windows (title empty)
+set -euo pipefail
+
+aerospace list-windows --all --format '%{window-id}|%{app-name}|%{window-title}|%{app-pid}%{newline}' \
+  | grep -E '^[^|]+\|[^|]+\|[[:space:]]*$' \
+  | awk -F '|' '{print $1}' \
+  | while IFS= read -r id; do
+      [ -z "${id:-}" ] && continue
+      echo "Closing ghost window ID: $id"
+      if ! aerospace close --window-id "$id"; then
+        echo "  Failed to close $id (maybe already gone)"
+      fi
+    done
