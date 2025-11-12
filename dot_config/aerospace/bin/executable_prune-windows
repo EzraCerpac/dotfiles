@@ -12,17 +12,9 @@ CLOSE_DELAY=0.06
 # list of stale window ids to close
 declare -a STALE_IDS=()
 
-# get focused window (never close it)
-# focused=$(aerospace list-windows --focused --format '%{window-id}' 2>/dev/null || echo "")
-
 # === 1️⃣  DETECTION PASS =======================================================
 while IFS=$'\t' read -r wid app title pid; do
   [ -z "${wid:-}" ] && continue
-
-  # if [ "$wid" = "$focused" ]; then
-  #   echo "Skipping focused window $wid ($app - ${title:-<no title>})"
-  #   continue
-  # fi
 
   js="$(
     osascript -e "tell application \"System Events\"
