@@ -162,6 +162,7 @@ return {
     },
   },
   {
+    -- https://github.com/piersolenski/wtf.nvim
     "piersolenski/wtf.nvim",
     dependencies = {
       "nvim-lua/plenary.nvim",
@@ -171,7 +172,14 @@ return {
       -- "folke/snacks.nvim",
       "ibhagwan/fzf-lua",
     },
-    opts = {},
+    opts = {
+      provider = "copilot",
+      proveiders = {
+        copilot = {
+          model_id = "gpt-5.1-codex",
+        },
+      },
+    },
     keys = {
       {
         "<localLeader>wd",
