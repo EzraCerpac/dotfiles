@@ -174,7 +174,7 @@ return {
     },
     opts = {
       provider = "copilot",
-      proveiders = {
+      providers = {
         copilot = {
           model_id = "gpt-5.1-codex",
         },
