@@ -1,6 +1,6 @@
 GOOSE_CLI_THEME: dark
 GOOSE_ENABLE_ROUTER: 'false'
-GOOSE_MODEL: gpt-5
+GOOSE_MODEL: gpt-5.1-codex
 x-advanced-models:
 - model: gpt-5-codex
   provider: github_copilot
