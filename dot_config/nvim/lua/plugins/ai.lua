@@ -176,7 +176,7 @@ return {
       provider = "copilot",
       providers = {
         copilot = {
-          model_id = "gpt-5.1-codex",
+          model_id = "gpt-5-codex",
         },
       },
     },
