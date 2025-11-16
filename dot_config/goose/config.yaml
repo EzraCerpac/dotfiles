@@ -1,6 +1,13 @@
 GOOSE_CLI_THEME: dark
 GOOSE_ENABLE_ROUTER: 'false'
-GOOSE_MODEL: gpt-5.1-codex
+GOOSE_MODEL: claude-sonnet-4.5
+GOOSE_PROVIDER: github_copilot
+GOOSE_MODE: auto
+GOOSE_LEAD_MODEL: gpt-5.1-codex
+GOOSE_LEAD_FAILURE_THRESHOLD: 2
+GOOSE_LEAD_PROVIDER: github_copilot
+GOOSE_LEAD_TURNS: 3
+GOOSE_LEAD_FALLBACK_TURNS: 2
 x-advanced-models:
 - model: gpt-5-codex
   provider: github_copilot
@@ -120,10 +127,3 @@ extensions:
     timeout: 300
     bundled: true
     available_tools: []
-GOOSE_PROVIDER: github_copilot
-GOOSE_MODE: auto
-GOOSE_LEAD_MODEL: gpt-5
-GOOSE_LEAD_FAILURE_THRESHOLD: 2
-GOOSE_LEAD_PROVIDER: github_copilot
-GOOSE_LEAD_TURNS: 3
-GOOSE_LEAD_FALLBACK_TURNS: 2
