@@ -37,7 +37,13 @@ vim.api.nvim_create_user_command("AutosaveToggle", function()
 end, {})
 vim.keymap.set("n", "<leader>uv", ":AutosaveToggle<CR>", { desc = "Toggle autosave" })
 
--- -- Ensures that when exiting NeoVim, Zellij returns to normal mode
+-- open help in vertical split
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "help",
+  command = "wincmd L",
+})
+
+-- Ensures that when exiting NeoVim, Zellij returns to normal mode
 -- vim.api.nvim_create_autocmd("VimLeave", {
 --   pattern = "*",
 --   command = "silent !zellij action switch-mode normal",
