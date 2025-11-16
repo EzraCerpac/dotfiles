@@ -33,12 +33,14 @@ set -gx EDITOR /opt/homebrew/bin/nvim
 set -gx VISUAL $EDITOR
 set -gx GIT_EDITOR $EDITOR # Fallback for tools that check this var
 
-
 # ---------- XDG Config ----------
 set -gx XDG_CONFIG_HOME /Users/ezracerpac/.config
 
 # Replace ls with eza
-alias ls='eza'
+alias ls='eza --icons=auto --group-directories-first --git'
+alias la='eza -a --icons=auto --group-directories-first --git'
+alias ll='eza -la --icons=auto --group-directories-first --git'
+alias tree='eza --tree --level=2 --icons=auto --git'
 
 # ---------- Navigation aliases ----------
 alias ..='cd ..'
@@ -50,7 +52,6 @@ alias ......='cd ../../../../..'
 
 # ---------- Editor and tools ----------
 alias v='nvim'
-alias tree='eza --tree --level=2 --icons --git'
 fzf --fish | source # Set up fzf key bindings
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
