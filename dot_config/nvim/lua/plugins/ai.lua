@@ -176,7 +176,7 @@ return {
       provider = "copilot",
       providers = {
         copilot = {
-          model_id = "claude-4.5-sonnet",
+          model_id = "claude-sonnet-4.5",
         },
       },
     },
