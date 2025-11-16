@@ -167,9 +167,9 @@ return {
       "nvim-lua/plenary.nvim",
       "MunifTanjim/nui.nvim",
       -- Optional: For WtfGrepHistory (pick one)
-      "nvim-telescope/telescope.nvim",
+      -- "nvim-telescope/telescope.nvim",
       -- "folke/snacks.nvim",
-      -- "ibhagwan/fzf-lua",
+      "ibhagwan/fzf-lua",
     },
     opts = {},
     keys = {
