@@ -219,7 +219,7 @@ return {
         function()
           require("wtf").grep_history()
         end,
-        desc = "Grep previous chat history with Telescope",
+        desc = "Grep previous chat history with fzf-lua",
       },
     },
   },
