@@ -25,9 +25,17 @@
       "url": "http://localhost:8051/mcp"
     },
     "phiflow-docs": {
-      "enabled": true,
+      "enabled": false,
       "type": "remote",
       "url": "https://gitmcp.io/tum-pbs/PhiFlow"
+    },
+    "pdf": {
+      "enabled": true,
+      "type": "local",
+      "command": [
+        "uvx",
+        "mcp-read-pdf"
+      ]
     }
   }
 }
