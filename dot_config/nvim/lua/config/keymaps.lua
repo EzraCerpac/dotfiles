@@ -17,6 +17,9 @@ vim.keymap.del("n", "<leader><space>")
 
 -- ADDED --
 
+-- Restart --
+vim.keymap.set("n", "<leader>qr", "Cmd:"
+
 -- Helix-like line nav
 vim.keymap.set({ "n", "v", "o" }, "gh", "^", { desc = "First char of line" })
 vim.keymap.set({ "n", "v", "o" }, "gl", "$", { desc = "Last char of line" })
