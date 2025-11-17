@@ -203,5 +203,6 @@ return {
   keys = {
     { "<C-j>", "<Plug>(VM-Add-Cursor-Down)", mode = { "n", "v" }, desc = "Add cursor below" },
     { "<C-k>", "<Plug>(VM-Add-Cursor-Up)", mode = { "n", "v" }, desc = "Add cursor above" },
+    { "<C-n>", "<Plug>(VM-Add-Cursor)", mode = { "n", "v" }, desc = "Add cursor by match" },
   },
 }
