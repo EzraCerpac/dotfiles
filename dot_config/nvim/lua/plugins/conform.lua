@@ -8,9 +8,11 @@ return {
         python = { "ruff_format" },
         json = { "biome" },
         javascript = { "biome", stop_after_first = true },
+        julia = { "JuliaFormatter" },
         tex = { "latexindent" },
         typescriptreact = { "biome", stop_after_first = true },
         typescript = { "biome", stop_after_first = true },
+        rust = { "rustfmt" },
         ["_"] = { "trim_whitespace" },
       },
       formatters = {
