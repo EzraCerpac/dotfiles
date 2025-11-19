@@ -78,3 +78,6 @@ source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 alias grealpath realpath
 
 fish_add_path $HOME/.local/bin
+
+# Added by Antigravity
+fish_add_path /Users/ezracerpac/.antigravity/antigravity/bin
