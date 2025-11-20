@@ -1,5 +1,5 @@
 -- Override the project root for this session
-function override_root()
+local function override_root()
   local project = require("project_nvim.project")
   local cwd = vim.loop.cwd()
 
