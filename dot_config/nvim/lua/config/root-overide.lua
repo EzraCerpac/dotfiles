@@ -1,4 +1,3 @@
--- ~/.config/nvim/lua/plugins/root-override.lua
 local M = {}
 
 -- Override the project root for this session
