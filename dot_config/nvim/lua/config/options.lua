@@ -3,9 +3,13 @@
 -- Add any additional options here
 
 -- Disable automatic project root detection if the global variable is set
-if vim.g.disable_project_root == 1 then
-  vim.g.project_manual_mode_override = true
+-- Read override if provided via --cmd
+if vim.g.root_spec then
+  vim.g.lazyvim_root_spec = vim.g.root_spec
+else
+  vim.g.lazyvim_root_spec = { "lsp", "cwd", "git" } -- default LazyVim spec
 end
+vim.g.root_spec = vim.g.lazyvim_root_spec
 
 vim.opt.winbar = "%=%m %f"
 vim.opt.wrap = true
