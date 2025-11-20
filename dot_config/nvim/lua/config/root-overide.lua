@@ -1,7 +1,5 @@
-local M = {}
-
 -- Override the project root for this session
-function M.override_root()
+function override_root()
   local project = require("project_nvim.project")
   local cwd = vim.loop.cwd()
 
@@ -14,7 +12,5 @@ end
 
 -- Create a user command for convenience
 vim.api.nvim_create_user_command("TempRoot", function()
-  M.override_root()
+  override_root()
 end, {})
-
-return M
