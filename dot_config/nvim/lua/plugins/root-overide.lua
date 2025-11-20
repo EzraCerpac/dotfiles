@@ -1,14 +1,21 @@
-return {
-  {
-    "LazyVim/LazyVim",
-    init = function()
-      if vim.g.TEMP_DISABLE_ROOT then
-        -- Make root() identical to cwd when override is active
-        local Util = require("lazyvim.util")
-        Util.root = function()
-          return vim.loop.cwd()
-        end
-      end
-    end,
-  },
-}
+-- ~/.config/nvim/lua/plugins/root-override.lua
+local M = {}
+
+-- Override the project root for this session
+function M.override_root()
+  local project = require("project_nvim.project")
+  local cwd = vim.loop.cwd()
+
+  -- Set the project root to current working directory
+  project.set_cwd(cwd)
+
+  -- Optional: notify
+  vim.notify("Project root temporarily set to: " .. cwd, vim.log.levels.WARN)
+end
+
+-- Create a user command for convenience
+vim.api.nvim_create_user_command("TempRoot", function()
+  M.override_root()
+end, {})
+
+return M
