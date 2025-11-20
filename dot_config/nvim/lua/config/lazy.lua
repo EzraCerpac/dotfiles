@@ -33,6 +33,7 @@ require("lazy").setup({
   opts = function(_, opts)
     if vim.g.TEMP_DISABLE_ROOT then
       opts.root_spec = { "cwd" }
+      vim.notify("Disabled root detection via g:TEMP_DISABLE_ROOT", vim.log.levels.WARN)
     end
   end,
   install = { colorscheme = { "tokyonight", "habamax" } },
