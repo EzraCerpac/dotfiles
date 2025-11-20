@@ -2,6 +2,11 @@
 -- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 -- Add any additional options here
 
+-- Disable automatic project root detection if the global variable is set
+if vim.g.disable_project_root == 1 then
+  vim.g.project_manual_mode_override = true
+end
+
 vim.opt.winbar = "%=%m %f"
 vim.opt.wrap = true
 vim.g.codeium_os = "Darwin"
@@ -59,4 +64,3 @@ vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
 vim.g.lazyvim_python_lsp = "pyright"
 vim.g.lazyvim_python_ruff = "ruff"
 -- vim.lsp.enable("ty")
-
