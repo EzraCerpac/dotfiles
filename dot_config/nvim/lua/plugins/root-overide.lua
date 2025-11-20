@@ -1,10 +1,13 @@
 return {
   {
     "LazyVim/LazyVim",
-    opts = function(_, opts)
+    init = function()
       if vim.g.TEMP_DISABLE_ROOT then
-        opts.root_spec = { "cwd" }
-        vim.notify("LazyVim root detection disabled", vim.log.levels.WARN)
+        -- Make root() identical to cwd when override is active
+        local Util = require("lazyvim.util")
+        Util.root = function()
+          return vim.loop.cwd()
+        end
       end
     end,
   },
