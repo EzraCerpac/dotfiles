@@ -12,6 +12,7 @@ return {
   -- Use jjui.nvim to toggle jjui in a floating terminal
   {
     "ReKylee/jjui.nvim",
+    cmd = { "JJUI" },
     dependencies = { "folke/snacks.nvim" },
     opts = {
       -- Ensure jjui is on PATH
@@ -20,8 +21,8 @@ return {
       fast_shell = true,
       -- Editor used by jj for interactive commands
       editor = "nvim",
-      -- Map <leader>gj to toggle JJUI
-      keymaps = { toggle = "<leader>gj" },
+      -- Map <leader>jj to toggle JJUI
+      keymaps = { toggle = "<leader>jj" },
       -- Delegate window look & feel to snacks.nvim (optional defaults)
       terminal_opts = {
         win = { title = "Jujutsu UI", border = "rounded", width = 0.9, height = 0.9 },

@@ -12,6 +12,7 @@ return {
         tex = { "latexindent" },
         typescriptreact = { "biome", stop_after_first = true },
         typescript = { "biome", stop_after_first = true },
+        typst = { "typstyle" },
         rust = { "rustfmt" },
         ["_"] = { "trim_whitespace" },
       },

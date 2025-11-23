@@ -1,6 +1,11 @@
 return {
   {
     "3rd/image.nvim",
+    ft = { "markdown", "norg", "typst" },
+    event = "VeryLazy",
+    cond = function()
+      return vim.fn.has("tty") == 1
+    end,
     build = false,
     opts = {
       -- Rendering backend: Kitty protocol works with Ghostty/Kitty/WezTerm
@@ -11,21 +16,11 @@ return {
       -- Avoid global hijack to prevent conflicts with MiniFiles' virtual URIs
       hijack_file_patterns = {},
 
-      -- Keep native integrations
-      integrations = {
-        markdown = {
-          enabled = true,
-          -- keep defaults; this version exposes only 'enabled' in defaults
-        },
-        neorg = { enabled = true },
-      },
-
       -- Quality-of-life options
       window_overlap_clear_enabled = true,
       -- Do NOT ignore 'minifiles' so overlapped regions are cleared
       window_overlap_clear_ft_ignore = { "cmp_menu", "cmp_docs", "snacks_notif", "scrollview", "scrollview_sign" },
       editor_only_render_when_focused = false,
-      tmux_show_only_in_active_window = false,
     },
     config = function(_, opts)
       local image = require("image")
