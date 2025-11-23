@@ -52,9 +52,10 @@ alias ......='cd ../../../../..'
 
 # ---------- Editor and tools ----------
 alias v='nvim'
-alias nv='nvim'
-alias nvim-local='nvim -c "TempRoot"'
-alias nvim-local-env='NVIM_LOCAL_ROOT=1 nvim'
+# alias nvim-local='nvim -c "TempRoot"'  # Doesn't work
+alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
+alias vl='nvim-local'
+
 fzf --fish | source # Set up fzf key bindings
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
