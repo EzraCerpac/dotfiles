@@ -57,6 +57,9 @@ vim.api.nvim_create_autocmd("FileType", {
 --   command = "silent !zellij action switch-mode normal",
 -- })
 
+-- Load root override functionality
+require("config.root-overide")
+
 -- vim.api.nvim_create_autocmd("LspAttach", {
 --   callback = function()
 --     local bufnr = vim.api.nvim_get_current_buf()
