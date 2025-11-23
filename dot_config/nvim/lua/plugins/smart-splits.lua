@@ -2,7 +2,7 @@
 return {
   "mrjones2014/smart-splits.nvim",
   -- https://github.com/mrjones2014/smart-splits.nvim?tab=readme-ov-file
-  lazy = false,
+  event = "VeryLazy",
   opts = function()
     -- local wezterm_cli = vim.fn.exepath("wezterm")
     -- if wezterm_cli == "" then
@@ -80,7 +80,11 @@ return {
       end
 
       vim.notify_once(
-        string.format("smart-splits: AeroSpace focus handoff failed for %s (%s)", tostring(ctx.direction), err or "unknown"),
+        string.format(
+          "smart-splits: AeroSpace focus handoff failed for %s (%s)",
+          tostring(ctx.direction),
+          err or "unknown"
+        ),
         vim.log.levels.WARN
       )
     end

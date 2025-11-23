@@ -1,6 +1,7 @@
 return {
   {
     "j-hui/fidget.nvim",
+    event = "LSPAttach",
     opts = {
       -- options
     },
@@ -8,5 +9,6 @@ return {
   {
     -- https://github.com/HiPhish/rainbow-delimiters.nvim
     "HiPhish/rainbow-delimiters.nvim",
+    event = "VeryLazy",
   },
 }

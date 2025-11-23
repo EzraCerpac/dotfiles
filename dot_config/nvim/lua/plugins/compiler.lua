@@ -11,11 +11,15 @@ return {
     },
   },
   {
+    -- https://github.com/benomahony/uv.nvim
     "benomahony/uv.nvim",
+    ft = { "python" },
     opts = {
       -- picker_integration = false, -- fails without picker
       keymaps = {
         prefix = "<leader>v",
+        venv = false,
+        init = false,
       },
     },
   },

@@ -4,6 +4,7 @@
 -- Alias whichever are missing to avoid nil calls in the decoration provider.
 return {
   "folke/trouble.nvim",
+  cmd = { "TroubleToggle", "Trouble" },
   init = function()
     local ok, hl = pcall(function()
       return vim.treesitter and vim.treesitter.highlighter

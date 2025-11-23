@@ -29,6 +29,11 @@ return {
   -- },
   {
     "olimorris/codecompanion.nvim",
+    event = "VeryLazy",
+    dependencies = {
+      { "nvim-lua/plenary.nvim" },
+      { "ravitemer/mcphub.nvim" },
+    },
     opts = {
       adapters = {
         acp = {
@@ -45,7 +50,7 @@ return {
           return require("codecompanion.adapters").extend("copilot", {
             schema = {
               model = {
-                default = "gpt-5",
+                default = "gpt-5.1-codex",
               },
             },
           })
@@ -59,10 +64,6 @@ return {
           },
         },
       },
-    },
-    dependencies = {
-      { "nvim-lua/plenary.nvim" },
-      { "ravitemer/mcphub.nvim" },
     },
     config = function()
       require("codecompanion").setup({
@@ -116,6 +117,7 @@ return {
   },
   {
     "ravitemer/mcphub.nvim",
+    event = "VeryLazy",
     dependencies = {
       "nvim-lua/plenary.nvim",
     },
@@ -126,6 +128,7 @@ return {
   },
   {
     "azorng/goose.nvim",
+    event = "VeryLazy",
     config = function()
       require("goose").setup({
         keymap = {
@@ -164,6 +167,7 @@ return {
   {
     -- https://github.com/piersolenski/wtf.nvim
     "piersolenski/wtf.nvim",
+    event = "VeryLazy",
     dependencies = {
       "nvim-lua/plenary.nvim",
       "MunifTanjim/nui.nvim",

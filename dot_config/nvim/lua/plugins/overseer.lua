@@ -1,6 +1,7 @@
 return {
   {
     "stevearc/overseer.nvim",
+    cmd = { "OverseerToggle", "OverseerRun", "OverseerBuild" },
     opts = function(_, opts)
       -- Merge with any existing opts from other specs/dependencies
       opts = opts or {}
@@ -63,7 +64,7 @@ return {
       }
       opts.actions = actions
 
-    return opts
+      return opts
     end,
     config = function(_, opts)
       local overseer = require("overseer")
