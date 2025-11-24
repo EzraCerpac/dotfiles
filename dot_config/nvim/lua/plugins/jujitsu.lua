@@ -38,6 +38,10 @@ return {
 
     config = function()
       local jj = require("jj")
+      local jj_cmd = require("jj.cmd")
+      local jj_diff = require("jj.diff")
+      local jj_picker = require("jj.picker")
+
       jj.setup({
         cmd = {
           describe = {
@@ -64,37 +68,37 @@ return {
       })
 
       -- Core commands
-      vim.keymap.set("n", "<leader>jd", jj.describe, { desc = "JJ describe" })
-      vim.keymap.set("n", "<leader>jl", jj.log, { desc = "JJ log" })
-      vim.keymap.set("n", "<leader>je", jj.edit, { desc = "JJ edit" })
-      vim.keymap.set("n", "<leader>jn", jj.new, { desc = "JJ new" })
-      vim.keymap.set("n", "<leader>js", jj.status, { desc = "JJ status" })
-      vim.keymap.set("n", "<leader>jS", jj.squash, { desc = "JJ squash" })
-      vim.keymap.set("n", "<leader>ju", jj.undo, { desc = "JJ undo" })
-      vim.keymap.set("n", "<leader>jy", jj.redo, { desc = "JJ redo" })
-      vim.keymap.set("n", "<leader>jr", jj.rebase, { desc = "JJ rebase" })
-      vim.keymap.set("n", "<leader>jb", jj.bookmark_create, { desc = "JJ bookmark create" })
-      vim.keymap.set("n", "<leader>jB", jj.bookmark_delete, { desc = "JJ bookmark delete" })
+      vim.keymap.set("n", "<leader>jd", jj_cmd.describe, { desc = "JJ describe" })
+      vim.keymap.set("n", "<leader>jl", jj_cmd.log, { desc = "JJ log" })
+      vim.keymap.set("n", "<leader>je", jj_cmd.edit, { desc = "JJ edit" })
+      vim.keymap.set("n", "<leader>jn", jj_cmd.new, { desc = "JJ new" })
+      vim.keymap.set("n", "<leader>js", jj_cmd.status, { desc = "JJ status" })
+      vim.keymap.set("n", "<leader>jS", jj_cmd.squash, { desc = "JJ squash" })
+      vim.keymap.set("n", "<leader>ju", jj_cmd.undo, { desc = "JJ undo" })
+      vim.keymap.set("n", "<leader>jy", jj_cmd.redo, { desc = "JJ redo" })
+      vim.keymap.set("n", "<leader>jr", jj_cmd.rebase, { desc = "JJ rebase" })
+      vim.keymap.set("n", "<leader>jb", jj_cmd.bookmark_create, { desc = "JJ bookmark create" })
+      vim.keymap.set("n", "<leader>jB", jj_cmd.bookmark_delete, { desc = "JJ bookmark delete" })
 
       -- Diff commands
-      vim.keymap.set("n", "<leader>jv", jj.diff.vsplit, { desc = "JJ diff vertical" })
-      vim.keymap.set("n", "<leader>jh", jj.diff.hsplit, { desc = "JJ diff horizontal" })
+      vim.keymap.set("n", "<leader>jv", jj_diff.open_vdiff, { desc = "JJ diff vertical" })
+      vim.keymap.set("n", "<leader>jh", jj_diff.open_hdiff, { desc = "JJ diff horizontal" })
 
       -- Pickers
-      vim.keymap.set("n", "<leader>jp", jj.picker.status, { desc = "JJ Picker status" })
-      vim.keymap.set("n", "<leader>jH", jj.picker.file_history, { desc = "JJ Picker file history" })
+      vim.keymap.set("n", "<leader>jp", jj_picker.status, { desc = "JJ Picker status" })
+      vim.keymap.set("n", "<leader>jH", jj_picker.file_history, { desc = "JJ Picker file history" })
 
       -- Some functions like `log` can take parameters
       vim.keymap.set("n", "<leader>jL", function()
-        jj.log({
+        jj_cmd.log({
           revisions = "'all()'", -- equivalent to jj log -r ::
         })
       end, { desc = "JJ log all" })
 
       -- This is an alias i use for moving bookmarks its so good
       vim.keymap.set("n", "<leader>jt", function()
-        jj.j("tug")
-        jj.log({})
+        jj_cmd.j("tug")
+        jj_cmd.log({})
       end, { desc = "JJ tug" })
     end,
   },
