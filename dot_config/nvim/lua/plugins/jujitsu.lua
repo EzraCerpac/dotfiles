@@ -13,6 +13,9 @@ return {
   {
     "ReKylee/jjui.nvim",
     cmd = { "JJUI" },
+    keys = {
+      { "<leader>jj", "<cmd>JJUI<cr>", desc = "Toggle JJUI" },
+    },
     dependencies = { "folke/snacks.nvim" },
     opts = {
       -- Ensure jjui is on PATH
