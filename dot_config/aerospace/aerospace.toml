@@ -50,8 +50,8 @@ top = [
 preset = "qwerty"
 
 [workspace-to-monitor-force-assignment]
-1 = 'main'
-4 = 'secondary'
+# 1 = 'main'
+# 4 = 'secondary'
 M = 'secondary'
 
 [mode.main.binding]
