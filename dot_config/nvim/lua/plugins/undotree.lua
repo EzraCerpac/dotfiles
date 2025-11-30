@@ -1,8 +1,11 @@
 return {
-  {
-    "mbbill/undotree",
-    keys = {
-      { "<C-S-u>", ":UndotreeToggle<CR>", noremap = true, silent = true },
-    },
+  "jiaoshijie/undotree",
+  ---@module 'undotree.collector'
+  ---@type UndoTreeCollector.Opts
+  opts = {
+    -- your options
+  },
+  keys = { -- load the plugin only when using it's keybinding:
+    { "<C-S-u>", "<cmd>lua require('undotree').toggle()<cr>" },
   },
 }
