@@ -6,6 +6,6 @@ return {
     -- your options
   },
   keys = { -- load the plugin only when using it's keybinding:
-    { "<M-S-u>", "<cmd>lua require('undotree').toggle()<cr>" },
+    { "<C-M-u>", "<cmd>lua require('undotree').toggle()<cr>" },
   },
 }
