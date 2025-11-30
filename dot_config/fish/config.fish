@@ -63,7 +63,7 @@ set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense' # optional (removed zsh)
 carapace _carapace | source
 
 # ---------- Julia ----------
-alias pluto="julia --banner=no -e 'using Pluto; Pluto.run()'"
+alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true)'"
 
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
