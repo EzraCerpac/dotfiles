@@ -88,21 +88,12 @@ return {
       end
     end,
     init = function()
-      -- Ensure our templates are available in Python and Julia buffers and keymaps
+      -- Ensure overseer is loaded for Python and Julia buffers so templates are available
       vim.api.nvim_create_autocmd("FileType", {
         pattern = { "python", "julia" },
-        callback = function(args)
+        callback = function()
           pcall(function()
             require("lazy").load({ plugins = { "overseer.nvim" } })
-            local ok, overseer = pcall(require, "overseer")
-            if not ok then
-              return
-            end
-            if args.match == "python" then
-              overseer.load_template("uvpy")
-            elseif args.match == "julia" then
-              overseer.load_template("julia")
-            end
           end)
         end,
       })
@@ -115,7 +106,6 @@ return {
           require("lazy").load({ plugins = { "overseer.nvim" } })
           local ok, overseer = pcall(require, "overseer")
           if not ok then return end
-          overseer.load_template("uvpy")
           overseer.run_template({ name = "Python: Run Current File (uv)", params = { args = "" } }, function(task)
             if task then overseer.open({ enter = false }) end
           end)
@@ -130,7 +120,6 @@ return {
           if not ok then return end
           vim.ui.input({ prompt = "Args for current file: " }, function(input)
             if input == nil then return end
-            overseer.load_template("uvpy")
             overseer.run_template({ name = "Python: Run Current File (uv)", params = { args = input } }, function(task)
               if task then overseer.open({ enter = false }) end
             end)
@@ -155,7 +144,6 @@ return {
           end
           local ok, overseer = pcall(require, "overseer")
           if not ok then return end
-          overseer.load_template("uvpy")
           overseer.run_template({ name = "Python: Run Main File (uv)", params = { main = main, args = "" } }, function(task)
             if task then overseer.open({ enter = false }) end
           end)
@@ -177,7 +165,6 @@ return {
             vim.g.uvpy_main_cache = cache
             vim.ui.input({ prompt = "Args for main: ", default = "" }, function(args)
               if args == nil then return end
-              overseer.load_template("uvpy")
               overseer.run_template({ name = "Python: Run Main File (uv)", params = { main = main, args = args } }, function(task)
                 if task then overseer.open({ enter = false }) end
               end)
@@ -195,17 +182,30 @@ return {
         desc = "Set args + rerun (uvpy)",
       },
       {
-        "<leader>ojr",
+        "gzj",
         function()
           require("lazy").load({ plugins = { "overseer.nvim" } })
           local ok, overseer = pcall(require, "overseer")
           if not ok then return end
-          overseer.load_template("julia")
-          overseer.run_template({ name = "Julia: REPL Current File", params = { args = "" } }, function(task)
+          overseer.run_template({ name = "Julia: REPL" }, function(task)
             if task then overseer.open({ enter = false }) end
           end)
         end,
-        desc = "Julia REPL for current file",
+        desc = "Start Julia REPL",
+        ft = "julia",
+      },
+      {
+        "gzP",
+        function()
+          require("lazy").load({ plugins = { "overseer.nvim" } })
+          local ok, overseer = pcall(require, "overseer")
+          if not ok then return end
+          overseer.run_template({ name = "Python: REPL (uv)" }, function(task)
+            if task then overseer.open({ enter = false }) end
+          end)
+        end,
+        desc = "Start Python REPL (uv)",
+        ft = "python",
       },
     },
   },
