@@ -12,23 +12,22 @@ return {
       },
     },
   },
-  -- {
-  --   "neovim/nvim-lspconfig",
-  --   opts = {
-  --     servers = {
-  --       pylsp = {
-  --         settings = {
-  --           pylsp = {
-  --             plugins = {
-  --               pycodestyle = { enabled = false },
-  --               -- rope_autoimport = {
-  --               --   enabled = true,
-  --               -- },
-  --             },
-  --           },
-  --         },
-  --       },
-  --     },
-  --   },
-  -- },
+  {
+    "neovim/nvim-lspconfig",
+    opts = {
+      servers = {
+        julials = {
+          -- critical: do NOT let Mason manage Julia LS
+          mason = false,
+          -- keep the same settings as the LazyVim Julia extra
+          settings = {
+            julia = {
+              completionmode = "qualify",
+              lint = { missingrefs = "none" },
+            },
+          },
+        },
+      },
+    },
+  },
 }
