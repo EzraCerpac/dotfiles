@@ -17,7 +17,7 @@ return {
       if not has_builtin then
         table.insert(templates, 1, "builtin")
       end
-      -- Add our namespace once
+      -- Add our Python namespace once
       local has_uvpy = false
       for _, t in ipairs(templates) do
         if t == "uvpy" then
@@ -26,6 +26,16 @@ return {
       end
       if not has_uvpy then
         table.insert(templates, "uvpy")
+      end
+      -- Add our Julia namespace once
+      local has_julia = false
+      for _, t in ipairs(templates) do
+        if t == "julia" then
+          has_julia = true
+        end
+      end
+      if not has_julia then
+        table.insert(templates, "julia")
       end
       opts.templates = templates
 
@@ -78,15 +88,20 @@ return {
       end
     end,
     init = function()
-      -- Ensure our templates are available in Python buffers and keymaps
+      -- Ensure our templates are available in Python and Julia buffers and keymaps
       vim.api.nvim_create_autocmd("FileType", {
-        pattern = "python",
-        callback = function()
+        pattern = { "python", "julia" },
+        callback = function(args)
           pcall(function()
             require("lazy").load({ plugins = { "overseer.nvim" } })
             local ok, overseer = pcall(require, "overseer")
-            if ok then
+            if not ok then
+              return
+            end
+            if args.match == "python" then
               overseer.load_template("uvpy")
+            elseif args.match == "julia" then
+              overseer.load_template("julia")
             end
           end)
         end,
@@ -178,6 +193,19 @@ return {
           vim.cmd([[OverseerQuickAction uvpy:\ set\ args\ and\ rerun]])
         end,
         desc = "Set args + rerun (uvpy)",
+      },
+      {
+        "<leader>ojr",
+        function()
+          require("lazy").load({ plugins = { "overseer.nvim" } })
+          local ok, overseer = pcall(require, "overseer")
+          if not ok then return end
+          overseer.load_template("julia")
+          overseer.run_template({ name = "Julia: REPL Current File", params = { args = "" } }, function(task)
+            if task then overseer.open({ enter = false }) end
+          end)
+        end,
+        desc = "Julia REPL for current file",
       },
     },
   },
