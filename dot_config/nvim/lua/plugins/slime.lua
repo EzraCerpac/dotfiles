@@ -28,15 +28,23 @@ return {
 
     -- Helper: start a REPL in a split using native :terminal
     local function start_repl(cmd, name)
-      -- Open a vertical split on the right
+      -- Remember current window
+      local orig_win = vim.api.nvim_get_current_win()
+      -- Create a new buffer for the terminal
+      local buf = vim.api.nvim_create_buf(true, false)
+      -- Open a vertical split on the right with the new buffer
       vim.cmd("vsplit")
       vim.cmd("wincmd L")
+      vim.api.nvim_win_set_buf(0, buf)
       -- Start terminal with the command
-      vim.fn.termopen(cmd, { detach = false })
+      vim.fn.termopen(cmd)
       -- Name the buffer for easier identification
-      vim.api.nvim_buf_set_name(0, name or cmd)
-      -- Go back to previous window
-      vim.cmd("wincmd p")
+      local ok, _ = pcall(vim.api.nvim_buf_set_name, buf, name or cmd)
+      if not ok then
+        -- Name might conflict, that's fine
+      end
+      -- Go back to original window
+      vim.api.nvim_set_current_win(orig_win)
     end
 
     -- Set up keymaps (must use remap=true for <Plug> mappings)
