@@ -7,7 +7,7 @@ email = "e.cerpac@icloud.com"
 [ui]
 default-command = "log"
 paginate = "never"
-editor = "nvim"
+editor = "nvim +startinsert"
 merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 
