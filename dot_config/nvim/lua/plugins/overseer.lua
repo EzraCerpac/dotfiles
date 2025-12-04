@@ -181,32 +181,7 @@ return {
         end,
         desc = "Set args + rerun (uvpy)",
       },
-      {
-        "gzj",
-        function()
-          require("lazy").load({ plugins = { "overseer.nvim" } })
-          local ok, overseer = pcall(require, "overseer")
-          if not ok then return end
-          overseer.run_template({ name = "Julia: REPL" }, function(task)
-            if task then overseer.open({ enter = false }) end
-          end)
-        end,
-        desc = "Start Julia REPL",
-        ft = "julia",
-      },
-      {
-        "gzP",
-        function()
-          require("lazy").load({ plugins = { "overseer.nvim" } })
-          local ok, overseer = pcall(require, "overseer")
-          if not ok then return end
-          overseer.run_template({ name = "Python: REPL (uv)" }, function(task)
-            if task then overseer.open({ enter = false }) end
-          end)
-        end,
-        desc = "Start Python REPL (uv)",
-        ft = "python",
-      },
+      -- REPL keymaps (gzj, gzP) are now in plugins/slime.lua for better vim-slime integration
     },
   },
 }
