@@ -30,51 +30,16 @@ return {
       },
     },
   },
-  -- Julia DAP configuration
+  -- Julia DAP configuration via nvim-dap-julia
   {
     "mfussenegger/nvim-dap",
-    opts = function()
-      local dap = require("dap")
-
-      -- Julia debug adapter using DebugAdapter.jl
-      -- Requires: Pkg.add("DebugAdapter") in Julia
-      dap.adapters.julia = {
-        type = "server",
-        port = "${port}",
-        executable = {
-          command = "julia",
-          args = {
-            "--startup-file=no",
-            "--history-file=no",
-            "-e",
-            [[
-              using DebugAdapter
-              DebugAdapter.run_debugger(; port=]] .. "${port}" .. [[)
-            ]],
-          },
-        },
-      }
-
-      dap.configurations.julia = {
-        {
-          type = "julia",
-          request = "launch",
-          name = "Launch Julia file",
-          program = "${file}",
-          projectDir = "${workspaceFolder}",
-          juliaEnv = "${workspaceFolder}",
-          stopOnEntry = false,
-        },
-        {
-          type = "julia",
-          request = "launch",
-          name = "Launch Julia file (stop on entry)",
-          program = "${file}",
-          projectDir = "${workspaceFolder}",
-          juliaEnv = "${workspaceFolder}",
-          stopOnEntry = true,
-        },
-      }
-    end,
+    dependencies = {
+      {
+        "kdheepak/nvim-dap-julia",
+        config = function()
+          require("nvim-dap-julia").setup()
+        end,
+      },
+    },
   },
 }
