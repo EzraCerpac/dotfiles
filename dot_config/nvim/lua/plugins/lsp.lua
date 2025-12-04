@@ -35,14 +35,12 @@ return {
     -- https://github.com/kdheepak/nvim-dap-julia/
     "mfussenegger/nvim-dap",
     dependencies = {
-      "rcarriga/nvim-dap-ui",
-      "theHamsta/nvim-dap-virtual-text",
-      "nvim-neotest/nvim-nio",
-      "kdheepak/nvim-dap-julia",
+      {
+        "kdheepak/nvim-dap-julia",
+        config = function()
+          require("nvim-dap-julia").setup()
+        end,
+      },
     },
-    config = function()
-      require("dapui").setup()
-      require("nvim-dap-julia").setup()
-    end,
   },
 }
