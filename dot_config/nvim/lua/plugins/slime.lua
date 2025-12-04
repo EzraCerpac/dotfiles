@@ -26,6 +26,19 @@ return {
       return nil
     end
 
+    -- Helper: start a REPL in a split using native :terminal
+    local function start_repl(cmd, name)
+      -- Open a vertical split on the right
+      vim.cmd("vsplit")
+      vim.cmd("wincmd L")
+      -- Start terminal with the command
+      vim.fn.termopen(cmd, { detach = false })
+      -- Name the buffer for easier identification
+      vim.api.nvim_buf_set_name(0, name or cmd)
+      -- Go back to previous window
+      vim.cmd("wincmd p")
+    end
+
     -- Set up keymaps (must use remap=true for <Plug> mappings)
     vim.keymap.set("n", "gz", "<Plug>SlimeMotionSend", { remap = true, silent = false, desc = "Slime send (motion)" })
     vim.keymap.set("n", "gzz", "<Plug>SlimeLineSend", { remap = true, silent = false, desc = "Slime send line" })
@@ -33,6 +46,17 @@ return {
     vim.keymap.set("n", "gzp", "<Plug>SlimeParagraphSend", { remap = true, silent = false, desc = "Slime send paragraph" })
     vim.keymap.set("n", "gzc", "<Plug>SlimeConfig", { remap = true, silent = false, desc = "Slime config" })
 
+    -- Start Julia REPL
+    vim.keymap.set("n", "gzj", function()
+      start_repl("julia --banner=no --project=.", "Julia REPL")
+    end, { desc = "Start Julia REPL" })
+
+    -- Start Python REPL (uv)
+    vim.keymap.set("n", "gzP", function()
+      start_repl("uv run python", "Python REPL")
+    end, { desc = "Start Python REPL (uv)" })
+
+    -- Send whole file
     vim.keymap.set("n", "gzf", function()
       local file = vim.fn.expand("%:p")
       local ft = vim.bo.filetype
