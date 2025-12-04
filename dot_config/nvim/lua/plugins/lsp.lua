@@ -32,6 +32,7 @@ return {
   },
   -- Julia DAP configuration via nvim-dap-julia
   {
+    -- https://github.com/kdheepak/nvim-dap-julia/
     "mfussenegger/nvim-dap",
     dependencies = {
       {
