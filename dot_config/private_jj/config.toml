@@ -15,8 +15,10 @@ diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 "format_short_signature(signature)"= "signature.email().local()"
 
 [git]
-auto-local-bookmark = true
 private-commits = "description(glob:'private:*') | description(glob:'private-*:*')"
+
+[remotes.origin]
+auto-track-bookmarks = "glob:*"
 
 [snapshot]
 max-new-file-size = "1MiB"  # Default
