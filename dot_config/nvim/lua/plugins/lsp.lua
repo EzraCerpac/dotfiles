@@ -19,11 +19,16 @@ return {
         julials = {
           -- critical: do NOT let Mason manage Julia LS
           mason = false,
+          cmd = vim.list_extend({
+            "julia",
+            "--startup-file=no",
+            "--history-file=no",
+          }, { vim.fn.stdpath("config") .. "/lua/helpers/julials.jl" }),
           -- keep the same settings as the LazyVim Julia extra
           settings = {
             julia = {
               completionmode = "qualify",
-              lint = { missingrefs = "none" },
+              -- lint = { missingrefs = "none" },
             },
           },
         },
