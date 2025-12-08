@@ -1,3 +1,12 @@
+return {
+  -- https://github.com/mg979/vim-visual-multi
+  "mg979/vim-visual-multi",
+  keys = {
+    { "<C-j>", "<Plug>(VM-Add-Cursor-Down)", mode = { "n", "v" }, desc = "Add cursor below" },
+    { "<C-k>", "<Plug>(VM-Add-Cursor-Up)", mode = { "n", "v" }, desc = "Add cursor above" },
+    { "<C-n>", "<Plug>(VM-Add-Cursor)", mode = { "n", "v" }, desc = "Add cursor by match" },
+  },
+}
 -- return {
 --   "jake-stewart/multicursor.nvim",
 --   branch = "1.0",
@@ -197,12 +206,3 @@
 --     hl(0, "MultiCursorDisabledSign", { link = "SignColumn" })
 --   end,
 -- }
-return {
-  -- https://github.com/mg979/vim-visual-multi
-  "mg979/vim-visual-multi",
-  keys = {
-    { "<C-j>", "<Plug>(VM-Add-Cursor-Down)", mode = { "n", "v" }, desc = "Add cursor below" },
-    { "<C-k>", "<Plug>(VM-Add-Cursor-Up)", mode = { "n", "v" }, desc = "Add cursor above" },
-    { "<C-n>", "<Plug>(VM-Add-Cursor)", mode = { "n", "v" }, desc = "Add cursor by match" },
-  },
-}
