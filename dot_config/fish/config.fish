@@ -7,15 +7,16 @@ fish_vi_key_bindings
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    atuin init fish --disable-up-arrow | source
+    # Keep history search on arrows
+    atuin init fish | source
     # eval (zellij setup --generate-auto-start fish | string collect)
 end
 
 # Auto-Warpify
 status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
 
+# Silence the default greeting
 function fish_greeting
-    random choice "Hello!" Hi "G'day" Howdy "Hey, stranger!"
 end
 
 # extensions
