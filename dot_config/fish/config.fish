@@ -65,6 +65,7 @@ carapace _carapace | source
 
 # ---------- Julia ----------
 alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true)'"
+alias lss='julia -e "import LiveServer as LS; LS.serve(launch_browser=true)"'
 
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
