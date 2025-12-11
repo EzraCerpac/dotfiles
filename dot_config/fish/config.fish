@@ -7,9 +7,9 @@ fish_vi_key_bindings
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    # Keep history search on arrows
     atuin init fish | source
-    # eval (zellij setup --generate-auto-start fish | string collect)
+    enbind \cr _atuin_search
+    bind -M insert \cr _atuin_searchd
 end
 
 # Auto-Warpify
