@@ -5,7 +5,7 @@ name = "Ezra Cerpac"
 email = "e.cerpac@icloud.com"
 
 [ui]
-default-command = "log --reversed"
+default-command = ["log", "--reversed"]
 paginate = "never"
 editor = "nvim +startinsert"
 merge-editor = "pycharm"
