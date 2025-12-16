@@ -1,6 +1,10 @@
 local overseer = require("overseer")
 local util = require("overseer.template.typst.util")
 
+local function has_toggleterm_strategy()
+  return pcall(require, "overseer.strategy.toggleterm")
+end
+
 return {
   name = "Typst: watch",
   desc = "Watch a Typst file and recompile on change",
@@ -47,7 +51,11 @@ return {
       metadata = { typst = { file = file, kind = "watch" } },
     }
     if params.strategy and params.strategy ~= "" then
-      defn.strategy = params.strategy
+      if params.strategy == "toggleterm" and not has_toggleterm_strategy() then
+        vim.notify("Overseer toggleterm strategy not available; using default", vim.log.levels.WARN)
+      else
+        defn.strategy = params.strategy
+      end
     end
     return defn
   end,
