@@ -37,10 +37,21 @@ return {
       if not has_julia then
         table.insert(templates, "julia")
       end
-      opts.templates = templates
+       -- Add our Typst namespace once
+       local has_typst = false
+       for _, t in ipairs(templates) do
+         if t == "typst" then
+           has_typst = true
+         end
+       end
+       if not has_typst then
+         table.insert(templates, "typst")
+       end
+       opts.templates = templates
 
       -- A small alias we can attach to tasks
       local aliases = opts.component_aliases or {}
+
       aliases.uvpy_default = aliases.uvpy_default
         or { "default", { "on_complete_notify", statuses = { "SUCCESS", "FAILURE" } }, { "uvpy.env" } }
       opts.component_aliases = aliases
@@ -88,9 +99,9 @@ return {
       end
     end,
     init = function()
-      -- Ensure overseer is loaded for Python and Julia buffers so templates are available
+      -- Ensure overseer is loaded for Python, Julia, and Typst buffers so templates are available
       vim.api.nvim_create_autocmd("FileType", {
-        pattern = { "python", "julia" },
+        pattern = { "python", "julia", "typst" },
         callback = function()
           pcall(function()
             require("lazy").load({ plugins = { "overseer.nvim" } })

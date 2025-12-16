@@ -1,39 +1,42 @@
-local uv = vim.uv or vim.loop
-
-local function ensure_pdf(source, pdf)
-  if uv.fs_stat(pdf) then
-    return true
+local function typst_root(path_of_main_file)
+  local root = os.getenv("TYPST_ROOT")
+  if root then
+    return root
   end
 
-  local job, err = vim.system({ "typst", "compile", source, pdf }, { text = true })
-  if not job then
-    vim.notify("Typst compile failed: " .. (err or "command not found"), vim.log.levels.ERROR)
-    return false
+  local project_root
+  if path_of_main_file and path_of_main_file ~= "" then
+    local start_dir = vim.fs.dirname(path_of_main_file)
+    if start_dir then
+      local git_root = vim.fs.find(".git", {
+        path = start_dir,
+        upward = true,
+        type = "directory",
+      })[1]
+      if git_root then
+        project_root = vim.fs.dirname(git_root)
+      end
+    end
   end
 
-  local result = job:wait()
-  if result.code ~= 0 then
-    local stderr = result.stderr or ""
-    local stdout = result.stdout or ""
-    local msg = stderr ~= "" and stderr or stdout
-    vim.notify("Typst compile failed: " .. msg, vim.log.levels.ERROR)
-    return false
+  if project_root then
+    return project_root
   end
 
-  return true
+  return vim.fn.fnamemodify(path_of_main_file, ":p:h")
 end
 
-local function open_pdf(bufnr)
-  local source = vim.api.nvim_buf_get_name(bufnr)
-  if source == "" or not source:match("%.typ$") then
-    vim.notify("No Typst buffer detected.", vim.log.levels.WARN)
+local function run_typst_template(name, params)
+  require("lazy").load({ plugins = { "overseer.nvim" } })
+  local ok, overseer = pcall(require, "overseer")
+  if not ok then
     return
   end
-
-  local pdf = source:gsub("%.typ$", ".pdf")
-  if ensure_pdf(source, pdf) then
-    vim.system({ "open", pdf }, { detach = true })
-  end
+  overseer.run_template({ name = name, params = params }, function(task)
+    if task then
+      overseer.open({ enter = false })
+    end
+  end)
 end
 
 return {
@@ -43,50 +46,30 @@ return {
     version = "1.*",
     opts = {
       -- This function will be called to determine the root of the typst project
-      get_root = function(path_of_main_file)
-        local root = os.getenv("TYPST_ROOT")
-        if root then
-          return root
-        end
-        local project_root
-        if path_of_main_file and path_of_main_file ~= "" then
-          local start_dir = vim.fs.dirname(path_of_main_file)
-          if start_dir then
-            local git_root = vim.fs.find(".git", {
-              path = start_dir,
-              upward = true,
-              type = "directory",
-            })[1]
-            if git_root then
-              project_root = vim.fs.dirname(git_root)
-            end
-          end
-        end
-
-        if project_root then
-          return project_root
-        end
-
-        return vim.fn.fnamemodify(path_of_main_file, ":p:h")
-      end,
+      get_root = typst_root,
     },
     config = function(_, opts)
       require("typst-preview").setup(opts)
-
-      vim.api.nvim_create_user_command("TypstOpenPdf", function()
-        open_pdf(vim.api.nvim_get_current_buf())
-      end, { desc = "Compile and open the Typst PDF for the current buffer" })
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "typst",
         callback = function(event)
           vim.keymap.set("n", "<localleader>to", function()
-            open_pdf(event.buf)
-          end, { buffer = event.buf, desc = "[T]ypst [O]pen PDF" })
+            local file = vim.api.nvim_buf_get_name(event.buf)
+            run_typst_template("Typst: compile pdf", { file = file })
+          end, { buffer = event.buf, desc = "[T]ypst [O]verseer compile" })
+
+          vim.keymap.set("n", "<localleader>tw", function()
+            local file = vim.api.nvim_buf_get_name(event.buf)
+            run_typst_template("Typst: watch", { file = file, strategy = "toggleterm" })
+          end, { buffer = event.buf, desc = "[T]ypst [W]atch (overseer)" })
+
+          vim.keymap.set("n", "<localleader>tt", "<CMD>TypstPreview<CR>", {
+            buffer = event.buf,
+            desc = "[T]ypst [T]oggle Preview",
+          })
         end,
       })
-
-      vim.keymap.set("n", "<localleader>tt", "<CMD>TypstPreview<CR>", { desc = "[T]ypst [T]oggle Preview" })
     end,
   },
   {
