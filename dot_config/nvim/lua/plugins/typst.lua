@@ -1,3 +1,5 @@
+local uv = vim.uv or vim.loop
+
 local function typst_root(path_of_main_file)
   local root = os.getenv("TYPST_ROOT")
   if root then
@@ -26,17 +28,35 @@ local function typst_root(path_of_main_file)
   return vim.fn.fnamemodify(path_of_main_file, ":p:h")
 end
 
-local function run_typst_template(name, params)
+local function run_typst_template(name, params, on_complete)
   require("lazy").load({ plugins = { "overseer.nvim" } })
   local ok, overseer = pcall(require, "overseer")
   if not ok then
     return
   end
   overseer.run_template({ name = name, params = params }, function(task)
-    if task then
-      overseer.open({ enter = false })
+    if not task then
+      return
     end
+    if on_complete then
+      task:subscribe("on_complete", function(_, status)
+        if status == "SUCCESS" then
+          on_complete(params)
+        end
+      end)
+    end
+    overseer.open({ enter = false })
   end)
+end
+
+local function open_pdf_for_file(file)
+  if not file or file == "" or not file:match("%.typ$") then
+    return
+  end
+  local pdf = file:gsub("%.typ$", ".pdf")
+  if uv.fs_stat(pdf) then
+    vim.system({ "open", pdf }, { detach = true })
+  end
 end
 
 return {
@@ -54,10 +74,17 @@ return {
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "typst",
         callback = function(event)
-          vim.keymap.set("n", "<localleader>to", function()
+          vim.keymap.set("n", "\\tc", function()
             local file = vim.api.nvim_buf_get_name(event.buf)
             run_typst_template("Typst: compile pdf", { file = file })
-          end, { buffer = event.buf, desc = "[T]ypst [O]verseer compile" })
+          end, { buffer = event.buf, desc = "[T]ypst [C]ompile (overseer)" })
+
+          vim.keymap.set("n", "\\to", function()
+            local file = vim.api.nvim_buf_get_name(event.buf)
+            run_typst_template("Typst: compile pdf", { file = file }, function()
+              open_pdf_for_file(file)
+            end)
+          end, { buffer = event.buf, desc = "[T]ypst [O]pen PDF (overseer)" })
 
           vim.keymap.set("n", "<localleader>tw", function()
             local file = vim.api.nvim_buf_get_name(event.buf)
