@@ -88,7 +88,7 @@ return {
 
           vim.keymap.set("n", "<localleader>tw", function()
             local file = vim.api.nvim_buf_get_name(event.buf)
-            run_typst_template("Typst: watch", { file = file, strategy = "toggleterm" })
+            run_typst_template("Typst: watch", { file = file })
           end, { buffer = event.buf, desc = "[T]ypst [W]atch (overseer)" })
 
           vim.keymap.set("n", "<localleader>tt", "<CMD>TypstPreview<CR>", {
