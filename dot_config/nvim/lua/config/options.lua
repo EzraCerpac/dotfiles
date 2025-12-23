@@ -29,6 +29,9 @@ vim.g.lazyvim_cmp = "blink.cmp"
 -- Set XDG_CONFIG_HOME to ensure lazygit uses ~/.config/lazygit
 vim.env.XDG_CONFIG_HOME = vim.fn.expand("~/.config")
 
+-- Filetype detection for WGSL
+vim.filetype.add({ extension = { wgsl = "wgsl" } })
+
 -- LSP Server configurations
 -- require("lspconfig").harper_ls.setup({
 --   settings = {
