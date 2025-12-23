@@ -43,3 +43,4 @@ require("fzf-lua").setup({
 vim.api.nvim_create_user_command("LatexToTypst", function()
   require("latex_to_typst").convert()
 end, { range = true })
+vim.keymap.set("v", "<localleader>lt", ":LatexToTypst<CR>", { desc = "Convert LaTeX to Typst" })
