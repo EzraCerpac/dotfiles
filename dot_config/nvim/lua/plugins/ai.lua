@@ -72,8 +72,8 @@ opencode = function()
       --         },
       --       },
       --     })
-        end,
-      },
+      --   end,
+      -- },
       strategies = {
         chat = {
           adapter = {
