@@ -43,4 +43,10 @@ require("fzf-lua").setup({
 vim.api.nvim_create_user_command("LatexToTypst", function()
   require("custom.latex_to_typst").convert()
 end, { range = true })
-vim.keymap.set("v", "<localleader>lt", ":LatexToTypst<CR>", { desc = "Convert LaTeX to Typst" })
+
+vim.api.nvim_create_user_command("LatexToTypstPaste", function()
+  require("custom.latex_to_typst").paste_clipboard()
+end, {})
+
+vim.keymap.set("v", "<localleader>tl", ":LatexToTypst<CR>", { desc = "Convert LaTeX to Typst" })
+vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste Typst from clipboard LaTeX" })
