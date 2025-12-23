@@ -59,9 +59,12 @@ return {
       strategies = {
         chat = {
           adapter = {
-            type = "acp",
-            name = "codex",
+            name = "opencode",
           },
+          -- adapter = {
+          --   type = "acp",
+          --   name = "codex",
+          -- },
         },
       },
     },
