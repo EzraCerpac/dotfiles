@@ -35,8 +35,26 @@ return {
       { "ravitemer/mcphub.nvim" },
     },
     opts = {
-      -- adapters = {
-      --   acp = {
+      adapters = {
+        acp = {
+opencode = function()
+                return require("codecompanion.adapters").extend("opencode", {
+                    commands = {
+                        default = {
+                            "opencode", "acp"
+                        },
+                        sonnet_4_5 = {
+                            "opencode", "acp", "-m", "github-copilot/claude-sonnet-4.5"
+                        },
+                        opus_4_5 = {
+                            "opencode", "acp", "-m", "github-copilot/claude-opus-4.5"
+                        },
+                        gpt_5_2 = {
+                            "opencode", "acp", "-m", "github-copilot/gpt-5.2"
+                        }
+                    },
+                })
+            end,
       --     codex = function()
       --       local cfg = require("codecompanion.adapters").extend("codex")
       --       -- Use ChatGPT login (requires paid subscription)
@@ -55,7 +73,7 @@ return {
       --       },
       --     })
       --   end,
-      -- },
+      },
       strategies = {
         chat = {
           adapter = {
