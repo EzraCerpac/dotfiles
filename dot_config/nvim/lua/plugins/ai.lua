@@ -35,27 +35,27 @@ return {
       { "ravitemer/mcphub.nvim" },
     },
     opts = {
-      adapters = {
-        acp = {
-          codex = function()
-            local cfg = require("codecompanion.adapters").extend("codex")
-            -- Use ChatGPT login (requires paid subscription)
-            cfg.defaults.auth_method = "chatgpt"
-            -- If you don’t have the codex-acp binary installed globally, use npm:
-            -- cfg.commands.default = { "npx", "@zed-industries/codex-acp" }
-            return cfg
-          end,
-        },
-        copilot = function()
-          return require("codecompanion.adapters").extend("copilot", {
-            schema = {
-              model = {
-                default = "gpt-5.1-codex",
-              },
-            },
-          })
-        end,
-      },
+      -- adapters = {
+      --   acp = {
+      --     codex = function()
+      --       local cfg = require("codecompanion.adapters").extend("codex")
+      --       -- Use ChatGPT login (requires paid subscription)
+      --       cfg.defaults.auth_method = "chatgpt"
+      --       -- If you don’t have the codex-acp binary installed globally, use npm:
+      --       -- cfg.commands.default = { "npx", "@zed-industries/codex-acp" }
+      --       return cfg
+      --     end,
+      --   },
+      --   copilot = function()
+      --     return require("codecompanion.adapters").extend("copilot", {
+      --       schema = {
+      --         model = {
+      --           default = "gpt-5.1-codex",
+      --         },
+      --       },
+      --     })
+      --   end,
+      -- },
       strategies = {
         chat = {
           adapter = {
