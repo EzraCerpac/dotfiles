@@ -64,7 +64,7 @@ require("config.root-overide")
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "codecompanion",
   callback = function()
-    require("blink.cmp").setup_buffer({ enabled = false })
+    vim.b.blink_cmp_enabled = false
   end,
   desc = "Disable blink.cmp in codecompanion buffers",
 })
