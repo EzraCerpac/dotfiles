@@ -26,6 +26,12 @@ return {
                   "-m",
                   "github-copilot/claude-opus-4.5",
                 },
+                gpt_5_2 = {
+                  "opencode",
+                  "acp",
+                  "-m",
+                  "github-copilot/gpt-5.2",
+                },
               },
             })
           end,
@@ -194,4 +200,3 @@ return {
     },
   },
 }
-
