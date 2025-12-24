@@ -33,6 +33,7 @@ return {
     dependencies = {
       { "nvim-lua/plenary.nvim" },
       { "ravitemer/mcphub.nvim" },
+      { "HakonHarnes/img-clip.nvim" },
     },
     opts = {
       adapters = {
