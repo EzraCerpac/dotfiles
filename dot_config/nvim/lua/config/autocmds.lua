@@ -60,6 +60,15 @@ vim.api.nvim_create_autocmd("FileType", {
 -- Load root override functionality
 require("config.root-overide")
 
+-- Disable blink.cmp in codecompanion buffers to allow slash commands
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "codecompanion",
+  callback = function()
+    require("blink.cmp").setup_buffer({ enabled = false })
+  end,
+  desc = "Disable blink.cmp in codecompanion buffers",
+})
+
 -- vim.api.nvim_create_autocmd("LspAttach", {
 --   callback = function()
 --     local bufnr = vim.api.nvim_get_current_buf()
