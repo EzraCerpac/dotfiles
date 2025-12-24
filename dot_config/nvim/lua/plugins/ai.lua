@@ -90,13 +90,15 @@ return {
         chat = {
           adapter = {
             name = "opencode",
-            type = "acp",
           },
           -- adapter = {
           --   type = "acp",
           --   name = "codex",
           -- },
         },
+      },
+      interactions = {
+        chat = { adapter = "opencode" },
       },
     },
     config = function()
