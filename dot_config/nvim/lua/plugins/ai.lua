@@ -32,6 +32,12 @@ return {
                   "-m",
                   "github-copilot/gpt-5.2",
                 },
+                glm_4_7_free = {
+                  "opencode",
+                  "acp",
+                  "-m",
+                  "opencode/glm-4.7-free",
+                },
               },
             })
           end,
