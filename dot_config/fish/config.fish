@@ -7,7 +7,7 @@ fish_vi_key_bindings
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    atuin init fish --disable-up-arrow | source
+    atuin init fish | source
     bind \cr _atuin_search
     bind -M insert \cr _atuin_search
 end
