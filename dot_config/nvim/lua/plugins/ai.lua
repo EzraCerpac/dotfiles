@@ -90,6 +90,7 @@ return {
         chat = {
           adapter = {
             name = "opencode",
+            type = "acp",
           },
           -- adapter = {
           --   type = "acp",
