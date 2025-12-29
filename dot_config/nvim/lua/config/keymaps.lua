@@ -66,6 +66,6 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
     vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
     return
   end
-  vim.fn.setreg("+", output, "v")
-  vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
+  vim.notify("output length: " .. #output, vim.log.levels.INFO)
+  vim.notify("first 100 chars: " .. string.sub(output, 1, 100), vim.log.levels.INFO)
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
