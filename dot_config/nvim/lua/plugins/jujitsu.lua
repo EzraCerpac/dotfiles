@@ -45,27 +45,10 @@ return {
       local jj_diff = require("jj.diff")
       local jj_picker = require("jj.picker")
 
-      jj.setup({
-        cmd = {
-          describe = {
-            editor = {
-              type = "buffer",
-              keymaps = {
-                close = { "q", "<Esc>", "<C-c>" },
-              },
-            },
-          },
-          keymaps = {
-            log = {
-              checkout = "<CR>",
-              describe = "d",
-              diff = "<S-d>",
-            },
-            status = {
-              open_file = "<CR>",
-              restore_file = "<S-x>",
-            },
-            close = { "q", "<Esc>" },
+      require("jj").setup({
+        describe = {
+          editor = {
+            type = "input", -- Use simple input mode
           },
         },
       })
