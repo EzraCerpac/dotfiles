@@ -63,7 +63,7 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   local theme = vim.g.rtf_theme or "xcode"
   local output = vim.fn.system("pygmentize -f rtf -O style=" .. theme .. " -l " .. lexer, content)
   if vim.v.shell_error == 0 then
-    vim.fn.system("pbcopy", output)
+    vim.fn.system("printf %s " .. vim.fn.shellescape(output) .. " | pbcopy")
     vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
   else
     vim.notify("pygmentize failed", vim.log.levels.ERROR)
