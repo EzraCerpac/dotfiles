@@ -53,7 +53,8 @@ vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste
 
 -- RTF Syntax Highlighting (via helper script)
 vim.api.nvim_create_user_command("RTFHighlight", function(args)
-  local script = vim.fn.expand("~/.config/nvim/lua/helpers/executable_to_clipboard.sh")
+  local home = os.getenv("HOME") or "/Users/ezracerpac"
+  local script = home .. "/.config/nvim/lua/helpers/to_clipboard.sh"
   if vim.fn.filereadable(script) ~= 1 then
     vim.notify("to_clipboard.sh not found", vim.log.levels.ERROR)
     return
