@@ -1,3 +1,3 @@
-return { {
-  "tenderlove/vim-to-rtf",
-} }
+return {
+  { "tenderlove/vim-to-rtf" },
+}
