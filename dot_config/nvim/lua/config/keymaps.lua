@@ -66,19 +66,24 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
     vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
     return
   end
-  -- Use vim.loop to spawn pbcopy with stdin
-  local handle, err = vim.loop.spawn("pbcopy", {
-    args = {},
-    stdio = { vim.loop.stdin_new(), vim.loop.stdin_new(), vim.loop.stdin_new() },
-  }, function(code)
-    -- callback when process exits
-  end)
-  if not handle then
-    vim.notify("Failed to spawn pbcopy: " .. err, vim.log.levels.ERROR)
+  -- Use jobstart to spawn pbcopy and send data via stdin
+  local job = vim.fn.jobstart({ "pbcopy" }, {
+    on_stderr = function(_, data)
+      if data and data ~= "" then
+        vim.notify("pbcopy stderr: " .. data, vim.log.levels.WARN)
+      end
+    end,
+    on_exit = function(_, code)
+      if code ~= 0 then
+        vim.notify("pbcopy exited with code: " .. code, vim.log.levels.ERROR)
+      end
+    end,
+  })
+  if job <= 0 then
+    vim.notify("Failed to start pbcopy job", vim.log.levels.ERROR)
     return
   end
-  handle:write(output)
-  handle:close()
-  handle:close()
+  vim.fn.jobsend(job, output)
+  vim.fn.jobclose(job, "stdin")
   vim.notify("RTF copied to clipboard (length: " .. #output .. ")", vim.log.levels.INFO)
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
