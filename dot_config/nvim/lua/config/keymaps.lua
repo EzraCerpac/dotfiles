@@ -66,8 +66,11 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
     vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
     return
   end
-  -- Debug: test pbcopy with simple string
-  vim.notify("Testing pbcopy with simple string...", vim.log.levels.INFO)
-  vim.cmd("silent !echo 'hello test' | pbcopy")
-  vim.notify("Check clipboard now - does it say 'hello test'?", vim.log.levels.WARN)
+  -- Write temp file, then run entire command through shell
+  local tmpfile = vim.fn.tempname()
+  vim.fn.writefile(vim.split(output, "\n", true), tmpfile)
+  -- Run command through sh -c to properly handle the pipe
+  vim.cmd("silent !sh -c 'cat " .. vim.fn.shellescape(tmpfile) .. " | pbcopy'")
+  vim.fn.delete(tmpfile)
+  vim.notify("RTF copied to clipboard (length: " .. #output .. ")", vim.log.levels.INFO)
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
