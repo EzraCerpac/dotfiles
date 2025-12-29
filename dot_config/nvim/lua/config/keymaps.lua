@@ -66,11 +66,6 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
     vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
     return
   end
-  local copy_cmd = "printf %s " .. vim.fn.shellescape(output) .. " | pbcopy"
-  local copy_result = vim.fn.system(copy_cmd)
-  if vim.v.shell_error ~= 0 then
-    vim.notify("pbcopy failed: " .. copy_result, vim.log.levels.ERROR)
-  else
-    vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
-  end
+  vim.fn.setreg("+", output, "v")
+  vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
