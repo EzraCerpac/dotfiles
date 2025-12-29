@@ -69,14 +69,10 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   -- Use jobstart to spawn pbcopy and send data via stdin
   local job = vim.fn.jobstart({ "pbcopy" }, {
     on_stderr = function(_, data)
-      if data and data ~= "" then
-        vim.notify("pbcopy stderr: " .. data, vim.log.levels.WARN)
-      end
+      vim.notify("pbcopy stderr type: " .. type(data) .. " data: " .. vim.inspect(data), vim.log.levels.WARN)
     end,
     on_exit = function(_, code)
-      if code ~= 0 then
-        vim.notify("pbcopy exited with code: " .. code, vim.log.levels.ERROR)
-      end
+      vim.notify("pbcopy exit code: " .. code, vim.log.levels.INFO)
     end,
   })
   if job <= 0 then
