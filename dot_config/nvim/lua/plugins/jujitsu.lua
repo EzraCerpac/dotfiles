@@ -46,9 +46,11 @@ return {
       local jj_picker = require("jj.picker")
 
       require("jj").setup({
-        describe = {
-          editor = {
-            type = "input", -- Use simple input mode
+        cmd = {
+          describe = {
+            editor = {
+              type = "input", -- Use simple input mode
+            },
           },
         },
       })
