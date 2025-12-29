@@ -62,10 +62,15 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   local lexer = vim.bo.filetype ~= "" and vim.bo.filetype or "text"
   local theme = vim.g.rtf_theme or "xcode"
   local output = vim.fn.system("pygmentize -f rtf -O style=" .. theme .. " -l " .. lexer, content)
-  if vim.v.shell_error == 0 then
-    vim.fn.system("printf %s " .. vim.fn.shellescape(output) .. " | pbcopy")
-    vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
+  if vim.v.shell_error ~= 0 then
+    vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
+    return
+  end
+  local copy_cmd = "printf %s " .. vim.fn.shellescape(output) .. " | pbcopy"
+  local copy_result = vim.fn.system(copy_cmd)
+  if vim.v.shell_error ~= 0 then
+    vim.notify("pbcopy failed: " .. copy_result, vim.log.levels.ERROR)
   else
-    vim.notify("pygmentize failed", vim.log.levels.ERROR)
+    vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
   end
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
