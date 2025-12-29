@@ -66,13 +66,10 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
     vim.notify("pygmentize failed: " .. output, vim.log.levels.ERROR)
     return
   end
-  local escaped = output:gsub("'", "'\\''")
-  local copy_cmd = "printf '%s' " .. escaped .. " | pbcopy"
-  vim.notify("Running: " .. copy_cmd, vim.log.levels.INFO)
-  local copy_result = vim.fn.system(copy_cmd)
-  vim.notify("pbcopy result: " .. copy_result, vim.log.levels.INFO)
+  -- Pass output to pbcopy via stdin (2-arg form runs command directly)
+  vim.fn.system("pbcopy", output)
   if vim.v.shell_error ~= 0 then
-    vim.notify("pbcopy failed with code: " .. vim.v.shell_error, vim.log.levels.ERROR)
+    vim.notify("pbcopy failed", vim.log.levels.ERROR)
     return
   end
   vim.notify("RTF copied to clipboard (length: " .. #output .. ")", vim.log.levels.INFO)
