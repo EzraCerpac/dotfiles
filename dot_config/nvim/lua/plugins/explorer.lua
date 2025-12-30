@@ -161,4 +161,10 @@ return {
       { "-", "<CMD>Oil<CR>", desc = "Open parent directory" },
     },
   },
+  {
+    -- https://github.com/JezerM/oil-lsp-diagnostics.nvim
+    "JezerM/oil-lsp-diagnostics.nvim",
+    dependencies = { "stevearc/oil.nvim" },
+    opts = {},
+  },
 }
