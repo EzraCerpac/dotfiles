@@ -9,6 +9,9 @@ local mini_files_km = require("config.modules.mini-files-km")
 -- -- git config is slowing mini.files too much, so disabling it
 local mini_files_git = require("config.modules.mini-files-git")
 
+-- for oil.nvim detail toggle
+local detail = false
+
 return {
   {
     "nvim-mini/mini.files",
@@ -132,12 +135,30 @@ return {
         "size",
         "mtime",
       },
+      delete_to_trash = true,
+      skip_confirm_for_simple_edits = true,
       view_options = {
         show_hidden = true,
       },
+      keymaps = {
+        ["H"] = { "actions.parent", mode = "n" },
+        ["L"] = { "actions.select", mode = "n" },
+        ["<C-v>"] = { "actions.select", opts = { vertical = true } },
+        ["gd"] = {
+          desc = "Toggle file detail view",
+          callback = function()
+            detail = not detail
+            if detail then
+              require("oil").set_columns({ "icon", "permissions", "size", "mtime" })
+            else
+              require("oil").set_columns({ "icon" })
+            end
+          end,
+        },
+      },
     },
     keys = {
-      { "-", "<CMD>Oil<CR>", desc = "Open Oil (File Explorer)" },
+      { "-", "<CMD>Oil<CR>", desc = "Open parent directory" },
     },
   },
 }
