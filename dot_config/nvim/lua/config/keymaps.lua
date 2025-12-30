@@ -70,8 +70,8 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   vim.fn.writefile(vim.split(content, "\n"), tmpfile)
   vim.notify("tmpfile: " .. tmpfile, vim.log.levels.INFO)
 
-  -- Call script with temp file
-  local cmd = "sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile)
+  -- Call script with temp file (lexer, input_file, theme)
+  local cmd = "sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile) .. " xcode"
   vim.notify("cmd: " .. cmd, vim.log.levels.INFO)
   local result = vim.fn.system(cmd)
   vim.notify("result: " .. result, vim.log.levels.INFO)
