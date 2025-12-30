@@ -1,11 +1,10 @@
 return {
-  { "MunifTanjim/nui.nvim", lazy = true },
+  {
+    "LazyVim/LazyVim",
+    opts = {
+      explorer = {
+        enabled = false,
+      },
+    },
+  },
 }
--- return {
---   {
---     "LazyVim/LazyVim",
---     opts = {
---       colorscheme = "catppuccin",
---     },
---   },
--- }
