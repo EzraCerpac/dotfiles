@@ -61,11 +61,21 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   end
   local line1, line2 = args.line1, args.line2
   local content = table.concat(vim.api.nvim_buf_get_lines(0, line1 - 1, line2, false), "\n")
-  vim.notify("content lines: " .. #content, vim.log.levels.INFO)
   local lexer = vim.bo.filetype ~= "" and vim.bo.filetype or "lua"
-  vim.notify("lexer: " .. lexer, vim.log.levels.INFO)
-  local result = vim.fn.system("sh " .. vim.fn.shellescape(script) .. " " .. lexer, content)
-  vim.notify("result: " .. result, vim.log.levels.INFO)
-  vim.notify("shell_error: " .. vim.v.shell_error, vim.log.levels.INFO)
+
+  -- Write content to temp file
+  local tmpfile = vim.fn.tempname()
+  vim.fn.writefile(vim.split(content, "\n"), tmpfile)
+
+  -- Call script with temp file
+  vim.fn.system("sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile))
+
+  -- Clean up
+  vim.fn.delete(tmpfile)
+
+  if vim.v.shell_error ~= 0 then
+    vim.notify("clipboard script failed", vim.log.levels.ERROR)
+    return
+  end
   vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
 end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
