@@ -55,6 +55,8 @@ vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste
 vim.api.nvim_create_user_command("RTFHighlight", function(args)
   local home = os.getenv("HOME") or "/Users/ezracerpac"
   local script = home .. "/.config/nvim/lua/helpers/to_clipboard.sh"
+  vim.notify("script: " .. script, vim.log.levels.INFO)
+  vim.notify("exists: " .. vim.fn.filereadable(script), vim.log.levels.INFO)
   if vim.fn.filereadable(script) ~= 1 then
     vim.notify("to_clipboard.sh not found", vim.log.levels.ERROR)
     return
@@ -66,9 +68,14 @@ vim.api.nvim_create_user_command("RTFHighlight", function(args)
   -- Write content to temp file
   local tmpfile = vim.fn.tempname()
   vim.fn.writefile(vim.split(content, "\n"), tmpfile)
+  vim.notify("tmpfile: " .. tmpfile, vim.log.levels.INFO)
 
   -- Call script with temp file
-  vim.fn.system("sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile))
+  local cmd = "sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile)
+  vim.notify("cmd: " .. cmd, vim.log.levels.INFO)
+  local result = vim.fn.system(cmd)
+  vim.notify("result: " .. result, vim.log.levels.INFO)
+  vim.notify("shell_error: " .. vim.v.shell_error, vim.log.levels.INFO)
 
   -- Clean up
   vim.fn.delete(tmpfile)
