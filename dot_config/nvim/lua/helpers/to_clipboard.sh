@@ -1,10 +1,10 @@
 #!/bin/bash
 # Converts file to RTF via pygmentize and copies to macOS clipboard
-# Usage: to_clipboard.sh <filetype> [theme] <input_file>
+# Usage: to_clipboard.sh <filetype> <input_file> [theme]
 
 LEXER="${1:-lua}"
-THEME="${2:-xcode}"
-INPUT="${3:-/dev/stdin}"
+INPUT="${2:-/dev/stdin}"
+THEME="${3:-xcode}"
 
 # Write RTF to temp file
 RTFFILE=$(mktemp).rtf
