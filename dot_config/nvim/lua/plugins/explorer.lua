@@ -128,5 +128,8 @@ return {
     dependencies = {
       { "nvim-mini/mini.icons", opts = {} },
     },
+    keys = {
+      { "-", "<CMD>Oil<CR>", desc = "Open Oil (File Explorer)" },
+    },
   },
 }
