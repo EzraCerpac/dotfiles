@@ -118,9 +118,12 @@ return {
   },
   {
     "stevearc/oil.nvim",
+    lazy = false, -- correct
+    dependencies = {
+      { "nvim-mini/mini.icons", opts = {} },
+    },
     ---@module 'oil'
     ---@type oil.SetupOpts
-    lazy = false, -- correct
     opts = {
       default_file_explorer = true, -- THIS is the key
       columns = {
@@ -132,9 +135,6 @@ return {
       view_options = {
         show_hidden = true,
       },
-    },
-    dependencies = {
-      { "nvim-mini/mini.icons", opts = {} },
     },
     keys = {
       { "-", "<CMD>Oil<CR>", desc = "Open Oil (File Explorer)" },
