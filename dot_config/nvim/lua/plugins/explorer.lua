@@ -167,4 +167,9 @@ return {
     dependencies = { "stevearc/oil.nvim" },
     opts = {},
   },
+  {
+    -- https://github.com/benomahony/oil-git.nvim
+    "benomahony/oil-git.nvim",
+    dependencies = { "stevearc/oil.nvim" },
+  },
 }
