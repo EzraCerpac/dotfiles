@@ -112,5 +112,18 @@ return {
     -- Load Git integration
     -- git config is slowing mini.files too much, so disabling it
     mini_files_git.setup()
+
+    -- Open mini.files when opening a directory
+    vim.api.nvim_create_autocmd("BufEnter", {
+      callback = function(args)
+        local path = args.file
+        if vim.fn.isdirectory(path) == 1 then
+          vim.schedule(function()
+            require("mini.files").open(path)
+            vim.cmd.bwipeout(args.buf)
+          end)
+        end
+      end,
+    })
   end,
 }
