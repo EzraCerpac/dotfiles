@@ -118,9 +118,17 @@ return {
   },
   {
     "stevearc/oil.nvim",
+    ---@module 'oil'
+    ---@type oil.SetupOpts
     lazy = false, -- correct
     opts = {
       default_file_explorer = true, -- THIS is the key
+      columns = {
+        "icon",
+        -- "permissions",
+        "size",
+        "mtime",
+      },
       view_options = {
         show_hidden = true,
       },
