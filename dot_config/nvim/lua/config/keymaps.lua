@@ -24,11 +24,6 @@ vim.keymap.set("n", "<leader>qr", "<Cmd>restart<CR>", { desc = "Restart nvim" })
 vim.keymap.set({ "n", "v", "o" }, "gh", "^", { desc = "First char of line" })
 vim.keymap.set({ "n", "v", "o" }, "gl", "$", { desc = "Last char of line" })
 
--- Ensure <leader>e opens mini.files (override any LazyVim defaults)
-vim.keymap.set("n", "<leader>e", function()
-  require("mini.files").open(vim.api.nvim_buf_get_name(0), true)
-end, { desc = "Open mini.files (Directory of Current File)" })
-
 local actions = require("fzf-lua.actions")
 
 require("fzf-lua").setup({
