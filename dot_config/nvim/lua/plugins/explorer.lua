@@ -155,6 +155,8 @@ return {
             end
           end,
         },
+        ["q"] = { "actions.close", mode = "n" },
+        ["<Esc>"] = { "actions.close", mode = "n" },
       },
     },
     keys = {
