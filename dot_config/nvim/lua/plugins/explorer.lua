@@ -132,8 +132,8 @@ return {
       columns = {
         "icon",
         -- "permissions",
-        "size",
-        "mtime",
+        -- "size",
+        -- "mtime",
       },
       delete_to_trash = true,
       skip_confirm_for_simple_edits = true,
