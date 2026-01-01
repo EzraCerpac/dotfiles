@@ -26,9 +26,9 @@ vim.keymap.set({ "n", "v", "o" }, "gl", "$", { desc = "Last char of line" })
 
 -- Text editting --
 vim.keymap.set("v", "<C-b>", "gsa*", { desc = "Surround selection with *" })
-vim.keymap.set("n", "<C-b>", "gsiw*", { desc = "Surround word with *" })
+vim.keymap.set("n", "<C-b>", "gsaiw*", { desc = "Surround word with *" })
 vim.keymap.set("v", "<C-i>", "gsa_", { desc = "Surround selection with _" })
-vim.keymap.set("n", "<C-i>", "gsiw_", { desc = "Surround word with _" })
+vim.keymap.set("n", "<C-i>", "gsaiw_", { desc = "Surround word with _" })
 
 local actions = require("fzf-lua.actions")
 
