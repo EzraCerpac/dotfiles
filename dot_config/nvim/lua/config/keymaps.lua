@@ -54,6 +54,7 @@ vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste
 
 -- RTF Syntax Highlighting (direct pygmentize)
 vim.api.nvim_create_user_command("RTFHighlight", function()
+  vim.cmd("update") -- save current file
   local lexer = vim.bo.filetype ~= "" and vim.bo.filetype or "lua"
   local file = vim.fn.expand("%")
   local cmd = "pygmentize -f rtf -O style=xcode -l " .. lexer .. " " .. vim.fn.shellescape(file) .. " | pbcopy"
