@@ -52,32 +52,15 @@ end, {})
 vim.keymap.set("v", "<localleader>tl", ":LatexToTypst<CR>", { desc = "Convert LaTeX to Typst" })
 vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste Typst from clipboard LaTeX" })
 
--- RTF Syntax Highlighting (via helper script)
-vim.api.nvim_create_user_command("RTFHighlight", function(args)
-  local home = os.getenv("HOME") or "/Users/ezracerpac"
-  local script = home .. "/.config/nvim/lua/helpers/to_clipboard.sh"
-  if vim.fn.filereadable(script) ~= 1 then
-    vim.notify("to_clipboard.sh not found", vim.log.levels.ERROR)
-    return
-  end
-  local line1, line2 = args.line1, args.line2
-  local content = table.concat(vim.api.nvim_buf_get_lines(0, line1 - 1, line2, false), "\n")
+-- RTF Syntax Highlighting (direct pygmentize)
+vim.api.nvim_create_user_command("RTFHighlight", function()
   local lexer = vim.bo.filetype ~= "" and vim.bo.filetype or "lua"
-
-  -- Write content to temp file
-  local tmpfile = vim.fn.tempname()
-  vim.fn.writefile(vim.split(content, "\n"), tmpfile)
-
-  -- Call script with temp file (lexer, input_file, theme)
-  local cmd = "sh " .. vim.fn.shellescape(script) .. " " .. lexer .. " " .. vim.fn.shellescape(tmpfile) .. " xcode"
+  local file = vim.fn.expand("%")
+  local cmd = "pygmentize -f rtf -O style=xcode -l " .. lexer .. " " .. vim.fn.shellescape(file) .. " | pbcopy"
   vim.fn.system(cmd)
-
-  -- Clean up
-  vim.fn.delete(tmpfile)
-
   if vim.v.shell_error ~= 0 then
-    vim.notify("clipboard script failed", vim.log.levels.ERROR)
+    vim.notify("pygmentize failed", vim.log.levels.ERROR)
     return
   end
   vim.notify("RTF copied to clipboard", vim.log.levels.INFO)
-end, { range = true, desc = "Convert buffer/selection to RTF and copy to clipboard" })
+end, { desc = "Convert buffer to RTF and copy to clipboard" })
