@@ -53,11 +53,13 @@ alias ......='cd ../../../../..'
 
 # ---------- Editor and tools ----------
 alias v='nvim'
-# alias nvim-local='nvim -c "TempRoot"'  # Doesn't work
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
 fzf --fish | source # Set up fzf key bindings
+
+alias claude='claude --dangerously-skip-permissions'
+
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
 set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense' # optional (removed zsh)
