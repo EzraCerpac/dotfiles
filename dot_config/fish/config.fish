@@ -1,6 +1,7 @@
 # Homebrew (Apple Silicon first)
 fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
 fish_add_path /usr/local/bin /usr/local/sbin # Rosetta fallback only
+fish_add_path $HOME/.local/bin
 
 # Enable vi key bindings
 fish_vi_key_bindings
@@ -60,10 +61,13 @@ fzf --fish | source # Set up fzf key bindings
 
 alias claude='claude --dangerously-skip-permissions'
 
+# ---------- Completions ----------
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
 set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense' # optional (removed zsh)
 carapace _carapace | source
+
+set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
 
 # ---------- Julia ----------
 alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true)'"
@@ -84,8 +88,3 @@ alias DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
 # This won't be added again if you remove it.
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 alias grealpath realpath
-
-fish_add_path $HOME/.local/bin
-
-# Added by Antigravity
-fish_add_path /Users/ezracerpac/.antigravity/antigravity/bin
