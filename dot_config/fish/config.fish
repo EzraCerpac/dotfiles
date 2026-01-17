@@ -61,6 +61,9 @@ fzf --fish | source # Set up fzf key bindings
 
 alias claude='claude --dangerously-skip-permissions'
 
+# ---------- Tailscale ----------
+alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+
 # ---------- Completions ----------
 # set -Ux fifc_editor nvim
 # set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
