@@ -80,7 +80,7 @@ return {
       vim.fn["slime#send"](cmd)
     end, { desc = "Slime send file (include/exec)" })
   end,
-  -- Load on first keypress or command
-  keys = { "gz" },
+  -- Load on filetype or command
+  ft = { "julia", "python" },
   cmd = { "SlimeConfig", "SlimeSend", "SlimeSend1" },
 }
