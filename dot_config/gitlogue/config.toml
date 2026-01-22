@@ -5,7 +5,7 @@
 theme = "catppuccin"
 
 # Typing speed in milliseconds per character
-speed = 10
+speed = 15
 
 # Show background colors (set to false for transparent background)
 background = false
