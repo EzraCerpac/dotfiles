@@ -88,6 +88,29 @@ function glf
     test -n "$commit"; and gitlogue --commit "$commit"
 end
 
+# Interactive gitlogue menu
+function gitlogue-menu
+    set -l choice (printf '%s\n' "Random commits" "Specific commit" "By author" "By date range" "Theme selection" | \
+        fzf --prompt="gitlogue> " --height=40% --reverse)
+
+    switch $choice
+        case "Random commits"
+            gitlogue
+        case "Specific commit"
+            set -l commit (git log --oneline | fzf --prompt="Select commit> " | awk '{print $1}')
+            test -n "$commit"; and gitlogue --commit "$commit"
+        case "By author"
+            set -l author (git log --format='%an' | sort -u | fzf --prompt="Select author> ")
+            test -n "$author"; and gitlogue --author "$author"
+        case "By date range"
+            set -l after (printf '%s\n' "1 day ago" "1 week ago" "2 weeks ago" "1 month ago" | fzf --prompt="After> ")
+            test -n "$after"; and gitlogue --after "$after"
+        case "Theme selection"
+            set -l theme (gitlogue theme list | tail -n +2 | sed 's/^  - //' | fzf --prompt="Select theme> ")
+            test -n "$theme"; and gitlogue --theme "$theme"
+    end
+end
+
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
 # set -gx ZELLIJ_AUTO_EXIT false
