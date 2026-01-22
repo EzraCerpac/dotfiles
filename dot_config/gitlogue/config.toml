@@ -5,10 +5,10 @@
 theme = "catppuccin"
 
 # Typing speed in milliseconds per character
-speed = 30
+speed = 50
 
 # Show background colors (set to false for transparent background)
-background = true
+background = false
 
 # Commit playback order: random, asc, or desc
 order = "random"
