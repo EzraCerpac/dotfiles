@@ -76,6 +76,18 @@ set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
 alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true)'"
 alias lss='julia -e "import LiveServer as LS; LS.serve(launch_browser=true)"'
 
+# ---------- Gitlogue ----------
+# Browse commits and launch gitlogue on selection
+function glf
+    set -l commit (git log --oneline --color=always $argv | \
+        fzf --ansi \
+            --no-sort \
+            --preview 'git show --stat --color=always {1}' \
+            --preview-window=right:60% | \
+        awk '{print $1}')
+    test -n "$commit"; and gitlogue --commit "$commit"
+end
+
 # ------------ Zellij ----------
 # set -gx ZELLIJ_AUTO_ATTACH false
 # set -gx ZELLIJ_AUTO_EXIT false
