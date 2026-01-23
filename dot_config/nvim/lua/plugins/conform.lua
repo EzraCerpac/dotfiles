@@ -8,7 +8,7 @@ return {
         python = { "ruff_format" },
         json = { "biome" },
         javascript = { "biome", stop_after_first = true },
-        julia = { "JuliaFormatter" },
+        julia = { "runic" },
         tex = { "latexindent" },
         typescriptreact = { "biome", stop_after_first = true },
         typescript = { "biome", stop_after_first = true },
@@ -17,6 +17,22 @@ return {
         ["_"] = { "trim_whitespace" },
       },
       formatters = {
+        runic = {
+          command = "julia",
+          args = {
+            "--project=@runic",
+            "-e",
+            [[
+          using Runic
+          exit(Runic.main(ARGS))
+        ]],
+            "--",
+            "--check",
+            "--diff",
+            "$FILENAME",
+          },
+          stdin = false,
+        },
         ["markdownlint-cli2"] = {
           args = {
             "--config",
