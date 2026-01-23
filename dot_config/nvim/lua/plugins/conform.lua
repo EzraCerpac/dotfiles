@@ -42,6 +42,10 @@ return {
           },
         },
       },
+      format_after_save = {
+        timeout_ms = 10000,
+        lsp_format = "fallback",
+      },
     },
   },
   {
