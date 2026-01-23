@@ -42,6 +42,10 @@ return {
           },
         },
       },
+      default_format_opts = {
+        -- Increase timeout for Julia's startup time
+        timeout_ms = 10000,
+      },
       format_after_save = {
         timeout_ms = 10000,
         lsp_format = "fallback",
