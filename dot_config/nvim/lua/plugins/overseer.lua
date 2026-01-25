@@ -199,7 +199,10 @@ return {
         require("lazy").load({ plugins = { "overseer.nvim" } })
         local ok, overseer = pcall(require, "overseer")
         if not ok then return end
-        overseer.run_template({ name = "Manim: Render Scene Under Cursor" }, function(task)
+        overseer.run_template({ 
+          name = "Manim: Render Scene Under Cursor",
+          params = { quality = "preview_low" }
+        }, function(task)
           if task then overseer.open({ enter = false }) end
         end)
       end,
@@ -211,19 +214,23 @@ return {
         require("lazy").load({ plugins = { "overseer.nvim" } })
         local ok, overseer = pcall(require, "overseer")
         if not ok then return end
-        overseer.run_template({ name = "Manim: Pick Scene to Render" }, function(task)
+        overseer.run_template({ 
+          name = "Manim: Pick Scene to Render"
+        }, function(task)
           if task then overseer.open({ enter = false }) end
         end)
       end,
       desc = "Manim: Pick scene to render",
     },
     {
-      "<leader>oe",
+      "<leader>oe", 
       function()
         require("lazy").load({ plugins = { "overseer.nvim" } })
         local ok, overseer = pcall(require, "overseer")
         if not ok then return end
-        overseer.run_template({ name = "Manim: Export High Quality" }, function(task)
+        overseer.run_template({ 
+          name = "Manim: Export High Quality"
+        }, function(task)
           if task then overseer.open({ enter = false }) end
         end)
       end,
