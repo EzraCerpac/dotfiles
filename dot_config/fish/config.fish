@@ -60,6 +60,7 @@ alias vl='nvim-local'
 fzf --fish | source # Set up fzf key bindings
 
 alias claude='claude --dangerously-skip-permissions'
+alias cc='claude'
 
 # ---------- Tailscale ----------
 alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
