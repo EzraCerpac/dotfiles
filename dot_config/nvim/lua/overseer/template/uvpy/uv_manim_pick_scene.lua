@@ -73,10 +73,15 @@ return {
       }
     end
     
-    -- Multiple scenes - return a special task that will prompt the user
+    -- For multiple scenes, create a simple task that shows available scenes
+    local scene_list = {}
+    for _, scene in ipairs(scenes) do
+      table.insert(scene_list, string.format("• %s (line %d)", scene.name, scene.line))
+    end
+    
     return {
-      name = "Manim: Pick Scene",
-      cmd = { "echo", "Multiple scenes found - use telescope picker or vim.ui.select" },
+      name = "Manim: Available Scenes",
+      cmd = { "echo", "Multiple scenes found:\n" .. table.concat(scene_list, "\n") },
       components = {
         {
           "on_complete",
@@ -88,60 +93,6 @@ return {
           max_height = 0.3,
         },
       },
-      metadata = { 
-        uvpy = { 
-          kind = "manim_picker",
-          scenes = scenes,
-          file = vim.fn.expand("%:t"),
-          params = params
-        } 
-      },
     }
-  end,
-  
-  -- Special run handler for the picker case
-  run = function(self, task_defn, status_cb)
-    local metadata = task_defn.metadata and task_defn.metadata.uvpy
-    
-    if metadata and metadata.kind == "manim_picker" then
-      -- Use our picker utility
-      manim_util.pick_scene(metadata.scenes, function(scene)
-        if not scene then
-          return
-        end
-        
-        local file = metadata.file
-        local params = metadata.params
-        local cwd = util.project_root()
-        
-        local base_args = { "run", "python", "-m", "manim" }
-        local manim_args = manim_util.build_manim_args(file, scene.name, params.quality, params.extra_args)
-        local all_args = util.extend_args(base_args, manim_args)
-        
-        local quality_desc = params.quality:gsub("_", " ")
-        local task_name = string.format("Manim: %s (%s)", scene.name, quality_desc)
-        
-        -- Create and run the actual render task
-        local overseer = require("overseer")
-        overseer.new_task({
-          name = task_name,
-          cmd = { params.interpreter },
-          args = all_args,
-          cwd = cwd,
-          components = { "uvpy_default" },
-          metadata = { 
-            uvpy = { 
-              kind = "manim",
-              base_args = base_args,
-              scene = scene.name,
-              file = file
-            } 
-          },
-        }):start()
-        
-        -- Close the picker task
-        self:stop()
-      end)
-    end
   end,
 }
