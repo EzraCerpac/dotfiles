@@ -16,6 +16,9 @@ return {
     "neovim/nvim-lspconfig",
     opts = {
       servers = {
+        pyright = {
+          enabled = false, -- using ty instead
+        },
         julials = {
           -- critical: do NOT let Mason manage Julia LS
           mason = false,
