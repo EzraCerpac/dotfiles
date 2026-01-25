@@ -9,6 +9,7 @@ return {
       vim.list_extend(opts.ensure_installed, {
         "latex",
         "typst",
+        "python",
         "wgsl",
       })
 
