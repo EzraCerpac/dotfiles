@@ -37,17 +37,17 @@ return {
       if not has_julia then
         table.insert(templates, "julia")
       end
-       -- Add our Typst namespace once
-       local has_typst = false
-       for _, t in ipairs(templates) do
-         if t == "typst" then
-           has_typst = true
-         end
-       end
-       if not has_typst then
-         table.insert(templates, "typst")
-       end
-       opts.templates = templates
+      -- Add our Typst namespace once
+      local has_typst = false
+      for _, t in ipairs(templates) do
+        if t == "typst" then
+          has_typst = true
+        end
+      end
+      if not has_typst then
+        table.insert(templates, "typst")
+      end
+      opts.templates = templates
 
       -- A small alias we can attach to tasks
       local aliases = opts.component_aliases or {}
@@ -193,7 +193,6 @@ return {
         desc = "Set args + rerun (uvpy)",
       },
       -- REPL keymaps (gzj, gzP) are now in plugins/slime.lua for better vim-slime integration
-    },
     {
       "<leader>om",
       function()
@@ -219,7 +218,7 @@ return {
       desc = "Manim: Pick scene to render",
     },
     {
-      "<leader>oe", 
+      "<leader>oe",
       function()
         require("lazy").load({ plugins = { "overseer.nvim" } })
         local ok, overseer = pcall(require, "overseer")
@@ -230,5 +229,6 @@ return {
       end,
       desc = "Manim: Export high quality",
     },
+  },
   },
 }
