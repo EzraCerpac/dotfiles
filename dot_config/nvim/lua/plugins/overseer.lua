@@ -92,11 +92,11 @@ return {
       overseer.setup(opts)
       -- Add a universal hook so any task created via a template opens the task list on start.
       -- This catches :OverseerRun and our keymaps alike.
-      if overseer.add_template_hook then
-        overseer.add_template_hook({ module = "^uvpy%.[a-z_]+$" }, function(task_defn, util)
-          util.add_component(task_defn, { "uvpy.open_list", enter = false })
-        end)
-      end
+      -- if overseer.add_template_hook then
+      --   overseer.add_template_hook({ module = "^uvpy%.[a-z_]+$" }, function(task_defn, util)
+      --     util.add_component(task_defn, { "uvpy.open_list", enter = false })
+      --   end)
+      -- end
     end,
     init = function()
       -- Ensure overseer is loaded for Python, Julia, and Typst buffers so templates are available
