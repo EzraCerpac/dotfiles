@@ -194,5 +194,41 @@ return {
       },
       -- REPL keymaps (gzj, gzP) are now in plugins/slime.lua for better vim-slime integration
     },
+    {
+      "<leader>om",
+      function()
+        require("lazy").load({ plugins = { "overseer.nvim" } })
+        local ok, overseer = pcall(require, "overseer")
+        if not ok then return end
+        overseer.run_template({ name = "Manim: Render Scene Under Cursor" }, function(task)
+          if task then overseer.open({ enter = false }) end
+        end)
+      end,
+      desc = "Manim: Render scene under cursor",
+    },
+    {
+      "<leader>oM",
+      function()
+        require("lazy").load({ plugins = { "overseer.nvim" } })
+        local ok, overseer = pcall(require, "overseer")
+        if not ok then return end
+        overseer.run_template({ name = "Manim: Pick Scene to Render" }, function(task)
+          if task then overseer.open({ enter = false }) end
+        end)
+      end,
+      desc = "Manim: Pick scene to render",
+    },
+    {
+      "<leader>oe", 
+      function()
+        require("lazy").load({ plugins = { "overseer.nvim" } })
+        local ok, overseer = pcall(require, "overseer")
+        if not ok then return end
+        overseer.run_template({ name = "Manim: Export High Quality" }, function(task)
+          if task then overseer.open({ enter = false }) end
+        end)
+      end,
+      desc = "Manim: Export high quality",
+    },
   },
 }
