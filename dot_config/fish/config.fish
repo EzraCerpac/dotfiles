@@ -59,7 +59,7 @@ alias vl='nvim-local'
 
 fzf --fish | source # Set up fzf key bindings
 
-alias claude='claude --dangerously-skip-permissions'
+alias claude='JJ_CONFIG=~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
 alias cc='claude'
 
 # ---------- Tailscale ----------
