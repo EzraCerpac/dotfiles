@@ -14,6 +14,9 @@ return {
     require("legendary").setup({
       extensions = {
         lazy_nvim = true,
+        which_key = {
+          auto_register = true,
+        },
         smart_splits = {
           directions = { "h", "j", "k", "l" },
           mods = {
@@ -21,9 +24,6 @@ return {
             resize = "<C-M>",
           },
         },
-      },
-      which_key = {
-        auto_register = true,
       },
     })
   end,
