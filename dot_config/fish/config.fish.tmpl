@@ -14,8 +14,10 @@ end
 fish_add_path $HOME/.local/bin
 fish_add_path ~/.cargo/bin
 
-# Activate mise (must come before tools it manages)
+{{- if eq .chezmoi.os "linux" }}
+# Activate mise (brew auto-activates on macOS; Linux needs explicit activation)
 ~/.local/bin/mise activate fish | source
+{{- end }}
 
 # Enable vi key bindings
 fish_vi_key_bindings

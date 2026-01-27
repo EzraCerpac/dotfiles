@@ -10,7 +10,7 @@ echo "Installing package managers..."
 
 {{- if eq .chezmoi.os "darwin" }}
 
-# --- Homebrew (macOS only, needed for system-level packages) ---
+# --- Homebrew (macOS only) ---
 if ! command -v brew &>/dev/null; then
     echo "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -22,14 +22,25 @@ elif [[ $(arch) == "i386" ]]; then
 fi
 echo "Homebrew ready"
 
+# --- mise (via brew on macOS — auto-activates in fish) ---
+if ! command -v mise &>/dev/null; then
+    echo "Installing mise via Homebrew..."
+    brew install mise
+fi
+echo "mise ready"
+
 {{- end }}
 
-# --- mise (primary tool manager) ---
+{{- if eq .chezmoi.os "linux" }}
+
+# --- mise (via curl on Linux) ---
 if ! command -v mise &>/dev/null; then
     echo "Installing mise..."
     curl https://mise.run | sh
     export PATH="$HOME/.local/bin:$PATH"
 fi
 echo "mise ready"
+
+{{- end }}
 
 echo "Package managers ready"
