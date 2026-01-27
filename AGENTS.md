@@ -9,9 +9,9 @@
 
 ## Key Files
 - `run_once_01-setup-directories.sh.tmpl` — creates `~/Projects`, `~/.local/bin`, etc.
-- `run_once_02-install-package-managers.sh.tmpl` — bootstraps brew (macOS), mise, cargo, uv
-- `run_once_03-install-tools.sh.tmpl` — system packages + `mise install`
-- `run_once_04-setup-macos.sh.tmpl` — brew casks (wezterm, ghostty, raycast)
+- `run_once_02-install-package-managers.sh.tmpl` — bootstraps brew (macOS) + mise
+- `run_once_03-install-tools.sh.tmpl` — system packages (brew/apt) + `mise install`
+- `run_once_04-setup-macos.sh.tmpl` — brew casks (wezterm, raycast)
 - `run_after_setup-shell.sh.tmpl` — fish shell setup, `/etc/shells`, chsh hint
 - `dot_config/fish/config.fish.tmpl` — cross-platform fish config (chezmoi template)
 - `dot_config/mise/config.toml` — mise tool manifest (node, neovim, starship, fzf, etc.)
@@ -42,4 +42,5 @@
 ## Security & Configuration Tips
 - Do not commit secrets. Use templates and `[data]` in `.chezmoi.toml.tmpl` instead of hard-coding.
 - Keep host/user-specific values behind template conditionals (e.g., `{{ if eq .chezmoi.os "darwin" }}` blocks).
-- Package manager priority: mise > cargo > brew > uv > apt-get.
+- mise is the single source of truth for tools. It handles runtimes (node, rust), CLI tools, and supports aqua/cargo/github/ubi backends.
+- brew/apt-get only for system-level packages (fish, gnupg, curl, wget, htop, tree).
