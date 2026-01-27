@@ -1,13 +1,11 @@
-*.md    # ignore *.md in the target directory
-*.txt   # ignore *.txt in the target directory
-*/*.txt # ignore *.txt in subdirectories of the target directory
-        # but not in subdirectories of subdirectories;
-        # so a/b/c.txt would *not* be ignored
+*.md
+*.txt
+*/*.txt
 
-*/*.org# # Ignore org-mode backup files that end with `#`
+*/*.org#
 
-backups/   # ignore the backups folder, but not its contents
-backups/** # ignore the contents of backups folder but not the folder itself
+backups/
+backups/**
 *bak
 **/*bak
 **/*.bak
@@ -18,6 +16,13 @@ dot_config/nvim/lazy-lock.json
 dot_config/nvim/lazyvim.json
 dot_config/nvim/spell/
 
-# Deprecated installation scripts (replaced by chezmoi run_once_ scripts)
-install-deprecated/
 setup.sh.backup
+
+{{- if eq .chezmoi.os "linux" }}
+dot_config/aerospace/
+dot_config/sketchybar/
+dot_config/private_karabiner/
+dot_config/private_raycast/
+dot_config/svim/
+dot_wezterm.lua
+{{- end }}

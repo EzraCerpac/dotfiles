@@ -3,43 +3,37 @@
 set -euo pipefail
 
 # Setup shell after applying configurations
-# This script runs after chezmoi applies all configurations
 
-if command -v gum &>/dev/null; then
-  gum style --foreground 213 --bold "➜ Setting up shell configuration"
-else
-  echo "Setting up shell configuration..."
-fi
+echo "Setting up shell configuration..."
 
-# Add ~/.local/bin to PATH if not present
-export PATH="${PATH}:${HOME}/.local/bin"
+export PATH="${HOME}/.local/bin:${PATH}"
 
-# Set up Fish as default shell if it's installed and not already the default
-if command -v fish &>/dev/null && [[ "$SHELL" != *"fish"* ]]; then
-    if command -v gum &>/dev/null; then
-      gum style --foreground 245 "Fish detected. Make it default with:"
-      gum style --foreground 245 "  chsh -s $(which fish)"
-    else
-      echo "Fish shell detected. To make it your default shell, run:"
-      echo "  chsh -s $(which fish)"
+# Add fish to /etc/shells if missing
+if command -v fish &>/dev/null; then
+    FISH_PATH="$(which fish)"
+    if ! grep -qF "$FISH_PATH" /etc/shells 2>/dev/null; then
+        echo "Adding fish to /etc/shells (requires sudo)..."
+        echo "$FISH_PATH" | sudo tee -a /etc/shells >/dev/null 2>&1 || \
+            echo "Could not add fish to /etc/shells. Run: echo $FISH_PATH | sudo tee -a /etc/shells"
     fi
 fi
 
-if command -v gum &>/dev/null; then
-  gum style --foreground 82 "✓ Shell setup complete"
-else
-  echo "Shell setup complete"
+# Suggest chsh if fish is not the default shell
+if command -v fish &>/dev/null && [[ "$SHELL" != *"fish"* ]]; then
+    echo "Fish shell detected. To make it your default shell, run:"
+    echo "  chsh -s $(which fish)"
 fi
 
-# Display completion message
-if command -v gum &>/dev/null; then
-  gum style --foreground 213 --bold "🎉 Dotfiles setup complete"
-  gum style --foreground 245 "Next: restart terminal • chezmoi doctor • chezmoi update"
-else
-  cat << 'EOF'
+# Hint about mise activation
+if command -v mise &>/dev/null; then
+    echo "mise is installed. Tools managed via ~/.config/mise/config.toml"
+fi
 
-🎉 Dotfiles setup complete
-Next: restart terminal • chezmoi doctor • chezmoi update
+echo "Shell setup complete"
+
+cat << 'EOF'
+
+Dotfiles setup complete
+Next: restart terminal | chezmoi doctor | chezmoi update
 
 EOF
-fi

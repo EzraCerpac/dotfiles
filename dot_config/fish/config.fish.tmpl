@@ -1,7 +1,18 @@
+{{- if eq .chezmoi.os "darwin" }}
 # Homebrew (Apple Silicon first)
 fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
 fish_add_path /usr/local/bin /usr/local/sbin # Rosetta fallback only
+{{- end }}
+
+{{- if eq .chezmoi.os "linux" }}
+# Linuxbrew (if installed)
+if test -d /home/linuxbrew/.linuxbrew/bin
+    fish_add_path /home/linuxbrew/.linuxbrew/bin
+end
+{{- end }}
+
 fish_add_path $HOME/.local/bin
+fish_add_path ~/.cargo/bin
 
 # Enable vi key bindings
 fish_vi_key_bindings
@@ -13,8 +24,10 @@ if status is-interactive
     bind -M insert \cr _atuin_search
 end
 
+{{- if eq .chezmoi.os "darwin" }}
 # Auto-Warpify
-status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
+status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
+{{- end }}
 
 # Silence the default greeting
 function fish_greeting
@@ -24,19 +37,18 @@ end
 zoxide init fish --cmd cd | source
 starship init fish | source
 
-# Add Rust cargo to PATH
-fish_add_path ~/.cargo/bin
-
+{{- if eq .chezmoi.os "darwin" }}
 # Add uutils-coreutils to PATH (unprefixed commands)
 fish_add_path /opt/homebrew/opt/uutils-coreutils/libexec/uubin
+{{- end }}
 
 # ---------- Default editor ----------
-set -gx EDITOR /opt/homebrew/bin/nvim
+set -gx EDITOR nvim
 set -gx VISUAL $EDITOR
-set -gx GIT_EDITOR $EDITOR # Fallback for tools that check this var
+set -gx GIT_EDITOR $EDITOR
 
 # ---------- XDG Config ----------
-set -gx XDG_CONFIG_HOME /Users/ezracerpac/.config
+set -gx XDG_CONFIG_HOME $HOME/.config
 
 # Replace ls with eza
 alias ls='eza --icons=auto --group-directories-first --git'
@@ -50,7 +62,6 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias ......='cd ../../../../..'
-# alias -='cd -'  # Doesn't work apparently
 
 # ---------- Editor and tools ----------
 alias v='nvim'
@@ -61,13 +72,13 @@ fzf --fish | source # Set up fzf key bindings
 
 alias cc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
 
+{{- if eq .chezmoi.os "darwin" }}
 # ---------- Tailscale ----------
 alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
+{{- end }}
 
 # ---------- Completions ----------
-# set -Ux fifc_editor nvim
-# set -U fifc_keybinding \ct # Bind fzf completions to ctrl-x
-set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense' # optional (removed zsh)
+set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense'
 carapace _carapace | source
 
 set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
@@ -111,10 +122,7 @@ function gitlogue-menu
     end
 end
 
-# ------------ Zellij ----------
-# set -gx ZELLIJ_AUTO_ATTACH false
-# set -gx ZELLIJ_AUTO_EXIT false
-
+{{- if eq .chezmoi.os "darwin" }}
 # ---------- Homebrew ----------
 alias ibrew='env /usr/bin/arch -x86_64 /usr/local/bin/brew'
 eval (/opt/homebrew/bin/brew shellenv | string collect)
@@ -123,6 +131,6 @@ eval (/opt/homebrew/bin/brew shellenv | string collect)
 alias DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
 
 # Added by OrbStack: command-line tools and integration
-# This won't be added again if you remove it.
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 alias grealpath realpath
+{{- end }}

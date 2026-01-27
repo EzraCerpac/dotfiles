@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+# macOS-specific setup: casks and system configuration
+
+echo "Setting up macOS-specific tools..."
+
+if command -v brew &>/dev/null; then
+    if [[ $(arch) == "arm64" ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ $(arch) == "i386" ]]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+
+    echo "Installing Homebrew casks..."
+    brew install --cask wezterm ghostty raycast || true
+    echo "Casks installed"
+else
+    echo "Warning: Homebrew not found, skipping macOS cask installation"
+fi
+
+echo "macOS setup complete"
+
+{{- end }}
