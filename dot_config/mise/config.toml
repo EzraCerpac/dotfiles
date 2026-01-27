@@ -1,21 +1,36 @@
 [tools]
+# Core runtimes
 node = "lts"
+rust = "latest"
+uv = "latest"
+
+# Editor
 neovim = "latest"
+
+# Shell & prompt
 starship = "latest"
+atuin = "latest"
+zoxide = "latest"
+carapace = "latest"
+
+# Search & file tools
 fzf = "latest"
 ripgrep = "latest"
 fd = "latest"
 bat = "latest"
 eza = "latest"
-zoxide = "latest"
-delta = "latest"
-jq = "latest"
-atuin = "latest"
-gum = "latest"
 yazi = "latest"
-carapace = "latest"
+
+# Git tools
+delta = "latest"
 gh = "latest"
 jjui = "latest"
+lazygit = "latest"
+gitui = "latest"
+
+# Utilities
+jq = "latest"
+gum = "latest"
 tmux = "latest"
-uv = "latest"
 usage = "latest"
+chezmoi = "latest"

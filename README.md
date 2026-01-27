@@ -16,19 +16,15 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs to
 
 **Editor**: neovim (LazyVim), zed
 
-**Dev Tools**: git, gh, jj/jjui, node, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
+**Dev Tools**: git, gh, jj/jjui, lazygit, gitui, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
 **macOS**: aerospace (WM), sketchybar, karabiner, raycast, wezterm, ghostty
 
-## Package Manager Priority
+## Tool Management
 
-Tools are installed using this priority chain:
+**mise** is the single source of truth for all tools (`~/.config/mise/config.toml`). It handles runtimes (node, rust), CLI tools (fzf, ripgrep, bat, etc.), and even manages itself (chezmoi, uv). mise supports multiple backends (aqua, cargo, github, ubi) so nearly everything installs through it.
 
-1. **mise** — single source of truth for tool versions (`~/.config/mise/config.toml`)
-2. **cargo** — Rust toolchain
-3. **brew** — system packages and macOS casks
-4. **uv** — Python toolchain
-5. **apt-get** — Linux system packages
+**brew/apt-get** only install system-level packages that mise can't: `fish`, `gnupg`, `curl`, `wget`, `htop`, `tree` (and `build-essential`, `git`, `unzip` on Linux).
 
 ## Repository Structure
 
@@ -39,9 +35,9 @@ dot_config/                          → ~/.config/
   nvim/                              → neovim config
   git/, jj/, starship.toml, ...     → other tool configs
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
-run_once_02-install-package-managers.sh.tmpl → brew, mise, cargo, uv
+run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_once_03-install-tools.sh.tmpl       → system packages + mise install
-run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, ghostty, raycast)
+run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast)
 run_after_setup-shell.sh.tmpl           → fish shell setup, chsh hint
 ```
 

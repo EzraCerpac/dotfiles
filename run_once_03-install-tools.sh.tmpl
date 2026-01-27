@@ -2,13 +2,13 @@
 
 set -euo pipefail
 
-# Install all tools using priority: mise > cargo > brew > uv > apt-get
+# Install tools: system packages via brew/apt, everything else via mise
 
 echo "Installing tools..."
 
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# --- System packages (things mise can't install) ---
+# --- System packages (not available via mise) ---
 
 {{- if eq .chezmoi.os "darwin" }}
 
@@ -28,8 +28,8 @@ fi
 
 {{- if eq .chezmoi.os "linux" }}
 
-echo "Installing system packages via apt-get..."
 if command -v apt-get &>/dev/null; then
+    echo "Installing system packages via apt-get..."
     sudo apt-get update -qq
     sudo apt-get install -y \
         fish \
@@ -47,7 +47,8 @@ fi
 
 {{- end }}
 
-# --- mise tools (the primary source of truth) ---
+# --- Everything else via mise (single source of truth) ---
+# Tools defined in ~/.config/mise/config.toml
 
 if command -v mise &>/dev/null; then
     echo "Installing tools via mise..."
