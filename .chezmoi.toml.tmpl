@@ -13,12 +13,13 @@ autoPush = false
 
 [unimportant]
 
-[hooks.apply.pre]
-command = "bash"
-args = [
-  "-c",
-  "command -v chezmoi >/dev/null && chezmoi re-add {{ range $readd_paths }}{{ . }} {{ end }}|| true"
-]
+# Disabled during bootstrap to avoid PATH issues
+# [hooks.apply.pre]
+# command = "bash"
+# args = [
+#   "-c",
+#   "command -v chezmoi >/dev/null && chezmoi re-add {{ range $readd_paths }}{{ . }} {{ end }}|| true"
+# ]
 
 [data]
 name = "Ezra Cerpac"
