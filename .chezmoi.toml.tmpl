@@ -5,21 +5,7 @@ command = "nvim"
 autoCommit = true
 autoPush = false
 
-{{- $home := .chezmoi.homeDir -}}
-# Add more paths/dirs here…
-{{- $readd_paths := list
-    (joinPath $home ".config/nvim/spell/")
--}}
-
 [unimportant]
-
-# Disabled during bootstrap to avoid PATH issues
-# [hooks.apply.pre]
-# command = "bash"
-# args = [
-#   "-c",
-#   "command -v chezmoi >/dev/null && chezmoi re-add {{ range $readd_paths }}{{ . }} {{ end }}|| true"
-# ]
 
 [data]
 name = "Ezra Cerpac"
