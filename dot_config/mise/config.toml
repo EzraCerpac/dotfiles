@@ -1,11 +1,11 @@
 [tools]
 # Core runtimes
 node = "lts"
-rust = "latest"
+# rust managed via rustup directly (mise core:rust just wraps rustup)
 uv = "latest"
 
 # Editor
-neovim = "latest"
+neovim = "nightly"  # need 0.12+ features
 
 # Shell & prompt
 starship = "latest"
