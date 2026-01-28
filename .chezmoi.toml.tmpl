@@ -14,13 +14,10 @@ autoPush = false
 [unimportant]
 
 [hooks.apply.pre]
-command = "chezmoi"
+command = "bash"
 args = [
-  "re-add",
-  {{- range $i, $p := $readd_paths -}}
-  {{- if $i}}, {{ end -}}
-  {{ printf "%q" $p }}
-  {{- end -}}
+  "-c",
+  "command -v chezmoi >/dev/null && chezmoi re-add {{ range $readd_paths }}{{ . }} {{ end }}|| true"
 ]
 
 [data]
