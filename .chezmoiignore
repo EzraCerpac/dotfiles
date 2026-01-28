@@ -19,6 +19,7 @@ dot_config/nvim/spell/
 setup.sh.backup
 
 {{- if eq .chezmoi.os "linux" }}
+# macOS-only apps (source paths)
 dot_config/aerospace/
 dot_config/sketchybar/
 dot_config/private_karabiner/
@@ -26,4 +27,11 @@ dot_config/private_raycast/
 dot_config/raycast/
 dot_config/svim/
 dot_wezterm.lua
+# macOS-only apps (target paths)
+.config/aerospace/
+.config/sketchybar/
+.config/karabiner/
+.config/raycast/
+.config/svim/
+.wezterm.lua
 {{- end }}
