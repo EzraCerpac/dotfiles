@@ -23,6 +23,7 @@ dot_config/aerospace/
 dot_config/sketchybar/
 dot_config/private_karabiner/
 dot_config/private_raycast/
+dot_config/raycast/
 dot_config/svim/
 dot_wezterm.lua
 {{- end }}
