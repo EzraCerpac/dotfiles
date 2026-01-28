@@ -13,7 +13,8 @@
       "env": {
         "DEFAULT_MINIMUM_TOKENS": 6000
       }
-    },
+    }
+{{- if lookPath "pass" }},
     "github": {
       "autoApprove": [],
       "headers": {
@@ -21,6 +22,7 @@
       },
       "url": "https://api.githubcopilot.com/mcp/"
     }
+{{- end }}
   },
   "nativeMCPServers": {
     "mcphub": {
