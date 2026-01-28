@@ -1,4 +1,8 @@
+{{- if and (eq .chezmoi.os "darwin") (lookPath "pass") -}}
 {
   "accesstoken" : "{{ (pass "key/raycast") | trim }}",
   "token" : "{{ (pass "key/raycast") | trim }}"
 }
+{{- else -}}
+{}
+{{- end -}}
