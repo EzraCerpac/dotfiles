@@ -29,11 +29,6 @@ if status is-interactive
     bind -M insert \cr _atuin_search
 end
 
-{{- if eq .chezmoi.os "darwin" }}
-# Auto-Warpify
-status --is-interactive; and printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish", "uname": "Darwin" }}�'
-{{- end }}
-
 # Silence the default greeting
 function fish_greeting
 end
