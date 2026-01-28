@@ -16,7 +16,9 @@ fish_add_path ~/.cargo/bin
 
 {{- if eq .chezmoi.os "linux" }}
 # Activate mise (brew auto-activates on macOS; Linux needs explicit activation)
-~/.local/bin/mise activate fish | source
+if test -x ~/.local/bin/mise
+    ~/.local/bin/mise activate fish | source
+end
 {{- end }}
 
 # Enable vi key bindings
@@ -24,9 +26,11 @@ fish_vi_key_bindings
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    atuin init fish --disable-up-arrow | source
-    bind \cr _atuin_search
-    bind -M insert \cr _atuin_search
+    if command -v atuin &>/dev/null
+        atuin init fish --disable-up-arrow | source
+        bind \cr _atuin_search
+        bind -M insert \cr _atuin_search
+    end
 end
 
 # Silence the default greeting
@@ -34,8 +38,12 @@ function fish_greeting
 end
 
 # extensions
-zoxide init fish --cmd cd | source
-starship init fish | source
+if command -v zoxide &>/dev/null
+    zoxide init fish --cmd cd | source
+end
+if command -v starship &>/dev/null
+    starship init fish | source
+end
 
 {{- if eq .chezmoi.os "darwin" }}
 # Add uutils-coreutils to PATH (unprefixed commands)
@@ -68,7 +76,9 @@ alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
-fzf --fish | source # Set up fzf key bindings
+if command -v fzf &>/dev/null
+    fzf --fish | source # Set up fzf key bindings
+end
 
 alias cc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
 
@@ -78,8 +88,10 @@ alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
 {{- end }}
 
 # ---------- Completions ----------
-set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense'
-carapace _carapace | source
+if command -v carapace &>/dev/null
+    set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense'
+    carapace _carapace 2>/dev/null | source
+end
 
 set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
 
