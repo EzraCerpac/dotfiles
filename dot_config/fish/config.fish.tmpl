@@ -26,7 +26,7 @@ fish_vi_key_bindings
 
 if status is-interactive
     # Commands to run in interactive sessions can go here
-    if command -v atuin &>/dev/null
+    if command -q atuin
         atuin init fish --disable-up-arrow | source
         bind \cr _atuin_search
         bind -M insert \cr _atuin_search
@@ -38,10 +38,10 @@ function fish_greeting
 end
 
 # extensions
-if command -v zoxide &>/dev/null
+if command -q zoxide
     zoxide init fish --cmd cd | source
 end
-if command -v starship &>/dev/null
+if command -q starship
     starship init fish | source
 end
 
@@ -76,7 +76,7 @@ alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
-if command -v fzf &>/dev/null
+if command -q fzf
     fzf --fish | source # Set up fzf key bindings
 end
 
@@ -88,7 +88,7 @@ alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
 {{- end }}
 
 # ---------- Completions ----------
-if command -v carapace &>/dev/null
+if command -q carapace
     set -Ux CARAPACE_BRIDGES 'fish,bash,inshellisense'
     carapace _carapace 2>/dev/null | source
 end
