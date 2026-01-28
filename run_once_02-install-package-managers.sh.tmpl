@@ -33,6 +33,14 @@ echo "mise ready"
 
 {{- if eq .chezmoi.os "linux" }}
 
+# --- chezmoi (install permanently to ~/.local/bin) ---
+if ! command -v chezmoi &>/dev/null; then
+    echo "Installing chezmoi to ~/.local/bin..."
+    sh -c "$(curl -fsLS get.chezmoi.io)" -- -b ~/.local/bin
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+echo "chezmoi ready"
+
 # --- mise (via curl on Linux) ---
 if ! command -v mise &>/dev/null; then
     echo "Installing mise..."
