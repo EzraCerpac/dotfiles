@@ -1,5 +1,6 @@
 [tools]
 # Core runtimes
+node = "lts"
 # rust managed via rustup directly (mise core:rust just wraps rustup)
 uv = "latest"
 
@@ -32,3 +33,6 @@ jq = "latest"
 gum = "latest"
 tmux = "latest"
 usage = "latest"
+"github:steipete/imsg" = "latest"
+pnpm = "latest"
+gemini = "latest"

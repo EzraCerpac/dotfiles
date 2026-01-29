@@ -5,6 +5,19 @@
 -- Prepend mise shims to PATH
 vim.env.PATH = vim.env.HOME .. "/.local/share/mise/shims:" .. vim.env.PATH
 
+-- Force transparent background after any colorscheme load or terminal background detection
+-- Workaround for nvim 0.12 OSC 11 background detection resetting highlights
+local force_transparent = vim.api.nvim_create_augroup("force_transparent_bg", { clear = true })
+vim.api.nvim_create_autocmd({ "ColorScheme", "TermResponse", "UIEnter" }, {
+  group = force_transparent,
+  callback = function()
+    vim.schedule(function()
+      vim.api.nvim_set_hl(0, "Normal", { bg = "NONE" })
+      vim.api.nvim_set_hl(0, "NormalNC", { bg = "NONE" })
+    end)
+  end,
+})
+
 -- Disable automatic project root detection if the global variable is set
 -- Read override if provided via --cmd
 if vim.g.root_spec then
