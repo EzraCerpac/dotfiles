@@ -1,6 +1,5 @@
 [tools]
 # Core runtimes
-node = "lts"
 # rust managed via rustup directly (mise core:rust just wraps rustup)
 uv = "latest"
 
