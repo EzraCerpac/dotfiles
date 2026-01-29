@@ -52,6 +52,8 @@ end, {})
 vim.keymap.set("v", "<localleader>tl", ":LatexToTypst<CR>", { desc = "Convert LaTeX to Typst" })
 vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste Typst from clipboard LaTeX" })
 
+vim.keymap.set({ "n", "v" }, "<localleader>tt", ":TypstPreview<CR>", { desc = "Open Typst preview" })
+
 -- RTF Syntax Highlighting (direct pygmentize)
 vim.api.nvim_create_user_command("RTFHighlight", function()
   vim.cmd("update") -- save current file
