@@ -1,15 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "basic-memory": {
-      "type": "local",
-      "command": [
-        "uvx",
-        "basic-memory",
-        "mcp"
-      ],
-      "enabled": true
-    },
     "context7": {
       "type": "local",
       "command": [
@@ -18,16 +9,6 @@
         "@upstash/context7-mcp"
       ],
       "enabled": true
-    },
-    "archon": {
-      "enabled": false,
-      "type": "remote",
-      "url": "http://localhost:8051/mcp"
-    },
-    "phiflow-docs": {
-      "enabled": false,
-      "type": "remote",
-      "url": "https://gitmcp.io/tum-pbs/PhiFlow"
     },
     "pdf": {
       "enabled": true,
