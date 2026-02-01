@@ -1,5 +1,6 @@
 # AGENTS.md (Concise Ops Guide)
 
+- Use jj (jujitsu) for version control.
 - Tooling: Prefer uv (uv sync | uv add | uv run <cmd>), cargo, ripgrep (rg), fd, fzf, bat, eza; output JSON + jq when available.
 - Build/Test: Python: uv sync; run single test: uv run pytest path::TestClass::test_name -q; all tests: uv run pytest -q; type check if mypy/ruff present: uv run ruff check . && uv run ruff format --check.
 - Functions: Single responsibility; early return over deep nesting; avoid side effects in pure utilities; docstring only when behavior non-obvious.
