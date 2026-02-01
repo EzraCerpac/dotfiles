@@ -19,6 +19,18 @@ catch e
 end
 
 try
+    using Cthulhu
+catch e
+    @warn "Error initializing Cthulhu in startup.jl" exception = (e, catch_backtrace())
+end
+
+try
+    using InteractiveErrors
+catch e
+    @warn "Error initializing InteractiveErrors in startup.jl" exception = (e, catch_backtrace())
+end
+
+try
     using BenchmarkTools
 catch e
     @warn "Error initializing BenchmarkTools in startup.jl" exception = (e, catch_backtrace())
@@ -31,4 +43,3 @@ atreplinit() do repl
 end
 
 ENV["PLUTO_USER_JS"] = expanduser("~/.julia/config/pluto_user.js")
-

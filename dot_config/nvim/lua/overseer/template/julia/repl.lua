@@ -3,7 +3,7 @@ local overseer = require("overseer")
 
 return {
   name = "Julia: REPL",
-  desc = "Start a Julia REPL (use with vim-slime to send code)",
+  desc = "Start a Julia REPL via overseer (for task management; use <leader>r for interactive REPL)",
   tags = { overseer.TAG.RUN },
   priority = 40,
   condition = {

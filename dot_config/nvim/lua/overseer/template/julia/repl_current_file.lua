@@ -3,7 +3,7 @@ local overseer = require("overseer")
 
 return {
   name = "Julia: REPL Current File",
-  desc = "Start a Julia REPL with the current file loaded (julia -i)",
+  desc = "Start a Julia REPL with the current file loaded via overseer (for task management)",
   tags = { overseer.TAG.RUN },
   priority = 50,
   condition = {

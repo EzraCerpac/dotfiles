@@ -191,7 +191,7 @@ return {
           vim.cmd([[OverseerQuickAction uvpy:\ set\ args\ and\ rerun]])
         end,
         desc = "Set args + rerun (uvpy)",
-        -- REPL keymaps (gzj, gzP) are now in plugins/slime.lua for better vim-slime integration
+        -- REPL keymaps are now in plugins/iron.lua (<leader>r prefix)
       },
       {
         "<leader>om",
