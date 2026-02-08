@@ -182,6 +182,9 @@ format = '[[ $symbol( $version) ](fg:teal)]($style)'
 symbol = "󰢱"
 style = "fg:teal"
 format = '[[ $symbol( $version) ](fg:teal)]($style)'
+detect_extensions = ['lua']
+detect_files = ['*.lua', '.lua-version']
+detect_folders = []
 
 # Docker Context Module
 [docker_context]
