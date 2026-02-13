@@ -95,6 +95,9 @@ if command -q carapace
 end
 
 set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
+if command -q screenpipe
+    screenpipe completions fish | source
+end
 
 # ---------- Julia ----------
 alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true, require_secret_for_access=false)'"

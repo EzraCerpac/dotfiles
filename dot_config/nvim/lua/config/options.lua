@@ -29,6 +29,7 @@ vim.g.root_spec = vim.g.lazyvim_root_spec
 
 vim.opt.winbar = "%=%m %f"
 vim.opt.wrap = true
+vim.opt.formatoptions:remove({ "t" })  -- Disable auto-wrapping text at textwidth
 vim.g.codeium_os = "Darwin"
 vim.g.codeium_arch = "arm64"
 
