@@ -25,9 +25,9 @@ catch e
 end
 
 try
-    using InteractiveErrors
+    using AbbreviatedStackTraces
 catch e
-    @warn "Error initializing InteractiveErrors in startup.jl" exception = (e, catch_backtrace())
+    @warn "Error initializing AbbreviatedStackTraces in startup.jl" exception = (e, catch_backtrace())
 end
 
 try
