@@ -10,7 +10,7 @@
 ;; define the keys to remap
 ;; esc/f1-f12: Apple top row (intercepted as F-keys, remapped to media actions)
 ;; caps: kanata intercepts at device level (before macOS HID remapping)
-;; fn: Apple globe key (tap=fn/globe, hold=fn-layer for real F-keys + nav)
+;; fn: Apple globe key (tap=fn/globe)
 ;; spc: tap=space, hold=left cmd
 ;; lmet/rmet: tap enter/backspace, hold cmd
 (defsrc
@@ -42,8 +42,8 @@
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
 
-  ;; fn/globe: tap for fn (emoji picker etc.), hold for fn-layer
-  fnl (tap-hold $tap-time $hold-time fn (layer-while-held fn-layer))
+  ;; fn/globe: tap for fn (emoji picker etc.)
+  fnl fn
   ;; dual-role command keys
   lcmd (tap-hold $tap-time $hold-time ret lmet)
   rcmd (tap-hold $tap-time $hold-time bspc rmet)
@@ -108,15 +108,8 @@
   @lcmd @fnl @spccmd @rcmd bspc w b m , .
 )
 
-;; nav-layer: vim arrows + nav, activated by holding d
+;; nav-layer: unified nav + F-keys, activated by holding d
 (deflayer nav-layer
-  _      _      _    _    _    _    _      _      _      _      _      _      _
-  _      _      lsft lalt @fnd lctl _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
-  _      _      spc  _    del   @fnw @fnb  _      _      _
-)
-
-;; fn-layer: real F-keys + same nav behavior as nav-layer
-(deflayer fn-layer
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   _      _      a    s    @navt f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      spc  _    del   @fnw @fnb  _      _      _
