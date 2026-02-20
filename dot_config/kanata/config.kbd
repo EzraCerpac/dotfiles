@@ -8,13 +8,13 @@
 )
 
 ;; define the keys to remap
-;; f1-f12: Apple top row (intercepted as F-keys, remapped to media actions)
+;; esc/f1-f12: Apple top row (intercepted as F-keys, remapped to media actions)
 ;; caps: kanata intercepts at device level (before macOS HID remapping)
 ;; fn: Apple globe key (tap=fn/globe, hold=fn-layer for real F-keys + nav)
 ;; spc: tap=space, hold=left cmd
 ;; lmet/rmet: tap enter/backspace, hold cmd
 (defsrc
-  f1     f2     f3   f4   f5   f6   f7     f8     f9     f10    f11    f12
+  esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   tab caps a s d f c h j k l ; n p u i o
   lmet fn spc rmet bspc w b m , .
 )
@@ -28,7 +28,7 @@
 
 ;; global chord: press left+right command together to send one-shot Hyper+R
 (defchordsv2
-  (lmet rmet) (macro C-A-S-M-(r 25)) 150 first-release ()
+  (lmet rmet) (macro C-A-S-M-(s 25)) 150 first-release ()
 )
 
 ;; virtual keys for per-app config (pressed/released by kanata-vk-agent)
@@ -40,7 +40,7 @@
 
 ;; alias definitions
 (defalias
-  escsuper (tap-hold $tap-time $hold-time esc (multi lmet lctl lalt lsft))
+  escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
 
   ;; fn/globe: tap for fn (emoji picker etc.), hold for fn-layer
   fnl (tap-hold $tap-time $hold-time fn (layer-while-held fn-layer))
@@ -59,8 +59,6 @@
   j (tap-hold-press $tap-time $hold-time j rctrl)
   l (tap-hold-press $tap-time $hold-time l ralt)
   ; (tap-hold-press $tap-time $hold-time-slow ; rsft)
-  ;; in nav-layer, hold s to emit alt + hjkl letters (AeroSpace-native path)
-  navs (multi lalt (layer-while-held nav-alt-layer))
 
   ;; nav/fn per-app aliases
   ;; terminal check: wezterm, ghostty, Terminal.app
@@ -93,42 +91,40 @@
     () A-left break
   )
   navt (layer-toggle nav-layer)
-  numt (layer-toggle num-layer)
+  numt (switch
+    ((base-layer num-layer)) (layer-switch base) break
+    () (layer-switch num-layer) break
+  )
+  numexit_esc (multi esc (layer-switch base))
+  numexit_caps (layer-switch base)
   fnn S-M-]
   fnp S-M-[
 )
 
 ;; default layer: media keys on top row + requested home-row roles
 (deflayer base
-  brdn   brup   _    _    _    _    prev   pp     next   mute   vold   volu
+  esc    brdn   brup _    _    _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a @s @d @f @c h @j k @l @; n p u i o
   @lcmd @fnl @spccmd @rcmd bspc w b m , .
 )
 
 ;; nav-layer: vim arrows + nav, activated by holding d
 (deflayer nav-layer
-  _      _      _    _    _    _    _      _      _      _      _      _
-  _      _      lsft @navs @fnd lctl _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
+  _      _      _    _    _    _    _      _      _      _      _      _      _
+  _      _      lsft lalt @fnd lctl _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      spc  _    del   @fnw @fnb  _      _      _
-)
-
-;; while holding s in nav-layer, h/j/k/l output letters instead of arrows
-(deflayer nav-alt-layer
-  _      _      _    _    _    _    _      _      _      _      _      _
-  _      _      _    _    _    _    _      h      j      k      l      _      _      _      _      _      _
-  _      _      _    _    _    _    _      _      _      _
 )
 
 ;; fn-layer: real F-keys + same nav behavior as nav-layer
 (deflayer fn-layer
-  f1     f2     f3   f4   f5   f6   f7     f8     f9     f10    f11    f12
+  esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   _      _      a    s    @navt f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      spc  _    del   @fnw @fnb  _      _      _
 )
 
 ;; num-layer: right-hand numpad (0 on n)
 (deflayer num-layer
-  _      _      _    _    _    _    _      _      _      _      _      _
-  _      _      _    _    _    _    _      _      4      5      6      _      0      _      7      8      9
-  _      _      spc  _    _    _    _      1      2      3
+  @numexit_esc _    _    _    _    _    _      _      _      _      _      _      _
+  _      @numexit_caps _ _    _    _    _      _      4      5      6      _      0      _      7      8      9
+  _      @fnl   spc  _    _    _    _      1      2      3
 )
