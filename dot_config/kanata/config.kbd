@@ -84,6 +84,8 @@
       (input virtual com.apple.Terminal))) b break
     () A-left break
   )
+  navt (layer-toggle nav-layer)
+  numt (layer-toggle num-layer)
   fnn S-M-]
   fnp S-M-[
 )
@@ -105,7 +107,7 @@
 ;; fn-layer: real F-keys + same nav behavior as nav-layer
 (deflayer fn-layer
   f1     f2     f3   f4   f5   f6   f7     f8     f9     f10    f11    f12
-  _      _      a    s    @fnd f    _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
+  _      _      a    s    @navt f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      spc  _    del   @fnw @fnb  _      _      _
 )
 
