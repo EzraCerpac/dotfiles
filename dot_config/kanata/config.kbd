@@ -26,9 +26,9 @@
   hold-time-slow 200
 )
 
-;; global chord: press left+right command together to send Hyper+R
+;; global chord: press left+right command together to send one-shot Hyper+R
 (defchordsv2
-  (lmet rmet) M-C-A-S-r 200 first-release ()
+  (lmet rmet) (macro M-C-A-S-r) 150 first-release ()
 )
 
 ;; virtual keys for per-app config (pressed/released by kanata-vk-agent)
