@@ -28,7 +28,7 @@
 
 ;; global chord: press left+right command together to send one-shot Hyper+R
 (defchordsv2
-  (lmet rmet) (macro M-C-A-S-r) 150 first-release ()
+  (lmet rmet) (macro C-A-S-M-(r 25)) 150 first-release ()
 )
 
 ;; virtual keys for per-app config (pressed/released by kanata-vk-agent)
