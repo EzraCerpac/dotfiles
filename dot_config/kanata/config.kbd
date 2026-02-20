@@ -4,6 +4,7 @@
 ;; un-mapped keys behave as normally
 (defcfg
   process-unmapped-keys yes
+  concurrent-tap-hold yes
 )
 
 ;; define the keys to remap
@@ -45,14 +46,14 @@
   spccmd (tap-hold $tap-time $hold-time-slow spc lmet)
 
   ;; requested home-row roles
-  a (tap-hold $tap-time $hold-time-slow a lsft)
-  s (tap-hold $tap-time $hold-time s lalt)
-  d (tap-hold $tap-time $hold-time d (layer-while-held nav-layer))
-  f (tap-hold $tap-time $hold-time f lctrl)
-  c (tap-hold $tap-time $hold-time c (layer-while-held num-layer))
-  j (tap-hold $tap-time $hold-time j rctrl)
-  l (tap-hold $tap-time $hold-time l ralt)
-  ; (tap-hold $tap-time $hold-time-slow ; rsft)
+  a (tap-hold-press $tap-time $hold-time-slow a lsft)
+  s (tap-hold-press $tap-time $hold-time s lalt)
+  d (tap-hold-press $tap-time $hold-time d (layer-while-held nav-layer))
+  f (tap-hold-press $tap-time $hold-time f lctrl)
+  c (tap-hold-press $tap-time $hold-time c (layer-while-held num-layer))
+  j (tap-hold-press $tap-time $hold-time j rctrl)
+  l (tap-hold-press $tap-time $hold-time l ralt)
+  ; (tap-hold-press $tap-time $hold-time-slow ; rsft)
 
   ;; nav/fn per-app aliases
   ;; terminal check: wezterm, ghostty, Terminal.app
