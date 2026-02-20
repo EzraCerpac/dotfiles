@@ -26,6 +26,11 @@
   hold-time-slow 200
 )
 
+;; global chord: press left+right command together to send Hyper+R
+(defchordsv2
+  (lmet rmet) M-C-A-S-r 200 first-release ()
+)
+
 ;; virtual keys for per-app config (pressed/released by kanata-vk-agent)
 (defvirtualkeys
   com.github.wez.wezterm nop0
@@ -54,6 +59,8 @@
   j (tap-hold-press $tap-time $hold-time j rctrl)
   l (tap-hold-press $tap-time $hold-time l ralt)
   ; (tap-hold-press $tap-time $hold-time-slow ; rsft)
+  ;; in nav-layer, hold s to emit alt + hjkl letters (AeroSpace-native path)
+  navs (multi lalt (layer-while-held nav-alt-layer))
 
   ;; nav/fn per-app aliases
   ;; terminal check: wezterm, ghostty, Terminal.app
@@ -101,8 +108,15 @@
 ;; nav-layer: vim arrows + nav, activated by holding d
 (deflayer nav-layer
   _      _      _    _    _    _    _      _      _      _      _      _
-  _      _      lsft lalt @fnd lctl _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
+  _      _      lsft @navs @fnd lctl _      left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      spc  _    del   @fnw @fnb  _      _      _
+)
+
+;; while holding s in nav-layer, h/j/k/l output letters instead of arrows
+(deflayer nav-alt-layer
+  _      _      _    _    _    _    _      _      _      _      _      _
+  _      _      _    _    _    _    _      h      j      k      l      _      _      _      _      _      _
+  _      _      _    _    _    _    _      _      _      _
 )
 
 ;; fn-layer: real F-keys + same nav behavior as nav-layer
