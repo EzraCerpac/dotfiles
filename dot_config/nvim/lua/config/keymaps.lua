@@ -32,6 +32,10 @@ vim.keymap.set("n", "<leader>qr", function()
   vim.notify("`:restart` is not available in this Neovim build", vim.log.levels.WARN)
 end, { desc = "Restart nvim" })
 
+-- Save
+vim.keymap.set("n", "<leader>w", "<Cmd>write<CR>", { desc = "Save file" })
+vim.keymap.set("n", "<leader>W", "<Cmd>wall<CR>", { desc = "Save all files" })
+
 -- Helix-like line nav
 vim.keymap.set({ "n", "v", "o" }, "g<Left>", "^", { desc = "First char of line" })
 vim.keymap.set({ "n", "v", "o" }, "g<Right>", "$", { desc = "Last char of line" })
