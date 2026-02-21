@@ -11,7 +11,7 @@
 ;; esc/f1-f12: Apple top row (intercepted as F-keys, remapped to media actions)
 ;; caps: kanata intercepts at device level (before macOS HID remapping)
 ;; fn: Apple globe key (tap=fn/globe)
-;; spc: tap=space, hold=left cmd
+;; spc: tap=space, hold=left sft
 ;; lmet/rmet: tap enter/backspace, hold cmd
 (defsrc
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
@@ -47,8 +47,8 @@
   ;; dual-role command keys
   lcmd (tap-hold $tap-time $hold-time ret lmet)
   rcmd (tap-hold $tap-time $hold-time bspc rmet)
-  ;; space: tap space, hold left cmd
-  spccmd (tap-hold $tap-time $hold-time-slow spc lmet)
+  ;; space: tap space, hold left shift
+  spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
 
   ;; requested home-row roles
   a (tap-hold-press $tap-time $hold-time-slow a lsft)
@@ -105,19 +105,19 @@
 (deflayer base
   esc    brdn   brup _    _    _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a @s @d @f @c h @j k @l @; n p u i o
-  @lcmd @fnl @spccmd @rcmd bspc w b m , .
+  @lcmd @fnl @spcsft @rcmd bspc w b m , .
 )
 
 ;; nav-layer: unified nav + F-keys, activated by holding d
 (deflayer nav-layer
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   _      _      a    s    @navt f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
-  _      _      spc  _    del   @fnw @fnb  _      _      _
+  _      _      @spcsft _    del   @fnw @fnb  _      _      _
 )
 
 ;; num-layer: right-hand numpad (0 on n)
 (deflayer num-layer
   @numexit_esc _    _    _    _    _    _      _      _      _      _      _      _
   _      @numexit_caps _ _    _    _    @numexit_caps _      4      5      6      _      0      _      7      8      9
-  _      @fnl   spc  _    _    _    _      1      2      3
+  _      @fnl   @spcsft  _    _    _    _      1      2      3
 )
