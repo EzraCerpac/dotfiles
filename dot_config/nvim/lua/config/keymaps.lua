@@ -2,27 +2,39 @@
 -- Default keymaps that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/keymaps.lua
 -- Add any additional keymaps here
 
+require("config.keymaps.jabref")
+
+local function safe_del(mode, lhs)
+  pcall(vim.keymap.del, mode, lhs)
+end
+
 -- REMOVED --
 
 -- Tabs
-vim.keymap.del("n", "<leader><tab>l")
-vim.keymap.del("n", "<leader><tab>o")
-vim.keymap.del("n", "<leader><tab>f")
-vim.keymap.del("n", "<leader><tab><tab>")
-vim.keymap.del("n", "<leader><tab>]")
-vim.keymap.del("n", "<leader><tab>d")
-vim.keymap.del("n", "<leader><tab>[")
+safe_del("n", "<leader><tab>l")
+safe_del("n", "<leader><tab>o")
+safe_del("n", "<leader><tab>f")
+safe_del("n", "<leader><tab><tab>")
+safe_del("n", "<leader><tab>]")
+safe_del("n", "<leader><tab>d")
+safe_del("n", "<leader><tab>[")
 -- Space
-vim.keymap.del("n", "<leader><space>")
+safe_del("n", "<leader><space>")
 
 -- ADDED --
 
 -- Restart --
-vim.keymap.set("n", "<leader>qr", "<Cmd>restart<CR>", { desc = "Restart nvim" })
+vim.keymap.set("n", "<leader>qr", function()
+  if vim.fn.exists(":restart") > 0 then
+    vim.cmd("restart")
+    return
+  end
+  vim.notify("`:restart` is not available in this Neovim build", vim.log.levels.WARN)
+end, { desc = "Restart nvim" })
 
 -- Helix-like line nav
-vim.keymap.set({ "n", "v", "o" }, "gh", "^", { desc = "First char of line" })
-vim.keymap.set({ "n", "v", "o" }, "gl", "$", { desc = "Last char of line" })
+vim.keymap.set({ "n", "v", "o" }, "g<Left>", "^", { desc = "First char of line" })
+vim.keymap.set({ "n", "v", "o" }, "g<Right>", "$", { desc = "Last char of line" })
 
 -- Text editting --
 vim.keymap.set("v", "<C-b>", "gsa*", { desc = "Surround selection with *" })
@@ -30,16 +42,18 @@ vim.keymap.set("n", "<C-b>", "gsaiw*", { desc = "Surround word with *" })
 vim.keymap.set("v", "<C-i>", "gsa_", { desc = "Surround selection with _" })
 vim.keymap.set("n", "<C-i>", "gsaiw_", { desc = "Surround word with _" })
 
-local actions = require("fzf-lua.actions")
-
-require("fzf-lua").setup({
-  files = {
-    hidden = false, -- your pref
-    actions = {
-      ["ctrl-h"] = actions.toggle_hidden, -- your remap
+local has_fzf, fzf = pcall(require, "fzf-lua")
+if has_fzf then
+  local actions = require("fzf-lua.actions")
+  fzf.setup({
+    files = {
+      hidden = false,
+      actions = {
+        ["ctrl-h"] = actions.toggle_hidden,
+      },
     },
-  },
-})
+  })
+end
 
 vim.api.nvim_create_user_command("LatexToTypst", function()
   require("custom.latex_to_typst").convert()
