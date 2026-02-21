@@ -20,6 +20,8 @@ safe_del("n", "<leader><tab>d")
 safe_del("n", "<leader><tab>[")
 -- Space
 safe_del("n", "<leader><space>")
+-- Window group (LazyVim default)
+safe_del("n", "<leader>w")
 
 -- ADDED --
 
@@ -33,8 +35,8 @@ vim.keymap.set("n", "<leader>qr", function()
 end, { desc = "Restart nvim" })
 
 -- Save
-vim.keymap.set("n", "<leader>w", "<Cmd>write<CR>", { desc = "Save file" })
-vim.keymap.set("n", "<leader>W", "<Cmd>wall<CR>", { desc = "Save all files" })
+vim.keymap.set("n", "<leader>w", "<Cmd>write<CR>", { desc = "Save file", nowait = true })
+vim.keymap.set("n", "<leader>W", "<Cmd>wall<CR>", { desc = "Save all files", nowait = true })
 
 -- Helix-like line nav
 vim.keymap.set({ "n", "v", "o" }, "g<Left>", "^", { desc = "First char of line" })
