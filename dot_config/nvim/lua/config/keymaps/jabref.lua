@@ -8,6 +8,6 @@ function M.open_jabref()
   })
 end
 
-vim.keymap.set("n", "<leader>jr", M.open_jabref, { desc = "Open JabRef library" })
+vim.keymap.set("n", "<localLeader>jr", M.open_jabref, { desc = "Open JabRef library" })
 
 return M

@@ -111,7 +111,7 @@
 ;; nav-layer: unified nav + F-keys, activated by holding d
 (deflayer nav-layer
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
-  _      _      a    s    @navt f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
+  _      _      @a    @s    @navt @f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
   _      _      @spcsft _    del   @fnw @fnb  _      _      _
 )
 
