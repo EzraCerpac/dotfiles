@@ -4,7 +4,6 @@ return {
     event = "VeryLazy",
     dependencies = {
       { "nvim-lua/plenary.nvim" },
-      { "ravitemer/mcphub.nvim" },
       { "HakonHarnes/img-clip.nvim" },
     },
     opts = {
@@ -50,18 +49,7 @@ return {
       },
     },
     config = function(_, opts)
-      require("codecompanion").setup(vim.tbl_deep_extend("force", opts, {
-        extensions = {
-          mcphub = {
-            callback = "mcphub.extensions.codecompanion",
-            opts = {
-              make_vars = true,
-              make_slash_commands = true,
-              show_result_in_chat = true,
-            },
-          },
-        },
-      }))
+      require("codecompanion").setup(vim.tbl_deep_extend("force", opts, {}))
 
       vim.keymap.set(
         { "n", "v" },
@@ -106,17 +94,6 @@ return {
           end
         end,
       })
-    end,
-  },
-  {
-    "ravitemer/mcphub.nvim",
-    event = "VeryLazy",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-    },
-    build = "npm install -g mcp-hub@latest",
-    config = function()
-      require("mcphub").setup()
     end,
   },
   {
