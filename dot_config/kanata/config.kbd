@@ -21,8 +21,8 @@
 
 ;; define values for tap time and hold time
 (defvar
-  tap-time 150
-  hold-time 150
+  tap-time 160
+  hold-time 180
   hold-time-slow 200
 )
 
@@ -50,15 +50,16 @@
   ;; space: tap space, hold left shift
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
 
-  ;; requested home-row roles
-  a (tap-hold-press $tap-time $hold-time-slow a lsft)
-  s (tap-hold-press $tap-time $hold-time s lalt)
-  d (tap-hold-press $tap-time $hold-time d (layer-while-held nav-layer))
-  f (tap-hold-press $tap-time $hold-time f lctrl)
-  c (tap-hold-press $tap-time $hold-time c (layer-while-held num-layer))
-  j (tap-hold-press $tap-time $hold-time j rctrl)
-  l (tap-hold-press $tap-time $hold-time l ralt)
-  ; (tap-hold-press $tap-time $hold-time-slow ; rsft)
+;; roll friendly + modifiers work immediately
+
+  a (tap-hold-release-keys $tap-time $hold-time a lmet (a s d f c))
+  s (tap-hold-release-keys $tap-time $hold-time s lalt (a s d f c))
+  d (tap-hold-release-keys $tap-time $hold-time d (layer-while-held nav-layer) (a s d f c))
+  f (tap-hold-release-keys $tap-time $hold-time f lctrl (a s d f c))
+  c (tap-hold-release-keys $tap-time $hold-time c (layer-while-held num-layer) (a s d f c))
+
+  j (tap-hold-release-keys $tap-time $hold-time j rctrl (j k l ;))
+  l (tap-hold-release-keys $tap-time $hold-time l ralt (j k l ;))
 
   ;; nav/fn per-app aliases
   ;; terminal check: wezterm, ghostty, Terminal.app
@@ -104,7 +105,7 @@
 ;; default layer: media keys on top row + requested home-row roles
 (deflayer base
   esc    brdn   brup _    _    _    _      prev   pp     next   mute   vold   volu
-  tab @escsuper @a @s @d @f @c h @j k @l @; n p u i o
+  tab @escsuper @a @s @d @f @c h @j k @l ; n p u i o
   @lcmd @fnl @spcsft @rcmd bspc w b m , .
 )
 
