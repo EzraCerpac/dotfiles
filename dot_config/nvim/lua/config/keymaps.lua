@@ -32,8 +32,6 @@ vim.keymap.set({ "n", "x" }, "x", '"_x', { desc = "Delete char without yanking" 
 vim.keymap.set({ "n", "x" }, "X", '"_X', { desc = "Delete char backward without yanking" })
 vim.keymap.set({ "n", "x" }, "c", '"_c', { desc = "Change without yanking" })
 vim.keymap.set({ "n", "x" }, "C", '"_C', { desc = "Change to EOL without yanking" })
-vim.keymap.set({ "n", "x" }, "s", '"_s', { desc = "Substitute without yanking" })
-vim.keymap.set({ "n", "x" }, "S", '"_S', { desc = "Substitute line without yanking" })
 
 -- Restart --
 vim.keymap.set("n", "<leader>qr", function()
