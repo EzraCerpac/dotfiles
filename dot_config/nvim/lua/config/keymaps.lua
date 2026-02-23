@@ -22,6 +22,11 @@ safe_del("n", "<leader><tab>[")
 safe_del("n", "<leader><space>")
 -- Window group (LazyVim default)
 safe_del("n", "<leader>w")
+-- Ctrl+Arrow window resize (LazyVim default); used by mini.move instead
+safe_del("n", "<C-Up>")
+safe_del("n", "<C-Down>")
+safe_del("n", "<C-Left>")
+safe_del("n", "<C-Right>")
 
 -- ADDED --
 
@@ -45,6 +50,20 @@ end, { desc = "Restart nvim" })
 -- Save
 vim.keymap.set("n", "<leader>w", "<Cmd>write<CR>", { desc = "Save file", nowait = true })
 vim.keymap.set("n", "<leader>W", "<Cmd>wall<CR>", { desc = "Save all files", nowait = true })
+
+-- mini.move line movement in Normal mode
+vim.keymap.set("n", "<C-Up>", function()
+  require("mini.move").move_line("up")
+end, { desc = "Move line up" })
+vim.keymap.set("n", "<C-Down>", function()
+  require("mini.move").move_line("down")
+end, { desc = "Move line down" })
+vim.keymap.set("n", "<C-Left>", function()
+  require("mini.move").move_line("left")
+end, { desc = "Move line left" })
+vim.keymap.set("n", "<C-Right>", function()
+  require("mini.move").move_line("right")
+end, { desc = "Move line right" })
 
 -- Helix-like line nav
 vim.keymap.set({ "n", "v", "o" }, "g<Left>", "^", { desc = "First char of line" })
