@@ -25,6 +25,16 @@ safe_del("n", "<leader>w")
 
 -- ADDED --
 
+-- Delete/change without yanking
+vim.keymap.set({ "n", "x" }, "d", '"_d', { desc = "Delete without yanking" })
+vim.keymap.set({ "n", "x" }, "D", '"_D', { desc = "Delete to EOL without yanking" })
+vim.keymap.set({ "n", "x" }, "x", '"_x', { desc = "Delete char without yanking" })
+vim.keymap.set({ "n", "x" }, "X", '"_X', { desc = "Delete char backward without yanking" })
+vim.keymap.set({ "n", "x" }, "c", '"_c', { desc = "Change without yanking" })
+vim.keymap.set({ "n", "x" }, "C", '"_C', { desc = "Change to EOL without yanking" })
+vim.keymap.set({ "n", "x" }, "s", '"_s', { desc = "Substitute without yanking" })
+vim.keymap.set({ "n", "x" }, "S", '"_S', { desc = "Substitute line without yanking" })
+
 -- Restart --
 vim.keymap.set("n", "<leader>qr", function()
   if vim.fn.exists(":restart") > 0 then
