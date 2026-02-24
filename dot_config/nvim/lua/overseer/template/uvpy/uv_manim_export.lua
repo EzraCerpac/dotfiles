@@ -36,10 +36,17 @@ return {
       default = "",
     },
     interpreter = {
-      desc = "Interpreter executable",
+      desc = "Runner (auto/uv/manim/mise or executable on PATH)",
       type = "string",
       optional = true,
-      default = "uv",
+      default = "auto",
+      choices = { "auto", "uv", "manim", "mise" },
+    },
+    open_after_render = {
+      desc = "Open rendered media after completion",
+      type = "boolean",
+      optional = true,
+      default = true,
     },
   },
   builder = function(params)
@@ -54,11 +61,15 @@ return {
       return manim_util.failure_task("No Scene class found under cursor. Move cursor inside a Scene class definition.")
     end
     
-    local file = vim.fn.expand("%:t")
+    local file = vim.api.nvim_buf_get_name(0)
+    if file == "" then
+      file = vim.fn.expand("%:p")
+    end
     local cwd = util.project_root()
-    
-    -- Build command: uv run python -m manim [quality] [file] [scene] [extras]
-    local base_args = { "run", "python", "-m", "manim" }
+    local runner, base_args, runner_err = manim_util.resolve_manim_runner(params.interpreter)
+    if not runner then
+      return manim_util.failure_task(runner_err)
+    end
     
     -- Start with quality flag
     local manim_args = { manim_util.get_quality_flag(params.quality) }
@@ -71,6 +82,9 @@ return {
     -- Add transparent background if requested
     if params.transparent then
       table.insert(manim_args, "--transparent")
+    end
+    if params.open_after_render then
+      table.insert(manim_args, "--preview")
     end
     
     -- Add file and scene name
@@ -95,7 +109,7 @@ return {
     
     return {
       name = export_desc,
-      cmd = { params.interpreter },
+      cmd = { runner },
       args = all_args,
       cwd = cwd,
       components = { "uvpy_default" },
