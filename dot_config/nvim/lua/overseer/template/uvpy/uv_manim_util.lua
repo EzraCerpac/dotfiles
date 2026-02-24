@@ -14,14 +14,30 @@ M.quality_presets = {
 -- Default quality (fast preview)
 M.default_quality = "preview_low"
 
+local function parse_scene_class(line)
+  local class_name, bases = line:match("^%s*class%s+([%w_]+)%s*%(([^)]+)%)%s*:")
+  if not class_name or not bases then
+    return nil
+  end
+
+  for base in bases:gmatch("[^,]+") do
+    local cleaned = vim.trim(base):gsub("%b[]", ""):gsub("%s+", "")
+    if cleaned:match("Scene$") then
+      return class_name
+    end
+  end
+
+  return nil
+end
+
 -- Find all Scene classes in current buffer
 function M.find_scene_classes()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local scenes = {}
   
   for i, line in ipairs(lines) do
-    -- Look for class definitions that inherit from Scene
-    local class_name = line:match("^%s*class%s+(%w+)%s*%(%s*Scene%s*%)")
+    -- Look for class definitions that inherit from Scene subclasses too.
+    local class_name = parse_scene_class(line)
     if class_name then
       table.insert(scenes, {
         name = class_name,
@@ -69,7 +85,7 @@ end
 
 -- Get quality flag from preset name
 function M.get_quality_flag(preset)
-  return M.quality_presets[preset] or M.default_quality
+  return M.quality_presets[preset] or M.quality_presets[M.default_quality]
 end
 
 -- Build Manim command arguments
@@ -87,6 +103,21 @@ function M.build_manim_args(file, scene_name, quality_preset, extra_args)
   end
   
   return args
+end
+
+function M.failure_task(message)
+  return {
+    name = "Manim: Invalid Context",
+    cmd = { "sh" },
+    args = { "-c", "printf '%s\\n' \"$1\" >&2; exit 1", "_", "[Manim] " .. message },
+    components = { "uvpy_default" },
+    metadata = {
+      uvpy = {
+        kind = "manim_error",
+        base_args = {},
+      },
+    },
+  }
 end
 
 -- Show notification with Manim-specific styling

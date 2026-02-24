@@ -45,13 +45,13 @@ return {
   builder = function(params)
     -- Validate that this is a Manim file
     if not manim_util.validate_manim_file() then
-      return nil, "No Manim import found. Please add 'import manim' or 'from manim import ...' to your file."
+      return manim_util.failure_task("No Manim import found. Please add 'import manim' or 'from manim import ...' to your file.")
     end
     
     -- Get scene under cursor
     local scene = manim_util.get_scene_under_cursor()
     if not scene then
-      return nil, "No Scene class found under cursor. Move cursor inside a Scene class definition."
+      return manim_util.failure_task("No Scene class found under cursor. Move cursor inside a Scene class definition.")
     end
     
     local file = vim.fn.expand("%:t")
@@ -87,7 +87,7 @@ return {
     
     local all_args = util.extend_args(base_args, manim_args)
     
-    local quality_desc = params.quality:gsub("_", " ")
+    local quality_desc = (params.quality or "high"):gsub("_", " ")
     local export_desc = string.format("Manim Export: %s (%s)", scene.name, quality_desc)
     if params.output_dir then
       export_desc = export_desc .. " -> " .. params.output_dir
