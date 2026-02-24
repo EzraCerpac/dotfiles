@@ -14,9 +14,25 @@ M.quality_presets = {
 -- Default quality (fast preview)
 M.default_quality = "preview_low"
 
-local function parse_scene_class(line)
-  local class_name, bases = line:match("^%s*class%s+([%w_]+)%s*%(([^)]+)%)%s*:")
-  if not class_name or not bases then
+local function indent_width(line)
+  local ws = line:match("^(%s*)") or ""
+  return #(ws:gsub("\t", "    "))
+end
+
+local function parse_class_header(line)
+  local class_name, bases = line:match("^%s*class%s+([%w_]+)%s*%(([^)]*)%)%s*:")
+  if class_name then
+    return class_name, bases
+  end
+  class_name = line:match("^%s*class%s+([%w_]+)%s*:")
+  if class_name then
+    return class_name, ""
+  end
+  return nil, nil
+end
+
+local function has_scene_base(bases)
+  if not bases then
     return nil
   end
 
@@ -30,21 +46,45 @@ local function parse_scene_class(line)
   return nil
 end
 
+local function class_has_construct(lines, class_line, class_indent)
+  for i = class_line + 1, #lines do
+    local line = lines[i]
+    if line:match("^%s*$") or line:match("^%s*#") then
+      goto continue
+    end
+
+    local indent = indent_width(line)
+    if indent <= class_indent then
+      return false
+    end
+    if line:match("^%s*def%s+construct%s*%(") then
+      return true
+    end
+
+    ::continue::
+  end
+  return false
+end
+
 -- Find all Scene classes in current buffer
 function M.find_scene_classes()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local scenes = {}
   
   for i, line in ipairs(lines) do
-    -- Look for class definitions that inherit from Scene subclasses too.
-    local class_name = parse_scene_class(line)
+    local class_name, bases = parse_class_header(line)
     if class_name then
+      local is_scene = has_scene_base(bases) or class_has_construct(lines, i, indent_width(line))
+      if not is_scene then
+        goto continue
+      end
       table.insert(scenes, {
         name = class_name,
         line = i,
         text = line:match("^%s*(.*)")
       })
     end
+    ::continue::
   end
   
   return scenes
