@@ -33,17 +33,17 @@ end
 
 local function has_scene_base(bases)
   if not bases then
-    return nil
+    return false
   end
 
   for base in bases:gmatch("[^,]+") do
     local cleaned = vim.trim(base):gsub("%b[]", ""):gsub("%s+", "")
     if cleaned:match("Scene$") then
-      return class_name
+      return true
     end
   end
 
-  return nil
+  return false
 end
 
 local function class_has_construct(lines, class_line, class_indent)
