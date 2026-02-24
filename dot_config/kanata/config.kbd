@@ -50,16 +50,16 @@
   ;; space: tap space, hold left shift
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
 
-;; roll friendly + modifiers work immediately
+;; chord-safe HRM behavior: overlapping presses resolve as holds/mods
 
-  a (tap-hold-release-keys $tap-time $hold-time a lmet (a s d f c))
-  s (tap-hold-release-keys $tap-time $hold-time s lalt (a s d f c))
-  d (tap-hold-release-keys $tap-time $hold-time d (layer-while-held nav-layer) (a s d f c))
-  f (tap-hold-release-keys $tap-time $hold-time f lctrl (a s d f c))
-  c (tap-hold-release-keys $tap-time $hold-time c (layer-while-held num-layer) (a s d f c))
+  a (tap-hold $tap-time $hold-time a lmet)
+  s (tap-hold $tap-time $hold-time s lalt)
+  d (tap-hold $tap-time $hold-time d (layer-while-held nav-layer))
+  f (tap-hold $tap-time $hold-time f lctrl)
+  c (tap-hold $tap-time $hold-time c (layer-while-held num-layer))
 
-  j (tap-hold-release-keys $tap-time $hold-time j rctrl (j k l ;))
-  l (tap-hold-release-keys $tap-time $hold-time l ralt (j k l ;))
+  j (tap-hold $tap-time $hold-time j rctrl)
+  l (tap-hold $tap-time $hold-time l ralt)
 
   ;; nav/fn per-app aliases
   ;; terminal check: wezterm, ghostty, Terminal.app
