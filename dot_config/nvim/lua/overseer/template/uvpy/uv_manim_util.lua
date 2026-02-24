@@ -145,6 +145,50 @@ function M.build_manim_args(file, scene_name, quality_preset, extra_args)
   return args
 end
 
+function M.resolve_manim_runner(interpreter)
+  local choice = (interpreter and interpreter ~= "") and interpreter or "auto"
+  local executable = vim.fn.executable
+
+  if choice == "auto" then
+    if executable("uv") == 1 then
+      return "uv", { "run", "python", "-m", "manim" }
+    end
+    if executable("manim") == 1 then
+      return "manim", {}
+    end
+    if executable("mise") == 1 then
+      return "mise", { "exec", "--", "manim" }
+    end
+    return nil, nil, "No Manim runner found in PATH (checked: uv, manim, mise)."
+  end
+
+  if choice == "uv" then
+    if executable("uv") ~= 1 then
+      return nil, nil, "uv not found in PATH."
+    end
+    return "uv", { "run", "python", "-m", "manim" }
+  end
+
+  if choice == "manim" then
+    if executable("manim") ~= 1 then
+      return nil, nil, "manim not found in PATH."
+    end
+    return "manim", {}
+  end
+
+  if choice == "mise" then
+    if executable("mise") ~= 1 then
+      return nil, nil, "mise not found in PATH."
+    end
+    return "mise", { "exec", "--", "manim" }
+  end
+
+  if executable(choice) == 1 then
+    return choice, {}
+  end
+  return nil, nil, string.format("Runner '%s' not found in PATH.", choice)
+end
+
 function M.failure_task(message)
   return {
     name = "Manim: Invalid Context",

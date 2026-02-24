@@ -4,7 +4,7 @@ local overseer = require("overseer")
 
 return {
   name = "Manim: Render Scene Under Cursor",
-  desc = "Render the Manim Scene class under cursor with uv",
+  desc = "Render the Manim Scene class under cursor",
   tags = { overseer.TAG.RUN },
   priority = 50,
   condition = {
@@ -25,10 +25,17 @@ return {
       default = "",
     },
     interpreter = {
-      desc = "Interpreter executable",
+      desc = "Runner (auto/uv/manim/mise or executable on PATH)",
       type = "string",
       optional = true,
-      default = "uv",
+      default = "auto",
+      choices = { "auto", "uv", "manim", "mise" },
+    },
+    open_after_render = {
+      desc = "Open rendered media after completion",
+      type = "boolean",
+      optional = true,
+      default = true,
     },
   },
   builder = function(params)
@@ -43,12 +50,20 @@ return {
       return manim_util.failure_task("No Scene class found under cursor. Move cursor inside a Scene class definition.")
     end
     
-    local file = vim.fn.expand("%:t")
+    local file = vim.api.nvim_buf_get_name(0)
+    if file == "" then
+      file = vim.fn.expand("%:p")
+    end
     local cwd = util.project_root()
+    local runner, base_args, runner_err = manim_util.resolve_manim_runner(params.interpreter)
+    if not runner then
+      return manim_util.failure_task(runner_err)
+    end
     
-    -- Build command: uv run python -m manim [quality] [file] [scene]
-    local base_args = { "run", "python", "-m", "manim" }
     local manim_args = manim_util.build_manim_args(file, scene.name, params.quality, params.extra_args)
+    if params.open_after_render then
+      table.insert(manim_args, 2, "--preview")
+    end
     local all_args = util.extend_args(base_args, manim_args)
     
     local quality_desc = (params.quality or manim_util.default_quality):gsub("_", " ")
@@ -56,7 +71,7 @@ return {
     
     return {
       name = task_name,
-      cmd = { params.interpreter },
+      cmd = { runner },
       args = all_args,
       cwd = cwd,
       components = { "uvpy_default" },

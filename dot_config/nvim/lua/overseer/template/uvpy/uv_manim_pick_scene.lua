@@ -22,7 +22,7 @@ end
 
 return {
   name = "Manim: Pick Scene to Render",
-  desc = "Interactive selection of Scene class to render with uv",
+  desc = "Interactive selection of Scene class to render",
   tags = { overseer.TAG.RUN },
   priority = 50,
   condition = {
@@ -44,10 +44,17 @@ return {
         default = "",
       },
       interpreter = {
-        desc = "Interpreter executable",
+        desc = "Runner (auto/uv/manim/mise or executable on PATH)",
         type = "string",
         optional = true,
-        default = "uv",
+        default = "auto",
+        choices = { "auto", "uv", "manim", "mise" },
+      },
+      open_after_render = {
+        desc = "Open rendered media after completion",
+        type = "boolean",
+        optional = true,
+        default = true,
       },
     }
 
@@ -84,17 +91,26 @@ return {
       end
     end
 
-    local file = vim.fn.expand("%:t")
+    local file = vim.api.nvim_buf_get_name(0)
+    if file == "" then
+      file = vim.fn.expand("%:p")
+    end
     local cwd = util.project_root()
-    local base_args = { "run", "python", "-m", "manim" }
+    local runner, base_args, runner_err = manim_util.resolve_manim_runner(params.interpreter)
+    if not runner then
+      return manim_util.failure_task(runner_err)
+    end
     local manim_args = manim_util.build_manim_args(file, selected_scene.name, params.quality, params.extra_args)
+    if params.open_after_render then
+      table.insert(manim_args, 2, "--preview")
+    end
     local all_args = util.extend_args(base_args, manim_args)
     local quality_desc = (params.quality or manim_util.default_quality):gsub("_", " ")
     local task_name = string.format("Manim: %s (%s)", selected_scene.name, quality_desc)
 
     return {
       name = task_name,
-      cmd = { params.interpreter },
+      cmd = { runner },
       args = all_args,
       cwd = cwd,
       components = { "uvpy_default" },
