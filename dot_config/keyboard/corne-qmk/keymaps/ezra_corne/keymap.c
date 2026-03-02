@@ -25,6 +25,7 @@ enum custom_keycodes {
     NV_N_CTL,
     NV_I_ALT,
     NV_O_GUI,
+    DE_GRV_TILD,
 };
 
 #define HRM_A MT(MOD_LGUI, KC_A)
@@ -38,7 +39,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_split_3x6_3(
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
         HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           KC_E,            HRM_I,           HRM_O,           KC_QUOT,
-        KC_GRV,  KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
+        DE_GRV_TILD, KC_Z,        KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
                                             TH_HUD_ALT,      CTL_T(KC_ENT),       TH_HYP_NUM,          LT(_NAV_FN, KC_BSPC), LSFT_T(KC_SPC), MT(MOD_RGUI, KC_DEL)
     ),
 
@@ -225,6 +226,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                     layer_off(_NAV_FN);
                 } else if (!nav_interrupted && timer_elapsed(nav_timer) < TAPPING_TERM) {
                     tap_code(KC_S);
+                }
+            }
+            return false;
+        case DE_GRV_TILD:
+            if (record->event.pressed) {
+                if (get_mods() & MOD_MASK_SHIFT) {
+                    tap_code16(A(KC_N));
+                } else {
+                    tap_code16(S(KC_EQL));
                 }
             }
             return false;
