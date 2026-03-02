@@ -8,7 +8,7 @@ parse_config:
     "TH_HYP_NUM": "⎇R\nNum"
     "TH_NAV_S": "S\nNav"
     "KC_NUBS": "§\n±"
-    "LT(_NAV_FN,KC_BSPC)": "Bsp\nNavFn"
+    "TH_NAV_BSPC": "Bsp\nNav"
     "CTL_T(KC_ENT)": "Enter\nCtrl"
     "MT(MOD_RGUI,KC_DEL)": "Del\nGui"
     "MT(MOD_LGUI,KC_A)": "A\nGui"

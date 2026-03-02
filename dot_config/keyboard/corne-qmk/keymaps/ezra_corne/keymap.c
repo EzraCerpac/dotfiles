@@ -13,6 +13,7 @@ enum custom_keycodes {
     TH_HUD_ALT,
     TH_HYP_NUM,
     TH_NAV_S,
+    TH_NAV_BSPC,
     NS_A_GUI,
     NS_R_ALT,
     NS_T_CTL,
@@ -36,7 +37,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
         HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           KC_E,            HRM_I,           HRM_O,           KC_QUOT,
         KC_NUBS, KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
-                                            TH_HUD_ALT,      CTL_T(KC_ENT),       TH_HYP_NUM,          LT(_NAV_FN, KC_BSPC), LSFT_T(KC_SPC), MT(MOD_RGUI, KC_DEL)
+                                            TH_HUD_ALT,      CTL_T(KC_ENT),       TH_HYP_NUM,          TH_NAV_BSPC,         LSFT_T(KC_SPC), MT(MOD_RGUI, KC_DEL)
     ),
 
     [_NUM_SYM] = LAYOUT_split_3x6_3(
@@ -65,9 +66,12 @@ static bool num_interrupted = false;
 static uint16_t num_timer = 0;
 
 static bool nav_pressed = false;
-static bool nav_hold    = false;
 static bool nav_interrupted = false;
 static uint16_t nav_timer = 0;
+static bool nav_bspc_pressed = false;
+static bool nav_bspc_interrupted = false;
+static uint16_t nav_bspc_timer = 0;
+static uint8_t nav_hold_refs = 0;
 
 typedef struct {
     uint16_t keycode;
@@ -114,17 +118,27 @@ static void activate_num_hold(void) {
     }
 }
 
-static void activate_nav_hold(void) {
-    if (!nav_hold) {
-        layer_on(_NAV_FN);
-        nav_hold = true;
-    }
-}
-
 static void activate_custom_modtap_hold(custom_modtap_t *mt) {
     if (!mt->hold) {
         register_mods(mt->hold_mod);
         mt->hold = true;
+    }
+}
+
+static void nav_layer_ref_inc(void) {
+    if (nav_hold_refs == 0) {
+        layer_on(_NAV_FN);
+    }
+    nav_hold_refs++;
+}
+
+static void nav_layer_ref_dec(void) {
+    if (nav_hold_refs == 0) {
+        return;
+    }
+    nav_hold_refs--;
+    if (nav_hold_refs == 0) {
+        layer_off(_NAV_FN);
     }
 }
 
@@ -139,9 +153,11 @@ static void activate_pending_holds(uint16_t keycode) {
         activate_num_hold();
     }
 
-    if (nav_pressed && !nav_hold && keycode != TH_NAV_S) {
+    if (nav_pressed && keycode != TH_NAV_S) {
         nav_interrupted = true;
-        activate_nav_hold();
+    }
+    if (nav_bspc_pressed && keycode != TH_NAV_BSPC) {
+        nav_bspc_interrupted = true;
     }
 
     for (uint8_t i = 0; i < ARRAY_SIZE(custom_modtaps); i++) {
@@ -210,15 +226,28 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case TH_NAV_S:
             if (record->event.pressed) {
                 nav_pressed = true;
-                nav_hold = false;
                 nav_interrupted = false;
                 nav_timer = timer_read();
+                nav_layer_ref_inc();
             } else {
                 nav_pressed = false;
-                if (nav_hold) {
-                    layer_off(_NAV_FN);
-                } else if (!nav_interrupted && timer_elapsed(nav_timer) < TAPPING_TERM) {
+                nav_layer_ref_dec();
+                if (!nav_interrupted && timer_elapsed(nav_timer) < TAPPING_TERM) {
                     tap_code(KC_S);
+                }
+            }
+            return false;
+        case TH_NAV_BSPC:
+            if (record->event.pressed) {
+                nav_bspc_pressed = true;
+                nav_bspc_interrupted = false;
+                nav_bspc_timer = timer_read();
+                nav_layer_ref_inc();
+            } else {
+                nav_bspc_pressed = false;
+                nav_layer_ref_dec();
+                if (!nav_bspc_interrupted && timer_elapsed(nav_bspc_timer) < TAPPING_TERM) {
+                    tap_code(KC_BSPC);
                 }
             }
             return false;
@@ -254,10 +283,6 @@ void matrix_scan_user(void) {
 
     if (num_pressed && !num_hold && timer_elapsed(num_timer) >= TAPPING_TERM) {
         activate_num_hold();
-    }
-
-    if (nav_pressed && !nav_hold && timer_elapsed(nav_timer) >= TAPPING_TERM) {
-        activate_nav_hold();
     }
 
     for (uint8_t i = 0; i < ARRAY_SIZE(custom_modtaps); i++) {
