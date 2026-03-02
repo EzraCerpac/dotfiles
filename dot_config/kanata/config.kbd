@@ -8,7 +8,7 @@
 (defsrc
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   tab caps a s d f c h j k l ; n p u i o
-  lmet fn spc rmet bspc w b m , .
+  lmet fn spc rmet bspc w b m , . ralt
 )
 
 (defvar
@@ -63,17 +63,17 @@
 (deflayer base
   esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
-  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .
+  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del
 )
 
 (deflayer nav-layer
   esc    f1     f2    f3    f4    f5    f6    f7     f8     f9     f10    f11    f12
   _      _      @nava @navs C-S-tab @navf _    left   down   up     right   brup   _      _      _      _      _
-  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu
+  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del
 )
 
 (deflayer num-layer
   @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
   _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
-  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-`
+  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del
 )
