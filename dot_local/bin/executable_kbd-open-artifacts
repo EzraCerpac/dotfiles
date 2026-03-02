@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ARTIFACT_DIR="${HOME}/Projects/keyboards/artifacts/corne-rev1"
+mkdir -p "${ARTIFACT_DIR}"
+open "${ARTIFACT_DIR}"

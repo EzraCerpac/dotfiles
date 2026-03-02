@@ -1,4 +1,7 @@
 [tools]
+# Keyboard firmware toolchain is managed via Homebrew:
+# qmk, arm-none-eabi-gcc@9, arm-none-eabi-binutils, avr-gcc, dos2unix
+
 # Core runtimes
 node = "lts"
 # rust managed via rustup directly (mise core:rust just wraps rustup)

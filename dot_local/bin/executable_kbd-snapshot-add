@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+    echo "usage: kbd-snapshot-add <path-to-vial-export.vil>" >&2
+    exit 1
+fi
+
+INPUT_FILE="$1"
+if [[ ! -f "${INPUT_FILE}" ]]; then
+    echo "file not found: ${INPUT_FILE}" >&2
+    exit 1
+fi
+
+if ! jq empty "${INPUT_FILE}" >/dev/null 2>&1; then
+    echo "invalid JSON/VIL: ${INPUT_FILE}" >&2
+    exit 1
+fi
+
+SNAPSHOT_DIR="${HOME}/.config/keyboard/corne-vial/snapshots"
+mkdir -p "${SNAPSHOT_DIR}"
+
+BASE_NAME="$(basename "${INPUT_FILE}" .vil)"
+SAFE_BASE="$(echo "${BASE_NAME}" | tr '[:space:]' '-' | tr -cd '[:alnum:]_.-')"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+OUT_FILE="${SNAPSHOT_DIR}/${STAMP}-${SAFE_BASE}.vil"
+
+jq . "${INPUT_FILE}" > "${OUT_FILE}"
+echo "snapshot saved: ${OUT_FILE}"

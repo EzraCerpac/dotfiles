@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+echo "Setting up keyboard development environment..."
+
+if ! command -v kbd-setup &>/dev/null; then
+    echo "kbd-setup command not found yet; run chezmoi apply once more after scripts are installed."
+    exit 0
+fi
+
+kbd-setup
+
+echo "Keyboard development setup complete"
+
+{{- end }}

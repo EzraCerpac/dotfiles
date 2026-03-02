@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VIAL_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
+
+if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is required on macOS for keyboard tooling." >&2
+    exit 1
+fi
+
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+brew tap qmk/qmk >/dev/null 2>&1 || true
+brew tap osx-cross/arm >/dev/null 2>&1 || true
+brew tap osx-cross/avr >/dev/null 2>&1 || true
+brew install \
+    qmk/qmk/qmk \
+    dos2unix \
+    osx-cross/avr/avr-gcc@9 \
+    osx-cross/arm/arm-none-eabi-binutils \
+    osx-cross/arm/arm-none-eabi-gcc@9 >/dev/null
+
+mkdir -p "${HOME}/Projects/keyboards"
+if [[ ! -d "${VIAL_QMK_DIR}/.git" ]]; then
+    git clone --branch vial --single-branch https://github.com/vial-kb/vial-qmk "${VIAL_QMK_DIR}"
+else
+    git -C "${VIAL_QMK_DIR}" fetch origin vial
+    git -C "${VIAL_QMK_DIR}" checkout vial
+    git -C "${VIAL_QMK_DIR}" pull --ff-only origin vial
+fi
+
+git -C "${VIAL_QMK_DIR}" submodule update --init --recursive
+
+echo "keyboard setup complete"
+echo "vial-qmk: ${VIAL_QMK_DIR}"

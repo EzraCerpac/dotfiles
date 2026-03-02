@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONVERT_TO="rp2040_ce"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --convert-to)
+            CONVERT_TO="${2:-}"
+            shift 2
+            ;;
+        *)
+            echo "unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+if [[ -z "${CONVERT_TO}" ]]; then
+    echo "--convert-to requires a value" >&2
+    exit 1
+fi
+
+VIAL_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
+ARTIFACT_DIR="${HOME}/Projects/keyboards/artifacts/corne-rev1"
+export PATH="/opt/homebrew/opt/arm-none-eabi-gcc@9/bin:/opt/homebrew/opt/arm-none-eabi-binutils/bin:${PATH}"
+
+kbd-sync
+
+if [[ ! -d "${VIAL_QMK_DIR}" ]]; then
+    echo "missing vial-qmk checkout: ${VIAL_QMK_DIR}" >&2
+    exit 1
+fi
+
+(
+    cd "${VIAL_QMK_DIR}"
+    git submodule sync --recursive
+    git submodule update --init --recursive
+    git submodule foreach --recursive 'git reset --hard && git clean -fd'
+    make crkbd/rev1:ezra_corne CONVERT_TO="${CONVERT_TO}"
+)
+
+mkdir -p "${ARTIFACT_DIR}"
+UF2_NAME="crkbd_rev1_ezra_corne_${CONVERT_TO}.uf2"
+UF2_PATH="${VIAL_QMK_DIR}/${UF2_NAME}"
+
+if [[ ! -f "${UF2_PATH}" ]]; then
+    echo "build finished but UF2 not found: ${UF2_PATH}" >&2
+    exit 1
+fi
+
+cp -f "${UF2_PATH}" "${ARTIFACT_DIR}/"
+echo "built ${ARTIFACT_DIR}/${UF2_NAME}"

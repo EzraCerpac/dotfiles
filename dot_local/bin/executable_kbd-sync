@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SRC_DIR="${HOME}/.config/keyboard/corne-vial/keymaps/ezra_corne"
+VIAL_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
+DST_DIR="${VIAL_QMK_DIR}/keyboards/crkbd/keymaps/ezra_corne"
+
+if [[ ! -d "${SRC_DIR}" ]]; then
+    echo "missing source dir: ${SRC_DIR}" >&2
+    exit 1
+fi
+
+if [[ ! -d "${VIAL_QMK_DIR}" ]]; then
+    echo "missing vial-qmk checkout: ${VIAL_QMK_DIR}" >&2
+    echo "run: kbd-setup" >&2
+    exit 1
+fi
+
+mkdir -p "${DST_DIR}"
+rsync -a --delete "${SRC_DIR}/" "${DST_DIR}/"
+
+echo "synced keymap to ${DST_DIR}"
