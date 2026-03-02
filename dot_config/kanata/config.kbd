@@ -1,124 +1,79 @@
-;; home row-mods + nav + num layer
-;; uses kanata-vk-agent for per-app awareness (macOS)
+;; internal keyboard profile aligned to Corne semantics
 
-;; un-mapped keys behave as normally
 (defcfg
   process-unmapped-keys yes
   concurrent-tap-hold yes
 )
 
-;; define the keys to remap
-;; esc/f1-f12: Apple top row (intercepted as F-keys, remapped to media actions)
-;; caps: kanata intercepts at device level (before macOS HID remapping)
-;; fn: Apple globe key (tap=fn/globe)
-;; spc: tap=space, hold=left sft
-;; lmet/rmet: tap enter/backspace, hold cmd
 (defsrc
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   tab caps a s d f c h j k l ; n p u i o
   lmet fn spc rmet bspc w b m , .
 )
 
-;; define values for tap time and hold time
 (defvar
   tap-time 160
   hold-time 180
   hold-time-slow 200
 )
 
-;; global chord: press left+right command together to send one-shot Hyper+R
-(defchordsv2
-  (lmet rmet) (macro C-A-S-M-(s 25)) 150 first-release ()
+(deffakekeys
+  sig_base f14
+  sig_num f15
+  sig_nav f16
 )
 
-;; virtual keys for per-app config (pressed/released by kanata-vk-agent)
-(defvirtualkeys
-  com.github.wez.wezterm nop0
-  com.mitchellh.ghostty nop1
-  com.apple.Terminal nop2
-)
-
-;; alias definitions
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
-
-  ;; fn/globe: tap for fn (emoji picker etc.)
   fnl fn
-  ;; dual-role command keys
+
+  ;; thumbs / modifiers
   lcmd (tap-hold $tap-time $hold-time ret lmet)
-  rcmd (tap-hold $tap-time $hold-time bspc rmet)
-  ;; space: tap space, hold left shift
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
+  navbspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
 
-;; chord-safe HRM behavior: overlapping presses resolve as holds/mods
-
+  ;; base home-row mods (QWERTY physical positions)
   a (tap-hold $tap-time $hold-time a lmet)
   s (tap-hold $tap-time $hold-time s lalt)
-  d (tap-hold $tap-time $hold-time d (layer-while-held nav-layer))
+  dnav (tap-hold-release $tap-time $hold-time d (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   f (tap-hold $tap-time $hold-time f lctrl)
-  c (tap-hold $tap-time $hold-time c (layer-while-held num-layer))
+  cnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
 
   j (tap-hold $tap-time $hold-time j rctrl)
   l (tap-hold $tap-time $hold-time l ralt)
+  semi (tap-hold $tap-time $hold-time ; rmet)
 
-  ;; nav/fn per-app aliases
-  ;; terminal check: wezterm, ghostty, Terminal.app
-  fnd (switch
-    ((or
-      (input virtual com.github.wez.wezterm)
-      (input virtual com.mitchellh.ghostty)
-      (input virtual com.apple.Terminal))) C-d break
-    () pgdn break
-  )
-  fnu (switch
-    ((or
-      (input virtual com.github.wez.wezterm)
-      (input virtual com.mitchellh.ghostty)
-      (input virtual com.apple.Terminal))) C-u break
-    () pgup break
-  )
-  fnw (switch
-    ((or
-      (input virtual com.github.wez.wezterm)
-      (input virtual com.mitchellh.ghostty)
-      (input virtual com.apple.Terminal))) w break
-    () A-rght break
-  )
-  fnb (switch
-    ((or
-      (input virtual com.github.wez.wezterm)
-      (input virtual com.mitchellh.ghostty)
-      (input virtual com.apple.Terminal))) b break
-    () A-left break
-  )
-  navt (layer-toggle nav-layer)
-  numt (switch
-    ((base-layer num-layer)) (layer-switch base) break
-    () (layer-switch num-layer) break
-  )
-  numexit_esc (multi esc (layer-switch base))
-  numexit_caps (layer-switch base)
-  fnn S-M-]
-  fnp S-M-[
+  ;; nav layer: keep left HRM, disable right HRM for repeatable arrows
+  nava (tap-hold $tap-time $hold-time A-left lmet)
+  navs (tap-hold $tap-time $hold-time A-rght lalt)
+  navf (tap-hold $tap-time $hold-time C-tab lctrl)
+
+  ;; num layer: Corne-style HRM taps in the digit row
+  na (tap-hold $tap-time $hold-time 2 lmet)
+  ns (tap-hold $tap-time $hold-time 3 lalt)
+  nf (tap-hold $tap-time $hold-time 5 lctrl)
+  nj (tap-hold $tap-time $hold-time 8 rctrl)
+  nl (tap-hold $tap-time $hold-time 0 ralt)
+  nsemi (tap-hold $tap-time $hold-time - rmet)
+
+  numexit_esc (multi esc (layer-switch base) (on-press-fakekey sig_base tap))
+  numexit_caps (multi (layer-switch base) (on-press-fakekey sig_base tap))
 )
 
-;; default layer: media keys on top row + requested home-row roles
 (deflayer base
-  esc    brdn   brup _    _    _    _      prev   pp     next   mute   vold   volu
-  tab @escsuper @a @s @d @f @c h @j k @l ; n p u i o
-  @lcmd @fnl @spcsft @rcmd bspc w b m , .
+  esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
+  tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
+  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .
 )
 
-;; nav-layer: unified nav + F-keys, activated by holding d
 (deflayer nav-layer
-  esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
-  _      _      @a    @s    @navt @f    @numt  left   down   up     right   ;      @fnn   @fnp   @fnu   _      _
-  _      _      @spcsft _    del   @fnw @fnb  _      _      _
+  esc    f1     f2    f3    f4    f5    f6    f7     f8     f9     f10    f11    f12
+  _      _      @nava @navs C-S-tab @navf _    left   down   up     right   brup   _      _      _      _      _
+  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu
 )
 
-;; num-layer: right-hand numpad (0 on n)
 (deflayer num-layer
-  @numexit_esc _    _    _    _    _    _      _      _      _      _      _      _
-  _      @numexit_caps _ _    _    _    @numexit_caps _      4      5      6      _      0      _      7      8      9
-  _      @fnl   @spcsft  _    _    _    _      1      2      3
+  @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
+  _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
+  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-`
 )
