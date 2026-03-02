@@ -19,8 +19,16 @@ if command -v brew &>/dev/null; then
     elif [[ -f /usr/local/bin/brew ]]; then
         eval "$(/usr/local/bin/brew shellenv)"
     fi
+    brew tap qmk/qmk || true
+    brew tap osx-cross/arm || true
+    brew tap osx-cross/avr || true
     echo "Installing system packages via Homebrew..."
-    brew install fish gnupg curl wget htop tree node
+    brew install \
+        fish gnupg curl wget htop tree node \
+        qmk/qmk/qmk dos2unix \
+        osx-cross/avr/avr-gcc@9 \
+        osx-cross/arm/arm-none-eabi-binutils \
+        osx-cross/arm/arm-none-eabi-gcc@9
 else
     echo "Warning: Homebrew not found, skipping system packages"
 fi

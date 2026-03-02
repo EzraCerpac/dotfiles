@@ -46,14 +46,14 @@ top = [
   45,
 ]
 
-[key-mapping]
-preset = "colemak"
-# Turn into colemak-dk
-[key-mapping.key-notation-to-key-code]
-  h = "m"
-  m = "h"
-  b = "t"
-  d = "c"
+# [key-mapping]
+# preset = "colemak"
+# # Turn into colemak-dk
+# [key-mapping.key-notation-to-key-code]
+#   h = "m"
+#   m = "h"
+#   b = "t"
+#   d = "c"
 
 
 [workspace-to-monitor-force-assignment]

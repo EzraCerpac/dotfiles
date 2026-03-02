@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+kbd-build --convert-to rp2040_ce
+kbd-build --convert-to sparkfun_pm2040
+
+echo "all firmware targets built"

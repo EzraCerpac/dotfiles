@@ -38,8 +38,22 @@ run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_once_03-install-tools.sh.tmpl       → system packages + mise install
 run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast)
+run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (vial-qmk)
 run_after_setup-shell.sh.tmpl           → fish shell setup, chsh hint
 ```
+
+## Keyboard Workflow (Corne + Vial + QMK)
+
+Keyboard source lives at `~/.config/keyboard/corne-vial` and syncs into a local `vial-qmk` checkout at `~/Projects/keyboards/vial-qmk`.
+
+Commands:
+
+- `kbd-setup` → install keyboard build dependencies and clone/update `vial-qmk`
+- `kbd-sync` → copy keymap source into `vial-qmk`
+- `kbd-build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
+- `kbd-build-all` → build both `rp2040_ce` and `sparkfun_pm2040`
+- `kbd-open-artifacts` → open UF2 artifact folder in Finder
+- `kbd-snapshot-add <file.vil>` → validate and store a Vial GUI export in `~/.config/keyboard/corne-vial/snapshots`
 
 ## Adding/Editing Configs
 
