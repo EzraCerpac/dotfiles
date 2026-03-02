@@ -1,0 +1,42 @@
+[settings]
+experimental = true
+
+[tasks.kbd_setup]
+description = "Setup Corne QMK toolchain"
+run = "kbd-setup"
+
+[tasks.kbd_sync]
+description = "Sync keymap + regenerate images + reload HUD"
+run = "kbd-sync"
+
+[tasks.kbd_build]
+description = "Build default UF2"
+run = "kbd-build"
+
+[tasks.kbd_build_all]
+description = "Build all UF2 variants"
+run = "kbd-build-all"
+
+[tasks.kbd_build_left]
+description = "Build left-hand tagged UF2 artifact"
+run = "kbd-build-left"
+
+[tasks.kbd_build_right]
+description = "Build right-hand tagged UF2 artifact"
+run = "kbd-build-right"
+
+[tasks.kbd_flash_left]
+description = "Flash LEFT half and set EE_HANDS left"
+run = "kbd-flash-left"
+
+[tasks.kbd_flash_right]
+description = "Flash RIGHT half and set EE_HANDS right"
+run = "kbd-flash-right"
+
+[tasks.kbd_hud]
+description = "Reload Hammerspoon HUD"
+run = "kbd-hud-reload"
+
+[tasks.kbd_images]
+description = "Regenerate keymap images"
+run = "kbd-layout-images"

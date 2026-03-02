@@ -1,0 +1,41 @@
+Corne QMK workflow (programmatic)
+
+1) Bootstrap tools and local qmk_firmware checkout
+   kbd-setup
+
+2) Edit keymap source
+   - ~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c
+
+3) Sync source into qmk_firmware
+   kbd-sync
+   - Also regenerates layout images
+   - Also reloads HUD overlay
+
+4) Build UF2 for your RP2040 ProMicro Corne rev1
+   kbd-build-all
+   - Optional artifact variants:
+     - kbd-build-left
+     - kbd-build-right
+
+5) Flash
+   - For correct split handedness, use split flash targets (recommended):
+     - mise run kbd_flash_left
+     - mise run kbd_flash_right
+   - Or direct commands:
+     - kbd-flash-left
+     - kbd-flash-right
+   - During per-half flashing, disconnect TRRS between halves.
+   - Enter bootloader on the half you are flashing (double-tap reset).
+   - The board should reboot automatically after flash.
+   - Left/right artifact files from `kbd-build-left/right` are convenience outputs and
+     are not the authoritative handedness path.
+
+6) Layout images and HUD
+   - Images are generated automatically on kbd-sync/kbd-build/kbd-build-all
+   - Manual regenerate: kbd-layout-images
+   - Output path: ~/.config/keyboard/corne-qmk/images/generated/
+   - Layer images: layer0.png layer1.png layer2.png
+   - HUD reload: kbd-hud-reload
+
+7) Keep source keymap authoritative
+   - Main source: ~/.config/keyboard/corne-qmk/keymaps/ezra_corne/

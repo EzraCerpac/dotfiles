@@ -26,6 +26,7 @@ if command -v brew &>/dev/null; then
     brew install \
         fish gnupg curl wget htop tree node \
         qmk/qmk/qmk dos2unix \
+        librsvg \
         osx-cross/avr/avr-gcc@9 \
         osx-cross/arm/arm-none-eabi-binutils \
         osx-cross/arm/arm-none-eabi-gcc@9
@@ -63,6 +64,11 @@ if command -v mise &>/dev/null; then
     echo "Installing tools via mise..."
     mise install --yes
     echo "mise tools installed"
+
+    if command -v uv &>/dev/null; then
+        uv tool install --upgrade keymap-drawer || true
+    fi
+
 else
     echo "Warning: mise not found, skipping mise tools"
 fi

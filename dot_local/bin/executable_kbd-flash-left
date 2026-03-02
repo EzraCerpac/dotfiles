@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONVERT_TO="rp2040_ce"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --convert-to)
+      CONVERT_TO="${2:-}"
+      shift 2
+      ;;
+    -n|--dry-run)
+      export KBD_DRY_RUN=1
+      shift
+      ;;
+    *)
+      echo "unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
+export PATH="/opt/homebrew/opt/arm-none-eabi-gcc@9/bin:/opt/homebrew/opt/arm-none-eabi-binutils/bin:${PATH}"
+
+if [[ ! -d "${QMK_DIR}" ]]; then
+  echo "missing qmk_firmware checkout: ${QMK_DIR}" >&2
+  exit 1
+fi
+
+cd "${QMK_DIR}"
+if [[ "${KBD_DRY_RUN:-0}" == "1" ]]; then
+  QMK_HOME="${QMK_DIR}" qmk flash -n -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-left
+else
+  echo "Put LEFT half in bootloader now (RPI-RP2 mounted), then flashing..."
+  QMK_HOME="${QMK_DIR}" qmk flash -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-left
+fi

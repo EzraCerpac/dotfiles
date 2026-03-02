@@ -16,11 +16,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [[ -z "${CONVERT_TO}" ]]; then
-    echo "--convert-to requires a value" >&2
-    exit 1
-fi
-
 QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
 ARTIFACT_DIR="${HOME}/Projects/keyboards/artifacts/corne-rev1"
 export PATH="/opt/homebrew/opt/arm-none-eabi-gcc@9/bin:/opt/homebrew/opt/arm-none-eabi-binutils/bin:${PATH}"
@@ -36,17 +31,20 @@ fi
     cd "${QMK_DIR}"
     git submodule sync --recursive
     git submodule update --init --recursive
-    make crkbd/rev1:ezra_corne CONVERT_TO="${CONVERT_TO}"
+    QMK_HOME="${QMK_DIR}" qmk compile -c -kb crkbd/rev1 -km ezra_corne \
+        -e CONVERT_TO="${CONVERT_TO}" \
+        -e INIT_EE_HANDS_LEFT=1
 )
 
 mkdir -p "${ARTIFACT_DIR}"
 UF2_NAME="crkbd_rev1_ezra_corne_${CONVERT_TO}.uf2"
 UF2_PATH="${QMK_DIR}/${UF2_NAME}"
+LEFT_OUT="${ARTIFACT_DIR}/crkbd_rev1_ezra_corne_${CONVERT_TO}_left.uf2"
 
 if [[ ! -f "${UF2_PATH}" ]]; then
     echo "build finished but UF2 not found: ${UF2_PATH}" >&2
     exit 1
 fi
 
-cp -f "${UF2_PATH}" "${ARTIFACT_DIR}/"
-echo "built ${ARTIFACT_DIR}/${UF2_NAME}"
+cp -f "${UF2_PATH}" "${LEFT_OUT}"
+echo "built ${LEFT_OUT}"

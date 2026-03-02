@@ -1,0 +1,22 @@
+parse_config:
+  qmk_keyboard: crkbd/rev1
+  qmk_layout: LAYOUT_split_3x6_3
+  raw_binding_map:
+    "HYPR_T(KC_ESC)": "Esc\nHyper"
+    "LSFT_T(KC_SPC)": "Space\nShift"
+    "LT(_NUM_SYM,KC_NO)": "NumSym"
+    "LT(_NAV_FN,KC_BSPC)": "Bsp\nNavFn"
+    "MT(MOD_RGUI,KC_DEL)": "Del\nGui"
+    "MT(MOD_LGUI,KC_A)": "A\nGui"
+    "MT(MOD_LALT,KC_R)": "R\nAlt"
+    "MT(MOD_LCTL,KC_T)": "T\nCtrl"
+    "MT(MOD_RCTL,KC_N)": "N\nCtrl"
+    "MT(MOD_RALT,KC_I)": "I\nAlt"
+    "ALT_T(KC_ENT)": "Enter\nAlt"
+    "MT(MOD_LCTL,KC_NO)": "Ctrl"
+
+draw_config:
+  key_w: 52
+  key_h: 52
+  split_gap: 30
+  draw_key_sides: false
