@@ -10,6 +10,8 @@ enum custom_keycodes {
     M_LOCK = SAFE_RANGE,
     M_AREA,
     M_FULL,
+    TH_HUD_ALT,
+    TH_HYP_NUM,
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -17,7 +19,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_BSPC,
         HYPR_T(KC_ESC), MT(MOD_LGUI,KC_A), MT(MOD_LALT,KC_R), KC_S, MT(MOD_LCTL,KC_T), KC_G,            KC_M,            MT(MOD_RCTL,KC_N), KC_E,            MT(MOD_RALT,KC_I), KC_O,            KC_QUOT,
         KC_LSFT, KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_ENT,
-                                            ALT_T(KC_ENT),   LT(_NUM_SYM, KC_NO), MT(MOD_LCTL, KC_NO), LSFT_T(KC_SPC), LT(_NAV_FN, KC_BSPC), MT(MOD_RGUI, KC_DEL)
+                                            TH_HUD_ALT,      TH_HYP_NUM,          CTL_T(KC_ENT),       LSFT_T(KC_SPC), LT(_NAV_FN, KC_BSPC), MT(MOD_RGUI, KC_DEL)
     ),
 
     [_NUM_SYM] = LAYOUT_split_3x6_3(
@@ -35,7 +37,65 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 
+static bool hud_pressed = false;
+static bool hud_hold    = false;
+
+static bool num_pressed = false;
+static bool num_hold    = false;
+
+static void activate_hud_hold(void) {
+    if (!hud_hold) {
+        register_code(KC_LALT);
+        hud_hold = true;
+    }
+}
+
+static void activate_num_hold(void) {
+    if (!num_hold) {
+        layer_on(_NUM_SYM);
+        num_hold = true;
+    }
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case TH_HUD_ALT:
+            if (record->event.pressed) {
+                hud_pressed = true;
+                hud_hold    = false;
+            } else {
+                hud_pressed = false;
+                if (hud_hold) {
+                    unregister_code(KC_LALT);
+                } else {
+                    tap_code16(LCTL(LGUI(KC_O)));
+                }
+            }
+            return false;
+        case TH_HYP_NUM:
+            if (record->event.pressed) {
+                num_pressed = true;
+                num_hold    = false;
+            } else {
+                num_pressed = false;
+                if (num_hold) {
+                    layer_off(_NUM_SYM);
+                } else {
+                    tap_code16(HYPR(KC_R));
+                }
+            }
+            return false;
+    }
+
+    if (record->event.pressed) {
+        if (hud_pressed && !hud_hold) {
+            activate_hud_hold();
+        }
+        if (num_pressed && !num_hold) {
+            activate_num_hold();
+        }
+    }
+
     if (!record->event.pressed) {
         return true;
     }
@@ -53,4 +113,30 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     }
 
     return true;
+}
+
+layer_state_t layer_state_set_user(layer_state_t state) {
+    static uint8_t previous_layer = _BASE;
+    uint8_t current_layer         = get_highest_layer(state);
+
+    if (!is_keyboard_master()) {
+        return state;
+    }
+
+    if (current_layer != previous_layer) {
+        switch (current_layer) {
+            case _BASE:
+                tap_code(KC_F14);
+                break;
+            case _NUM_SYM:
+                tap_code(KC_F15);
+                break;
+            case _NAV_FN:
+                tap_code(KC_F16);
+                break;
+        }
+        previous_layer = current_layer;
+    }
+
+    return state;
 }

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_DIR="${HOME}/.config/keyboard/corne-qmk"
+KEYMAP_DIR="${CONFIG_DIR}/keymaps/ezra_corne"
+KEYMAP_C="${KEYMAP_DIR}/keymap.c"
+KEYMAP_CFG="${CONFIG_DIR}/keymap-drawer.yaml"
+OUTPUT_DIR="${CONFIG_DIR}/images/generated"
+KEYBOARD="crkbd/rev1"
+KEYMAP_NAME="ezra_corne"
+
+if [[ ! -f "${KEYMAP_C}" ]]; then
+    echo "missing keymap source: ${KEYMAP_C}" >&2
+    exit 1
+fi
+
+if [[ ! -f "${KEYMAP_CFG}" ]]; then
+    echo "missing keymap-drawer config: ${KEYMAP_CFG}" >&2
+    exit 1
+fi
+
+if ! command -v qmk >/dev/null 2>&1; then
+    echo "qmk CLI not found. Run kbd-setup." >&2
+    exit 1
+fi
+
+if ! command -v keymap >/dev/null 2>&1; then
+    echo "keymap-drawer CLI not found. Run kbd-setup." >&2
+    exit 1
+fi
+
+if ! command -v rsvg-convert >/dev/null 2>&1; then
+    echo "rsvg-convert not found. Install librsvg (run kbd-setup)." >&2
+    exit 1
+fi
+
+mkdir -p "${OUTPUT_DIR}"
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+
+json_file="${tmpdir}/keymap.json"
+yaml_file="${OUTPUT_DIR}/keymap.yaml"
+full_svg="${OUTPUT_DIR}/keymap.svg"
+
+qmk c2json "${KEYMAP_C}" -kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -q -o "${json_file}"
+keymap -c "${KEYMAP_CFG}" parse -q "${json_file}" -o "${yaml_file}"
+keymap -c "${KEYMAP_CFG}" draw "${yaml_file}" -o "${full_svg}"
+
+for pair in "L0:layer0" "L1:layer1" "L2:layer2"; do
+    layer="${pair%%:*}"
+    name="${pair##*:}"
+    layer_svg="${OUTPUT_DIR}/${name}.svg"
+    layer_png="${OUTPUT_DIR}/${name}.png"
+
+    keymap -c "${KEYMAP_CFG}" draw "${yaml_file}" -s "${layer}" -o "${layer_svg}"
+    rsvg-convert -f png -o "${layer_png}" "${layer_svg}"
+done
+
+echo "generated layout assets from: ${KEYMAP_C}"
+echo "full: ${full_svg}"
+echo "layers: ${OUTPUT_DIR}/layer0.png ${OUTPUT_DIR}/layer1.png ${OUTPUT_DIR}/layer2.png"

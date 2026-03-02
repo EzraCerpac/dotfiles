@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VIAL_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
+QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
+LEGACY_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
 
 if ! command -v brew >/dev/null 2>&1; then
     echo "Homebrew is required on macOS for keyboard tooling." >&2
@@ -18,20 +19,41 @@ brew tap osx-cross/avr >/dev/null 2>&1 || true
 brew install \
     qmk/qmk/qmk \
     dos2unix \
+    librsvg \
+    uv \
     osx-cross/avr/avr-gcc@9 \
     osx-cross/arm/arm-none-eabi-binutils \
     osx-cross/arm/arm-none-eabi-gcc@9 >/dev/null
+brew install --cask hammerspoon >/dev/null || true
 
 mkdir -p "${HOME}/Projects/keyboards"
-if [[ ! -d "${VIAL_QMK_DIR}/.git" ]]; then
-    git clone --branch vial --single-branch https://github.com/vial-kb/vial-qmk "${VIAL_QMK_DIR}"
+if [[ -d "${QMK_DIR}" ]] && [[ ! -d "${QMK_DIR}/.git" ]]; then
+    mv "${QMK_DIR}" "${QMK_DIR}.incomplete.$(date +%s)" 2>/dev/null || true
+fi
+if [[ ! -d "${QMK_DIR}/.git" ]]; then
+    if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 clone --single-branch https://github.com/qmk/qmk_firmware "${QMK_DIR}"; then
+        failed_dir="${QMK_DIR}.failed.$(date +%s)"
+        mv "${QMK_DIR}" "${failed_dir}" 2>/dev/null || true
+        if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 clone --depth 1 --single-branch https://github.com/qmk/qmk_firmware "${QMK_DIR}"; then
+            if [[ -d "${LEGACY_QMK_DIR}/.git" ]]; then
+                echo "warning: using existing ${LEGACY_QMK_DIR} as fallback for qmk_firmware" >&2
+                ln -sfn "${LEGACY_QMK_DIR}" "${QMK_DIR}"
+            else
+                echo "failed to clone qmk_firmware and no local fallback found" >&2
+                exit 1
+            fi
+        fi
+    fi
 else
-    git -C "${VIAL_QMK_DIR}" fetch origin vial
-    git -C "${VIAL_QMK_DIR}" checkout vial
-    git -C "${VIAL_QMK_DIR}" pull --ff-only origin vial
+    git -C "${QMK_DIR}" fetch origin
+    current_branch="$(git -C "${QMK_DIR}" rev-parse --abbrev-ref HEAD)"
+    git -C "${QMK_DIR}" pull --ff-only origin "${current_branch}"
 fi
 
-git -C "${VIAL_QMK_DIR}" submodule update --init --recursive
+git -C "${QMK_DIR}" submodule update --init --recursive
+qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1 || true
+
+uv tool install --upgrade keymap-drawer >/dev/null
 
 echo "keyboard setup complete"
-echo "vial-qmk: ${VIAL_QMK_DIR}"
+echo "qmk_firmware: ${QMK_DIR}"

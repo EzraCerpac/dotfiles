@@ -37,23 +37,37 @@ dot_config/                          → ~/.config/
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_once_03-install-tools.sh.tmpl       → system packages + mise install
-run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast)
-run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (vial-qmk)
+run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, hammerspoon)
+run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (qmk_firmware)
 run_after_setup-shell.sh.tmpl           → fish shell setup, chsh hint
 ```
 
-## Keyboard Workflow (Corne + Vial + QMK)
+## Keyboard Workflow (Corne + QMK)
 
-Keyboard source lives at `~/.config/keyboard/corne-vial` and syncs into a local `vial-qmk` checkout at `~/Projects/keyboards/vial-qmk`.
+Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `qmk_firmware` checkout at `~/Projects/keyboards/qmk_firmware`.
 
 Commands:
 
-- `kbd-setup` → install keyboard build dependencies and clone/update `vial-qmk`
-- `kbd-sync` → copy keymap source into `vial-qmk`
+- `kbd-setup` → install keyboard build dependencies and clone/update `qmk_firmware`
+- `kbd-sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd-build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
 - `kbd-build-all` → build both `rp2040_ce` and `sparkfun_pm2040`
+- `kbd-build-left` / `kbd-build-right` → build convenience left/right-tagged UF2 artifacts
+- `kbd-flash-left` / `kbd-flash-right` → authoritative split-handedness flash flow (`uf2-split-left/right`)
+- `kbd-layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
+- `kbd-hud-reload` → reload Hammerspoon HUD overlay
 - `kbd-open-artifacts` → open UF2 artifact folder in Finder
-- `kbd-snapshot-add <file.vil>` → validate and store a Vial GUI export in `~/.config/keyboard/corne-vial/snapshots`
+
+`mise run` tasks are available via `~/.mise.toml`:
+
+- `mise run kbd_setup`
+- `mise run kbd_sync`
+- `mise run kbd_build`
+- `mise run kbd_build_all`
+- `mise run kbd_build_left`
+- `mise run kbd_build_right`
+- `mise run kbd_flash_left`
+- `mise run kbd_flash_right`
 
 ## Adding/Editing Configs
 
