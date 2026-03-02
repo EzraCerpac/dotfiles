@@ -22,10 +22,6 @@ enum custom_keycodes {
     NV_A_GUI,
     NV_R_ALT,
     NV_T_CTL,
-    NV_N_CTL,
-    NV_I_ALT,
-    NV_O_GUI,
-    DE_GRV_TILD,
 };
 
 #define HRM_A MT(MOD_LGUI, KC_A)
@@ -39,7 +35,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_split_3x6_3(
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
         HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           KC_E,            HRM_I,           HRM_O,           KC_QUOT,
-        DE_GRV_TILD, KC_Z,        KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
+        KC_NUBS, KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
                                             TH_HUD_ALT,      CTL_T(KC_ENT),       TH_HYP_NUM,          LT(_NAV_FN, KC_BSPC), LSFT_T(KC_SPC), MT(MOD_RGUI, KC_DEL)
     ),
 
@@ -52,7 +48,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [_NAV_FN] = LAYOUT_split_3x6_3(
         KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
-        KC_ESC,  NV_A_GUI, NV_R_ALT, C(S(KC_TAB)), NV_T_CTL, KC_WREF, KC_LEFT, NV_N_CTL, KC_UP,   NV_I_ALT, NV_O_GUI, KC_BRIU,
+        KC_ESC,  NV_A_GUI, NV_R_ALT, C(S(KC_TAB)), NV_T_CTL, KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
         QK_BOOT, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_WBAK, KC_WFWD, KC_WREF, KC_WSTP, KC_VOLD, KC_VOLU, KC_MUTE,
                                    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     )
@@ -93,9 +89,6 @@ static custom_modtap_t custom_modtaps[] = {
     {NV_A_GUI, MOD_BIT(KC_LGUI), KC_WBAK, false, false, false, 0},
     {NV_R_ALT, MOD_BIT(KC_LALT), KC_WFWD, false, false, false, 0},
     {NV_T_CTL, MOD_BIT(KC_LCTL), C(KC_TAB), false, false, false, 0},
-    {NV_N_CTL, MOD_BIT(KC_RCTL), KC_DOWN, false, false, false, 0},
-    {NV_I_ALT, MOD_BIT(KC_RALT), KC_RGHT, false, false, false, 0},
-    {NV_O_GUI, MOD_BIT(KC_RGUI), KC_BRID, false, false, false, 0},
 };
 
 static custom_modtap_t *find_custom_modtap(uint16_t keycode) {
@@ -226,15 +219,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                     layer_off(_NAV_FN);
                 } else if (!nav_interrupted && timer_elapsed(nav_timer) < TAPPING_TERM) {
                     tap_code(KC_S);
-                }
-            }
-            return false;
-        case DE_GRV_TILD:
-            if (record->event.pressed) {
-                if (get_mods() & MOD_MASK_SHIFT) {
-                    tap_code16(A(KC_N));
-                } else {
-                    tap_code16(S(KC_EQL));
                 }
             }
             return false;
