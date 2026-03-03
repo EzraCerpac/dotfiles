@@ -39,14 +39,14 @@
   layout_toggle (on-press toggle-virtualkey qwerty_toggle)
 
   ;; thumbs / modifiers
-  lcmd_nav (tap-hold-release $tap-time $hold-time ret (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  lcmd_ret_cmd (tap-hold $tap-time $hold-time ret lmet)
   rcmd_nav_bspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
   navbspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
 
   ;; base home-row mods (QWERTY physical positions)
   a (tap-hold $tap-time $hold-time a lmet)
-  snav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  s (tap-hold $tap-time $hold-time s lalt)
   dnav (tap-hold-release $tap-time $hold-time d (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   f (tap-hold $tap-time $hold-time f lctrl)
   cnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
@@ -56,13 +56,16 @@
   semi (tap-hold $tap-time $hold-time ; rmet)
 
   ;; Colemak-DK base layer (physical-key anchored modifiers)
-  csnav (tap-hold-release $tap-time $hold-time r (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  cs (tap-hold $tap-time $hold-time r lalt)
   cdnav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   cf (tap-hold $tap-time $hold-time t lctrl)
   ccnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
   cj (tap-hold $tap-time $hold-time n rctrl)
   cl (tap-hold $tap-time $hold-time i ralt)
   csemi (tap-hold $tap-time $hold-time o rmet)
+  nnav (tap-hold $tap-time $hold-time n rctrl)
+  inav (tap-hold $tap-time $hold-time i ralt)
+  onav (tap-hold $tap-time $hold-time 0 rmet)
 
   ;; nav layer: keep left HRM, disable right HRM for repeatable arrows
   nava (tap-hold $tap-time $hold-time A-left lmet)
@@ -87,19 +90,19 @@
 )
 
 (deflayer base
-  esc    brdn brup _ _ _ prev pp next mute vold volu _
+  esc    brdn brup _ _ _ _ prev pp next mute vold volu
   z      1    2    3 4 5 6 7 8 9 0 - = bspc
   tab    q    w    f p b j l u y ; [ ] bksl
-  @escsuper @a   @csnav @cdnav @cf g m @cj e @cl @csemi ' ret
+  @escsuper @a   @cs @cdnav @cf g m @cj e @cl @csemi ' ret
   lsft   grv  x    c d v grv  k h , . / rsft
-  @fnl   lctl lalt @lcmd_nav @spcsft @rcmd_nav_bspc ralt left down up rght
+  @fnl   lctl lalt @lcmd_ret_cmd @spcsft @rcmd_nav_bspc ralt left down up rght
 )
 
 (deflayer qwerty
   _      _    _    _ _ _ _ _ _ _ _ _ _
   _      _    _    _ _ _ _ _ _ _ _ _ _ _
   _      q    w    e r t y u i o p [ ] bksl
-  _      @a   @snav @dnav @f g h @j k @l @semi ' _
+  _      @a   @s @dnav @f g h @j k @l @semi ' _
   _      nubs z    x c v b n m , . / _
   _      _    _    _ _ @rcmd_nav_bspc _ _ _ _ _
 )
@@ -108,8 +111,8 @@
   esc    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
-  _      _    @nava @navs C-S-tab @navf _ left down up right brup _
-  _      _    _    _    _    _    _    _    mute vold volu _    _
+  esc    @nava @navs C-S-tab @navf C-r left @nnav up @inav @onav brup ret
+  _      prev pp   next mute A-left A-rght C-r esc vold volu mute _
   _      _    _    _    @spcsft @rcmd_nav_bspc @navbspc A-left A-rght del _
 )
 
