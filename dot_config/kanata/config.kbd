@@ -39,14 +39,14 @@
   layout_toggle (on-press toggle-virtualkey qwerty_toggle)
 
   ;; thumbs / modifiers
-  lcmd (tap-hold $tap-time $hold-time ret lmet)
-  rcmd_bspc (tap-hold $tap-time $hold-time bspc rmet)
+  lcmd_nav (tap-hold-release $tap-time $hold-time ret (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  rcmd_nav_bspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
   navbspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
 
   ;; base home-row mods (QWERTY physical positions)
   a (tap-hold $tap-time $hold-time a lmet)
-  s (tap-hold $tap-time $hold-time s lalt)
+  snav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   dnav (tap-hold-release $tap-time $hold-time d (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   f (tap-hold $tap-time $hold-time f lctrl)
   cnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
@@ -56,7 +56,7 @@
   semi (tap-hold $tap-time $hold-time ; rmet)
 
   ;; Colemak-DK base layer (physical-key anchored modifiers)
-  cs (tap-hold $tap-time $hold-time r lalt)
+  csnav (tap-hold-release $tap-time $hold-time r (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   cdnav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   cf (tap-hold $tap-time $hold-time t lctrl)
   ccnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
@@ -90,18 +90,18 @@
   esc    brdn brup _ _ _ prev pp next mute vold volu _
   z      1    2    3 4 5 6 7 8 9 0 - = bspc
   tab    q    w    f p b j l u y ; [ ] bksl
-  @escsuper @a   @cs  @cdnav @cf g m @cj e @cl @csemi ' ret
+  @escsuper @a   @csnav @cdnav @cf g m @cj e @cl @csemi ' ret
   lsft   grv  x    c d v grv  k h , . / rsft
-  @fnl   lctl lalt @lcmd @spcsft @rcmd_bspc ralt left down up rght
+  @fnl   lctl lalt @lcmd_nav @spcsft @rcmd_nav_bspc ralt left down up rght
 )
 
 (deflayer qwerty
   _      _    _    _ _ _ _ _ _ _ _ _ _
   _      _    _    _ _ _ _ _ _ _ _ _ _ _
   _      q    w    e r t y u i o p [ ] bksl
-  _      @a   @s   @dnav @f g h @j k @l @semi ' _
+  _      @a   @snav @dnav @f g h @j k @l @semi ' _
   _      nubs z    x c v b n m , . / _
-  _      _    _    _ _ @rcmd_bspc _ _ _ _ _
+  _      _    _    _ _ @rcmd_nav_bspc _ _ _ _ _
 )
 
 (deflayer nav-layer
@@ -110,7 +110,7 @@
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   _      _    @nava @navs C-S-tab @navf _ left down up right brup _
   _      _    _    _    _    _    _    _    mute vold volu _    _
-  _      _    _    _    @spcsft @rcmd_bspc @navbspc A-left A-rght del _
+  _      _    _    _    @spcsft @rcmd_nav_bspc @navbspc A-left A-rght del _
 )
 
 (deflayer num-layer
@@ -119,5 +119,5 @@
   _            _    _    _    _    _    _    _   _   _   _   _ _ _
   _            _    @na  @ns  4    @nf  6    7   @nj 9   @nl @nsemi _
   _            [    ]    {    }    _    +    /   S-/ S-; S-` _    _
-  _            _    _    _    @spcsft @rcmd_bspc @navbspc _ _ _ _
+  _            _    _    _    @spcsft @rcmd_nav_bspc @navbspc _ _ _ _
 )
