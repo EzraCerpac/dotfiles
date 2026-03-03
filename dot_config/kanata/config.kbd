@@ -11,7 +11,7 @@
 (defsrc
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   tab caps a s d f c h j k l ; n p u i o
-  lmet fn spc rmet bspc w b m , . ralt nubs
+  lmet fn spc rmet bspc w b m , . ralt nubs lalt
 )
 
 (defvar
@@ -75,28 +75,30 @@
 
 (defchordsv2
   (fn esc) @layout_toggle 220 first-release ()
+  (lalt ralt) @layout_toggle 250 first-release ()
+  (lmet rmet) C-S-A-M-r 250 first-release ()
 )
 
 (deflayer base
   esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
-  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs
+  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs lalt
 )
 
 (deflayer colemak-dk
   _      _      _    _    _      _    _      _      _      _      _      _      _
   _      _      @a   @cs  @cdnav @cf  @ccnum h      @cj    e      @cl    @csemi k      ;      l      u      y
-  _      _      _      _        _    w      `      m      ,      .   _   z
+  _      _      _      _        _    w      `      m      ,      .   _   z lalt
 )
 
 (deflayer nav-layer
   esc    f1     f2    f3    f4    f5    f6    f7     f8     f9     f10    f11    f12
   _      _      @nava @navs C-S-tab @navf _    left   down   up     right   brup   _      _      _      _      _
-  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del _
+  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del _ lalt
 )
 
 (deflayer num-layer
   @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
   _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
-  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del _
+  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del _ lalt
 )
