@@ -28,7 +28,7 @@
 
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
-  fnl (tap-hold $tap-time $hold-time fn (layer-while-held fn-layer))
+  fnl fn
   layout_toggle (layer-toggle colemak-dk)
 
   ;; thumbs / modifiers
@@ -73,6 +73,10 @@
   numexit_caps (multi (layer-switch base) (on-press-fakekey sig_base tap))
 )
 
+(defchordsv2
+  (fn esc) @layout_toggle 220 first-release ()
+)
+
 (deflayer base
   esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
@@ -95,10 +99,4 @@
   @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
   _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
   _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del _
-)
-
-(deflayer fn-layer
-  @layout_toggle _ _ _ _ _ _ _ _ _ _ _ _
-  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  _ _ _ _ _ _ _ _ _ _ _ _
 )
