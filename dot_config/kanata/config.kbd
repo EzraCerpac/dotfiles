@@ -11,7 +11,7 @@
 (defsrc
   esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
   tab caps a s d f c h j k l ; n p u i o
-  lmet fn spc rmet bspc w b m , . ralt
+  lmet fn spc rmet bspc w b m , . ralt nubs
 )
 
 (defvar
@@ -28,7 +28,8 @@
 
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
-  fnl fn
+  fnl (tap-hold $tap-time $hold-time fn (layer-while-held fn-layer))
+  layout_toggle (layer-toggle colemak-dk)
 
   ;; thumbs / modifiers
   lcmd (tap-hold $tap-time $hold-time ret lmet)
@@ -45,6 +46,15 @@
   j (tap-hold $tap-time $hold-time j rctrl)
   l (tap-hold $tap-time $hold-time l ralt)
   semi (tap-hold $tap-time $hold-time ; rmet)
+
+  ;; Colemak-DK base layer (physical-key anchored modifiers)
+  cs (tap-hold $tap-time $hold-time r lalt)
+  cdnav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  cf (tap-hold $tap-time $hold-time t lctrl)
+  ccnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
+  cj (tap-hold $tap-time $hold-time n rctrl)
+  cl (tap-hold $tap-time $hold-time i ralt)
+  csemi (tap-hold $tap-time $hold-time o rmet)
 
   ;; nav layer: keep left HRM, disable right HRM for repeatable arrows
   nava (tap-hold $tap-time $hold-time A-left lmet)
@@ -66,17 +76,29 @@
 (deflayer base
   esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
   tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
-  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del
+  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs
+)
+
+(deflayer colemak-dk
+  _      _      _    _    _      _    _      _      _      _      _      _      _
+  _      _      @a   @cs  @cdnav @cf  @ccnum h      @cj    e      @cl    @csemi k      ;      l      u      y
+  _      _      _      _        _    w      `      m      ,      .   _   z
 )
 
 (deflayer nav-layer
   esc    f1     f2    f3    f4    f5    f6    f7     f8     f9     f10    f11    f12
   _      _      @nava @navs C-S-tab @navf _    left   down   up     right   brup   _      _      _      _      _
-  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del
+  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del _
 )
 
 (deflayer num-layer
   @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
   _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
-  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del
+  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del _
+)
+
+(deflayer fn-layer
+  @layout_toggle _ _ _ _ _ _ _ _ _ _ _ _
+  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  _ _ _ _ _ _ _ _ _ _ _ _
 )
