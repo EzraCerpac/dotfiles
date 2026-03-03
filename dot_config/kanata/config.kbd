@@ -9,9 +9,12 @@
 )
 
 (defsrc
-  esc    f1     f2   f3   f4   f5   f6     f7     f8     f9     f10    f11    f12
-  tab caps a s d f c h j k l ; n p u i o
-  lmet fn spc rmet bspc w b m , . ralt nubs lalt
+  esc    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  grv    1    2    3    4    5    6    7    8    9    0    -    =    bspc
+  tab    q    w    e    r    t    y    u    i    o    p    [    ]    \
+  caps   a    s    d    f    g    h    j    k    l    ;    '    ret
+  lsft   nubs z    x    c    v    b    n    m    ,    .    /    rsft
+  fn     lctl lalt lmet spc  rmet ralt left down up   rght
 )
 
 (defvar
@@ -74,30 +77,42 @@
 )
 
 (defchordsv2
-  (lalt ralt) @layout_toggle 250 first-release ()
+  (lalt ralt) @layout_toggle 300 all-released ()
   (lmet rmet) C-S-A-M-r 250 first-release ()
 )
 
 (deflayer base
-  esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
-  tab @escsuper @a   @cs  @cdnav @cf  @ccnum h      @cj    e      @cl    @csemi k      ;      l      u      y
-  @lcmd @fnl     @spcsft @navbspc bspc w      `      m      ,      .   del z lalt
+  esc    brdn brup _ _ _ _ _ _ _ _ _ _
+  grv    1    2    3 4 5 6 7 8 9 0 - = bspc
+  tab    q    w    f p b j l u y ; [ ] bksl
+  caps   @a   @cs  @cdnav @cf g m @cj e @cl @csemi ' ret
+  lsft   z    x    c d v bksl k h , . / rsft
+  @fnl   lctl lalt @lcmd @spcsft rmet ralt left down up rght
 )
 
 (deflayer qwerty
-  _      _      _    _    _      _    _      _      _      _      _      _      _
-  tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
-  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs lalt
+  _      _    _    _ _ _ _ _ _ _ _ _ _
+  _      _    _    _ _ _ _ _ _ _ _ _ _ _
+  _      q    w    e r t y u i o p [ ] bksl
+  _      @a   @s   @dnav @f g h @j k @l @semi ' _
+  _      nubs z    x c v b n m , . / _
+  _      _    _    _ _ _ _ _ _ _ _
 )
 
 (deflayer nav-layer
-  esc    f1     f2    f3    f4    f5    f6    f7     f8     f9     f10    f11    f12
-  _      _      @nava @navs C-S-tab @navf _    left   down   up     right   brup   _      _      _      _      _
-  _      _      @spcsft @navbspc del  A-rght A-left mute   vold   volu del _ lalt
+  esc    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  _      _    _    _    _    _    _    _    _    _    _    _    _    _
+  _      _    _    _    _    _    _    _    _    _    _    _    _    _
+  _      _    @nava @navs C-S-tab @navf _ left down up right brup _
+  _      _    _    _    _    _    _    _    mute vold volu _    _
+  _      _    _    _    @spcsft _   @navbspc A-left A-rght del _
 )
 
 (deflayer num-layer
-  @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6   S-7    S-8    S-9    S-0    \       `
-  _            @numexit_caps @na @ns 4 @nf 6  7      @nj    9      @nl    @nsemi =      [      ]      _      _
-  _            @fnl          @spcsft @navbspc _  +    /      S-/    S-;    S-` del _ lalt
+  @numexit_esc S-1  S-2  S-3  S-4  S-5  S-6  S-7 S-8 S-9 S-0 _ _
+  _            _    _    _    _    _    _    _   _   _   _   _ _ _
+  _            _    _    _    _    _    _    _   _   _   _   _ _ _
+  _            _    @na  @ns  4    @nf  6    7   @nj 9   @nl @nsemi _
+  _            [    ]    {    }    _    +    /   S-/ S-; S-` _    _
+  _            _    _    _    @spcsft _  @navbspc _ _ _ _
 )
