@@ -3,6 +3,9 @@
 (defcfg
   process-unmapped-keys yes
   concurrent-tap-hold yes
+  macos-dev-names-include (
+    "Apple Internal Keyboard / Trackpad"
+  )
 )
 
 (defsrc
