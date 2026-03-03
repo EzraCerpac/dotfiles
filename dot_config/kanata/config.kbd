@@ -87,10 +87,10 @@
 )
 
 (deflayer base
-  esc    brdn brup _ _ _ _ _ _ _ _ _ _
+  esc    brdn brup _ _ _ prev pp next mute vold volu _
   grv    1    2    3 4 5 6 7 8 9 0 - = bspc
   tab    q    w    f p b j l u y ; [ ] bksl
-  caps   @a   @cs  @cdnav @cf g m @cj e @cl @csemi ' ret
+  @escsuper @a   @cs  @cdnav @cf g m @cj e @cl @csemi ' ret
   lsft   z    x    c d v bksl k h , . / rsft
   @fnl   lctl lalt @lcmd @spcsft @rcmd_bspc ralt left down up rght
 )
