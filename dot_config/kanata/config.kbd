@@ -29,7 +29,7 @@
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
   fnl fn
-  layout_toggle (layer-toggle colemak-dk)
+  layout_toggle (layer-toggle qwerty)
 
   ;; thumbs / modifiers
   lcmd (tap-hold $tap-time $hold-time ret lmet)
@@ -69,26 +69,25 @@
   nl (tap-hold $tap-time $hold-time 0 ralt)
   nsemi (tap-hold $tap-time $hold-time - rmet)
 
-  numexit_esc (multi esc (layer-switch base) (on-press-fakekey sig_base tap))
-  numexit_caps (multi (layer-switch base) (on-press-fakekey sig_base tap))
+  numexit_esc (multi esc (on-press-fakekey sig_base tap))
+  numexit_caps (on-press-fakekey sig_base tap)
 )
 
 (defchordsv2
-  (fn esc) @layout_toggle 220 first-release ()
   (lalt ralt) @layout_toggle 250 first-release ()
   (lmet rmet) C-S-A-M-r 250 first-release ()
 )
 
 (deflayer base
   esc    brdn   brup _    _      _    _      prev   pp     next   mute   vold   volu
-  tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
-  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs lalt
+  tab @escsuper @a   @cs  @cdnav @cf  @ccnum h      @cj    e      @cl    @csemi k      ;      l      u      y
+  @lcmd @fnl     @spcsft @navbspc bspc w      `      m      ,      .   del z lalt
 )
 
-(deflayer colemak-dk
+(deflayer qwerty
   _      _      _    _    _      _    _      _      _      _      _      _      _
-  _      _      @a   @cs  @cdnav @cf  @ccnum h      @cj    e      @cl    @csemi k      ;      l      u      y
-  _      _      _      _        _    w      `      m      ,      .   _   z lalt
+  tab @escsuper @a   @s   @dnav  @f   @cnum  h      @j     k      @l     @semi  n      p      u      i      o
+  @lcmd @fnl     @spcsft @navbspc bspc w      b      m      ,      .   del nubs lalt
 )
 
 (deflayer nav-layer
