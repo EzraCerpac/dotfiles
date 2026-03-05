@@ -304,13 +304,13 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     if (current_layer != previous_layer) {
         switch (current_layer) {
             case _BASE:
-                tap_code(KC_F14);
+                tap_code(KC_F20);
                 break;
             case _NUM_SYM:
-                tap_code(KC_F15);
+                tap_code(KC_F21);
                 break;
             case _NAV_FN:
-                tap_code(KC_F16);
+                tap_code(KC_F22);
                 break;
         }
         previous_layer = current_layer;
