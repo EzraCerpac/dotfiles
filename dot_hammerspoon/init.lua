@@ -11,11 +11,15 @@ local signal_to_layer = {
     ["f14"] = 0,
     ["f15"] = 1,
     ["f16"] = 2,
+    ["f20"] = 0,
+    ["f21"] = 1,
+    ["f22"] = 2,
 }
 
 local current_layer = 0
 local overlay = nil
 local overlay_visible = false
+local signal_tap = nil
 
 local function image_exists(path)
     local f = io.open(path, "r")
@@ -90,13 +94,26 @@ end
 
 hs.hotkey.bind({"cmd", "ctrl"}, "O", toggle_overlay)
 
+local signal_keycodes = {}
 for key, layer in pairs(signal_to_layer) do
-    hs.hotkey.bind({}, key, function()
-        update_layer(layer)
-    end)
+    local keycode = hs.keycodes.map[key]
+    if keycode then
+        signal_keycodes[keycode] = layer
+    end
 end
+
+signal_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
+    local keycode = event:getKeyCode()
+    local layer = signal_keycodes[keycode]
+    if layer ~= nil then
+        update_layer(layer)
+        return true
+    end
+    return false
+end)
+signal_tap:start()
 
 hs.notify.new({
     title = "Corne HUD",
-    informativeText = "Loaded. Toggle with Cmd+Ctrl+O. Auto-follow on F14/F15/F16 when visible.",
+    informativeText = "Loaded. Toggle with Cmd+Ctrl+O. Auto-follow on F20/F21/F22 (and F14/F15/F16 compatibility) when visible.",
 }):send()
