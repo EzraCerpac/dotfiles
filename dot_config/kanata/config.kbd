@@ -24,9 +24,9 @@
 )
 
 (deffakekeys
-  sig_base f14
-  sig_num f15
-  sig_nav f16
+  sig_base f20
+  sig_num f21
+  sig_nav f22
 )
 
 (defvirtualkeys
@@ -111,7 +111,7 @@
   esc    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
-  esc    @nava @navs C-S-tab @navf C-r left @nnav up @inav @onav brup ret
+  esc    @nava @navs C-S-tab @navf C-r left down up right @onav brup ret
   _      prev pp   next mute A-left A-rght C-r esc vold volu mute _
   _      _    _    _    @spcsft @rcmd_nav_bspc @navbspc A-left A-rght del _
 )
