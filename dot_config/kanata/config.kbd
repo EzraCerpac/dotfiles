@@ -24,9 +24,9 @@
 )
 
 (deffakekeys
-  sig_base f20
-  sig_num f21
-  sig_nav f22
+  sig_base f17
+  sig_num f18
+  sig_nav f19
 )
 
 (defvirtualkeys
