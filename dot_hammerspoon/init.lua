@@ -8,18 +8,22 @@ local layer_images = {
 }
 
 local signal_to_layer = {
-    ["f14"] = 0,
-    ["f15"] = 1,
-    ["f16"] = 2,
+    ["f17"] = 0,
+    ["f18"] = 1,
+    ["f19"] = 2,
     ["f20"] = 0,
     ["f21"] = 1,
     ["f22"] = 2,
+    ["f14"] = 0,
+    ["f15"] = 1,
+    ["f16"] = 2,
 }
 
 local current_layer = 0
 local overlay = nil
 local overlay_visible = false
 local signal_tap = nil
+local signal_hotkeys = {}
 
 local function image_exists(path)
     local f = io.open(path, "r")
@@ -94,12 +98,36 @@ end
 
 hs.hotkey.bind({"cmd", "ctrl"}, "O", toggle_overlay)
 
-local signal_keycodes = {}
 for key, layer in pairs(signal_to_layer) do
-    local keycode = hs.keycodes.map[key]
-    if keycode then
-        signal_keycodes[keycode] = layer
+    if hs.keycodes.map[key] ~= nil then
+        local hotkey = hs.hotkey.bind({}, key, function()
+            update_layer(layer)
+        end)
+        if hotkey then
+            table.insert(signal_hotkeys, hotkey)
+        end
     end
+end
+
+-- Explicit macOS keycodes for fn signal keys used by this setup.
+local signal_keycodes = {
+    [64] = 0,   -- f17
+    [79] = 1,   -- f18
+    [80] = 2,   -- f19
+    [90] = 0,   -- f20
+    [107] = 0,  -- f14
+    [113] = 1,  -- f15
+    [106] = 2,  -- f16
+}
+
+local f21_keycode = hs.keycodes.map["f21"]
+if f21_keycode then
+    signal_keycodes[f21_keycode] = 1
+end
+
+local f22_keycode = hs.keycodes.map["f22"]
+if f22_keycode then
+    signal_keycodes[f22_keycode] = 2
 end
 
 signal_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
@@ -113,7 +141,14 @@ signal_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
 end)
 signal_tap:start()
 
+local registered = {}
+for _, key in ipairs({"f17", "f18", "f19", "f20", "f21", "f22", "f14", "f15", "f16"}) do
+    if hs.keycodes.map[key] ~= nil then
+        table.insert(registered, key)
+    end
+end
+
 hs.notify.new({
     title = "Corne HUD",
-    informativeText = "Loaded. Toggle with Cmd+Ctrl+O. Auto-follow on F20/F21/F22 (and F14/F15/F16 compatibility) when visible.",
+    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Signals: F17/F18/F19 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
 }):send()
