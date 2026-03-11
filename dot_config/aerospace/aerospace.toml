@@ -64,62 +64,62 @@ M = 'secondary'
 [mode.main.binding]
 
 # Focus
-alt-f = "fullscreen"
-alt-h = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
-alt-j = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
-alt-k = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
-alt-l = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
-alt-left = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
-alt-down = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
-alt-up = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
-alt-right = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
+cmd-ctrl-alt-f = "fullscreen"
+cmd-ctrl-alt-h = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
+cmd-ctrl-alt-j = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
+cmd-ctrl-alt-k = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
+cmd-ctrl-alt-l = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
+cmd-ctrl-alt-left = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
+cmd-ctrl-alt-down = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
+cmd-ctrl-alt-up = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
+cmd-ctrl-alt-right = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
 
 # Move
-alt-shift-h = "move left"
-alt-shift-j = "move down"
-alt-shift-k = "move up"
-alt-shift-l = "move right"
-alt-shift-left = "move left"
-alt-shift-down = "move down"
-alt-shift-up = "move up"
-alt-shift-right = "move right"
+cmd-ctrl-alt-shift-h = "move left"
+cmd-ctrl-alt-shift-j = "move down"
+cmd-ctrl-alt-shift-k = "move up"
+cmd-ctrl-alt-shift-l = "move right"
+cmd-ctrl-alt-shift-left = "move left"
+cmd-ctrl-alt-shift-down = "move down"
+cmd-ctrl-alt-shift-up = "move up"
+cmd-ctrl-alt-shift-right = "move right"
 
 # Resize
-alt-shift-minus = "resize smart -50"
-alt-shift-equal = "resize smart +50"
-alt-shift-0 = "balance-sizes"
+cmd-ctrl-alt-shift-minus = "resize smart -50"
+cmd-ctrl-alt-shift-equal = "resize smart +50"
+cmd-ctrl-alt-shift-0 = "balance-sizes"
 
 # Workspaces
-alt-1 = "workspace 1"
-alt-2 = "workspace 2"
-alt-3 = "workspace 3"
-alt-4 = "workspace 4"
-alt-5 = "workspace 5"
-alt-6 = "workspace 6"
-alt-7 = "workspace 7"
-alt-8 = "workspace 8"
-alt-9 = "workspace 9"
-# alt-0 = "workspace 0"
-alt-e = "workspace E"
-alt-b = "workspace B"
-alt-m = "workspace M"
-alt-t = "workspace T"
+cmd-ctrl-alt-1 = "workspace 1"
+cmd-ctrl-alt-2 = "workspace 2"
+cmd-ctrl-alt-3 = "workspace 3"
+cmd-ctrl-alt-4 = "workspace 4"
+cmd-ctrl-alt-5 = "workspace 5"
+cmd-ctrl-alt-6 = "workspace 6"
+cmd-ctrl-alt-7 = "workspace 7"
+cmd-ctrl-alt-8 = "workspace 8"
+cmd-ctrl-alt-9 = "workspace 9"
+# cmd-ctrl-alt-0 = "workspace 0"
+cmd-ctrl-alt-e = "workspace E"
+cmd-ctrl-alt-b = "workspace B"
+cmd-ctrl-alt-m = "workspace M"
+cmd-ctrl-alt-t = "workspace T"
 
-alt-shift-1 = "move-node-to-workspace 1 --focus-follows-window"
-alt-shift-2 = "move-node-to-workspace 2 --focus-follows-window"
-alt-shift-3 = "move-node-to-workspace 3 --focus-follows-window"
-alt-shift-4 = "move-node-to-workspace 4 --focus-follows-window"
-alt-shift-5 = "move-node-to-workspace 5 --focus-follows-window"
-alt-shift-6 = "move-node-to-workspace 6 --focus-follows-window"
-alt-shift-7 = "move-node-to-workspace 7 --focus-follows-window"
-alt-shift-8 = "move-node-to-workspace 8 --focus-follows-window"
-alt-shift-9 = "move-node-to-workspace 9 --focus-follows-window"
-alt-shift-e = "move-node-to-workspace E --focus-follows-window"
-alt-shift-b = "move-node-to-workspace B --focus-follows-window"
-alt-shift-m = "move-node-to-workspace M --focus-follows-window"
-alt-shift-t = "move-node-to-workspace T --focus-follows-window"
+cmd-ctrl-alt-shift-1 = "move-node-to-workspace 1 --focus-follows-window"
+cmd-ctrl-alt-shift-2 = "move-node-to-workspace 2 --focus-follows-window"
+cmd-ctrl-alt-shift-3 = "move-node-to-workspace 3 --focus-follows-window"
+cmd-ctrl-alt-shift-4 = "move-node-to-workspace 4 --focus-follows-window"
+cmd-ctrl-alt-shift-5 = "move-node-to-workspace 5 --focus-follows-window"
+cmd-ctrl-alt-shift-6 = "move-node-to-workspace 6 --focus-follows-window"
+cmd-ctrl-alt-shift-7 = "move-node-to-workspace 7 --focus-follows-window"
+cmd-ctrl-alt-shift-8 = "move-node-to-workspace 8 --focus-follows-window"
+cmd-ctrl-alt-shift-9 = "move-node-to-workspace 9 --focus-follows-window"
+cmd-ctrl-alt-shift-e = "move-node-to-workspace E --focus-follows-window"
+cmd-ctrl-alt-shift-b = "move-node-to-workspace B --focus-follows-window"
+cmd-ctrl-alt-shift-m = "move-node-to-workspace M --focus-follows-window"
+cmd-ctrl-alt-shift-t = "move-node-to-workspace T --focus-follows-window"
 
-# Hyper app launchers migrated from Raycast Applications
+# Hyper app launchers. Window management above uses Meh; these stay on Hyper.
 cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
 cmd-ctrl-alt-shift-b = 'exec-and-forget open -a "ChatGPT Atlas"'
 cmd-ctrl-alt-shift-f = 'exec-and-forget open -a "Finder"'
@@ -131,24 +131,24 @@ cmd-ctrl-alt-shift-w = 'exec-and-forget open -a "WhatsApp"'
 cmd-ctrl-alt-shift-t = 'exec-and-forget /opt/homebrew/bin/wezterm start'
 
 # Layout
-alt-comma = "layout accordion horizontal vertical"
-alt-slash = "layout tiles horizontal vertical"
+cmd-ctrl-alt-comma = "layout accordion horizontal vertical"
+cmd-ctrl-alt-slash = "layout tiles horizontal vertical"
 
-alt-tab = "workspace-back-and-forth"
-alt-shift-tab = [
+cmd-ctrl-alt-tab = "workspace-back-and-forth"
+cmd-ctrl-alt-shift-tab = [
   "move-workspace-to-monitor --wrap-around next",
   'exec-and-forget sketchybar --trigger aerospace_monitor_change TARGET_MONITOR=$(aerospace list-monitors --focused --format "%{monitor-appkit-nsscreen-screens-id}") FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)',
 ]
 
 # Modes
-alt-shift-semicolon = "mode service"
+cmd-ctrl-alt-shift-semicolon = "mode service"
 
 [mode.service.binding]
 esc = ["reload-config", "mode main"]
-alt-shift-h = ["join-with left", "mode main"]
-alt-shift-j = ["join-with down", "mode main"]
-alt-shift-k = ["join-with up", "mode main"]
-alt-shift-l = ["join-with right", "mode main"]
+cmd-ctrl-alt-shift-h = ["join-with left", "mode main"]
+cmd-ctrl-alt-shift-j = ["join-with down", "mode main"]
+cmd-ctrl-alt-shift-k = ["join-with up", "mode main"]
+cmd-ctrl-alt-shift-l = ["join-with right", "mode main"]
 h = ["join-with left", "mode main"]
 j = ["join-with down", "mode main"]
 k = ["join-with up", "mode main"]
@@ -169,7 +169,7 @@ shift-p = [
   'exec-and-forget ~/.config/aerospace/bin/prune-windows',
   "mode main"
 ]
-alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
+cmd-ctrl-alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
 
 # [[on-window-detected]]
 # run = "move-node-to-workspace 1"

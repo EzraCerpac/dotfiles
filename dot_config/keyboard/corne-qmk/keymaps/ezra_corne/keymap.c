@@ -14,6 +14,7 @@ enum custom_keycodes {
     TH_HYP_NUM,
     TH_NAV_S,
     TH_NAV_BSPC,
+    HRM_R_MEH,
     NS_A_GUI,
     NS_R_ALT,
     NS_T_CTL,
@@ -26,7 +27,7 @@ enum custom_keycodes {
 };
 
 #define HRM_A MT(MOD_LGUI, KC_A)
-#define HRM_R MT(MOD_LALT, KC_R)
+#define HRM_R HRM_R_MEH
 #define HRM_T MT(MOD_LCTL, KC_T)
 #define HRM_N MT(MOD_RCTL, KC_N)
 #define HRM_I MT(MOD_RALT, KC_I)
@@ -84,6 +85,7 @@ typedef struct {
 } custom_modtap_t;
 
 static custom_modtap_t custom_modtaps[] = {
+    {HRM_R_MEH, MOD_BIT(KC_LGUI) | MOD_BIT(KC_LCTL) | MOD_BIT(KC_LALT), KC_R, false, false, false, 0},
     {NS_A_GUI, MOD_BIT(KC_LGUI), KC_2, false, false, false, 0},
     {NS_R_ALT, MOD_BIT(KC_LALT), KC_3, false, false, false, 0},
     {NS_T_CTL, MOD_BIT(KC_LCTL), KC_5, false, false, false, 0},
