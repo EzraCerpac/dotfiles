@@ -46,7 +46,7 @@
 
   ;; base home-row mods (QWERTY physical positions)
   a (tap-hold $tap-time $hold-time a lmet)
-  s (tap-hold $tap-time $hold-time s lalt)
+  s (tap-hold $tap-time $hold-time s (multi lmet lctrl lalt))
   dnav (tap-hold-release $tap-time $hold-time d (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   f (tap-hold $tap-time $hold-time f lctrl)
   cnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
@@ -56,7 +56,7 @@
   semi (tap-hold $tap-time $hold-time ; rmet)
 
   ;; Colemak-DK base layer (physical-key anchored modifiers)
-  cs (tap-hold $tap-time $hold-time r lalt)
+  cs (tap-hold $tap-time $hold-time r (multi lmet lctrl lalt))
   cdnav (tap-hold-release $tap-time $hold-time s (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
   cf (tap-hold $tap-time $hold-time t lctrl)
   ccnum (tap-hold-release $tap-time $hold-time c (multi (layer-while-held num-layer) (on-press-fakekey sig_num tap) (on-release-fakekey sig_base tap)))
