@@ -121,14 +121,14 @@ cmd-ctrl-alt-shift-t = "move-node-to-workspace T --focus-follows-window"
 
 # Hyper app launchers. Window management above uses Meh; these stay on Hyper.
 cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
-cmd-ctrl-alt-shift-b = 'exec-and-forget open -a "ChatGPT Atlas"'
+cmd-ctrl-alt-shift-c = 'exec-and-forget open -a "ChatGPT Atlas"'
 cmd-ctrl-alt-shift-f = 'exec-and-forget open -a "Finder"'
-cmd-ctrl-alt-shift-e = 'exec-and-forget open -a "Mail"'
-cmd-ctrl-alt-shift-m = 'exec-and-forget open -a "Music"'
+cmd-ctrl-alt-shift-i = 'exec-and-forget open -a "Mail"'
+cmd-ctrl-alt-shift-p = 'exec-and-forget open -a "Music"'
 cmd-ctrl-alt-shift-y = 'exec-and-forget open -a "System Settings"'
 cmd-ctrl-alt-shift-w = 'exec-and-forget open -a "WhatsApp"'
 # Exception: always open a new WezTerm window
-cmd-ctrl-alt-shift-t = 'exec-and-forget /opt/homebrew/bin/wezterm start'
+cmd-ctrl-alt-shift-enter = 'exec-and-forget /opt/homebrew/bin/wezterm start'
 
 # Layout
 cmd-ctrl-alt-comma = "layout accordion horizontal vertical"
