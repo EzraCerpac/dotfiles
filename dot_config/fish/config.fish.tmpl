@@ -83,6 +83,30 @@ end
 alias cc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
 alias oc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml opencode'
 
+if command -q wt
+    wt config shell init fish | source
+end
+
+function wto --description "Create or switch a worktree and launch OpenCode"
+    if test (count $argv) -eq 0
+        echo "usage: wto <branch> [prompt...]" >&2
+        return 1
+    end
+
+    set -l branch $argv[1]
+    set -e argv[1]
+
+    if test (count $argv) -gt 0
+        wt switch -c $branch -x opencode -- $argv
+    else
+        wt switch -c -x opencode $branch
+    end
+end
+
+function prdiff --description "Review a pull request diff in diffnav"
+    gh pr diff $argv | diffnav --side-by-side
+end
+
 {{- if eq .chezmoi.os "darwin" }}
 # ---------- Tailscale ----------
 alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'

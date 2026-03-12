@@ -30,6 +30,8 @@ gh = "latest"
 jjui = "latest"
 lazygit = "latest"
 gitui = "latest"
+"cargo:worktrunk" = "latest"
+"github:dlvhdr/diffnav" = "latest"
 
 # Utilities
 jq = "latest"
