@@ -1,0 +1,4 @@
+worktree-path = "../{{ repo }}.{{ branch | sanitize }}"
+
+[select]
+pager = "diffnav --side-by-side"

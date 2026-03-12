@@ -40,7 +40,7 @@ git:
   # Paging configuration
   paging:
     colorArg: always
-    pager: delta --dark --paging=never
+    pager: delta --side-by-side --paging=never
   
   # Commit configuration  
   commit:

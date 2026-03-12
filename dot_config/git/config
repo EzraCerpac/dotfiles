@@ -14,7 +14,7 @@
 [core]
 	excludesfile = /Users/ezracerpac/.gitignore
 	autocrlf = input
-	pager = diff-so-fancy | less --tabs=4 -RFX
+	pager = less --tabs=4 -RFX
 	compression = 9
 	whitespace = error
 	preloadindex = true
@@ -44,9 +44,11 @@
     cmd = pycharm merge "$LOCAL" "$REMOTE" "$BASE" "$MERGED"
     keepBackup = false
 [pager]
-	diff = diff-so-fancy | $PAGER
-[diff-so-fancy]
-	markEmptyLines = false
+	diff = diffnav --side-by-side
+	show = delta --side-by-side --paging=never
+[delta]
+	side-by-side = true
+	navigate = true
 [color "diff"]
 	meta = black bold
 	frag = magenta
@@ -58,7 +60,7 @@
 	maxRequests = 20
 	version = HTTP/1.1
 [interactive]
-	diffFilter = diff-so-fancy --patch
+	diffFilter = delta --side-by-side --paging=never
 	singleKey = true
 [alias]
 	staash = stash --all

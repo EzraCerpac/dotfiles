@@ -16,7 +16,7 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs to
 
 **Editor**: neovim (LazyVim), zed
 
-**Dev Tools**: git, gh, jj/jjui, lazygit, gitui, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
+**Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
 **macOS**: aerospace (WM), sketchybar, karabiner, raycast, wezterm, ghostty
 
@@ -25,6 +25,14 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs to
 **mise** is the single source of truth for all tools (`~/.config/mise/config.toml`). It handles runtimes (node, rust), CLI tools (fzf, ripgrep, bat, etc.), and even manages itself (chezmoi, uv). mise supports multiple backends (aqua, cargo, github, ubi) so nearly everything installs through it.
 
 **brew/apt-get** only install system-level packages that mise can't: `fish`, `gnupg`, `curl`, `wget`, `htop`, `tree` (and `build-essential`, `git`, `unzip` on Linux).
+
+Review defaults:
+
+- `git diff` opens in `diffnav --side-by-side`
+- `git show` and embedded diff views use `delta --side-by-side --paging=never`
+- `wt` is installed via mise and initialized in both fish and zsh
+- `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
+- `prdiff [pr]` opens `gh pr diff` output in `diffnav`
 
 ## Repository Structure
 

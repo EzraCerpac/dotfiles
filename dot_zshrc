@@ -17,5 +17,25 @@ eval "$(gh copilot alias -- zsh)"
 command -v flow-cli > /dev/null 2>&1 && eval "$(_FLOW_CLI_COMPLETE=zsh_source flow-cli)"
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
 
+wto() {
+    if [ "$#" -eq 0 ]; then
+        echo "usage: wto <branch> [prompt...]" >&2
+        return 1
+    fi
+
+    local branch="$1"
+    shift
+
+    if [ "$#" -gt 0 ]; then
+        wt switch -c "$branch" -x opencode -- "$@"
+    else
+        wt switch -c -x opencode "$branch"
+    fi
+}
+
+prdiff() {
+    gh pr diff "$@" | diffnav --side-by-side
+}
+
 # OpenClaw Completion
 source <(openclaw completion --shell zsh)

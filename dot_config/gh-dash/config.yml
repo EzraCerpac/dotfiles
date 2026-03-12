@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://gh-dash.dev/schema.json
 prSections:
     - title: My Pull Requests
       filters: is:open author:@me
@@ -76,7 +77,19 @@ defaults:
                 width: 20
                 hidden: true
     refetchIntervalMinutes: 30
-keybindings: {}
+
+keybindings:
+  universal:
+    - key: j
+      name: jjui
+      command: >
+        cd {{.RepoPath}}; jjui
+  prs:
+    - key: C
+      name: code review
+      command: >
+        wezterm cli spawn --cwd {{.RepoPath}} -- 'wt switch pr:{{.PrNumber}} -x "opencode --prompt `@code-reviewer: review-pr-for-this-branch`"'
+
 repoPaths: {}
 theme:
     ui:
@@ -85,7 +98,7 @@ theme:
             showSeparator: true
             compact: false
 pager:
-    diff: ""
+    diff: "diffnav --side-by-side"
 confirmQuit: false
 showAuthorIcons: true
 smartFilteringAtLaunch: true
