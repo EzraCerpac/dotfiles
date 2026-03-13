@@ -29,7 +29,7 @@ if [[ -n "${BREW_BIN}" ]]; then
     "${BREW_BIN}" tap osx-cross/avr || true
     echo "Installing system packages via Homebrew..."
     "${BREW_BIN}" install \
-        fish gnupg curl wget htop tree node \
+        fish gnupg curl wget htop tree sshpass node kanata \
         qmk/qmk/qmk dos2unix \
         librsvg \
         osx-cross/avr/avr-gcc@9 \
@@ -53,6 +53,7 @@ if command -v apt-get &>/dev/null; then
         wget \
         htop \
         tree \
+        sshpass \
         unzip \
         gnupg \
         git

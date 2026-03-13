@@ -27,6 +27,7 @@ yazi = "latest"
 # Git tools
 delta = "latest"
 gh = "latest"
+jj = "latest"
 jjui = "latest"
 lazygit = "latest"
 gitui = "latest"

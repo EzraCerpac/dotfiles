@@ -5,12 +5,14 @@ local layer_images = {
     [0] = image_dir .. "/layer0.png",
     [1] = image_dir .. "/layer1.png",
     [2] = image_dir .. "/layer2.png",
+    [3] = image_dir .. "/layer3.png",
 }
 
 local signal_to_layer = {
     ["f17"] = 0,
     ["f18"] = 1,
     ["f19"] = 2,
+    ["f23"] = 3,
     ["f20"] = 0,
     ["f21"] = 1,
     ["f22"] = 2,
@@ -109,25 +111,12 @@ for key, layer in pairs(signal_to_layer) do
     end
 end
 
--- Explicit macOS keycodes for fn signal keys used by this setup.
-local signal_keycodes = {
-    [64] = 0,   -- f17
-    [79] = 1,   -- f18
-    [80] = 2,   -- f19
-    [90] = 0,   -- f20
-    [107] = 0,  -- f14
-    [113] = 1,  -- f15
-    [106] = 2,  -- f16
-}
-
-local f21_keycode = hs.keycodes.map["f21"]
-if f21_keycode then
-    signal_keycodes[f21_keycode] = 1
-end
-
-local f22_keycode = hs.keycodes.map["f22"]
-if f22_keycode then
-    signal_keycodes[f22_keycode] = 2
+local signal_keycodes = {}
+for key, layer in pairs(signal_to_layer) do
+    local keycode = hs.keycodes.map[key]
+    if keycode ~= nil then
+        signal_keycodes[keycode] = layer
+    end
 end
 
 signal_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
@@ -142,7 +131,7 @@ end)
 signal_tap:start()
 
 local registered = {}
-for _, key in ipairs({"f17", "f18", "f19", "f20", "f21", "f22", "f14", "f15", "f16"}) do
+for _, key in ipairs({"f17", "f18", "f19", "f23", "f20", "f21", "f22", "f14", "f15", "f16"}) do
     if hs.keycodes.map[key] ~= nil then
         table.insert(registered, key)
     end
@@ -150,5 +139,5 @@ end
 
 hs.notify.new({
     title = "Corne HUD",
-    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Signals: F17/F18/F19 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
+    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Signals: F17/F18/F19/F23 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
 }):send()

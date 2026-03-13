@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+PAM_SUDO_LOCAL="/etc/pam.d/sudo_local"
+PAM_TOUCH_ID_LINE="auth       sufficient     pam_tid.so"
+
+echo "Ensuring Touch ID is enabled for sudo..."
+
+if [[ -f "${PAM_SUDO_LOCAL}" ]] && grep -qF "${PAM_TOUCH_ID_LINE}" "${PAM_SUDO_LOCAL}"; then
+    echo "Touch ID for sudo already enabled"
+    exit 0
+fi
+
+TMP_FILE="$(mktemp)"
+trap 'rm -f "${TMP_FILE}"' EXIT
+
+if [[ -f "${PAM_SUDO_LOCAL}" ]]; then
+    cp "${PAM_SUDO_LOCAL}" "${TMP_FILE}"
+fi
+
+if ! grep -qF "${PAM_TOUCH_ID_LINE}" "${TMP_FILE}" 2>/dev/null; then
+    printf '%s\n' "${PAM_TOUCH_ID_LINE}" >> "${TMP_FILE}"
+fi
+
+if sudo install -m 644 "${TMP_FILE}" "${PAM_SUDO_LOCAL}" >/dev/null 2>&1; then
+    echo "Touch ID for sudo enabled"
+else
+    echo "Could not update ${PAM_SUDO_LOCAL}. Run:"
+    printf "  printf '%%s\\n' '%s' | sudo tee %s >/dev/null\n" "${PAM_TOUCH_ID_LINE}" "${PAM_SUDO_LOCAL}"
+fi
+
+{{- end }}

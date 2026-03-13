@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+KARABINER_MANAGER="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager"
+KARABINER_DAEMON="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
+KARABINER_PLIST="/Library/LaunchDaemons/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi.plist"
+KARABINER_LABEL="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
+
+if [[ ! -x "${KARABINER_MANAGER}" ]] || [[ ! -x "${KARABINER_DAEMON}" ]]; then
+    echo "Karabiner VirtualHID components not installed yet; skipping setup"
+    exit 0
+fi
+
+if ! systemextensionsctl list | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice"; then
+    echo "Activating Karabiner VirtualHID driver..."
+    if ! sudo "${KARABINER_MANAGER}" activate >/dev/null 2>&1; then
+        echo "Could not activate the Karabiner VirtualHID driver automatically"
+        echo "Run: sudo ${KARABINER_MANAGER} activate"
+    fi
+fi
+
+TMP_FILE="$(mktemp)"
+trap 'rm -f "${TMP_FILE}"' EXIT
+
+cat > "${TMP_FILE}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${KARABINER_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${KARABINER_DAEMON}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/karabiner-virtualhid.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/karabiner-virtualhid.err.log</string>
+</dict>
+</plist>
+EOF
+
+echo "Installing Karabiner VirtualHID launch daemon..."
+
+if sudo install -o root -g wheel -m 644 "${TMP_FILE}" "${KARABINER_PLIST}" >/dev/null 2>&1; then
+    if sudo launchctl print "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
+        sudo launchctl bootout "system/${KARABINER_LABEL}" >/dev/null 2>&1 || true
+    fi
+    sudo launchctl bootstrap system "${KARABINER_PLIST}" >/dev/null 2>&1 || true
+    sudo launchctl enable "system/${KARABINER_LABEL}" >/dev/null 2>&1 || true
+    if sudo launchctl kickstart -k "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
+        echo "Karabiner VirtualHID daemon installed and started"
+    else
+        echo "Karabiner VirtualHID daemon installed, but could not be started automatically"
+        echo "Check logs with: sudo tail -n 50 /var/log/karabiner-virtualhid.err.log"
+    fi
+else
+    echo "Could not install ${KARABINER_PLIST}"
+    echo "Re-run: chezmoi apply"
+fi
+
+{{- end }}

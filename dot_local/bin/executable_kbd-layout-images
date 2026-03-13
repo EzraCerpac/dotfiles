@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/kbd-common.sh"
+
 CONFIG_DIR="${HOME}/.config/keyboard/corne-qmk"
 KEYMAP_DIR="${CONFIG_DIR}/keymaps/ezra_corne"
 KEYMAP_C="${KEYMAP_DIR}/keymap.c"
@@ -19,7 +22,7 @@ if [[ ! -f "${KEYMAP_CFG}" ]]; then
     exit 1
 fi
 
-if ! command -v qmk >/dev/null 2>&1; then
+if ! resolve_qmk_runner >/dev/null 2>&1; then
     echo "qmk CLI not found. Run kbd-setup." >&2
     exit 1
 fi
@@ -43,11 +46,11 @@ json_file="${tmpdir}/keymap.json"
 yaml_file="${OUTPUT_DIR}/keymap.yaml"
 full_svg="${OUTPUT_DIR}/keymap.svg"
 
-qmk c2json "${KEYMAP_C}" -kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -q -o "${json_file}"
+run_qmk c2json "${KEYMAP_C}" -kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -q -o "${json_file}"
 keymap -c "${KEYMAP_CFG}" parse -q "${json_file}" -o "${yaml_file}"
 keymap -c "${KEYMAP_CFG}" draw "${yaml_file}" -o "${full_svg}"
 
-for pair in "L0:layer0" "L1:layer1" "L2:layer2"; do
+for pair in "L0:layer0" "L1:layer1" "L2:layer2" "L3:layer3"; do
     layer="${pair%%:*}"
     name="${pair##*:}"
     layer_svg="${OUTPUT_DIR}/${name}.svg"
@@ -59,4 +62,4 @@ done
 
 echo "generated layout assets from: ${KEYMAP_C}"
 echo "full: ${full_svg}"
-echo "layers: ${OUTPUT_DIR}/layer0.png ${OUTPUT_DIR}/layer1.png ${OUTPUT_DIR}/layer2.png"
+echo "layers: ${OUTPUT_DIR}/layer0.png ${OUTPUT_DIR}/layer1.png ${OUTPUT_DIR}/layer2.png ${OUTPUT_DIR}/layer3.png"

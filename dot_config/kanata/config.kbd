@@ -30,13 +30,13 @@
 )
 
 (defvirtualkeys
-  qwerty_toggle (layer-while-held qwerty)
+  gaming_toggle (layer-while-held gaming)
 )
 
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
   fnl fn
-  layout_toggle (on-press toggle-virtualkey qwerty_toggle)
+  gaming_mode_toggle (on-press toggle-virtualkey gaming_toggle)
 
   ;; thumbs / modifiers
   lcmd_ret_cmd (tap-hold $tap-time $hold-time ret lmet)
@@ -85,7 +85,7 @@
 )
 
 (defchordsv2
-  (lalt ralt) @layout_toggle 250 first-release ()
+  (lalt ralt) @gaming_mode_toggle 250 first-release ()
   (lmet rmet) C-S-A-M-r 250 first-release ()
 )
 
@@ -98,13 +98,13 @@
   @fnl   lctl lalt @lcmd_ret_cmd @spcsft @rcmd_nav_bspc ralt left down up rght
 )
 
-(deflayer qwerty
-  _      _    _    _ _ _ _ _ _ _ _ _ _
-  _      _    _    _ _ _ _ _ _ _ _ _ _ _
-  _      q    w    e r t y u i o p [ ] bksl
-  _      @a   @s @dnav @f g h @j k @l @semi ' _
-  _      nubs z    x c v b n m , . / _
-  _      _    _    _ _ @rcmd_nav_bspc _ _ _ _ _
+(deflayer gaming
+  esc    f1   f2   f3 f4 f5 f6 f7 f8 f9 f10 f11 f12
+  z      1    2    3 4 5 6 7 8 9 0 - = bspc
+  tab    q    w    e r t y u i o p [ ] bksl
+  esc    a    s    d f g h j k l ; ' ret
+  lsft   nubs z    x c v b n m , . / rsft
+  @fnl   lctl lalt ret spc bspc ralt left down up rght
 )
 
 (deflayer nav-layer

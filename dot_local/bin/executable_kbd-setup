@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/kbd-common.sh"
+
 QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
 LEGACY_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
 
@@ -51,7 +54,7 @@ else
 fi
 
 git -C "${QMK_DIR}" submodule update --init --recursive
-qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1 || true
+run_qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1 || true
 
 uv tool install --upgrade keymap-drawer >/dev/null
 

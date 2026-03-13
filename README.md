@@ -18,13 +18,13 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs to
 
 **Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
-**macOS**: aerospace (WM), sketchybar, karabiner, raycast, wezterm, ghostty
+**macOS**: aerospace (WM), alt-tab, sketchybar, karabiner, raycast, wezterm, ghostty
 
 ## Tool Management
 
 **mise** is the single source of truth for all tools (`~/.config/mise/config.toml`). It handles runtimes (node, rust), CLI tools (fzf, ripgrep, bat, etc.), and even manages itself (chezmoi, uv). mise supports multiple backends (aqua, cargo, github, ubi) so nearly everything installs through it.
 
-**brew/apt-get** only install system-level packages that mise can't: `fish`, `gnupg`, `curl`, `wget`, `htop`, `tree` (and `build-essential`, `git`, `unzip` on Linux).
+**brew/apt-get** only install system-level packages that mise can't: `fish`, `gnupg`, `curl`, `wget`, `htop`, `tree`, `sshpass` (and `build-essential`, `git`, `unzip` on Linux).
 
 Review defaults:
 
@@ -45,9 +45,12 @@ dot_config/                          → ~/.config/
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_once_03-install-tools.sh.tmpl       → system packages + mise install
-run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, hammerspoon)
+run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, alt-tab, hammerspoon)
 run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (qmk_firmware)
-run_after_setup-shell.sh.tmpl           → fish shell setup, chsh hint
+run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
+run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
+run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + daemon
+run_after_20-setup-kanata-launchd.sh.tmpl → macOS kanata launch daemon via /Library/LaunchDaemons
 ```
 
 ## Keyboard Workflow (Corne + QMK)
@@ -82,13 +85,18 @@ Commands:
 ```bash
 chezmoi edit ~/.config/fish/config.fish   # edit source file
 chezmoi apply                              # apply changes
+chezmoi-smart-apply                        # re-add trusted app-written drift, then apply
 chezmoi add ~/.config/new-app/config.yaml  # track a new file
 chezmoi update                             # pull + apply from remote
 ```
 
+`chezmoi-smart-apply` is the safe path for tracked app configs that mutate themselves in `$HOME`.
+It auto-readds only explicitly allowlisted plain files from `~/.config/chezmoi/smart-apply.toml`
+and stops for manual `chezmoi merge` if any other destination drift is present.
+
 ## Cross-Platform Notes
 
-- macOS-only configs (aerospace, sketchybar, karabiner, raycast, wezterm) are ignored on Linux via `.chezmoiignore`
+- macOS-only configs (aerospace, alt-tab, sketchybar, karabiner, raycast, wezterm) are ignored on Linux via `.chezmoiignore`
 - Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
 - On Linux, system packages install via `apt-get`; on macOS, via `brew`
 - All other tools install identically via mise on both platforms

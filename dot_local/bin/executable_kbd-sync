@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/kbd-common.sh"
+
 CONFIG_DIR="${HOME}/.config/keyboard/corne-qmk"
 SRC_DIR="${CONFIG_DIR}/keymaps/ezra_corne"
 QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
@@ -22,5 +25,5 @@ rsync -a --delete "${SRC_DIR}/" "${DST_DIR}/"
 
 echo "synced keymap to ${DST_DIR}"
 
-kbd-layout-images
-kbd-hud-reload || true
+"$(resolve_kbd_script kbd-layout-images "${SCRIPT_DIR}")"
+"$(resolve_kbd_script kbd-hud-reload "${SCRIPT_DIR}")" || true

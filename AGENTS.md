@@ -43,4 +43,4 @@
 - Do not commit secrets. Use templates and `[data]` in `.chezmoi.toml.tmpl` instead of hard-coding.
 - Keep host/user-specific values behind template conditionals (e.g., `{{ if eq .chezmoi.os "darwin" }}` blocks).
 - mise is the single source of truth for tools. It handles runtimes (node, rust), CLI tools, and supports aqua/cargo/github/ubi backends.
-- brew/apt-get only for system-level packages (fish, gnupg, curl, wget, htop, tree).
+- brew/apt-get only for system-level packages (fish, gnupg, curl, wget, htop, tree, sshpass).

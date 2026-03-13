@@ -3,7 +3,7 @@ local M = {}
 function M.open_jabref()
   local bibfile = vim.fn.expand("~/References/library.bib")
 
-  vim.fn.jobstart({ "jabref", bibfile }, {
+  vim.fn.jobstart({ "open", "-a", "JabRef", bibfile }, {
     detach = true,
   })
 end
