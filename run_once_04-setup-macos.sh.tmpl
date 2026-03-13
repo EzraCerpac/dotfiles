@@ -26,10 +26,12 @@ if [[ -n "${BREW_BIN}" ]]; then
 
   echo "Installing Homebrew casks..."
   "${BREW_BIN}" install --cask font-hack-nerd-font || true
+  "${BREW_BIN}" install --cask font-sketchybar-app-font || true
   "${BREW_BIN}" install --cask font-symbols-only-nerd-font || true
   "${BREW_BIN}" install --cask wezterm || true
   "${BREW_BIN}" install --cask raycast || true
   "${BREW_BIN}" install --cask hammerspoon || true
+  "${BREW_BIN}" install --cask karabiner-elements || true
   "${BREW_BIN}" install --cask nikitabobko/tap/aerospace || true
   "${BREW_BIN}" install felixkratz/formulae/sketchybar || true
   echo "Casks installed"
@@ -59,5 +61,17 @@ if [[ -f "${KANATA_PLIST}" ]]; then
 fi
 
 echo "macOS setup complete"
+
+cat <<'EOF'
+
+If you want Kanata on macOS 11+, install and activate the Karabiner DriverKit VirtualHIDDevice first.
+After installing Karabiner-Elements, run:
+  sudo /Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager activate
+
+Then start the Karabiner VirtualHIDDevice daemon:
+  sudo '/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon'
+
+Then run kanata itself with sudo and your config.
+EOF
 
 {{- end }}
