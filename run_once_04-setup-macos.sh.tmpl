@@ -28,6 +28,16 @@ else
     echo "Warning: Homebrew not found, skipping macOS cask installation"
 fi
 
+if [[ -f /Library/LaunchDaemons/com.kanata.daemon.plist ]]; then
+    echo "Restarting kanata daemon..."
+    if sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1; then
+        echo "kanata daemon restarted"
+    else
+        echo "Run this to restart kanata once setup finishes:"
+        echo "  sudo launchctl kickstart -k system/com.kanata.daemon"
+    fi
+fi
+
 echo "macOS setup complete"
 
 {{- end }}
