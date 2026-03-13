@@ -118,7 +118,9 @@ if command -q carapace
     carapace _carapace 2>/dev/null | source
 end
 
-set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
+if command -q mole
+    set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
+end
 if command -q screenpipe
     screenpipe completions fish | source
 end
