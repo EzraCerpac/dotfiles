@@ -22,8 +22,11 @@ if [[ -n "${BREW_BIN}" ]]; then
 
   "${BREW_BIN}" tap nikitabobko/tap || true
   "${BREW_BIN}" tap felixkratz/formulae || true
+  "${BREW_BIN}" tap homebrew/cask-fonts || true
 
   echo "Installing Homebrew casks..."
+  "${BREW_BIN}" install --cask font-hack-nerd-font || true
+  "${BREW_BIN}" install --cask font-symbols-only-nerd-font || true
   "${BREW_BIN}" install --cask wezterm || true
   "${BREW_BIN}" install --cask raycast || true
   "${BREW_BIN}" install --cask hammerspoon || true
@@ -34,18 +37,24 @@ else
   echo "Warning: Homebrew not found, skipping macOS cask installation"
 fi
 
-if [[ -f /Library/LaunchDaemons/com.kanata.daemon.plist ]]; then
+KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
+if [[ -f "${KANATA_PLIST}" ]]; then
+  KANATA_LABEL="$(plutil -extract Label raw -o - "${KANATA_PLIST}" 2>/dev/null || true)"
   echo "Restarting kanata daemon..."
-  if sudo -n launchctl print system/com.kanata.daemon >/dev/null 2>&1; then
-    sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1
+  if [[ -z "${KANATA_LABEL}" ]]; then
+    echo "Could not determine kanata launchd label from ${KANATA_PLIST}"
+    echo "Inspect it with:"
+    echo "  sudo plutil -p ${KANATA_PLIST}"
+  elif sudo -n launchctl print "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+    sudo -n launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1
     echo "kanata daemon restarted"
-  elif sudo -n launchctl bootstrap system /Library/LaunchDaemons/com.kanata.daemon.plist >/dev/null 2>&1; then
-    sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1 || true
+  elif sudo -n launchctl bootstrap system "${KANATA_PLIST}" >/dev/null 2>&1; then
+    sudo -n launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
     echo "kanata daemon bootstrapped and restarted"
   else
     echo "Run this to load and restart kanata once setup finishes:"
-    echo "  sudo launchctl bootstrap system /Library/LaunchDaemons/com.kanata.daemon.plist"
-    echo "  sudo launchctl kickstart -k system/com.kanata.daemon"
+    echo "  sudo launchctl bootstrap system ${KANATA_PLIST}"
+    echo "  sudo launchctl kickstart -k system/${KANATA_LABEL:-<label-from-plist>}"
   fi
 fi
 
