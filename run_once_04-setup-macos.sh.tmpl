@@ -10,32 +10,43 @@ echo "Setting up macOS-specific tools..."
 
 BREW_BIN=""
 if [[ -x /opt/homebrew/bin/brew ]]; then
-    BREW_BIN="/opt/homebrew/bin/brew"
+  BREW_BIN="/opt/homebrew/bin/brew"
 elif [[ -x /usr/local/bin/brew ]]; then
-    BREW_BIN="/usr/local/bin/brew"
+  BREW_BIN="/usr/local/bin/brew"
 elif command -v brew &>/dev/null; then
-    BREW_BIN="$(command -v brew)"
+  BREW_BIN="$(command -v brew)"
 fi
 
 if [[ -n "${BREW_BIN}" ]]; then
-    eval "$("${BREW_BIN}" shellenv)"
+  eval "$("${BREW_BIN}" shellenv)"
 
-    echo "Installing Homebrew casks..."
-    "${BREW_BIN}" install --cask wezterm raycast hammerspoon aerospace || true
-    "${BREW_BIN}" install felixkratz/formulae/sketchybar || true
-    echo "Casks installed"
+  "${BREW_BIN}" tap nikitabobko/tap || true
+  "${BREW_BIN}" tap felixkratz/formulae || true
+
+  echo "Installing Homebrew casks..."
+  "${BREW_BIN}" install --cask wezterm || true
+  "${BREW_BIN}" install --cask raycast || true
+  "${BREW_BIN}" install --cask hammerspoon || true
+  "${BREW_BIN}" install --cask nikitabobko/tap/aerospace || true
+  "${BREW_BIN}" install felixkratz/formulae/sketchybar || true
+  echo "Casks installed"
 else
-    echo "Warning: Homebrew not found, skipping macOS cask installation"
+  echo "Warning: Homebrew not found, skipping macOS cask installation"
 fi
 
 if [[ -f /Library/LaunchDaemons/com.kanata.daemon.plist ]]; then
-    echo "Restarting kanata daemon..."
-    if sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1; then
-        echo "kanata daemon restarted"
-    else
-        echo "Run this to restart kanata once setup finishes:"
-        echo "  sudo launchctl kickstart -k system/com.kanata.daemon"
-    fi
+  echo "Restarting kanata daemon..."
+  if sudo -n launchctl print system/com.kanata.daemon >/dev/null 2>&1; then
+    sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1
+    echo "kanata daemon restarted"
+  elif sudo -n launchctl bootstrap system /Library/LaunchDaemons/com.kanata.daemon.plist >/dev/null 2>&1; then
+    sudo -n launchctl kickstart -k system/com.kanata.daemon >/dev/null 2>&1 || true
+    echo "kanata daemon bootstrapped and restarted"
+  else
+    echo "Run this to load and restart kanata once setup finishes:"
+    echo "  sudo launchctl bootstrap system /Library/LaunchDaemons/com.kanata.daemon.plist"
+    echo "  sudo launchctl kickstart -k system/com.kanata.daemon"
+  fi
 fi
 
 echo "macOS setup complete"
