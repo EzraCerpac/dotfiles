@@ -25,15 +25,27 @@ if [[ -n "${BREW_BIN}" ]]; then
   "${BREW_BIN}" tap homebrew/cask-fonts || true
 
   echo "Installing Homebrew casks..."
+  "${BREW_BIN}" install --cask font-sf-pro || true
   "${BREW_BIN}" install --cask font-hack-nerd-font || true
   "${BREW_BIN}" install --cask font-sketchybar-app-font || true
   "${BREW_BIN}" install --cask font-symbols-only-nerd-font || true
   "${BREW_BIN}" install --cask wezterm || true
   "${BREW_BIN}" install --cask raycast || true
+  "${BREW_BIN}" install --cask alt-tab || true
   "${BREW_BIN}" install --cask hammerspoon || true
   "${BREW_BIN}" install --cask karabiner-elements || true
   "${BREW_BIN}" install --cask nikitabobko/tap/aerospace || true
+  "${BREW_BIN}" install --cask tailscale-app || true
+  "${BREW_BIN}" install --cask zoom || true
+  "${BREW_BIN}" install --cask codexbar || true
+  "${BREW_BIN}" install --cask homerow || true
+  "${BREW_BIN}" install --cask jabref || true
+  "${BREW_BIN}" install --cask mattermost || true
+  "${BREW_BIN}" install --cask warp || true
   "${BREW_BIN}" install felixkratz/formulae/sketchybar || true
+  if "${BREW_BIN}" list felixkratz/formulae/sketchybar >/dev/null 2>&1; then
+    "${BREW_BIN}" services restart sketchybar >/dev/null 2>&1 || true
+  fi
   echo "Casks installed"
 else
   echo "Warning: Homebrew not found, skipping macOS cask installation"

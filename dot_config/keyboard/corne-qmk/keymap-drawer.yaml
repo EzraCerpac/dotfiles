@@ -9,6 +9,7 @@ parse_config:
     "TH_NAV_S": "S\nNav"
     "KC_NUBS": "§\n±"
     "TH_NAV_BSPC": "Bsp\nNav"
+    "MO(_NAV_FN)": "Nav"
     "CTL_T(KC_ENT)": "Enter\nCtrl"
     "MT(MOD_RGUI,KC_DEL)": "Del\nGui"
     "MT(MOD_LGUI,KC_A)": "A\nGui"

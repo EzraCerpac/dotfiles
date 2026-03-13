@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_PATH="${XDG_CONFIG_HOME:-${HOME}/.config}/chezmoi/smart-apply.toml"
+
+ALLOWLIST=()
+STATUS_ARGS=()
+APPLY_ARGS=()
+AUTO_READD=()
+BLOCKED=()
+DRY_RUN=0
+
+load_allowlist() {
+    local line=""
+
+    if [[ ! -f "${CONFIG_PATH}" ]]; then
+        ALLOWLIST+=("${HOME}/.codex/config.toml")
+        return 0
+    fi
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        ALLOWLIST+=("${line}")
+    done < <(
+        python3 - <<'PY' "${CONFIG_PATH}" "${HOME}"
+import os
+import pathlib
+import sys
+import tomllib
+
+config_path = pathlib.Path(sys.argv[1])
+home = pathlib.Path(sys.argv[2]).expanduser()
+
+with config_path.open("rb") as fh:
+    data = tomllib.load(fh)
+
+for entry in data.get("allowlist", []):
+    expanded = pathlib.Path(os.path.expanduser(entry))
+    if not expanded.is_absolute():
+        expanded = home / expanded
+    print(expanded)
+PY
+    )
+}
+
+target_is_allowlisted() {
+    local target="${1:?target required}"
+    local allowed=""
+
+    for allowed in "${ALLOWLIST[@]}"; do
+        if [[ "${allowed}" == "${target}" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+parse_args() {
+    local arg=""
+    while [[ $# -gt 0 ]]; do
+        arg="$1"
+        APPLY_ARGS+=("${arg}")
+        case "${arg}" in
+            --force|--interactive|--less-interactive|--keep-going|-k)
+                shift
+                ;;
+            -c|--config|-D|--destination|-S|--source|-W|--working-tree|--cache|--config-format|--color|--output|--override-data|--override-data-file|--persistent-state|--progress|--refresh-externals|--mode|--age-recipient|--age-recipient-file)
+                [[ $# -ge 2 ]] || { echo "missing value for ${arg}" >&2; exit 1; }
+                STATUS_ARGS+=("${arg}" "$2")
+                APPLY_ARGS+=("$2")
+                shift 2
+                ;;
+            -x|--exclude|-i|--include)
+                [[ $# -ge 2 ]] || { echo "missing value for ${arg}" >&2; exit 1; }
+                STATUS_ARGS+=("${arg}" "$2")
+                APPLY_ARGS+=("$2")
+                shift 2
+                ;;
+            --source-path|--no-pager|--no-tty|--debug|--use-builtin-diff)
+                STATUS_ARGS+=("${arg}")
+                shift
+                ;;
+            --init|-P|--parent-dirs|-r|--recursive|-v|--verbose|-n|--dry-run)
+                if [[ "${arg}" == "-n" || "${arg}" == "--dry-run" ]]; then
+                    DRY_RUN=1
+                fi
+                STATUS_ARGS+=("${arg}")
+                shift
+                ;;
+            --)
+                STATUS_ARGS+=("${arg}")
+                shift
+                while [[ $# -gt 0 ]]; do
+                    STATUS_ARGS+=("$1")
+                    APPLY_ARGS+=("$1")
+                    shift
+                done
+                ;;
+            -*)
+                STATUS_ARGS+=("${arg}")
+                shift
+                ;;
+            *)
+                STATUS_ARGS+=("${arg}")
+                shift
+                ;;
+        esac
+    done
+}
+
+target_is_readdable() {
+    local target="${1:?target required}"
+    local source_path=""
+
+    if [[ ! -f "${target}" ]]; then
+        return 1
+    fi
+
+    source_path="$(chezmoi source-path "${target}" 2>/dev/null || true)"
+    [[ -n "${source_path}" ]] || return 1
+    [[ "${source_path}" != *.tmpl ]] || return 1
+    [[ "${source_path}" != *"/encrypted_"* ]] || return 1
+    [[ "${source_path}" != *"/dot_chezmoi"* ]] || return 1
+
+    return 0
+}
+
+collect_drift() {
+    local line=""
+    local left=""
+    local right=""
+    local target=""
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+
+        left="${line:0:1}"
+        right="${line:1:1}"
+        target="${line:3}"
+
+        if [[ "${left}" == " " ]]; then
+            continue
+        fi
+
+        if target_is_allowlisted "${target}" && [[ "${left}" == "M" ]] && target_is_readdable "${target}"; then
+            AUTO_READD+=("${target}")
+            continue
+        fi
+
+        BLOCKED+=("${left}${right} ${target}")
+    done < <(chezmoi status --path-style absolute "${STATUS_ARGS[@]}")
+}
+
+print_summary() {
+    local target=""
+    printf 'smart-apply: re-added trusted drifted files:\n'
+    for target in "${AUTO_READD[@]}"; do
+        printf '  %s\n' "${target}"
+    done
+}
+
+print_blocked() {
+    local entry=""
+    printf 'smart-apply: blocked by unmanaged destination drift outside the trusted allowlist:\n' >&2
+    for entry in "${BLOCKED[@]}"; do
+        printf '  %s\n' "${entry}" >&2
+    done
+    printf 'Use `chezmoi merge <target>`, `chezmoi merge-all`, or extend %s if the file is safe to auto-re-add.\n' "${CONFIG_PATH}" >&2
+}
+
+main() {
+    load_allowlist
+    parse_args "$@"
+    collect_drift
+
+    if [[ ${#AUTO_READD[@]} -gt 0 ]]; then
+        if [[ ${DRY_RUN} -eq 1 ]]; then
+            chezmoi re-add --dry-run "${AUTO_READD[@]}"
+        else
+            chezmoi re-add "${AUTO_READD[@]}"
+        fi
+        print_summary
+        if [[ ${DRY_RUN} -eq 0 ]]; then
+            BLOCKED=()
+            collect_drift
+        fi
+    fi
+
+    if [[ ${#BLOCKED[@]} -gt 0 ]]; then
+        print_blocked
+        exit 1
+    fi
+
+    chezmoi apply "${APPLY_ARGS[@]}"
+}
+
+main "$@"

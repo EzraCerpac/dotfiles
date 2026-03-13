@@ -10,7 +10,9 @@ export GIT_EDITOR="$EDITOR"
 
 # Alias: quick launch nvim with `v`
 alias v='nvim'
-eval "$(gh copilot alias -- zsh)"
+if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | rg -q '^github/gh-copilot'; then
+    eval "$(gh copilot alias -- zsh)"
+fi
 
 
 # Shell completion configuration for the Click Python package
@@ -38,4 +40,10 @@ prdiff() {
 }
 
 # OpenClaw Completion
-source <(openclaw completion --shell zsh)
+if command -v openclaw >/dev/null 2>&1; then
+    source <(openclaw completion --shell zsh)
+fi
+
+if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate zsh)"
+fi

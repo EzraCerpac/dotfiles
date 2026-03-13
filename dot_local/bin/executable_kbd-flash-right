@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/kbd-common.sh"
+
 CONVERT_TO="rp2040_ce"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -29,8 +32,8 @@ fi
 
 cd "${QMK_DIR}"
 if [[ "${KBD_DRY_RUN:-0}" == "1" ]]; then
-  QMK_HOME="${QMK_DIR}" qmk flash -n -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-right
+  QMK_HOME="${QMK_DIR}" run_qmk flash -n -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-right
 else
   echo "Put RIGHT half in bootloader now (RPI-RP2 mounted), then flashing..."
-  QMK_HOME="${QMK_DIR}" qmk flash -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-right
+  QMK_HOME="${QMK_DIR}" run_qmk flash -kb crkbd/rev1 -km ezra_corne -e CONVERT_TO="${CONVERT_TO}" -bl uf2-split-right
 fi

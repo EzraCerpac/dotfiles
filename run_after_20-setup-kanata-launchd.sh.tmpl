@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+KANATA_BIN=""
+if [[ -x /opt/homebrew/bin/kanata ]]; then
+    KANATA_BIN="/opt/homebrew/bin/kanata"
+elif [[ -x /usr/local/bin/kanata ]]; then
+    KANATA_BIN="/usr/local/bin/kanata"
+elif command -v kanata &>/dev/null; then
+    KANATA_BIN="$(command -v kanata)"
+fi
+
+if [[ -z "${KANATA_BIN}" ]]; then
+    echo "kanata is not installed yet; skipping launchd setup"
+    exit 0
+fi
+
+KANATA_CONFIG="{{ .chezmoi.homeDir }}/.config/kanata/config.kbd"
+KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
+KANATA_LABEL="com.kanata.daemon"
+KANATA_SYSTEM_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
+KANATA_SYSTEM_LABEL="com.kanata.daemon"
+
+if [[ ! -f "${KANATA_CONFIG}" ]]; then
+    echo "kanata config missing at ${KANATA_CONFIG}; skipping launchd setup"
+    exit 0
+fi
+
+TMP_FILE="$(mktemp)"
+trap 'rm -f "${TMP_FILE}"' EXIT
+
+cat > "${TMP_FILE}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${KANATA_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${KANATA_BIN}</string>
+        <string>--cfg</string>
+        <string>${KANATA_CONFIG}</string>
+        <string>--no-wait</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/kanata.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/kanata.err.log</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>
+EOF
+
+echo "Installing kanata launch daemon..."
+
+if sudo install -o root -g wheel -m 644 "${TMP_FILE}" "${KANATA_PLIST}" >/dev/null 2>&1; then
+    if [[ -f "{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.kanata.agent.plist" ]]; then
+        launchctl bootout "gui/$(id -u)" "{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.kanata.agent.plist" >/dev/null 2>&1 || true
+        rm -f "{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.kanata.agent.plist"
+    fi
+
+    if sudo launchctl print "system/${KANATA_SYSTEM_LABEL}" >/dev/null 2>&1; then
+        sudo launchctl bootout "system/${KANATA_SYSTEM_LABEL}" >/dev/null 2>&1 || true
+    fi
+    sudo launchctl bootstrap system "${KANATA_PLIST}" >/dev/null 2>&1 || true
+    sudo launchctl enable "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
+    if sudo launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+        echo "kanata launch daemon installed and started"
+    else
+        echo "kanata launch daemon installed, but could not be started automatically"
+        echo "Check logs with: sudo tail -n 50 /var/log/kanata.err.log"
+    fi
+else
+    echo "Could not install ${KANATA_PLIST}"
+    echo "Re-run: chezmoi apply"
+fi
+
+{{- end }}

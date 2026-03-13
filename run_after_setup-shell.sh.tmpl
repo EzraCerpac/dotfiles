@@ -8,6 +8,8 @@ echo "Setting up shell configuration..."
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
+CURRENT_USER_SHELL="$(dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}' || true)"
+
 # Add fish to /etc/shells if missing
 if command -v fish &>/dev/null; then
     FISH_PATH="$(which fish)"
@@ -16,12 +18,16 @@ if command -v fish &>/dev/null; then
         echo "$FISH_PATH" | sudo tee -a /etc/shells >/dev/null 2>&1 || \
             echo "Could not add fish to /etc/shells. Run: echo $FISH_PATH | sudo tee -a /etc/shells"
     fi
-fi
-
-# Suggest chsh if fish is not the default shell
-if command -v fish &>/dev/null && [[ "$SHELL" != *"fish"* ]]; then
-    echo "Fish shell detected. To make it your default shell, run:"
-    echo "  chsh -s $(which fish)"
+    
+    if [[ "${CURRENT_USER_SHELL}" != "${FISH_PATH}" ]]; then
+        echo "Setting fish as the default shell..."
+        if chsh -s "${FISH_PATH}" >/dev/null 2>&1; then
+            echo "Default shell set to fish"
+        else
+            echo "Could not change the default shell automatically. Run:"
+            echo "  chsh -s ${FISH_PATH}"
+        fi
+    fi
 fi
 
 # Hint about mise activation

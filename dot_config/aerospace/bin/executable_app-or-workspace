@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: app-or-workspace <open-app-name> <running-app-name> <workspace>" >&2
+  exit 2
+}
+
+if [[ $# -ne 3 ]]; then
+  usage
+fi
+
+open_app_name="$1"
+running_app_name="$2"
+workspace_name="$3"
+
+resolve_cli() {
+  local candidate
+  if [[ -n "${AEROSPACE_CLI:-}" ]]; then
+    candidate="${AEROSPACE_CLI}"
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      command -v "${candidate}"
+      return 0
+    fi
+    if [[ -x "${candidate}" ]]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  fi
+
+  for candidate in aerospace /opt/homebrew/bin/aerospace /usr/local/bin/aerospace; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      command -v "${candidate}"
+      return 0
+    fi
+    if [[ -x "${candidate}" ]]; then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+if ! cli="$(resolve_cli)"; then
+  echo "app-or-workspace: could not locate AeroSpace CLI" >&2
+  exit 1
+fi
+
+target_app_lower="$(printf '%s' "${running_app_name}" | tr '[:upper:]' '[:lower:]')"
+
+if "${cli}" list-apps \
+  | awk -F '|' '{gsub(/^ +| +$/, "", $3); print $3}' \
+  | while IFS= read -r app_name; do
+      [[ "$(printf '%s' "${app_name}" | tr '[:upper:]' '[:lower:]')" == "${target_app_lower}" ]]
+    done
+then
+  exec "${cli}" workspace "${workspace_name}"
+fi
+
+exec open -a "${open_app_name}"

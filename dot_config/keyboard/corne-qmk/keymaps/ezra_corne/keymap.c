@@ -4,6 +4,7 @@ enum layer_names {
     _BASE = 0,
     _NUM_SYM,
     _NAV_FN,
+    _GAME,
 };
 
 enum custom_keycodes {
@@ -33,6 +34,16 @@ enum custom_keycodes {
 #define HRM_I MT(MOD_RALT, KC_I)
 #define HRM_O MT(MOD_RGUI, KC_O)
 
+enum combos {
+    GAME_MODE_COMBO,
+};
+
+const uint16_t PROGMEM game_mode_combo[] = {TH_HYP_NUM, TH_NAV_BSPC, COMBO_END};
+
+combo_t key_combos[] = {
+    [GAME_MODE_COMBO] = COMBO_ACTION(game_mode_combo),
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_split_3x6_3(
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
@@ -53,6 +64,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_ESC,  NV_A_GUI, NV_R_ALT, C(S(KC_TAB)), NV_T_CTL, KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
         QK_BOOT, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_WBAK, KC_WFWD, KC_WREF, KC_WSTP, KC_VOLD, KC_VOLU, KC_MUTE,
                                    KC_TRNS, KC_TRNS, KC_LSFT, KC_TRNS, KC_TRNS, KC_TRNS
+    ),
+
+    [_GAME] = LAYOUT_split_3x6_3(
+        KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_PGUP,
+        KC_ESC,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
+        KC_NUBS, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_PGDN,
+                                   KC_LALT, KC_ENT,  KC_BSPC, MO(_NAV_FN), KC_SPC, KC_DEL
     )
 };
 
@@ -73,6 +91,7 @@ static bool nav_bspc_pressed = false;
 static bool nav_bspc_interrupted = false;
 static uint16_t nav_bspc_timer = 0;
 static uint8_t nav_hold_refs = 0;
+static uint8_t previous_hud_layer = _BASE;
 
 typedef struct {
     uint16_t keycode;
@@ -144,6 +163,49 @@ static void nav_layer_ref_dec(void) {
     }
 }
 
+static uint8_t current_base_layer(layer_state_t default_layer_state_value) {
+    uint8_t base_layer = get_highest_layer(default_layer_state_value);
+    return base_layer == _GAME ? _GAME : _BASE;
+}
+
+static uint8_t current_hud_layer(layer_state_t layer_state_value, layer_state_t default_layer_state_value) {
+    uint8_t active_layer = get_highest_layer(layer_state_value);
+    if (active_layer == _NUM_SYM || active_layer == _NAV_FN) {
+        return active_layer;
+    }
+    return current_base_layer(default_layer_state_value);
+}
+
+static void emit_layer_signal(uint8_t layer) {
+    switch (layer) {
+        case _BASE:
+            tap_code(KC_F17);
+            break;
+        case _NUM_SYM:
+            tap_code(KC_F18);
+            break;
+        case _NAV_FN:
+            tap_code(KC_F19);
+            break;
+        case _GAME:
+            tap_code(KC_F23);
+            break;
+    }
+}
+
+static void sync_hud_layer(layer_state_t layer_state_value, layer_state_t default_layer_state_value) {
+    uint8_t current_layer = current_hud_layer(layer_state_value, default_layer_state_value);
+
+    if (!is_keyboard_master()) {
+        return;
+    }
+
+    if (current_layer != previous_hud_layer) {
+        emit_layer_signal(current_layer);
+        previous_hud_layer = current_layer;
+    }
+}
+
 static void activate_pending_holds(uint16_t keycode) {
     if (hud_pressed && !hud_hold && keycode != TH_HUD_ALT) {
         hud_interrupted = true;
@@ -168,6 +230,14 @@ static void activate_pending_holds(uint16_t keycode) {
             mt->interrupted = true;
             activate_custom_modtap_hold(mt);
         }
+    }
+}
+
+static void toggle_game_mode(void) {
+    if (current_base_layer(default_layer_state) == _GAME) {
+        set_single_persistent_default_layer(_BASE);
+    } else {
+        set_single_persistent_default_layer(_GAME);
     }
 }
 
@@ -295,28 +365,24 @@ void matrix_scan_user(void) {
     }
 }
 
+void process_combo_event(uint16_t combo_index, bool pressed) {
+    if (!pressed) {
+        return;
+    }
+
+    switch (combo_index) {
+        case GAME_MODE_COMBO:
+            toggle_game_mode();
+            break;
+    }
+}
+
 layer_state_t layer_state_set_user(layer_state_t state) {
-    static uint8_t previous_layer = _BASE;
-    uint8_t current_layer         = get_highest_layer(state);
+    sync_hud_layer(state, default_layer_state);
+    return state;
+}
 
-    if (!is_keyboard_master()) {
-        return state;
-    }
-
-    if (current_layer != previous_layer) {
-        switch (current_layer) {
-            case _BASE:
-                tap_code(KC_F17);
-                break;
-            case _NUM_SYM:
-                tap_code(KC_F18);
-                break;
-            case _NAV_FN:
-                tap_code(KC_F19);
-                break;
-        }
-        previous_layer = current_layer;
-    }
-
+layer_state_t default_layer_state_set_user(layer_state_t state) {
+    sync_hud_layer(layer_state, state);
     return state;
 }
