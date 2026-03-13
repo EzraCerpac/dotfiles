@@ -12,18 +12,23 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 {{- if eq .chezmoi.os "darwin" }}
 
-if command -v brew &>/dev/null; then
+BREW_BIN=""
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    BREW_BIN="/opt/homebrew/bin/brew"
+elif [[ -x /usr/local/bin/brew ]]; then
+    BREW_BIN="/usr/local/bin/brew"
+elif command -v brew &>/dev/null; then
+    BREW_BIN="$(command -v brew)"
+fi
+
+if [[ -n "${BREW_BIN}" ]]; then
     # Always use ARM brew on Apple Silicon, regardless of how the shell is running
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f /usr/local/bin/brew ]]; then
-        eval "$(/usr/local/bin/brew shellenv)"
-    fi
-    brew tap qmk/qmk || true
-    brew tap osx-cross/arm || true
-    brew tap osx-cross/avr || true
+    eval "$("${BREW_BIN}" shellenv)"
+    "${BREW_BIN}" tap qmk/qmk || true
+    "${BREW_BIN}" tap osx-cross/arm || true
+    "${BREW_BIN}" tap osx-cross/avr || true
     echo "Installing system packages via Homebrew..."
-    brew install \
+    "${BREW_BIN}" install \
         fish gnupg curl wget htop tree node \
         qmk/qmk/qmk dos2unix \
         librsvg \
