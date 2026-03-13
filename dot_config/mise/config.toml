@@ -4,7 +4,7 @@
 
 # Core runtimes
 node = "lts"
-# rust managed via rustup directly (mise core:rust just wraps rustup)
+rust = "latest"
 uv = "latest"
 
 # Editor
@@ -38,7 +38,7 @@ jq = "latest"
 gum = "latest"
 tmux = "latest"
 usage = "latest"
-codex = "latest"
+"npm:@openai/codex" = "latest"
 "github:steipete/imsg" = "latest"
 pnpm = "latest"
 gemini = "latest"
