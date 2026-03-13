@@ -131,6 +131,11 @@ collect_drift() {
     local left=""
     local right=""
     local target=""
+    local -a status_cmd=(chezmoi status --path-style absolute)
+
+    if [[ ${#STATUS_ARGS[@]} -gt 0 ]]; then
+        status_cmd+=("${STATUS_ARGS[@]}")
+    fi
 
     while IFS= read -r line; do
         [[ -n "${line}" ]] || continue
@@ -149,12 +154,16 @@ collect_drift() {
         fi
 
         BLOCKED+=("${left}${right} ${target}")
-    done < <(chezmoi status --path-style absolute "${STATUS_ARGS[@]}")
+    done < <("${status_cmd[@]}")
 }
 
 print_summary() {
     local target=""
-    printf 'smart-apply: re-added trusted drifted files:\n'
+    if [[ ${DRY_RUN} -eq 1 ]]; then
+        printf 'smart-apply: would re-add trusted drifted files:\n'
+    else
+        printf 'smart-apply: re-added trusted drifted files:\n'
+    fi
     for target in "${AUTO_READD[@]}"; do
         printf '  %s\n' "${target}"
     done
@@ -170,14 +179,14 @@ print_blocked() {
 }
 
 main() {
+    local -a apply_cmd=(chezmoi apply)
+
     load_allowlist
     parse_args "$@"
     collect_drift
 
     if [[ ${#AUTO_READD[@]} -gt 0 ]]; then
-        if [[ ${DRY_RUN} -eq 1 ]]; then
-            chezmoi re-add --dry-run "${AUTO_READD[@]}"
-        else
+        if [[ ${DRY_RUN} -eq 0 ]]; then
             chezmoi re-add "${AUTO_READD[@]}"
         fi
         print_summary
@@ -192,7 +201,11 @@ main() {
         exit 1
     fi
 
-    chezmoi apply "${APPLY_ARGS[@]}"
+    if [[ ${#APPLY_ARGS[@]} -gt 0 ]]; then
+        apply_cmd+=("${APPLY_ARGS[@]}")
+    fi
+
+    "${apply_cmd[@]}"
 }
 
 main "$@"
