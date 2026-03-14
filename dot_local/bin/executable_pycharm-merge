@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec pycharm merge "$@"
+PYCHARM_BIN="/Applications/PyCharm.app/Contents/MacOS/pycharm"
+
+if [[ ! -x "${PYCHARM_BIN}" ]]; then
+    echo "PyCharm binary not found at ${PYCHARM_BIN}" >&2
+    exit 1
+fi
+
+exec "${PYCHARM_BIN}" merge "$@"
