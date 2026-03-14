@@ -2,10 +2,11 @@
 set -euo pipefail
 
 APP_PATH="/Applications/PyCharm.app"
+PYCHARM_BIN="${APP_PATH}/Contents/MacOS/pycharm"
 
-if [[ ! -d "${APP_PATH}" ]]; then
-    echo "PyCharm.app not found at ${APP_PATH}" >&2
+if [[ ! -x "${PYCHARM_BIN}" ]]; then
+    echo "PyCharm binary not found at ${PYCHARM_BIN}" >&2
     exit 1
 fi
 
-exec open -na "${APP_PATH}" --args "$@"
+exec "${PYCHARM_BIN}" "$@"
