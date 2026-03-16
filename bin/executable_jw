@@ -1,51 +1,294 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-set -e
-
-usage() {
-  echo "Usage: jw <name> [-c]"
-  echo
-  echo "Creates workspace project.<name>"
-  echo "-c   create bookmark <name>"
+die() {
+  echo "jw: $*" >&2
   exit 1
 }
 
-if [ -z "$1" ]; then
-  usage
-fi
+usage() {
+  cat <<'EOF'
+Usage:
+  jw add NAME [-c|--create-bookmark] [-b BOOKMARK] [--at REVSET]
+  jw list
+  jw path NAME
+  jw remove NAME [--delete-dir]
+  jw prune
+  jw root
+  jw current
+  jw help
 
-NAME="$1"
-shift
+Commands:
+  add       Create workspace ../<repo>.<name>
+  list      List jj workspaces
+  path      Print workspace path for NAME
+  remove    Forget workspace NAME, optionally delete its directory
+  prune     Forget workspaces whose directories no longer exist
+  root      Print repository root directory
+  current   Print current workspace name
 
-CREATE=false
+Options for 'add':
+  -c, --create-bookmark   Create bookmark NAME in the new workspace
+  -b, --bookmark NAME     Use this bookmark instead of NAME
+  --at REVSET             After creation, move workspace to REVSET
+                          Useful with -c if you want to start elsewhere
 
-while getopts "c" opt; do
-  case "$opt" in
-    c) CREATE=true ;;
+Examples:
+  jw add exp1
+  jw add exp2 -c
+  jw add bench/bfgs -c
+  jw add fix-hessian -b bug/hessian -c
+  jw remove exp2 --delete-dir
+EOF
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+repo_root() {
+  # Works as long as we're somewhere inside a jj workspace.
+  jj root 2>/dev/null || die "not inside a jj repository"
+}
+
+repo_name() {
+  basename "$(repo_root)"
+}
+
+workspace_dir_for_name() {
+  local name="$1"
+  local root
+  root="$(repo_root)"
+  local parent
+  parent="$(dirname "$root")"
+  local repo
+  repo="$(basename "$root")"
+  printf '%s/%s.%s\n' "$parent" "$repo" "$name"
+}
+
+workspace_exists_by_path() {
+  local target="$1"
+  while IFS= read -r line; do
+    # line format: "<name>: <path>"
+    local p="${line#*: }"
+    if [[ "$p" == "$target" ]]; then
+      return 0
+    fi
+  done < <(jj workspace list --color=never 2>/dev/null || true)
+  return 1
+}
+
+workspace_name_exists() {
+  local name="$1"
+  while IFS= read -r line; do
+    local n="${line%%:*}"
+    if [[ "$n" == "$name" ]]; then
+      return 0
+    fi
+  done < <(jj workspace list --color=never 2>/dev/null || true)
+  return 1
+}
+
+current_workspace() {
+  local root
+  root="$(pwd -P)"
+  while IFS= read -r line; do
+    local n="${line%%:*}"
+    local p="${line#*: }"
+    if [[ "$p" == "$root" ]]; then
+      printf '%s\n' "$n"
+      return 0
+    fi
+  done < <(jj workspace list --color=never 2>/dev/null || true)
+
+  # Fallback: if not exactly the root dir, walk to repo root and compare again.
+  local rr
+  rr="$(repo_root)"
+  while IFS= read -r line; do
+    local n="${line%%:*}"
+    local p="${line#*: }"
+    if [[ "$p" == "$rr" ]]; then
+      printf '%s\n' "$n"
+      return 0
+    fi
+  done < <(jj workspace list --color=never 2>/dev/null || true)
+
+  die "could not determine current workspace"
+}
+
+validate_name() {
+  local name="$1"
+  [[ -n "$name" ]] || die "workspace name cannot be empty"
+  [[ "$name" != *".."* ]] || die "workspace name cannot contain '..'"
+  [[ "$name" != /* ]] || die "workspace name cannot start with '/'"
+}
+
+cmd_add() {
+  local name=""
+  local create_bookmark=false
+  local bookmark=""
+  local at_revset=""
+
+  [[ $# -ge 1 ]] || die "add requires NAME"
+  name="$1"
+  shift
+  validate_name "$name"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -c | --create-bookmark)
+      create_bookmark=true
+      shift
+      ;;
+    -b | --bookmark)
+      [[ $# -ge 2 ]] || die "--bookmark requires a value"
+      bookmark="$2"
+      shift 2
+      ;;
+    --at)
+      [[ $# -ge 2 ]] || die "--at requires a revset"
+      at_revset="$2"
+      shift 2
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown option for add: $1"
+      ;;
+    esac
+  done
+
+  [[ -n "$bookmark" ]] || bookmark="$name"
+
+  local dir
+  dir="$(workspace_dir_for_name "$name")"
+
+  [[ ! -e "$dir" ]] || die "directory already exists: $dir"
+  ! workspace_name_exists "$name" || die "workspace name already exists: $name"
+  ! workspace_exists_by_path "$dir" || die "workspace path already registered: $dir"
+
+  echo "Creating workspace: $dir"
+  jj workspace add "$dir"
+
+  if [[ "$create_bookmark" == true ]] || [[ -n "$at_revset" ]]; then
+    (
+      cd "$dir"
+
+      if [[ -n "$at_revset" ]]; then
+        jj new "$at_revset"
+      else
+        jj new
+      fi
+
+      if [[ "$create_bookmark" == true ]]; then
+        jj bookmark create "$bookmark"
+      fi
+    )
+  fi
+
+  echo "Workspace ready"
+  echo "  name: $name"
+  echo "  path: $dir"
+  if [[ "$create_bookmark" == true ]]; then
+    echo "  bookmark: $bookmark"
+  fi
+}
+
+cmd_list() {
+  jj workspace list
+}
+
+cmd_path() {
+  [[ $# -eq 1 ]] || die "path requires NAME"
+  workspace_dir_for_name "$1"
+}
+
+cmd_remove() {
+  [[ $# -ge 1 ]] || die "remove requires NAME"
+  local name="$1"
+  shift
+
+  local delete_dir=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --delete-dir)
+      delete_dir=true
+      shift
+      ;;
+    *)
+      die "unknown option for remove: $1"
+      ;;
+    esac
+  done
+
+  [[ "$name" != "default" ]] || die "refusing to remove workspace named 'default'"
+
+  local dir
+  dir="$(workspace_dir_for_name "$name")"
+
+  if workspace_name_exists "$name"; then
+    jj workspace forget "$name"
+    echo "Forgot workspace: $name"
+  else
+    echo "Workspace not registered: $name" >&2
+  fi
+
+  if [[ "$delete_dir" == true ]]; then
+    if [[ -d "$dir" ]]; then
+      rm -rf "$dir"
+      echo "Deleted directory: $dir"
+    else
+      echo "Directory not found: $dir" >&2
+    fi
+  fi
+}
+
+cmd_prune() {
+  local removed=0
+  while IFS= read -r line; do
+    local name="${line%%:*}"
+    local path="${line#*: }"
+    if [[ ! -d "$path" ]]; then
+      echo "Forgetting missing workspace: $name ($path)"
+      jj workspace forget "$name"
+      removed=$((removed + 1))
+    fi
+  done < <(jj workspace list --color=never 2>/dev/null || true)
+
+  echo "Pruned $removed workspace(s)"
+}
+
+cmd_root() {
+  repo_root
+}
+
+cmd_current() {
+  current_workspace
+}
+
+main() {
+  need_cmd jj
+
+  local cmd="${1:-help}"
+  if [[ $# -gt 0 ]]; then
+    shift
+  fi
+
+  case "$cmd" in
+  add) cmd_add "$@" ;;
+  list) cmd_list "$@" ;;
+  path) cmd_path "$@" ;;
+  remove | rm) cmd_remove "$@" ;;
+  prune) cmd_prune "$@" ;;
+  root) cmd_root "$@" ;;
+  current) cmd_current "$@" ;;
+  help | -h | --help) usage ;;
+  *)
+    die "unknown command: $cmd"
+    ;;
   esac
-done
+}
 
-ROOT=$(basename "$(pwd)")
-DIR="../${ROOT}.${NAME}"
-BOOKMARK="$NAME"
-
-if [ -d "$DIR" ]; then
-  echo "Workspace already exists: $DIR"
-  exit 1
-fi
-
-echo "Creating workspace $DIR"
-
-if $CREATE; then
-  jj workspace add "$DIR"
-  (
-    cd "$DIR"
-    jj new
-    jj bookmark create "$BOOKMARK"
-  )
-else
-  jj workspace add "$DIR" "$BOOKMARK"
-fi
-
-echo "Workspace ready:"
-echo "$DIR"
+main "$@"
