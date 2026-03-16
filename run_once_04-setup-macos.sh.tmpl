@@ -51,6 +51,10 @@ else
   echo "Warning: Homebrew not found, skipping macOS cask installation"
 fi
 
+echo "Configuring Dock to show only running apps..."
+defaults write com.apple.dock static-only -bool true
+killall Dock >/dev/null 2>&1 || true
+
 KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
 if [[ -f "${KANATA_PLIST}" ]]; then
   KANATA_LABEL="$(plutil -extract Label raw -o - "${KANATA_PLIST}" 2>/dev/null || true)"
