@@ -44,3 +44,23 @@ usage = "latest"
 pnpm = "latest"
 gemini = "latest"
 bun = "latest"
+
+[tools.julia]
+version = "1.12.5"
+version_list_url = "https://julialang-s3.julialang.org/bin/versions.json"
+
+[tools.julia.platforms.linux-arm64]
+url = """{% if version == "nightly" %}https://julialangnightlies-s3.julialang.org/bin/linux/aarch64/julia-latest-linuxaarch64.tar.gz{% else %}https://julialang-s3.julialang.org/bin/linux/aarch64/{{ version | split(pat='.') | slice(start=0, end=2) | join(sep='.') }}/julia-{{ version }}-linux-aarch64.tar.gz{% endif %}"""
+
+[tools.julia.platforms.linux-x64]
+url = """{% if version == "nightly" %}https://julialangnightlies-s3.julialang.org/bin/linux/x64/julia-latest-linux64.tar.gz{% else %}https://julialang-s3.julialang.org/bin/linux/x64/{{ version | split(pat='.') | slice(start=0, end=2) | join(sep='.') }}/julia-{{ version }}-linux-x86_64.tar.gz{% endif %}"""
+
+[tools.julia.platforms.macos-arm64]
+url = """{% if version == "nightly" %}https://julialangnightlies-s3.julialang.org/bin/mac/aarch64/julia-latest-macaarch64.tar.gz{% else %}https://julialang-s3.julialang.org/bin/mac/aarch64/{{ version | split(pat='.') | slice(start=0, end=2) | join(sep='.') }}/julia-{{ version }}-macaarch64.tar.gz{% endif %}"""
+
+[tools.julia.platforms.macos-x64]
+url = """{% if version == "nightly" %}https://julialangnightlies-s3.julialang.org/bin/mac/x64/julia-latest-mac64.tar.gz{% else %}https://julialang-s3.julialang.org/bin/mac/x64/{{ version | split(pat='.') | slice(start=0, end=2) | join(sep='.') }}/julia-{{ version }}-mac64.tar.gz{% endif %}"""
+
+[tools.julia.platforms.windows-x64]
+format = "zip"
+url = """{% if version == "nightly" %}https://julialangnightlies-s3.julialang.org/bin/winnt/x64/julia-latest-win64.zip{% else %}https://julialang-s3.julialang.org/bin/winnt/x64/{{ version | split(pat='.') | slice(start=0, end=2) | join(sep='.') }}/julia-{{ version }}-win64.zip{% endif %}"""
