@@ -18,7 +18,7 @@ diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 private-commits = "description(glob:'private:*') | description(glob:'private-*:*') | bookmarks(glob:'private-*')"
 
 [remotes.origin]
-auto-track-bookmarks = "regex:^(?!private-).*$"
+auto-track-bookmarks = "~substring:\"private\""
 
 [snapshot]
 max-new-file-size = "1MiB"  # Default

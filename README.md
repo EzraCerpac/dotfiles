@@ -69,7 +69,7 @@ Commands:
 - `kbd-hud-reload` → reload Hammerspoon HUD overlay
 - `kbd-open-artifacts` → open UF2 artifact folder in Finder
 
-`mise run` tasks are available via `~/.mise.toml`:
+`mise run` tasks are available from the repo-local [`mise.toml`](mise.toml), so run them from this chezmoi checkout (for example `cd ~/.local/share/chezmoi && mise trust && mise run kbd_flash_left`):
 
 - `mise run kbd_setup`
 - `mise run kbd_sync`
