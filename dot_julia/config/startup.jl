@@ -4,36 +4,24 @@ if isdir(global_env)
 end
 
 using Pkg
-atreplinit() do repl
+function maybe_using(pkg::Symbol; repl_only::Bool = false)
+    repl_only && !isinteractive() && return
+    Base.find_package(string(pkg)) === nothing && return
+
     try
-        @eval using OhMyREPL
+        Core.eval(Main, Expr(:toplevel, Expr(:using, Expr(:., pkg))))
     catch e
-        @warn "Error initializing OhMyRepl in startup.jl" exception = (e, catch_backtrace())
+        @warn "Error initializing $(pkg) in startup.jl" exception = (e, catch_backtrace())
     end
 end
 
-try
-    using Revise
-catch e
-    @warn "Error initializing Revise in startup.jl" exception = (e, catch_backtrace())
-end
+maybe_using(:Revise)
+maybe_using(:Cthulhu; repl_only = true)
+maybe_using(:AbbreviatedStackTraces; repl_only = true)
+maybe_using(:BenchmarkTools; repl_only = true)
 
-try
-    using Cthulhu
-catch e
-    @warn "Error initializing Cthulhu in startup.jl" exception = (e, catch_backtrace())
-end
-
-try
-    using AbbreviatedStackTraces
-catch e
-    @warn "Error initializing AbbreviatedStackTraces in startup.jl" exception = (e, catch_backtrace())
-end
-
-try
-    using BenchmarkTools
-catch e
-    @warn "Error initializing BenchmarkTools in startup.jl" exception = (e, catch_backtrace())
+atreplinit() do repl
+    maybe_using(:OhMyREPL; repl_only = true)
 end
 
 atreplinit() do repl

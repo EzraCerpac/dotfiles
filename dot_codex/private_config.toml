@@ -1,5 +1,5 @@
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "danger-full-access"
 approval_policy = "never"
@@ -40,3 +40,6 @@ disabled_reason = "user"
 [apps.connector_947e0d954944416db111db556030eea6]
 enabled = false
 disabled_reason = "user"
+
+[tui]
+status_line = ["model-with-reasoning", "context-remaining", "current-dir"]

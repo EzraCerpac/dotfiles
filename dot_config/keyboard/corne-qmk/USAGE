@@ -19,8 +19,9 @@ Corne QMK workflow (programmatic)
 
 5) Flash
    - For correct split handedness, use split flash targets (recommended):
-     - mise run kbd_flash_left
-     - mise run kbd_flash_right
+     - first time only: from ~/.local/share/chezmoi run `mise trust`
+     - from ~/.local/share/chezmoi: mise run kbd_flash_left
+     - from ~/.local/share/chezmoi: mise run kbd_flash_right
    - Or direct commands:
      - kbd-flash-left
      - kbd-flash-right

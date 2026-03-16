@@ -40,7 +40,8 @@
 
   ;; thumbs / modifiers
   lcmd_ret_cmd (tap-hold $tap-time $hold-time ret lmet)
-  rcmd_nav_bspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
+  rcmd_nav_bspc (tap-hold $tap-time $hold-time bspc rmet)
+  ralt_del_opt (tap-hold $tap-time $hold-time del ralt)
   spcsft (tap-hold $tap-time $hold-time-slow spc lsft)
   navbspc (tap-hold-release $tap-time $hold-time bspc (multi (layer-while-held nav-layer) (on-press-fakekey sig_nav tap) (on-release-fakekey sig_base tap)))
 
@@ -95,7 +96,7 @@
   tab    q    w    f p b j l u y ; [ ] bksl
   @escsuper @a   @cs @cdnav @cf g m @cj e @cl @csemi ' ret
   lsft   grv  x    c d v grv  k h , . / rsft
-  @fnl   lctl lalt @lcmd_ret_cmd @spcsft @rcmd_nav_bspc ralt left down up rght
+  @fnl   lctl lalt @lcmd_ret_cmd @spcsft @rcmd_nav_bspc @ralt_del_opt left down up rght
 )
 
 (deflayer gaming
@@ -104,7 +105,7 @@
   tab    q    w    e r t y u i o p [ ] bksl
   esc    a    s    d f g h j k l ; ' ret
   lsft   nubs z    x c v b n m , . / rsft
-  @fnl   lctl lalt lmet spc rmet ralt left down up rght
+  @fnl   lctl lalt lmet spc @rcmd_nav_bspc @ralt_del_opt left down up rght
 )
 
 (deflayer nav-layer
@@ -113,7 +114,7 @@
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   esc    @nava @navs C-S-tab @navf C-r left down up right @onav brup ret
   _      prev pp   next mute A-left A-rght C-r esc vold volu mute _
-  _      _    _    _    @spcsft @rcmd_nav_bspc @navbspc A-left A-rght del _
+  _      _    _    _    @spcsft @rcmd_nav_bspc @ralt_del_opt A-left A-rght del _
 )
 
 (deflayer num-layer
@@ -122,5 +123,5 @@
   _            _    _    _    _    _    _    _   _   _   _   _ _ _
   _            _    @na  @ns  4    @nf  6    7   @nj 9   @nl @nsemi _
   _            [    ]    {    }    _    +    /   S-/ S-; S-` _    _
-  _            _    _    _    @spcsft @rcmd_nav_bspc @navbspc _ _ _ _
+  _            _    _    _    @spcsft @rcmd_nav_bspc @ralt_del_opt _ _ _ _
 )
