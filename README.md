@@ -31,6 +31,7 @@ Review defaults:
 - `git diff` opens in `diffnav --side-by-side`
 - `git show` and embedded diff views use `delta --side-by-side --paging=never`
 - `wt` is installed via mise and initialized in both fish and zsh
+- `jw switch <name>` creates or jumps to a JJ workspace sibling; `jw s -x opencode <name>` launches directly into a tool
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
 - `prdiff [pr]` opens `gh pr diff` output in `diffnav`
 

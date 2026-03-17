@@ -11,7 +11,7 @@ if test -d /home/linuxbrew/.linuxbrew/bin
 end
 {{- end }}
 
-fish_add_path $HOME/.local/bin
+fish_add_path $HOME/.local/bin $HOME/bin
 fish_add_path ~/.cargo/bin
 
 {{- if eq .chezmoi.os "linux" }}
