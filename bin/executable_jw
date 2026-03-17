@@ -2,293 +2,433 @@
 set -euo pipefail
 
 die() {
-  echo "jw: $*" >&2
-  exit 1
+    echo "jw: $*" >&2
+    exit 1
 }
 
 usage() {
-  cat <<'EOF'
+    cat <<'EOF'
 Usage:
-  jw add NAME [-c|--create-bookmark] [-b BOOKMARK] [--at REVSET]
+  jw switch NAME [--at REVSET] [-b BOOKMARK] [-x COMMAND] [-- ARG...]
+  jw s NAME [--at REVSET] [-b BOOKMARK] [-x COMMAND] [-- ARG...]
   jw list
   jw path NAME
-  jw remove NAME [--delete-dir]
+  jw remove [NAME] [--delete-dir]
   jw prune
   jw root
   jw current
   jw help
 
-Commands:
-  add       Create workspace ../<repo>.<name>
-  list      List jj workspaces
-  path      Print workspace path for NAME
-  remove    Forget workspace NAME, optionally delete its directory
-  prune     Forget workspaces whose directories no longer exist
-  root      Print repository root directory
-  current   Print current workspace name
-
-Options for 'add':
-  -c, --create-bookmark   Create bookmark NAME in the new workspace
-  -b, --bookmark NAME     Use this bookmark instead of NAME
-  --at REVSET             After creation, move workspace to REVSET
-                          Useful with -c if you want to start elsewhere
-
-Examples:
-  jw add exp1
-  jw add exp2 -c
-  jw add bench/bfgs -c
-  jw add fix-hessian -b bug/hessian -c
-  jw remove exp2 --delete-dir
+Shortcuts:
+  @  Current workspace
+  -  Previous workspace
+  ^  Default workspace
 EOF
 }
 
 need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+    command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
 repo_root() {
-  # Works as long as we're somewhere inside a jj workspace.
-  jj root 2>/dev/null || die "not inside a jj repository"
+    jj root 2>/dev/null || die "not inside a jj repository"
 }
 
-repo_name() {
-  basename "$(repo_root)"
-}
-
-workspace_dir_for_name() {
-  local name="$1"
-  local root
-  root="$(repo_root)"
-  local parent
-  parent="$(dirname "$root")"
-  local repo
-  repo="$(basename "$root")"
-  printf '%s/%s.%s\n' "$parent" "$repo" "$name"
-}
-
-workspace_exists_by_path() {
-  local target="$1"
-  while IFS= read -r line; do
-    # line format: "<name>: <path>"
-    local p="${line#*: }"
-    if [[ "$p" == "$target" ]]; then
-      return 0
+workspace_root() {
+    if [[ $# -eq 0 ]]; then
+        jj workspace root 2>/dev/null || die "not inside a jj workspace"
+    else
+        jj workspace root --name "$1" 2>/dev/null || return 1
     fi
-  done < <(jj workspace list --color=never 2>/dev/null || true)
-  return 1
+}
+
+workspace_names() {
+    jj workspace list -T 'name ++ "\n"' --color=never 2>/dev/null
 }
 
 workspace_name_exists() {
-  local name="$1"
-  while IFS= read -r line; do
-    local n="${line%%:*}"
-    if [[ "$n" == "$name" ]]; then
-      return 0
-    fi
-  done < <(jj workspace list --color=never 2>/dev/null || true)
-  return 1
+    workspace_root "$1" >/dev/null 2>&1
+}
+
+workspace_registered_path() {
+    workspace_root "$1"
+}
+
+workspace_registered_path_or_empty() {
+    local name="$1"
+    workspace_registered_path "$name" 2>/dev/null || true
 }
 
 current_workspace() {
-  local root
-  root="$(pwd -P)"
-  while IFS= read -r line; do
-    local n="${line%%:*}"
-    local p="${line#*: }"
-    if [[ "$p" == "$root" ]]; then
-      printf '%s\n' "$n"
-      return 0
-    fi
-  done < <(jj workspace list --color=never 2>/dev/null || true)
+    local name
+    name="$(jj workspace list -T 'if(target.current_working_copy(), name ++ "\n", "")' --color=never 2>/dev/null)"
+    [[ -n "$name" ]] || die "could not determine current workspace"
+    printf '%s\n' "$name"
+}
 
-  # Fallback: if not exactly the root dir, walk to repo root and compare again.
-  local rr
-  rr="$(repo_root)"
-  while IFS= read -r line; do
-    local n="${line%%:*}"
-    local p="${line#*: }"
-    if [[ "$p" == "$rr" ]]; then
-      printf '%s\n' "$n"
-      return 0
+default_workspace() {
+    if workspace_name_exists default; then
+        printf 'default\n'
+    else
+        current_workspace
     fi
-  done < <(jj workspace list --color=never 2>/dev/null || true)
+}
 
-  die "could not determine current workspace"
+workspace_state_file() {
+    local root="$1"
+    printf '%s/.jj/jw-prev-workspace\n' "$root"
+}
+
+previous_workspace() {
+    local root state name
+    root="$(workspace_root)"
+    state="$(workspace_state_file "$root")"
+    [[ -f "$state" ]] || return 1
+    IFS= read -r name <"$state" || true
+    [[ -n "$name" ]] || return 1
+    workspace_name_exists "$name" || return 1
+    printf '%s\n' "$name"
+}
+
+remember_previous_workspace() {
+    local from_name="$1"
+    local from_root="$2"
+    local to_name="$3"
+    local to_root="$4"
+    local from_state to_state
+
+    [[ -n "$from_name" ]] || return 0
+    [[ -n "$to_name" ]] || return 0
+    [[ "$from_name" != "$to_name" ]] || return 0
+
+    from_state="$(workspace_state_file "$from_root")"
+    printf '%s\n' "$to_name" >"$from_state"
+
+    if [[ -d "$to_root/.jj" ]]; then
+        to_state="$(workspace_state_file "$to_root")"
+        printf '%s\n' "$from_name" >"$to_state"
+    fi
+}
+
+resolve_workspace_name() {
+    local token="$1"
+    case "$token" in
+    @)
+        current_workspace
+        ;;
+    -)
+        previous_workspace || die "no previous workspace recorded"
+        ;;
+    ^)
+        default_workspace
+        ;;
+    *)
+        printf '%s\n' "$token"
+        ;;
+    esac
+}
+
+workspace_base_name() {
+    local root current base suffix
+    root="$(workspace_root)"
+    current="$(current_workspace)"
+    base="$(basename "$root")"
+    suffix=".$current"
+
+    if [[ "$current" != "default" ]] && [[ "$base" == *"$suffix" ]]; then
+        base="${base%$suffix}"
+    fi
+
+    printf '%s\n' "$base"
+}
+
+workspace_dir_for_name() {
+    local name="$1"
+    local root parent base
+    root="$(workspace_root)"
+    parent="$(dirname "$root")"
+    base="$(workspace_base_name)"
+
+    if [[ "$name" == "default" ]]; then
+        printf '%s/%s\n' "$parent" "$base"
+    else
+        printf '%s/%s.%s\n' "$parent" "$base" "$name"
+    fi
 }
 
 validate_name() {
-  local name="$1"
-  [[ -n "$name" ]] || die "workspace name cannot be empty"
-  [[ "$name" != *".."* ]] || die "workspace name cannot contain '..'"
-  [[ "$name" != /* ]] || die "workspace name cannot start with '/'"
+    local name="$1"
+    [[ -n "$name" ]] || die "workspace name cannot be empty"
+    [[ "$name" != *$'\n'* ]] || die "workspace name cannot contain newlines"
+    [[ "$name" != *".."* ]] || die "workspace name cannot contain '..'"
+    [[ "$name" != /* ]] || die "workspace name cannot start with '/'"
+    [[ "$name" != -* ]] || die "workspace name cannot start with '-'"
+    [[ "$name" != *":"* ]] || die "workspace name cannot contain ':'"
 }
 
-cmd_add() {
-  local name=""
-  local create_bookmark=false
-  local bookmark=""
-  local at_revset=""
+run_execute_command() {
+    local dir="$1"
+    local command_string="$2"
+    shift 2
 
-  [[ $# -ge 1 ]] || die "add requires NAME"
-  name="$1"
-  shift
-  validate_name "$name"
+    local shell_command="$command_string"
+    local arg
+    for arg in "$@"; do
+        shell_command+=" $(printf '%q' "$arg")"
+    done
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    -c | --create-bookmark)
-      create_bookmark=true
-      shift
-      ;;
-    -b | --bookmark)
-      [[ $# -ge 2 ]] || die "--bookmark requires a value"
-      bookmark="$2"
-      shift 2
-      ;;
-    --at)
-      [[ $# -ge 2 ]] || die "--at requires a revset"
-      at_revset="$2"
-      shift 2
-      ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    *)
-      die "unknown option for add: $1"
-      ;;
-    esac
-  done
+    cd "$dir"
+    exec bash -lc "$shell_command"
+}
 
-  [[ -n "$bookmark" ]] || bookmark="$name"
+cmd_switch() {
+    local bookmark=""
+    local at_revset=""
+    local execute_command=""
+    local print_path=false
+    local name=""
+    local execute_args=()
 
-  local dir
-  dir="$(workspace_dir_for_name "$name")"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+        --at)
+            [[ $# -ge 2 ]] || die "--at requires a revset"
+            at_revset="$2"
+            shift 2
+            ;;
+        @ | - | ^)
+            if [[ -n "$name" ]]; then
+                die "switch accepts exactly one workspace name"
+            fi
+            name="$1"
+            shift
+            ;;
+        -b | --bookmark)
+            [[ $# -ge 2 ]] || die "--bookmark requires a value"
+            bookmark="$2"
+            shift 2
+            ;;
+        -x | --execute)
+            [[ $# -ge 2 ]] || die "--execute requires a command"
+            execute_command="$2"
+            shift 2
+            ;;
+        --print-path)
+            print_path=true
+            shift
+            ;;
+        --)
+            shift
+            execute_args=("$@")
+            break
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        -*)
+            die "unknown option for switch: $1"
+            ;;
+        *)
+            if [[ -n "$name" ]]; then
+                die "switch accepts exactly one workspace name"
+            fi
+            name="$1"
+            shift
+            ;;
+        esac
+    done
 
-  [[ ! -e "$dir" ]] || die "directory already exists: $dir"
-  ! workspace_name_exists "$name" || die "workspace name already exists: $name"
-  ! workspace_exists_by_path "$dir" || die "workspace path already registered: $dir"
+    [[ -n "$name" ]] || die "switch requires NAME"
+    [[ -n "$execute_command" || ${#execute_args[@]} -eq 0 ]] || die "arguments after -- require --execute"
 
-  echo "Creating workspace: $dir"
-  jj workspace add "$dir"
+    local current_name current_root resolved_name target_path created
+    current_name="$(current_workspace)"
+    current_root="$(workspace_root)"
+    resolved_name="$(resolve_workspace_name "$name")"
+    created=false
 
-  if [[ "$create_bookmark" == true ]] || [[ -n "$at_revset" ]]; then
-    (
-      cd "$dir"
+    if workspace_name_exists "$resolved_name"; then
+        target_path="$(workspace_registered_path "$resolved_name")"
+    else
+        case "$name" in
+        @ | - | ^)
+            die "workspace shortcut did not resolve to an existing workspace: $name"
+            ;;
+        esac
 
-      if [[ -n "$at_revset" ]]; then
-        jj new "$at_revset"
-      else
-        jj new
-      fi
+        validate_name "$resolved_name"
+        target_path="$(workspace_dir_for_name "$resolved_name")"
+        [[ ! -e "$target_path" ]] || die "directory already exists: $target_path"
 
-      if [[ "$create_bookmark" == true ]]; then
-        jj bookmark create "$bookmark"
-      fi
-    )
-  fi
+        local add_args=(workspace add --name "$resolved_name")
+        if [[ -n "$at_revset" ]]; then
+            add_args+=(--revision "$at_revset")
+        fi
+        add_args+=("$target_path")
+        jj "${add_args[@]}" >/dev/null
+        created=true
 
-  echo "Workspace ready"
-  echo "  name: $name"
-  echo "  path: $dir"
-  if [[ "$create_bookmark" == true ]]; then
-    echo "  bookmark: $bookmark"
-  fi
+        if [[ -n "$bookmark" ]]; then
+            (
+                cd "$target_path"
+                jj bookmark create "$bookmark" -r @ >/dev/null
+            )
+        fi
+    fi
+
+    remember_previous_workspace "$current_name" "$current_root" "$resolved_name" "$target_path"
+
+    if [[ "$print_path" == true ]]; then
+        printf '%s\n' "$target_path"
+        return 0
+    fi
+
+    if [[ -n "$execute_command" ]]; then
+        if (( ${#execute_args[@]} > 0 )); then
+            run_execute_command "$target_path" "$execute_command" "${execute_args[@]}"
+        else
+            run_execute_command "$target_path" "$execute_command"
+        fi
+    fi
+
+    if [[ "$created" == true ]]; then
+        echo "Created workspace: $resolved_name"
+    else
+        echo "Switched workspace: $resolved_name"
+    fi
+    echo "  path: $target_path"
+    if [[ -n "$bookmark" ]]; then
+        echo "  bookmark: $bookmark"
+    fi
 }
 
 cmd_list() {
-  jj workspace list
+    local current_name previous_name default_name
+    current_name="$(current_workspace)"
+    previous_name="$(previous_workspace 2>/dev/null || true)"
+    default_name="$(default_workspace 2>/dev/null || true)"
+
+    local name path marker
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        path="$(workspace_registered_path_or_empty "$name")"
+        [[ -n "$path" ]] || path='(missing)'
+        marker=" "
+        if [[ "$name" == "$current_name" ]]; then
+            marker='@'
+        elif [[ -n "$previous_name" && "$name" == "$previous_name" ]]; then
+            marker='-'
+        elif [[ -n "$default_name" && "$name" == "$default_name" ]]; then
+            marker='^'
+        fi
+        printf '%s %s\t%s\n' "$marker" "$name" "$path"
+    done < <(workspace_names)
 }
 
 cmd_path() {
-  [[ $# -eq 1 ]] || die "path requires NAME"
-  workspace_dir_for_name "$1"
+    [[ $# -eq 1 ]] || die "path requires NAME"
+    local name path
+    name="$(resolve_workspace_name "$1")"
+        path="$(workspace_registered_path "$name")" || die "workspace not found: $1"
+        printf '%s\n' "$path"
 }
 
 cmd_remove() {
-  [[ $# -ge 1 ]] || die "remove requires NAME"
-  local name="$1"
-  shift
-
-  local delete_dir=false
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-    --delete-dir)
-      delete_dir=true
-      shift
-      ;;
-    *)
-      die "unknown option for remove: $1"
-      ;;
-    esac
-  done
-
-  [[ "$name" != "default" ]] || die "refusing to remove workspace named 'default'"
-
-  local dir
-  dir="$(workspace_dir_for_name "$name")"
-
-  if workspace_name_exists "$name"; then
-    jj workspace forget "$name"
-    echo "Forgot workspace: $name"
-  else
-    echo "Workspace not registered: $name" >&2
-  fi
-
-  if [[ "$delete_dir" == true ]]; then
-    if [[ -d "$dir" ]]; then
-      rm -rf "$dir"
-      echo "Deleted directory: $dir"
-    else
-      echo "Directory not found: $dir" >&2
+    local name="${1:-}"
+    if [[ $# -gt 0 ]]; then
+        shift
     fi
-  fi
+
+    local delete_dir=false
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+        --delete-dir)
+            delete_dir=true
+            shift
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            die "unknown option for remove: $1"
+            ;;
+        esac
+    done
+
+    if [[ -z "$name" ]]; then
+        name="$(current_workspace)"
+    else
+        name="$(resolve_workspace_name "$name")"
+    fi
+
+    [[ "$name" != "default" ]] || die "refusing to remove workspace named 'default'"
+    workspace_name_exists "$name" || die "workspace not registered: $name"
+
+    local dir current_name
+    dir="$(workspace_registered_path "$name")"
+    current_name="$(current_workspace)"
+
+    if [[ "$delete_dir" == true && "$name" == "$current_name" ]]; then
+        die "cannot delete the current workspace directory; switch away first"
+    fi
+
+    jj workspace forget "$name" >/dev/null
+    echo "Forgot workspace: $name"
+
+    if [[ "$delete_dir" == true ]]; then
+        if [[ -d "$dir" ]]; then
+            rm -rf "$dir"
+            echo "Deleted directory: $dir"
+        else
+            echo "Directory not found: $dir" >&2
+        fi
+    fi
 }
 
 cmd_prune() {
-  local removed=0
-  while IFS= read -r line; do
-    local name="${line%%:*}"
-    local path="${line#*: }"
-    if [[ ! -d "$path" ]]; then
-      echo "Forgetting missing workspace: $name ($path)"
-      jj workspace forget "$name"
-      removed=$((removed + 1))
-    fi
-  done < <(jj workspace list --color=never 2>/dev/null || true)
+    local removed=0 name path
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        path="$(workspace_registered_path_or_empty "$name")"
+        if [[ -z "$path" || ! -d "$path" ]]; then
+            echo "Forgetting missing workspace: $name (${path:-unknown path})"
+            jj workspace forget "$name" >/dev/null
+            removed=$((removed + 1))
+        fi
+    done < <(workspace_names)
 
-  echo "Pruned $removed workspace(s)"
+    echo "Pruned $removed workspace(s)"
 }
 
 cmd_root() {
-  repo_root
+    workspace_root
 }
 
 cmd_current() {
-  current_workspace
+    current_workspace
 }
 
 main() {
-  need_cmd jj
+    need_cmd jj
 
-  local cmd="${1:-help}"
-  if [[ $# -gt 0 ]]; then
-    shift
-  fi
+    local cmd="${1:-help}"
+    if [[ $# -gt 0 ]]; then
+        shift
+    fi
 
-  case "$cmd" in
-  add) cmd_add "$@" ;;
-  list) cmd_list "$@" ;;
-  path) cmd_path "$@" ;;
-  remove | rm) cmd_remove "$@" ;;
-  prune) cmd_prune "$@" ;;
-  root) cmd_root "$@" ;;
-  current) cmd_current "$@" ;;
-  help | -h | --help) usage ;;
-  *)
-    die "unknown command: $cmd"
-    ;;
-  esac
+    case "$cmd" in
+    switch | s) cmd_switch "$@" ;;
+    list) cmd_list "$@" ;;
+    path) cmd_path "$@" ;;
+    remove | rm) cmd_remove "$@" ;;
+    prune) cmd_prune "$@" ;;
+    root) cmd_root "$@" ;;
+    current) cmd_current "$@" ;;
+    help | -h | --help) usage ;;
+    *) die "unknown command: $cmd" ;;
+    esac
 }
 
 main "$@"
