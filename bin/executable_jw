@@ -59,6 +59,42 @@ workspace_registered_path_or_empty() {
     workspace_registered_path "$name" 2>/dev/null || true
 }
 
+canonical_dir() {
+    local path="$1"
+    [[ -d "$path" ]] || return 1
+    (
+        cd "$path"
+        pwd -P
+    )
+}
+
+paths_equal() {
+    local left="$1"
+    local right="$2"
+    local left_canon right_canon
+
+    left_canon="$(canonical_dir "$left")" || return 1
+    right_canon="$(canonical_dir "$right")" || return 1
+    [[ "$left_canon" == "$right_canon" ]]
+}
+
+workspace_name_for_path() {
+    local target_path="$1"
+    local name path
+
+    while IFS= read -r name; do
+        [[ -n "$name" ]] || continue
+        path="$(workspace_registered_path_or_empty "$name")"
+        [[ -n "$path" ]] || continue
+        if paths_equal "$path" "$target_path"; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done < <(workspace_names)
+
+    return 1
+}
+
 current_workspace() {
     local name
     name="$(jj workspace list -T 'if(target.current_working_copy(), name ++ "\n", "")' --color=never 2>/dev/null)"
@@ -69,8 +105,24 @@ current_workspace() {
 default_workspace() {
     if workspace_name_exists default; then
         printf 'default\n'
-    else
+        return 0
+    fi
+
+    local guessed_root name
+    guessed_root="$(workspace_dir_for_name default)"
+
+    if [[ -d "$guessed_root" ]]; then
+        name="$(workspace_name_for_path "$guessed_root" 2>/dev/null || true)"
+        if [[ -n "$name" ]]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    fi
+
+    if paths_equal "$(workspace_root)" "$guessed_root"; then
         current_workspace
+    else
+        return 1
     fi
 }
 
@@ -119,8 +171,8 @@ resolve_workspace_name() {
     -)
         previous_workspace || die "no previous workspace recorded"
         ;;
-    ^)
-        default_workspace
+    ^ | default)
+        default_workspace || die "could not determine default workspace"
         ;;
     *)
         printf '%s\n' "$token"
@@ -137,6 +189,8 @@ workspace_base_name() {
 
     if [[ "$current" != "default" ]] && [[ "$base" == *"$suffix" ]]; then
         base="${base%$suffix}"
+    elif [[ "$current" != "default" ]] && [[ "$base" == "$current" ]] && [[ "$base" == *.* ]]; then
+        base="${base%.*}"
     fi
 
     printf '%s\n' "$base"

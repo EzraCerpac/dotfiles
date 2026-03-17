@@ -1,3 +1,4 @@
 allowlist = [
     "~/.codex/config.toml",
+    "~/.config/fish/fish_variables",
 ]
