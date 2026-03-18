@@ -60,6 +60,10 @@ cat > "${TMP_FILE}" <<EOF
 </plist>
 EOF
 
+if [[ -f "${KANATA_PLIST}" ]] && cmp -s "${TMP_FILE}" "${KANATA_PLIST}"; then
+    exit 0
+fi
+
 echo "Installing kanata launch daemon..."
 
 if sudo install -o root -g wheel -m 644 "${TMP_FILE}" "${KANATA_PLIST}" >/dev/null 2>&1; then

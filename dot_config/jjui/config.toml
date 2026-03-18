@@ -1,26 +1,180 @@
-[custom_commands]
-# "show diff" = { key = ["U"], args = ["diff", "-r", "$change_id", "--color", "always"], show = "diff" }
-"show oplog diff" = { key = ["ctrl+o"], args = ["op", "show",  "$operation_id", "--color", "always"], show = "diff" }
-"resolve" = { key = ["R"], args = ["resolve", "--tool", "pycharm"], show = "interactive" }
-"new main" = { args = ["new", "main"] }
-"tug" = { key = ["ctrl+t"], args = ["bookmark", "move", "--from", "closest_bookmark($change_id)", "--to", "closest_pushable($change_id)"] }
-"show after revisions" = { key = ["M"], revset = "::$change_id" }  # shows descendants from selected
+[[actions]]
+name = "show-oplog-diff"
+lua = '''
+local op_id = context.operation_id()
+if not op_id then
+  flash({ text = "No operation selected", error = true })
+  return
+end
 
-"toggle parent" = { key = ["ctrl+p"], args = ["rebase", "-r", "@", "-d", "all:(parents(@) | $change_id) ~ (parents(@) & $change_id)"] }
-# "open in nvim" = { key = ["ctrl+e"], args = ["edit", "-r", "$file", "--editor", "nvim"], show = "interactive" }  # TODO: make this work
+local out, err = jj("op", "show", op_id, "--color", "always")
+if err then
+  flash({ text = err, error = true })
+  return
+end
 
-[custom_commands."move commit down"]
-key = ["J"]
-args = ["rebase", "-r", "$change_id", "--insert-before", "$change_id-"]
+jjui.diff.show(out)
+'''
 
-[custom_commands."move commit up"]
-key = ["K"]
-args = ["rebase", "-r", "$change_id", "--insert-after", "$change_id+"]
+[[bindings]]
+action = "show-oplog-diff"
+key = "ctrl+o"
+scope = "oplog"
+desc = "show oplog diff"
 
-[custom_commands."new note commit"]
-key = ["N"]
-args = ["new", "$change_id", "--no-edit", "-m", "NOTE: "]
+[[actions]]
+name = "resolve"
+lua = '''
+jj_interactive("resolve", "--tool", "pycharm")
+'''
 
-[custom_commands."show notes"]
-key = ["ctrl+n"]
-revset = "notes()"
+[[bindings]]
+action = "resolve"
+key = "R"
+scope = "revisions"
+desc = "resolve"
+
+[[actions]]
+name = "new-main"
+lua = '''
+jj_async("new", "main")
+revisions.refresh()
+'''
+
+[[actions]]
+name = "tug"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async(
+  "bookmark",
+  "move",
+  "--from",
+  "closest_bookmark(" .. id .. ")",
+  "--to",
+  "closest_pushable(" .. id .. ")"
+)
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "tug"
+key = "ctrl+t"
+scope = "revisions"
+desc = "tug"
+
+[[actions]]
+name = "show-after-revisions"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+revset.set("::" .. id)
+'''
+
+[[bindings]]
+action = "show-after-revisions"
+key = "M"
+scope = "revisions"
+desc = "show descendants"
+
+[[actions]]
+name = "toggle-parent"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async(
+  "rebase",
+  "-r",
+  "@",
+  "-d",
+  "all:(parents(@) | " .. id .. ") ~ (parents(@) & " .. id .. ")"
+)
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "toggle-parent"
+key = "ctrl+p"
+scope = "revisions"
+desc = "toggle parent"
+
+[[actions]]
+name = "move-commit-down"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("rebase", "-r", id, "--insert-before", id .. "-")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "move-commit-down"
+key = "J"
+scope = "revisions"
+desc = "move commit down"
+
+[[actions]]
+name = "move-commit-up"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("rebase", "-r", id, "--insert-after", id .. "+")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "move-commit-up"
+key = "K"
+scope = "revisions"
+desc = "move commit up"
+
+[[actions]]
+name = "new-note-commit"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("new", id, "--no-edit", "-m", "NOTE: ")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "new-note-commit"
+key = "N"
+scope = "revisions"
+desc = "new note commit"
+
+[[actions]]
+name = "show-notes"
+lua = '''
+revset.set("notes()")
+'''
+
+[[bindings]]
+action = "show-notes"
+key = "ctrl+n"
+scope = "revisions"
+desc = "show notes"
