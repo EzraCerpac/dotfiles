@@ -79,4 +79,15 @@ else
     echo "Warning: mise not found, skipping mise tools"
 fi
 
+JJ_WALTZ_DIR="$HOME/Projects/jj-waltz"
+if [[ -f "$JJ_WALTZ_DIR/Cargo.toml" ]]; then
+    echo "Building local jj-waltz from $JJ_WALTZ_DIR..."
+    cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$JJ_WALTZ_DIR/target/release/jw" "$HOME/.local/bin/jw"
+    echo "jj-waltz installed to ~/.local/bin/jw"
+else
+    echo "Warning: jj-waltz repo not found at $JJ_WALTZ_DIR, skipping local jw install"
+fi
+
 echo "Tools installation complete"

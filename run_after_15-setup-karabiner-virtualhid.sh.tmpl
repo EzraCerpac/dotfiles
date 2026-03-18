@@ -48,6 +48,10 @@ cat > "${TMP_FILE}" <<EOF
 </plist>
 EOF
 
+if [[ -f "${KARABINER_PLIST}" ]] && cmp -s "${TMP_FILE}" "${KARABINER_PLIST}"; then
+    exit 0
+fi
+
 echo "Installing Karabiner VirtualHID launch daemon..."
 
 if sudo install -o root -g wheel -m 644 "${TMP_FILE}" "${KARABINER_PLIST}" >/dev/null 2>&1; then

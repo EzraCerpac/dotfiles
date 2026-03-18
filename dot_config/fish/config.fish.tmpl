@@ -11,7 +11,8 @@ if test -d /home/linuxbrew/.linuxbrew/bin
 end
 {{- end }}
 
-fish_add_path $HOME/.local/bin $HOME/bin
+fish_add_path -m -p $HOME/.local/bin
+fish_add_path $HOME/bin
 fish_add_path ~/.cargo/bin
 
 {{- if eq .chezmoi.os "linux" }}
@@ -86,6 +87,10 @@ alias ca='chezmoi-smart-apply'
 
 if command -q wt
     wt config shell init fish | source
+end
+
+if test -x $HOME/.local/bin/jw
+    $HOME/.local/bin/jw shell init fish | source
 end
 
 function wto --description "Create or switch a worktree and launch OpenCode"
@@ -169,6 +174,7 @@ end
 # ---------- Homebrew ----------
 alias ibrew='env /usr/bin/arch -x86_64 /usr/local/bin/brew'
 eval (/opt/homebrew/bin/brew shellenv | string collect)
+fish_add_path -m -p $HOME/.local/bin
 
 # ---------- DBUS ----------
 alias DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
