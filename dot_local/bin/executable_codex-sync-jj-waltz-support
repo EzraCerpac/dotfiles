@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CHEZMOI_SOURCE="$(chezmoi source-path)"
+SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz-support"
+DEST_SKILL="${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz-support"
+VALIDATOR="${HOME}/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
+
+if [[ ! -f "${SOURCE_SKILL}/SKILL.md" ]]; then
+    echo "Source skill not found: ${SOURCE_SKILL}" >&2
+    exit 1
+fi
+
+mkdir -p "${DEST_SKILL}"
+
+rsync -a --delete \
+    --include '/SKILL.md' \
+    --include '/agents/' \
+    --include '/agents/***' \
+    --include '/assets/' \
+    --include '/assets/***' \
+    --exclude '*' \
+    "${SOURCE_SKILL}/" "${DEST_SKILL}/"
+
+uv run --with pyyaml python "${VALIDATOR}" "${DEST_SKILL}"
+
+echo "Synced jj-waltz-support into chezmoi source:"
+echo "  ${DEST_SKILL}"
+echo
+echo "Next:"
+echo "  chezmoi diff ~/.codex/skills/jj-waltz-support"
+echo "  chezmoi apply ~/.codex/skills/jj-waltz-support"
