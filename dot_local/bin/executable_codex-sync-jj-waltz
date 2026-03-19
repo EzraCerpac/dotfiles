@@ -2,8 +2,8 @@
 set -euo pipefail
 
 CHEZMOI_SOURCE="$(chezmoi source-path)"
-SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz-support"
-DEST_SKILL="${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz-support"
+SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz"
+DEST_SKILL="${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz"
 VALIDATOR="${HOME}/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
 
 if [[ ! -f "${SOURCE_SKILL}/SKILL.md" ]]; then
@@ -24,9 +24,9 @@ rsync -a --delete \
 
 uv run --with pyyaml python "${VALIDATOR}" "${DEST_SKILL}"
 
-echo "Synced jj-waltz-support into chezmoi source:"
+echo "Synced jj-waltz into chezmoi source:"
 echo "  ${DEST_SKILL}"
 echo
 echo "Next:"
-echo "  chezmoi diff ~/.codex/skills/jj-waltz-support"
-echo "  chezmoi apply ~/.codex/skills/jj-waltz-support"
+echo "  chezmoi diff ~/.codex/skills/jj-waltz"
+echo "  chezmoi apply ~/.codex/skills/jj-waltz"
