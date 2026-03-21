@@ -55,6 +55,10 @@ echo "Configuring Dock to show only running apps..."
 defaults write com.apple.dock static-only -bool true
 killall Dock >/dev/null 2>&1 || true
 
+echo "Configuring screenshot format to JPEG..."
+defaults write com.apple.screencapture type -string jpg
+killall SystemUIServer >/dev/null 2>&1 || true
+
 KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
 if [[ -f "${KANATA_PLIST}" ]]; then
   KANATA_LABEL="$(plutil -extract Label raw -o - "${KANATA_PLIST}" 2>/dev/null || true)"
