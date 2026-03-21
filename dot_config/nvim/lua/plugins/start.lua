@@ -29,7 +29,7 @@ return {
     end
 
     local function recent_files()
-      local items = starter.sections.recent_files(5, false, true)()
+      local items = starter.sections.recent_files(5, true, true)()
       for _, item in ipairs(items) do
         item.section = "Recent Files"
       end
