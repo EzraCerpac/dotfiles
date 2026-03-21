@@ -76,6 +76,12 @@ return {
     end
 
     local function open_project_recent_files(project_path)
+      if type(project_path) ~= "string" or project_path == "" or vim.fn.isdirectory(project_path) == 0 then
+        vim.notify("Project path is no longer available: " .. tostring(project_path), vim.log.levels.WARN)
+        return
+      end
+
+      project_path = vim.fs.normalize(project_path)
       local ok_project, project = pcall(require, "project_nvim.project")
       if ok_project then
         project.set_pwd(project_path, "mini.starter")
