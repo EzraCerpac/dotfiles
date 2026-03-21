@@ -29,9 +29,14 @@ if status is-interactive
     # Commands to run in interactive sessions can go here
     if command -q atuin
         atuin init fish --disable-up-arrow | source
-        bind \cr _atuin_search
-        bind -M insert \cr _atuin_search
     end
+
+    if command -q tv
+        tv init fish | source
+    end
+
+    # Reapply our preferred bindings after third-party init scripts.
+    fish_user_key_bindings
 end
 
 # Silence the default greeting
@@ -76,10 +81,6 @@ alias ......='cd ../../../../..'
 alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
-
-if command -q fzf
-    fzf --fish | source # Set up fzf key bindings
-end
 
 alias cc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
 alias oc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml opencode'
