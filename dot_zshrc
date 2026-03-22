@@ -19,6 +19,7 @@ fi
 command -v flow-cli > /dev/null 2>&1 && eval "$(_FLOW_CLI_COMPLETE=zsh_source flow-cli)"
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
 if [ -x "$HOME/.local/bin/jw" ]; then eval "$("$HOME/.local/bin/jw" shell init zsh)"; fi
+if [[ -o interactive ]] && command -v tv >/dev/null 2>&1; then eval "$(tv init zsh)"; fi
 
 wto() {
     if [ "$#" -eq 0 ]; then

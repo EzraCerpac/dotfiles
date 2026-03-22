@@ -1,0 +1,15 @@
+[metadata]
+name = "jj"
+description = "Browse Jujutsu changes"
+requirements = ["jj"]
+
+[source]
+command = """jj log --no-graph -n 200 -T 'change_id.shortest() ++ "\t" ++ commit_id.short() ++ "\t" ++ author.timestamp().local().format("%Y-%m-%d %H:%M") ++ "\t" ++ separate(" ", if(current_working_copy, "@", ""), local_bookmarks.map(|b| b.name()).join(","), coalesce(description.first_line(), "(no description set)")) ++ "\n"' --color never"""
+display = "{split:\t:0}  {split:\t:2}  {split:\t:3}"
+output = "{split:\t:0}"
+no_sort = true
+frecency = false
+
+[preview]
+command = "jj show --color=always '{split:\t:0}' | head -n 1000"
+

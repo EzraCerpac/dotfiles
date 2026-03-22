@@ -50,6 +50,9 @@ end, { desc = "Restart nvim" })
 -- Save
 vim.keymap.set("n", "<leader>w", "<Cmd>write<CR>", { desc = "Save file", nowait = true })
 vim.keymap.set("n", "<leader>W", "<Cmd>wall<CR>", { desc = "Save all files", nowait = true })
+vim.keymap.set("n", "<leader><leader>", function()
+  require("tv").tv_channel("text")
+end, { desc = "TV: Text" })
 
 -- mini.move line movement in Normal mode
 vim.keymap.set("n", "<C-Up>", function()

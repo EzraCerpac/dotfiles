@@ -16,7 +16,7 @@
 # General settings
 # ----------------------------------------------------------------------------
 tick_rate = 50
-default_channel = "files"
+default_channel = "channels"
 # Shell settings
 # --------------
 # Default shell used for executing commands (source, preview, actions).
@@ -29,7 +29,7 @@ default_channel = "files"
 # Maximum number of entries to keep in the global history (default: 100)
 # The history tracks search queries across all channels and sessions
 # Set to 0 to disable history functionality entirely
-history_size = 200
+history_size = 0
 # Whether to use global history (default: false)
 # When true: history navigation shows entries from all channels
 # When false: history navigation is scoped to the current channel
@@ -53,7 +53,7 @@ orientation = "landscape"
 # A list of builtin themes can be found in the `themes` directory of the television
 # repository. You may also create your own theme by creating a new file in a `themes`
 # directory in your configuration directory (see the `config.toml` location above).
-theme = "default"
+theme = "catppuccin"
 
 # Feature-specific configurations
 # Each feature can have its own configuration section
@@ -243,6 +243,24 @@ fallback_channel = "files"
 "git-log" = ["git log", "git show"]
 "docker-images" = ["docker run"]
 "git-repos" = ["nvim", "code", "hx", "git clone"]
+"jj" = [
+  "jj show",
+  "jj edit",
+  "jj diff -r",
+  "jj describe -r",
+  "jj squash -r",
+  "jj rebase -r",
+  "jj new",
+]
+"jj-bookmarks" = [
+  "jj bookmark delete",
+  "jj bookmark forget",
+  "jj bookmark move",
+  "jj bookmark rename",
+  "jj git push -b",
+  "jj git push --bookmark",
+]
+"jw" = ["jw switch", "jw s"]
 
 
 [shell_integration.keybindings]
@@ -251,4 +269,4 @@ fallback_channel = "files"
 "smart_autocomplete" = "ctrl-t"
 # controls which keybinding should trigger tv
 # for command history
-"command_history" = "ctrl-r"
+# "command_history" = "ctrl-r"
