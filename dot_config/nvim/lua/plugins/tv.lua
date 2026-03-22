@@ -4,11 +4,14 @@ return {
     local h = require("tv").handlers
 
     require("tv").setup({
+      global_keybindings = {
+        channels = "<leader>tv",
+      },
       -- per-channel configurations
       channels = {
         -- `files`: fuzzy find files in your project
         files = {
-          keybinding = "<C-p>", -- Launch the files channel
+          keybinding = "<C-t>",
           -- what happens when you press a key
           handlers = {
             ["<CR>"] = h.open_as_files, -- default: open selected files
@@ -20,7 +23,7 @@ return {
         },
         -- `text`: ripgrep search through file contents
         text = {
-          keybinding = "<leader><leader>",
+          keybinding = false,
           handlers = {
             ["<CR>"] = h.open_at_line, -- Jump to line:col in file
             ["<C-q>"] = h.send_to_quickfix, -- Send matches to quickfix

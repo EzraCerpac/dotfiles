@@ -1,0 +1,15 @@
+[metadata]
+name = "jj-bookmarks"
+description = "Browse local Jujutsu bookmarks"
+requirements = ["jj"]
+
+[source]
+command = """jj bookmark list -a -T 'if(self.remote() || !self.present() || self.conflict(), "", self.name() ++ "\t" ++ self.normal_target().change_id().shortest() ++ "\t" ++ if(self.synced(), "synced", "local") ++ "\t" ++ coalesce(self.normal_target().description().first_line(), "(no description set)") ++ "\n")' --color never"""
+display = "{split:\t:0}  {split:\t:2}  {split:\t:3}"
+output = "{split:\t:0}"
+no_sort = true
+frecency = false
+
+[preview]
+command = "jj show --color=always '{split:\t:0}' | head -n 1000"
+

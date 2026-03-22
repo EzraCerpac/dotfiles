@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+WEZTERM_BIN="/opt/homebrew/bin/wezterm"
+GITLOGUE_BIN="/opt/homebrew/bin/gitlogue"
+PROJECTS_DIR="${HOME}/Projects"
+WORKSPACE="gitlogue-screensaver"
+WINDOW_TITLE="gitlogue-screensaver"
+THEME="tokyo-night"
+SPEED="20"
+
+if [[ ! -x "${WEZTERM_BIN}" ]]; then
+    echo "gitlogue-screensaver: missing WezTerm at ${WEZTERM_BIN}" >&2
+    exit 1
+fi
+
+if [[ ! -x "${GITLOGUE_BIN}" ]]; then
+    echo "gitlogue-screensaver: missing gitlogue at ${GITLOGUE_BIN}" >&2
+    exit 1
+fi
+
+if [[ ! -d "${PROJECTS_DIR}" ]]; then
+    echo "gitlogue-screensaver: missing projects directory at ${PROJECTS_DIR}" >&2
+    exit 1
+fi
+
+repos=()
+while IFS= read -r repo_path; do
+    repos+=("${repo_path}")
+done < <(
+    find "${PROJECTS_DIR}" -mindepth 1 -maxdepth 2 -type d -name .git -prune 2>/dev/null |
+        sed 's|/\.git$||' |
+        sort
+)
+
+if [[ "${#repos[@]}" -eq 0 ]]; then
+    echo "gitlogue-screensaver: no git repositories found under ${PROJECTS_DIR}" >&2
+    exit 1
+fi
+
+repo="${repos[RANDOM % ${#repos[@]}]}"
+
+read -r -d '' launch_command <<EOF || true
+printf '\033]0;${WINDOW_TITLE}\007'
+exec "${GITLOGUE_BIN}" \
+    --path "${repo}" \
+    --theme "${THEME}" \
+    --speed "${SPEED}" \
+    --order random \
+    --loop \
+    --background=false
+EOF
+
+exec "${WEZTERM_BIN}" start \
+    --workspace "${WORKSPACE}" \
+    --cwd "${repo}" \
+    -- /bin/bash -lc "${launch_command}"

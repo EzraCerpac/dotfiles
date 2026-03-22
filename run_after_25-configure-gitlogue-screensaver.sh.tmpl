@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+echo "Configuring gitlogue screensaver..."
+defaults -currentHost write com.apple.screensaver idleTime -int 0
+
+if [[ -d "/Applications/Hammerspoon.app" ]]; then
+    killall Hammerspoon >/dev/null 2>&1 || true
+    open -a Hammerspoon >/dev/null 2>&1 || true
+fi
+
+echo "gitlogue screensaver configured"
+
+{{- end }}

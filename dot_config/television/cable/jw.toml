@@ -1,0 +1,15 @@
+[metadata]
+name = "jw"
+description = "Browse jj-waltz workspaces"
+requirements = ["jj", "jw"]
+
+[source]
+command = """jj workspace list -T 'self.name() ++ "\t" ++ if(self.target().current_working_copy(), "@", "") ++ "\t" ++ self.target().change_id().shortest() ++ "\t" ++ coalesce(self.target().description().first_line(), "(no description set)") ++ "\n"' --color never"""
+display = "{split:\t:1} {split:\t:0}  {split:\t:2}  {split:\t:3}"
+output = "{split:\t:0}"
+no_sort = true
+frecency = false
+
+[preview]
+command = """path="$(jw path '{split:\t:0}')" && jj -R "$path" status --color=never && printf '\n---\n\n' && jj -R "$path" log -n 5 --no-graph --color=never"""
+shell = "bash"

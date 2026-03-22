@@ -4,7 +4,7 @@
 - Source root is a chezmoi source repo. Files prefixed with `dot_` map to `$HOME` (e.g., `dot_zshrc` -> `~/.zshrc`).
 - Configuration lives under `dot_config/` (e.g., Neovim in `dot_config/nvim/`, Git in `dot_config/git/`).
 - Bootstrap scripts use numbered `run_once_*.sh.tmpl` (01 through 04); post-setup hooks use `run_after_*.sh.tmpl`.
-- Tool versions are managed via `dot_config/mise/config.toml` (mise is the single source of truth).
+- Tool versions are managed via `dot_config/mise/config.toml`
 - See `README.md` for usage and structure overview.
 
 ## Key Files
@@ -27,7 +27,6 @@
 - Shell: `bash`, `set -euo pipefail`, 4-space indent; functions use `lower_snake_case`.
 - Lua (Neovim): keep modules small and descriptive; prefer `snake_case` filenames.
 - Chezmoi naming: use `dot_` for homedir files; `run_once_*.sh.tmpl` for idempotent setup; keep machine-specific logic inside templates with guards.
-- Markdown: follow rules in `dot_markdownlint-cli2.yaml`.
 
 ## Testing Guidelines
 - Fast safety checks: `chezmoi verify` and `chezmoi diff` before `apply`.
@@ -36,11 +35,7 @@
 
 ## Commit & Pull Request Guidelines
 - Commits: prefer Conventional Commits (`feat:`, `fix:`, `docs:`). Short present-tense subject; scoped where helpful (e.g., `feat(nvim): ...`).
-- PRs: include purpose, scope (OS, shells, editors), sample commands run (e.g., `chezmoi diff`), and screenshots or logs for failures.
-- Link related issues; describe any migration steps (e.g., re-running `run_once_...`).
 
 ## Security & Configuration Tips
 - Do not commit secrets. Use templates and `[data]` in `.chezmoi.toml.tmpl` instead of hard-coding.
 - Keep host/user-specific values behind template conditionals (e.g., `{{ if eq .chezmoi.os "darwin" }}` blocks).
-- mise is the single source of truth for tools. It handles runtimes (node, rust), CLI tools, and supports aqua/cargo/github/ubi backends.
-- brew/apt-get only for system-level packages (fish, gnupg, curl, wget, htop, tree, sshpass).

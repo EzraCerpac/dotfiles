@@ -39,6 +39,12 @@ trust_level = "trusted"
 [projects."/Users/ezracerpac/Projects/GenreModel.report"]
 trust_level = "trusted"
 
+[projects."/Users/ezracerpac/Projects/Thesis/ezra-cerpac"]
+trust_level = "trusted"
+
+[projects."/Users/ezracerpac/Projects/Thesis/ezra-cerpac.solver-hdim-lbfgs"]
+trust_level = "trusted"
+
 [notice.model_migrations]
 "gpt-5.2-codex" = "gpt-5.3-codex"
 "gpt-5.3-codex" = "gpt-5.4"
@@ -46,6 +52,7 @@ trust_level = "trusted"
 [features]
 multi_agent = true
 prevent_idle_sleep = true
+tui_app_server = true
 
 [apps.asdk_app_694a63a053f081918b9a3738bd3640c9]
 enabled = false
@@ -57,3 +64,19 @@ disabled_reason = "user"
 
 [tui]
 status_line = ["model-with-reasoning", "context-remaining", "current-dir"]
+
+[[skills.config]]
+path = "/Users/ezracerpac/.agents/skills/find-skills/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/ezracerpac/.codex/skills/.system/openai-docs/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/ezracerpac/.codex/skills/.system/skill-creator/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/ezracerpac/.codex/skills/.system/skill-installer/SKILL.md"
+enabled = false
