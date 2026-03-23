@@ -32,6 +32,7 @@ Review defaults:
 - `git show` and embedded diff views use `delta --side-by-side --paging=never`
 - `wt` is installed via mise and initialized in both fish and zsh
 - `jw` is built from the local `~/Projects/jj-waltz` checkout and shell-initialized in fish and zsh
+- `jj-waltz` skill content is sourced from `~/Projects/jj-waltz/skills/jj-waltz` and auto-synced on `chezmoi apply` to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
 - `prdiff [pr]` opens `gh pr diff` output in `diffnav`
 
