@@ -26,6 +26,7 @@ local overlay = nil
 local overlay_visible = false
 local signal_tap = nil
 local signal_hotkeys = {}
+local enable_gitlogue_idle = false
 local gitlogue_idle_timer = nil
 local gitlogue_focus_timer = nil
 local gitlogue_screen_watcher = nil
@@ -293,22 +294,24 @@ signal_tap = hs.eventtap.new({hs.eventtap.event.types.keyDown}, function(event)
 end)
 signal_tap:start()
 
-gitlogue_screen_watcher = hs.caffeinate.watcher.new(function(event)
-    if event == hs.caffeinate.watcher.screensDidLock then
-        gitlogue_screen_locked = true
-        stop_gitlogue()
-    elseif event == hs.caffeinate.watcher.screensDidUnlock then
-        gitlogue_screen_locked = false
-        gitlogue_has_launched = false
-        gitlogue_has_locked = false
-    elseif event == hs.caffeinate.watcher.screensDidSleep then
-        stop_gitlogue()
-    end
-end)
-gitlogue_screen_watcher:start()
+if enable_gitlogue_idle then
+    gitlogue_screen_watcher = hs.caffeinate.watcher.new(function(event)
+        if event == hs.caffeinate.watcher.screensDidLock then
+            gitlogue_screen_locked = true
+            stop_gitlogue()
+        elseif event == hs.caffeinate.watcher.screensDidUnlock then
+            gitlogue_screen_locked = false
+            gitlogue_has_launched = false
+            gitlogue_has_locked = false
+        elseif event == hs.caffeinate.watcher.screensDidSleep then
+            stop_gitlogue()
+        end
+    end)
+    gitlogue_screen_watcher:start()
 
-gitlogue_idle_timer = hs.timer.doEvery(gitlogue_config.poll_interval_seconds, handle_gitlogue_idle)
-handle_gitlogue_idle()
+    gitlogue_idle_timer = hs.timer.doEvery(gitlogue_config.poll_interval_seconds, handle_gitlogue_idle)
+    handle_gitlogue_idle()
+end
 
 local registered = {}
 for _, key in ipairs({"f17", "f18", "f19", "f23", "f20", "f21", "f22", "f14", "f15", "f16"}) do
