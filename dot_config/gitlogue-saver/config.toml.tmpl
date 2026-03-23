@@ -1,0 +1,22 @@
+[repositories]
+roots = ["{{ .chezmoi.homeDir }}/Projects"]
+exclude_repo_patterns = ["gitlogue-saver"]
+max_depth = 4
+
+[filters]
+author_mode = "auto"
+author_pattern = "Ezra Cerpac"
+before = ""
+after = ""
+commit = ""
+
+[playback]
+theme = "catppuccin"
+speed = 2
+loop = true
+ignore_patterns = []
+ignore_file = ""
+speed_rules = []
+
+[ui]
+show_hidden_paths = false
