@@ -3,7 +3,10 @@ set -euo pipefail
 
 CHEZMOI_SOURCE="$(chezmoi source-path)"
 SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz"
-DEST_SKILL="${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz"
+DEST_SKILLS=(
+    "${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz"
+    "${CHEZMOI_SOURCE}/dot_config/opencode/skills/jj-waltz"
+)
 VALIDATOR="${HOME}/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
 
 if [[ ! -f "${SOURCE_SKILL}/SKILL.md" ]]; then
@@ -11,22 +14,26 @@ if [[ ! -f "${SOURCE_SKILL}/SKILL.md" ]]; then
     exit 1
 fi
 
-mkdir -p "${DEST_SKILL}"
+for DEST_SKILL in "${DEST_SKILLS[@]}"; do
+    mkdir -p "${DEST_SKILL}"
 
-rsync -a --delete \
-    --include '/SKILL.md' \
-    --include '/agents/' \
-    --include '/agents/***' \
-    --include '/assets/' \
-    --include '/assets/***' \
-    --exclude '*' \
-    "${SOURCE_SKILL}/" "${DEST_SKILL}/"
+    rsync -a --delete \
+        --include '/SKILL.md' \
+        --include '/agents/' \
+        --include '/agents/***' \
+        --include '/assets/' \
+        --include '/assets/***' \
+        --exclude '*' \
+        "${SOURCE_SKILL}/" "${DEST_SKILL}/"
 
-uv run --with pyyaml python "${VALIDATOR}" "${DEST_SKILL}"
+    uv run --with pyyaml python "${VALIDATOR}" "${DEST_SKILL}"
+done
 
 echo "Synced jj-waltz into chezmoi source:"
-echo "  ${DEST_SKILL}"
+for DEST_SKILL in "${DEST_SKILLS[@]}"; do
+    echo "  ${DEST_SKILL}"
+done
 echo
 echo "Next:"
-echo "  chezmoi diff ~/.codex/skills/jj-waltz"
-echo "  chezmoi apply ~/.codex/skills/jj-waltz"
+echo "  chezmoi diff ~/.codex/skills/jj-waltz ~/.config/opencode/skills/jj-waltz"
+echo "  chezmoi apply ~/.codex/skills/jj-waltz ~/.config/opencode/skills/jj-waltz"

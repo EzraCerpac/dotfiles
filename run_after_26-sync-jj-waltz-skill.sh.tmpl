@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SYNC_SCRIPT="${HOME}/.local/bin/codex-sync-jj-waltz"
+SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz/SKILL.md"
+
+if [[ ! -x "${SYNC_SCRIPT}" ]]; then
+    echo "Skipping jj-waltz skill sync: ${SYNC_SCRIPT} is not executable"
+    exit 0
+fi
+
+if [[ ! -f "${SOURCE_SKILL}" ]]; then
+    echo "Skipping jj-waltz skill sync: ${SOURCE_SKILL} not found"
+    exit 0
+fi
+
+echo "Syncing jj-waltz skill from ~/Projects/jj-waltz..."
+"${SYNC_SCRIPT}"
