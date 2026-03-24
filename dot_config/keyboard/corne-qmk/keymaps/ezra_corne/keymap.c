@@ -11,34 +11,28 @@ enum custom_keycodes {
     M_LOCK = SAFE_RANGE,
     M_AREA,
     M_FULL,
-    TH_HUD_ALT,
+    TH_HUD_MEH,
     TH_HYP_NUM,
+    TH_NUM_BSPC,
     TH_NAV_S,
-    TH_NAV_BSPC,
-    HRM_R_MEH,
-    NS_A_GUI,
-    NS_R_ALT,
-    NS_T_CTL,
-    NS_N_CTL,
-    NS_I_ALT,
-    NS_O_GUI,
-    NV_A_GUI,
-    NV_R_ALT,
-    NV_T_CTL,
+    TH_NAV_E,
+    TH_DEL_MEH,
 };
 
-#define HRM_A MT(MOD_LGUI, KC_A)
-#define HRM_R HRM_R_MEH
-#define HRM_T MT(MOD_LCTL, KC_T)
-#define HRM_N MT(MOD_RCTL, KC_N)
-#define HRM_I MT(MOD_RALT, KC_I)
-#define HRM_O MT(MOD_RGUI, KC_O)
+#define HRM_A LGUI_T(KC_A)
+#define HRM_R LALT_T(KC_R)
+#define HRM_T LCTL_T(KC_T)
+#define HRM_N RCTL_T(KC_N)
+#define HRM_I RALT_T(KC_I)
+#define HRM_O RGUI_T(KC_O)
+
+#define MEH_MASK (MOD_BIT(KC_LCTL) | MOD_BIT(KC_LALT) | MOD_BIT(KC_LSFT))
 
 enum combos {
     GAME_MODE_COMBO,
 };
 
-const uint16_t PROGMEM game_mode_combo[] = {TH_HYP_NUM, TH_NAV_BSPC, COMBO_END};
+const uint16_t PROGMEM game_mode_combo[] = {TH_HYP_NUM, TH_NUM_BSPC, COMBO_END};
 
 combo_t key_combos[] = {
     [GAME_MODE_COMBO] = COMBO_ACTION(game_mode_combo),
@@ -47,30 +41,30 @@ combo_t key_combos[] = {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_BASE] = LAYOUT_split_3x6_3(
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
-        HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           KC_E,            HRM_I,           HRM_O,           KC_QUOT,
+        HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           TH_NAV_E,        HRM_I,           HRM_O,           KC_QUOT,
         KC_NUBS, KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
-                                            TH_HUD_ALT,      CTL_T(KC_ENT),       TH_HYP_NUM,          TH_NAV_BSPC,         LSFT_T(KC_SPC), MT(MOD_RGUI, KC_DEL)
+                                            TH_HUD_MEH,      LSFT_T(KC_ENT),      TH_HYP_NUM,          TH_NUM_BSPC,        LSFT_T(KC_SPC), TH_DEL_MEH
     ),
 
     [_NUM_SYM] = LAYOUT_split_3x6_3(
-        KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_AMPR, KC_ASTR, KC_LPRN, KC_RPRN, KC_UNDS, KC_PLUS,
-        KC_1,    NS_A_GUI, NS_R_ALT, KC_4,  NS_T_CTL, KC_6,   KC_7,    NS_N_CTL, KC_9,   NS_I_ALT, NS_O_GUI, KC_EQL,
-        KC_LBRC, KC_RBRC, KC_LCBR, KC_RCBR, KC_PIPE, KC_UNDS, KC_PLUS, KC_SLSH, KC_QUES, KC_COLN, LSFT(KC_QUOT), KC_TILD,
+        KC_LPRN, KC_RPRN, KC_LBRC, KC_RBRC, KC_LCBR, KC_RCBR, KC_EQL,  KC_7,    KC_8,    KC_9,    KC_ASTR, KC_PLUS,
+        KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_COLN, KC_4,    KC_5,    KC_6,    KC_SLSH, KC_MINS,
+        KC_UNDS, KC_PIPE, KC_BSLS, KC_GRV,  KC_TILD, KC_QUES, KC_SCLN, KC_1,    KC_2,    KC_3,    KC_0,    KC_DOT,
                                    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     ),
 
     [_NAV_FN] = LAYOUT_split_3x6_3(
         KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
-        KC_ESC,  NV_A_GUI, NV_R_ALT, C(S(KC_TAB)), NV_T_CTL, KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
+        KC_ESC,  KC_WBAK, KC_WFWD, C(S(KC_TAB)), C(KC_TAB), KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
         QK_BOOT, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_WBAK, KC_WFWD, KC_WREF, KC_WSTP, KC_VOLD, KC_VOLU, KC_MUTE,
-                                   KC_TRNS, KC_TRNS, KC_LSFT, KC_TRNS, KC_TRNS, KC_TRNS
+                                   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     ),
 
     [_GAME] = LAYOUT_split_3x6_3(
         KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_PGUP,
         KC_ESC,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
         KC_NUBS, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_PGDN,
-                                   KC_LCTL, KC_LSFT, KC_SPC,  TH_NAV_BSPC, KC_RALT, MT(MOD_RGUI, KC_DEL)
+                                   KC_LCTL, KC_LSFT, KC_SPC,  KC_BSPC, KC_RALT, KC_DEL
     )
 };
 
@@ -79,70 +73,75 @@ static bool hud_hold    = false;
 static bool hud_interrupted = false;
 static uint16_t hud_timer = 0;
 
-static bool num_pressed = false;
-static bool num_hold    = false;
-static bool num_interrupted = false;
-static uint16_t num_timer = 0;
+static bool num_l_pressed = false;
+static bool num_l_hold    = false;
+static bool num_l_interrupted = false;
+static uint16_t num_l_timer = 0;
 
-static bool nav_pressed = false;
-static bool nav_interrupted = false;
-static uint16_t nav_timer = 0;
-static bool nav_bspc_pressed = false;
-static bool nav_bspc_interrupted = false;
-static uint16_t nav_bspc_timer = 0;
+static bool num_r_pressed = false;
+static bool num_r_hold    = false;
+static bool num_r_interrupted = false;
+static uint16_t num_r_timer = 0;
+
+static bool nav_s_pressed = false;
+static bool nav_s_interrupted = false;
+static uint16_t nav_s_timer = 0;
+
+static bool nav_e_pressed = false;
+static bool nav_e_interrupted = false;
+static uint16_t nav_e_timer = 0;
+
+static bool del_meh_pressed = false;
+static bool del_meh_hold = false;
+static bool del_meh_interrupted = false;
+static uint16_t del_meh_timer = 0;
+
 static uint8_t nav_hold_refs = 0;
+static uint8_t num_hold_refs = 0;
 static uint8_t previous_hud_layer = _BASE;
-
-typedef struct {
-    uint16_t keycode;
-    uint8_t hold_mod;
-    uint16_t tap_code;
-    bool pressed;
-    bool hold;
-    bool interrupted;
-    uint16_t timer;
-} custom_modtap_t;
-
-static custom_modtap_t custom_modtaps[] = {
-    {HRM_R_MEH, MOD_BIT(KC_LGUI) | MOD_BIT(KC_LCTL) | MOD_BIT(KC_LALT), KC_R, false, false, false, 0},
-    {NS_A_GUI, MOD_BIT(KC_LGUI), KC_2, false, false, false, 0},
-    {NS_R_ALT, MOD_BIT(KC_LALT), KC_3, false, false, false, 0},
-    {NS_T_CTL, MOD_BIT(KC_LCTL), KC_5, false, false, false, 0},
-    {NS_N_CTL, MOD_BIT(KC_RCTL), KC_8, false, false, false, 0},
-    {NS_I_ALT, MOD_BIT(KC_RALT), KC_0, false, false, false, 0},
-    {NS_O_GUI, MOD_BIT(KC_RGUI), KC_MINS, false, false, false, 0},
-    {NV_A_GUI, MOD_BIT(KC_LGUI), KC_WBAK, false, false, false, 0},
-    {NV_R_ALT, MOD_BIT(KC_LALT), KC_WFWD, false, false, false, 0},
-    {NV_T_CTL, MOD_BIT(KC_LCTL), C(KC_TAB), false, false, false, 0},
-};
-
-static custom_modtap_t *find_custom_modtap(uint16_t keycode) {
-    for (uint8_t i = 0; i < ARRAY_SIZE(custom_modtaps); i++) {
-        if (custom_modtaps[i].keycode == keycode) {
-            return &custom_modtaps[i];
-        }
-    }
-    return NULL;
-}
 
 static void activate_hud_hold(void) {
     if (!hud_hold) {
-        register_code(KC_LALT);
+        register_mods(MEH_MASK);
         hud_hold = true;
     }
 }
 
-static void activate_num_hold(void) {
-    if (!num_hold) {
-        layer_on(_NUM_SYM);
-        num_hold = true;
+static void activate_del_meh_hold(void) {
+    if (!del_meh_hold) {
+        register_mods(MEH_MASK);
+        del_meh_hold = true;
     }
 }
 
-static void activate_custom_modtap_hold(custom_modtap_t *mt) {
-    if (!mt->hold) {
-        register_mods(mt->hold_mod);
-        mt->hold = true;
+static void num_layer_ref_inc(void) {
+    if (num_hold_refs == 0) {
+        layer_on(_NUM_SYM);
+    }
+    num_hold_refs++;
+}
+
+static void num_layer_ref_dec(void) {
+    if (num_hold_refs == 0) {
+        return;
+    }
+    num_hold_refs--;
+    if (num_hold_refs == 0) {
+        layer_off(_NUM_SYM);
+    }
+}
+
+static void activate_num_l_hold(void) {
+    if (!num_l_hold) {
+        num_layer_ref_inc();
+        num_l_hold = true;
+    }
+}
+
+static void activate_num_r_hold(void) {
+    if (!num_r_hold) {
+        num_layer_ref_inc();
+        num_r_hold = true;
     }
 }
 
@@ -207,29 +206,32 @@ static void sync_hud_layer(layer_state_t layer_state_value, layer_state_t defaul
 }
 
 static void activate_pending_holds(uint16_t keycode) {
-    if (hud_pressed && !hud_hold && keycode != TH_HUD_ALT) {
+    if (hud_pressed && !hud_hold && keycode != TH_HUD_MEH) {
         hud_interrupted = true;
         activate_hud_hold();
     }
 
-    if (num_pressed && !num_hold && keycode != TH_HYP_NUM) {
-        num_interrupted = true;
-        activate_num_hold();
+    if (num_l_pressed && !num_l_hold && keycode != TH_HYP_NUM) {
+        num_l_interrupted = true;
+        activate_num_l_hold();
     }
 
-    if (nav_pressed && keycode != TH_NAV_S) {
-        nav_interrupted = true;
-    }
-    if (nav_bspc_pressed && keycode != TH_NAV_BSPC) {
-        nav_bspc_interrupted = true;
+    if (num_r_pressed && !num_r_hold && keycode != TH_NUM_BSPC) {
+        num_r_interrupted = true;
+        activate_num_r_hold();
     }
 
-    for (uint8_t i = 0; i < ARRAY_SIZE(custom_modtaps); i++) {
-        custom_modtap_t *mt = &custom_modtaps[i];
-        if (mt->pressed && !mt->hold && keycode != mt->keycode) {
-            mt->interrupted = true;
-            activate_custom_modtap_hold(mt);
-        }
+    if (nav_s_pressed && keycode != TH_NAV_S) {
+        nav_s_interrupted = true;
+    }
+
+    if (nav_e_pressed && keycode != TH_NAV_E) {
+        nav_e_interrupted = true;
+    }
+
+    if (del_meh_pressed && !del_meh_hold && keycode != TH_DEL_MEH) {
+        del_meh_interrupted = true;
+        activate_del_meh_hold();
     }
 }
 
@@ -241,31 +243,9 @@ static void toggle_game_mode(void) {
     }
 }
 
-static bool handle_custom_modtap(custom_modtap_t *mt, keyrecord_t *record) {
-    if (record->event.pressed) {
-        mt->pressed = true;
-        mt->hold = false;
-        mt->interrupted = false;
-        mt->timer = timer_read();
-    } else {
-        mt->pressed = false;
-        if (mt->hold) {
-            unregister_mods(mt->hold_mod);
-        } else if (!mt->interrupted && timer_elapsed(mt->timer) < TAPPING_TERM) {
-            tap_code16(mt->tap_code);
-        }
-    }
-    return false;
-}
-
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    custom_modtap_t *mt = find_custom_modtap(keycode);
-    if (mt != NULL) {
-        return handle_custom_modtap(mt, record);
-    }
-
     switch (keycode) {
-        case TH_HUD_ALT:
+        case TH_HUD_MEH:
             if (record->event.pressed) {
                 hud_pressed = true;
                 hud_hold    = false;
@@ -274,7 +254,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             } else {
                 hud_pressed = false;
                 if (hud_hold) {
-                    unregister_code(KC_LALT);
+                    unregister_mods(MEH_MASK);
                 } else if (!hud_interrupted && timer_elapsed(hud_timer) < TAPPING_TERM) {
                     tap_code16(LCTL(LGUI(KC_O)));
                 }
@@ -282,44 +262,74 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         case TH_HYP_NUM:
             if (record->event.pressed) {
-                num_pressed = true;
-                num_hold    = false;
-                num_interrupted = false;
-                num_timer = timer_read();
+                num_l_pressed = true;
+                num_l_hold    = false;
+                num_l_interrupted = false;
+                num_l_timer = timer_read();
             } else {
-                num_pressed = false;
-                if (num_hold) {
-                    layer_off(_NUM_SYM);
-                } else if (!num_interrupted && timer_elapsed(num_timer) < TAPPING_TERM) {
+                num_l_pressed = false;
+                if (num_l_hold) {
+                    num_layer_ref_dec();
+                } else if (!num_l_interrupted && timer_elapsed(num_l_timer) < TAPPING_TERM) {
                     tap_code16(HYPR(KC_R));
+                }
+            }
+            return false;
+        case TH_NUM_BSPC:
+            if (record->event.pressed) {
+                num_r_pressed = true;
+                num_r_hold = false;
+                num_r_interrupted = false;
+                num_r_timer = timer_read();
+            } else {
+                num_r_pressed = false;
+                if (num_r_hold) {
+                    num_layer_ref_dec();
+                } else if (!num_r_interrupted && timer_elapsed(num_r_timer) < TAPPING_TERM) {
+                    tap_code(KC_BSPC);
                 }
             }
             return false;
         case TH_NAV_S:
             if (record->event.pressed) {
-                nav_pressed = true;
-                nav_interrupted = false;
-                nav_timer = timer_read();
+                nav_s_pressed = true;
+                nav_s_interrupted = false;
+                nav_s_timer = timer_read();
                 nav_layer_ref_inc();
             } else {
-                nav_pressed = false;
+                nav_s_pressed = false;
                 nav_layer_ref_dec();
-                if (!nav_interrupted && timer_elapsed(nav_timer) < TAPPING_TERM) {
+                if (!nav_s_interrupted && timer_elapsed(nav_s_timer) < TAPPING_TERM) {
                     tap_code(KC_S);
                 }
             }
             return false;
-        case TH_NAV_BSPC:
+        case TH_NAV_E:
             if (record->event.pressed) {
-                nav_bspc_pressed = true;
-                nav_bspc_interrupted = false;
-                nav_bspc_timer = timer_read();
+                nav_e_pressed = true;
+                nav_e_interrupted = false;
+                nav_e_timer = timer_read();
                 nav_layer_ref_inc();
             } else {
-                nav_bspc_pressed = false;
+                nav_e_pressed = false;
                 nav_layer_ref_dec();
-                if (!nav_bspc_interrupted && timer_elapsed(nav_bspc_timer) < TAPPING_TERM) {
-                    tap_code(KC_BSPC);
+                if (!nav_e_interrupted && timer_elapsed(nav_e_timer) < TAPPING_TERM) {
+                    tap_code(KC_E);
+                }
+            }
+            return false;
+        case TH_DEL_MEH:
+            if (record->event.pressed) {
+                del_meh_pressed = true;
+                del_meh_hold = false;
+                del_meh_interrupted = false;
+                del_meh_timer = timer_read();
+            } else {
+                del_meh_pressed = false;
+                if (del_meh_hold) {
+                    unregister_mods(MEH_MASK);
+                } else if (!del_meh_interrupted && timer_elapsed(del_meh_timer) < TAPPING_TERM) {
+                    tap_code(KC_DEL);
                 }
             }
             return false;
@@ -353,15 +363,16 @@ void matrix_scan_user(void) {
         activate_hud_hold();
     }
 
-    if (num_pressed && !num_hold && timer_elapsed(num_timer) >= TAPPING_TERM) {
-        activate_num_hold();
+    if (num_l_pressed && !num_l_hold && timer_elapsed(num_l_timer) >= TAPPING_TERM) {
+        activate_num_l_hold();
     }
 
-    for (uint8_t i = 0; i < ARRAY_SIZE(custom_modtaps); i++) {
-        custom_modtap_t *mt = &custom_modtaps[i];
-        if (mt->pressed && !mt->hold && timer_elapsed(mt->timer) >= TAPPING_TERM) {
-            activate_custom_modtap_hold(mt);
-        }
+    if (num_r_pressed && !num_r_hold && timer_elapsed(num_r_timer) >= TAPPING_TERM) {
+        activate_num_r_hold();
+    }
+
+    if (del_meh_pressed && !del_meh_hold && timer_elapsed(del_meh_timer) >= TAPPING_TERM) {
+        activate_del_meh_hold();
     }
 }
 

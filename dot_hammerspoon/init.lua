@@ -8,6 +8,13 @@ local layer_images = {
     [3] = image_dir .. "/layer3.png",
 }
 
+local layer_names = {
+    [0] = "Base",
+    [1] = "NumSym",
+    [2] = "NavFn",
+    [3] = "Game",
+}
+
 local signal_to_layer = {
     ["f17"] = 0,
     ["f18"] = 1,
@@ -214,7 +221,7 @@ local function ensure_overlay(layer)
     if not image_exists(image_path) then
         hs.notify.new({
             title = "Corne HUD",
-            informativeText = "Missing image: " .. image_path,
+            informativeText = "Missing image for " .. (layer_names[layer] or tostring(layer)) .. ": " .. image_path,
         }):send()
         return false
     end
@@ -322,5 +329,5 @@ end
 
 hs.notify.new({
     title = "Corne HUD",
-    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Signals: F17/F18/F19/F23 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
+    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Layers: Base/NumSym/NavFn/Game. Signals: F17/F18/F19/F23 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
 }):send()
