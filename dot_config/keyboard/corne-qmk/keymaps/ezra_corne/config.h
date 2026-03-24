@@ -1,6 +1,7 @@
 #pragma once
 
 #define TAPPING_TERM 175
+#define COMBO_TERM 250
 #define PERMISSIVE_HOLD
 #define EE_HANDS
 

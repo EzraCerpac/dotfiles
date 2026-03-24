@@ -14,9 +14,11 @@ enum custom_keycodes {
     TH_HUD_MEH,
     TH_HYP_NUM,
     TH_NUM_BSPC,
+    NUM_LOCK_SWITCH,
     TH_NAV_S,
     TH_NAV_E,
     TH_DEL_MEH,
+    GAME_EXIT,
 };
 
 #define HRM_A LGUI_T(KC_A)
@@ -26,16 +28,19 @@ enum custom_keycodes {
 #define HRM_I RALT_T(KC_I)
 #define HRM_O RGUI_T(KC_O)
 
-#define MEH_MASK (MOD_BIT(KC_LCTL) | MOD_BIT(KC_LALT) | MOD_BIT(KC_LSFT))
+#define MEH_MASK (MOD_BIT(KC_LCTL) | MOD_BIT(KC_LALT) | MOD_BIT(KC_LGUI))
 
 enum combos {
-    GAME_MODE_COMBO,
+    GAME_MODE_COMBO_BASE,
+    GAME_MODE_COMBO_GAME,
 };
 
-const uint16_t PROGMEM game_mode_combo[] = {TH_HYP_NUM, TH_NUM_BSPC, COMBO_END};
+const uint16_t PROGMEM game_mode_combo_base[] = {TH_HUD_MEH, TH_DEL_MEH, COMBO_END};
+const uint16_t PROGMEM game_mode_combo_game[] = {KC_LCTL, KC_RALT, COMBO_END};
 
 combo_t key_combos[] = {
-    [GAME_MODE_COMBO] = COMBO_ACTION(game_mode_combo),
+    [GAME_MODE_COMBO_BASE] = COMBO_ACTION(game_mode_combo_base),
+    [GAME_MODE_COMBO_GAME] = COMBO_ACTION(game_mode_combo_game),
 };
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -47,9 +52,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [_NUM_SYM] = LAYOUT_split_3x6_3(
-        KC_LPRN, KC_RPRN, KC_LBRC, KC_RBRC, KC_LCBR, KC_RCBR, KC_EQL,  KC_7,    KC_8,    KC_9,    KC_ASTR, KC_PLUS,
-        KC_EXLM, KC_AT,   KC_HASH, KC_DLR,  KC_PERC, KC_CIRC, KC_COLN, KC_4,    KC_5,    KC_6,    KC_SLSH, KC_MINS,
-        KC_UNDS, KC_PIPE, KC_BSLS, KC_GRV,  KC_TILD, KC_QUES, KC_SCLN, KC_1,    KC_2,    KC_3,    KC_0,    KC_DOT,
+        KC_LPRN, KC_RPRN, KC_LBRC, KC_RBRC, KC_LCBR, KC_RCBR, KC_ASTR, KC_7,         KC_8,         KC_9,          KC_EQL,          NUM_LOCK_SWITCH,
+        KC_EXLM, LGUI_T(KC_AT), LALT_T(KC_HASH), KC_DLR,  LCTL_T(KC_PERC), KC_CIRC, KC_SLSH, RCTL_T(KC_4), KC_5, RALT_T(KC_6), RGUI_T(KC_MINS), KC_PLUS,
+        KC_UNDS, KC_PIPE, KC_BSLS, KC_GRV,  KC_TILD, KC_AMPR, KC_0,    KC_1,         KC_2,         KC_3,          KC_COMM,         KC_DOT,
                                    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     ),
 
@@ -61,10 +66,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [_GAME] = LAYOUT_split_3x6_3(
-        KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_PGUP,
+        KC_TAB,  KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ENT,
         KC_ESC,  KC_A,    KC_S,    KC_D,    KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
-        KC_NUBS, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_PGDN,
-                                   KC_LCTL, KC_LSFT, KC_SPC,  KC_BSPC, KC_RALT, KC_DEL
+        KC_NUBS, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, GAME_EXIT,
+                                   KC_LCTL, KC_LSFT, KC_LGUI, MO(_NUM_SYM), KC_SPC, KC_RALT
     )
 };
 
@@ -98,6 +103,7 @@ static uint16_t del_meh_timer = 0;
 
 static uint8_t nav_hold_refs = 0;
 static uint8_t num_hold_refs = 0;
+static bool num_locked = false;
 static uint8_t previous_hud_layer = _BASE;
 
 static void activate_hud_hold(void) {
@@ -126,7 +132,7 @@ static void num_layer_ref_dec(void) {
         return;
     }
     num_hold_refs--;
-    if (num_hold_refs == 0) {
+    if (num_hold_refs == 0 && !num_locked) {
         layer_off(_NUM_SYM);
     }
 }
@@ -290,6 +296,20 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 }
             }
             return false;
+        case NUM_LOCK_SWITCH:
+            if (!record->event.pressed) {
+                return false;
+            }
+            if (num_locked) {
+                num_locked = false;
+                if (num_hold_refs == 0) {
+                    layer_off(_NUM_SYM);
+                }
+            } else {
+                num_locked = true;
+                layer_on(_NUM_SYM);
+            }
+            return false;
         case TH_NAV_S:
             if (record->event.pressed) {
                 nav_s_pressed = true;
@@ -331,6 +351,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 } else if (!del_meh_interrupted && timer_elapsed(del_meh_timer) < TAPPING_TERM) {
                     tap_code(KC_DEL);
                 }
+            }
+            return false;
+        case GAME_EXIT:
+            if (record->event.pressed) {
+                set_single_persistent_default_layer(_BASE);
             }
             return false;
     }
@@ -382,7 +407,8 @@ void process_combo_event(uint16_t combo_index, bool pressed) {
     }
 
     switch (combo_index) {
-        case GAME_MODE_COMBO:
+        case GAME_MODE_COMBO_BASE:
+        case GAME_MODE_COMBO_GAME:
             toggle_game_mode();
             break;
     }
