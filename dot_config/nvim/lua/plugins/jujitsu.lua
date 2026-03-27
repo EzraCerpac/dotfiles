@@ -33,6 +33,29 @@ return {
     },
   },
   {
+    dir = vim.fn.expand("~/Projects/jj-waltz.nvim"),
+    name = "jj-waltz.nvim",
+    main = "jj-waltz",
+    cmd = {
+      "JwPick",
+      "JwSwitch",
+      "JwCurrent",
+      "JwRoot",
+      "JwPath",
+      "JwRemove",
+      "JwRemoveKeepDir",
+      "JwPrune",
+      "JwLinksApply",
+      "JwLinksRepair",
+    },
+    keys = {
+      { "<leader>jw", "<cmd>JwPick<cr>", desc = "jj-waltz picker" },
+    },
+    opts = {
+      jw_cmd = vim.fn.expand("~/.local/bin/jw"),
+    },
+  },
+  {
     -- https://github.com/NicolasGB/jj.nvim
     "nicolasgb/jj.nvim",
     dependencies = {
