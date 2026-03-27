@@ -1,49 +1,10 @@
 [tools]
-# Keyboard firmware toolchain is managed via Homebrew:
-# qmk, arm-none-eabi-gcc@9, arm-none-eabi-binutils, avr-gcc, dos2unix
+# Version-sensitive runtimes and pinned tools only.
 
-# Core runtimes
-node = "lts"
 rust = "latest"
 uv = "latest"
 
-# Editor
-neovim = "nightly"  # need 0.12+ features
-
-# Shell & prompt
-starship = "latest"
-atuin = "latest"
-zoxide = "latest"
-carapace = "latest"
-
-# Search & file tools
-fzf = "latest"
-ripgrep = "latest"
-fd = "latest"
-bat = "latest"
-eza = "latest"
-yazi = "latest"
-
-# Git tools
-delta = "latest"
-gh = "latest"
-jj = "latest"
-jjui = "latest"
-lazygit = "latest"
-gitui = "latest"
-"cargo:worktrunk" = "latest"
-"github:dlvhdr/diffnav" = "latest"
-
-# Utilities
-jq = "latest"
-gum = "latest"
-tmux = "latest"
-usage = "latest"
-"npm:@openai/codex" = "latest"
-"github:steipete/imsg" = "latest"
-pnpm = "latest"
-gemini = "latest"
-bun = "latest"
+neovim = "nightly"
 
 [tools.julia]
 version = "1.12.5"

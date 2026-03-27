@@ -8,7 +8,14 @@ echo "Setting up shell configuration..."
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
-CURRENT_USER_SHELL="$(dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}' || true)"
+CURRENT_USER_SHELL=""
+if [[ "${OSTYPE}" == darwin* ]]; then
+    CURRENT_USER_SHELL="$(dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}' || true)"
+elif command -v getent &>/dev/null; then
+    CURRENT_USER_SHELL="$(getent passwd "${USER}" | cut -d: -f7 || true)"
+else
+    CURRENT_USER_SHELL="${SHELL:-}"
+fi
 
 # Add fish to /etc/shells if missing
 if command -v fish &>/dev/null; then
@@ -32,7 +39,7 @@ fi
 
 # Hint about mise activation
 if command -v mise &>/dev/null; then
-    echo "mise is installed. Tools managed via ~/.config/mise/config.toml"
+    echo "mise is installed. Versioned tools are managed via ~/.config/mise/config.toml"
 fi
 
 echo "Shell setup complete"

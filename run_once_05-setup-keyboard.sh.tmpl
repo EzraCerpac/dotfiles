@@ -7,8 +7,9 @@ set -euo pipefail
 echo "Setting up keyboard development environment..."
 
 if ! command -v kbd-setup &>/dev/null; then
-    echo "kbd-setup command not found yet; run chezmoi apply once more after scripts are installed."
-    exit 0
+    echo "kbd-setup command not found."
+    echo "Apply the dotfiles first so the helper script is installed, then rerun keyboard setup manually."
+    exit 1
 fi
 
 kbd-setup

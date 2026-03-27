@@ -101,10 +101,9 @@
 	remote = yellow
 	upstream = green
 	plain = blue
+{{- if eq .chezmoi.os "darwin" }}
 [credential]
-	helper = store
-	helper = store
-	helper = store
-	helper = --add
+	helper = osxkeychain
+{{- end }}
 [submodule]
 	recurse = true

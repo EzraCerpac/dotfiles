@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/). Works on macOS and Linux.
+Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/). Supports Apple Silicon macOS and Linux. Intel macOS is intentionally unsupported.
 
 ## Quick Start
 
@@ -8,13 +8,13 @@ Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/). Works on macO
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 ```
 
-This installs chezmoi, clones the repo, bootstraps package managers, installs tools via mise, and applies all configs.
+This installs chezmoi, clones the repo, bootstraps package managers, installs core tools with `brew` or `apt`, installs versioned runtimes with `mise`, and applies all configs.
 
 ## What's Included
 
 **Shell**: fish, starship prompt, atuin history, zoxide, fzf, carapace completions
 
-**Editor**: neovim (LazyVim), zed
+**Editor**: neovim (LazyVim)
 
 **Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
@@ -22,15 +22,15 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs to
 
 ## Tool Management
 
-**mise** is the single source of truth for all tools (`~/.config/mise/config.toml`). It handles runtimes (node, rust), CLI tools (fzf, ripgrep, bat, etc.), and even manages itself (chezmoi, uv). mise supports multiple backends (aqua, cargo, github, ubi) so nearly everything installs through it.
+`brew` on macOS and `apt-get` on Linux install the general-purpose CLI tools and system dependencies used day to day.
 
-**brew/apt-get** only install system-level packages that mise can't: `fish`, `gnupg`, `curl`, `wget`, `htop`, `tree`, `sshpass` (and `build-essential`, `git`, `unzip` on Linux).
+`mise` is reserved for versioned runtimes and a small set of tools where pinning matters (`~/.config/mise/config.toml`). Today that mainly means Neovim nightly, Rust, UV, and Julia.
 
 Review defaults:
 
 - `git diff` opens in `diffnav --side-by-side`
 - `git show` and embedded diff views use `delta --side-by-side --paging=never`
-- `wt` is installed via mise and initialized in both fish and zsh
+- `wt` is installed via Homebrew and initialized in fish
 - `jw` is built from the local `~/Projects/jj-waltz` checkout and shell-initialized in fish and zsh
 - `jj-waltz` skill content is sourced from `~/Projects/jj-waltz/skills/jj-waltz` and auto-synced on `chezmoi apply` to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
@@ -41,14 +41,14 @@ Review defaults:
 ```
 dot_config/                          → ~/.config/
   fish/config.fish.tmpl              → fish shell (cross-platform template)
-  mise/config.toml                   → mise tool manifest
+  mise/config.toml                   → versioned runtimes and pinned tools
   nvim/                              → neovim config
   git/, jj/, starship.toml, ...     → other tool configs
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
-run_once_03-install-tools.sh.tmpl       → system packages + mise install
+run_once_03-install-tools.sh.tmpl       → install general CLI tools via brew/apt, then versioned tools via mise
 run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, alt-tab, hammerspoon)
-run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (qmk_firmware)
+run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd-setup exists)
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
 run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + daemon
@@ -108,7 +108,8 @@ and stops for manual `chezmoi merge` if any other destination drift is present.
 
 ## Cross-Platform Notes
 
+- Intel macOS is not supported; Homebrew paths and bootstrap scripts assume Apple Silicon macOS when `chezmoi.os == "darwin"`
 - macOS-only configs (aerospace, alt-tab, sketchybar, karabiner, raycast, wezterm) are ignored on Linux via `.chezmoiignore`
 - Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
 - On Linux, system packages install via `apt-get`; on macOS, via `brew`
-- All other tools install identically via mise on both platforms
+- `mise` is used only for version-sensitive runtimes and pinned tools, not as the universal installer
