@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CHEZMOI_SOURCE="$(chezmoi source-path)"
+CHEZMOI_SOURCE="${CHEZMOI_SOURCE_DIR:-${HOME}/.local/share/chezmoi}"
+if [[ ! -d "${CHEZMOI_SOURCE}" ]]; then
+    CHEZMOI_SOURCE="$(chezmoi source-path)"
+fi
 SOURCE_SKILL="${HOME}/Projects/jj-waltz/skills/jj-waltz"
 DEST_SKILLS=(
     "${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz"

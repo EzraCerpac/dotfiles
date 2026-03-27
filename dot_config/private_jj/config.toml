@@ -5,11 +5,14 @@ name = "Ezra Cerpac"
 email = "e.cerpac@icloud.com"
 
 [ui]
-default-command = ["log", "--reversed"]
+default-command = ["log"]
 paginate = "never"
 editor = "nvim +startinsert"
 merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
+
+[aliases]
+d = ["util", "exec", "--", "bash", "-lc", "jj diff --git \"$@\" | diffnav --side-by-side", ""]
 
 [template-aliases]
 "format_short_signature(signature)"= "signature.email().local()"
