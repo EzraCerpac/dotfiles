@@ -3,29 +3,31 @@
 set -euo pipefail
 
 # Bootstrap package managers (idempotent)
-# mise handles everything (including rust, uv, cargo tools via backends)
-# brew/apt only for system-level packages mise can't install
+# Homebrew/apt install general tools; mise is only for versioned runtimes/tools
 
 echo "Installing package managers..."
 
 {{- if eq .chezmoi.os "darwin" }}
 
 # --- Homebrew (macOS only) ---
+if [[ "$(uname -m)" != "arm64" ]]; then
+    echo "This dotfiles repo supports Apple Silicon macOS only."
+    exit 1
+fi
+
 if ! command -v brew &>/dev/null; then
     echo "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
-if [[ $(arch) == "arm64" ]]; then
+if [[ -x /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [[ $(arch) == "i386" ]]; then
-    eval "$(/usr/local/bin/brew shellenv)"
 fi
 echo "Homebrew ready"
 
 # --- mise (via brew on macOS — auto-activates in fish) ---
 if ! command -v mise &>/dev/null; then
     echo "Installing mise via Homebrew..."
-    brew install mise
+    /opt/homebrew/bin/brew install mise
 fi
 echo "mise ready"
 
@@ -44,7 +46,7 @@ echo "chezmoi ready"
 # --- mise (via curl on Linux) ---
 if ! command -v mise &>/dev/null; then
     echo "Installing mise..."
-    curl https://mise.run | sh
+    curl -fsSL https://mise.run | sh
     export PATH="$HOME/.local/bin:$PATH"
 fi
 echo "mise ready"

@@ -1,7 +1,6 @@
 {{- if eq .chezmoi.os "darwin" }}
-# Homebrew (Apple Silicon first)
+# Homebrew (Apple Silicon only)
 fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
-fish_add_path /usr/local/bin /usr/local/sbin # Rosetta fallback only
 {{- end }}
 
 {{- if eq .chezmoi.os "linux" }}
@@ -173,8 +172,9 @@ end
 
 {{- if eq .chezmoi.os "darwin" }}
 # ---------- Homebrew ----------
-alias ibrew='env /usr/bin/arch -x86_64 /usr/local/bin/brew'
-eval (/opt/homebrew/bin/brew shellenv | string collect)
+if test -x /opt/homebrew/bin/brew
+    eval (/opt/homebrew/bin/brew shellenv | string collect)
+end
 fish_add_path -m -p $HOME/.local/bin
 
 # ---------- DBUS ----------

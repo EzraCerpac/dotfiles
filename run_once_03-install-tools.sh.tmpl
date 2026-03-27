@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Install tools: system packages via brew/apt, everything else via mise
+# Install tools: general CLI tools via brew/apt, version-sensitive tools via mise
 
 echo "Installing tools..."
 
@@ -12,30 +12,26 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 {{- if eq .chezmoi.os "darwin" }}
 
-BREW_BIN=""
-if [[ -x /opt/homebrew/bin/brew ]]; then
-    BREW_BIN="/opt/homebrew/bin/brew"
-elif [[ -x /usr/local/bin/brew ]]; then
-    BREW_BIN="/usr/local/bin/brew"
-elif command -v brew &>/dev/null; then
-    BREW_BIN="$(command -v brew)"
-fi
+BREW_BIN="/opt/homebrew/bin/brew"
 
-if [[ -n "${BREW_BIN}" ]]; then
-    # Always use ARM brew on Apple Silicon, regardless of how the shell is running
+if [[ -x "${BREW_BIN}" ]]; then
     eval "$("${BREW_BIN}" shellenv)"
     "${BREW_BIN}" tap qmk/qmk || true
     "${BREW_BIN}" tap osx-cross/arm || true
     "${BREW_BIN}" tap osx-cross/avr || true
-    echo "Installing system packages via Homebrew..."
+    echo "Installing tools via Homebrew..."
     "${BREW_BIN}" install \
-        fish gnupg curl wget htop tree sshpass node kanata gitlogue \
-        poppler \
+        atuin bat carapace curl delta eza fd fish fzf gh gitlogue gnupg gum htop \
+        jj jjui jq kanata lazygit librsvg poppler ripgrep sshpass starship tmux tree \
+        wget yazi zoxide \
+        node pnpm \
         qmk/qmk/qmk dos2unix \
-        librsvg \
         osx-cross/avr/avr-gcc@9 \
         osx-cross/arm/arm-none-eabi-binutils \
-        osx-cross/arm/arm-none-eabi-gcc@9
+        osx-cross/arm/arm-none-eabi-gcc@9 \
+        worktrunk \
+        usage
+
 else
     echo "Warning: Homebrew not found, skipping system packages"
 fi
@@ -48,33 +44,41 @@ if command -v apt-get &>/dev/null; then
     echo "Installing system packages via apt-get..."
     sudo apt-get update -qq
     sudo apt-get install -y \
-        fish \
+        bat \
         build-essential \
         curl \
-        wget \
-        htop \
-        tree \
-        sshpass \
-        unzip \
-        gnupg \
+        fd-find \
+        fish \
+        fzf \
         git \
-        poppler-utils
+        gnupg \
+        htop \
+        jq \
+        poppler-utils \
+        ripgrep \
+        sshpass \
+        tmux \
+        tree \
+        unzip \
+        wget
 else
     echo "Warning: apt-get not found, skipping system packages"
 fi
 
 {{- end }}
 
-# --- Everything else via mise (single source of truth) ---
+# --- Versioned runtimes and pinned tools via mise ---
 # Tools defined in ~/.config/mise/config.toml
 
 if command -v mise &>/dev/null; then
-    echo "Installing tools via mise..."
+    echo "Installing versioned tools via mise..."
     mise install --yes
     echo "mise tools installed"
 
-    if command -v uv &>/dev/null; then
-        uv tool install --upgrade keymap-drawer || true
+    if mise exec uv -- uv tool install --upgrade keymap-drawer; then
+        echo "keymap-drawer installed via uv"
+    else
+        echo "Warning: could not install keymap-drawer via uv"
     fi
 
 else
@@ -84,7 +88,16 @@ fi
 JJ_WALTZ_DIR="$HOME/Projects/jj-waltz"
 if [[ -f "$JJ_WALTZ_DIR/Cargo.toml" ]]; then
     echo "Building local jj-waltz from $JJ_WALTZ_DIR..."
-    cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    if command -v cargo &>/dev/null; then
+        cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    elif command -v mise &>/dev/null; then
+        mise exec rust -- cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    else
+        echo "Warning: cargo not found, skipping local jw build"
+        echo "Install Rust or keep it in mise to enable the local jw build"
+        echo "Tools installation complete"
+        exit 0
+    fi
     mkdir -p "$HOME/.local/bin"
     ln -sf "$JJ_WALTZ_DIR/target/release/jw" "$HOME/.local/bin/jw"
     echo "jj-waltz installed to ~/.local/bin/jw"
