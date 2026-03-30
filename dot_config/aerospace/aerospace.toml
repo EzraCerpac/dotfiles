@@ -88,6 +88,8 @@ cmd-ctrl-alt-shift-right = "move right"
 # Resize
 cmd-ctrl-alt-shift-minus = "resize smart -50"
 cmd-ctrl-alt-shift-equal = "resize smart +50"
+cmd-ctrl-alt-equal = "resize smart +50"
+cmd-ctrl-alt-minus = "resize smart -50"
 cmd-ctrl-alt-shift-0 = "balance-sizes"
 
 # Workspaces
