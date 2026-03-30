@@ -1,5 +1,5 @@
 model = "gpt-5.4"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "danger-full-access"
 approval_policy = "never"
@@ -85,9 +85,24 @@ path = "/Users/ezracerpac/.codex/skills/.system/skill-installer/SKILL.md"
 enabled = false
 
 [[skills.config]]
+name = "github:gh-address-comments"
+enabled = false
+
+[[skills.config]]
 path = "/Users/ezracerpac/.codex/skills/.system/imagegen/SKILL.md"
+enabled = false
+
+[[skills.config]]
+name = "github:yeet"
+enabled = false
+
+[[skills.config]]
+name = "github:gh-fix-ci"
 enabled = false
 
 [[skills.config]]
 path = "/Users/ezracerpac/.codex/skills/.system/plugin-creator/SKILL.md"
 enabled = false
+
+[plugins."github@openai-curated"]
+enabled = true
