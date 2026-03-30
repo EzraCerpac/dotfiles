@@ -19,7 +19,7 @@ Corne QMK workflow (programmatic)
 
 5) Flash
    - For correct split handedness, use split flash targets (recommended):
-     - first time only: from ~/.local/share/chezmoi run `mise trust`
+     - if this checkout is not trusted yet: from ~/.local/share/chezmoi run `mise trust`
      - from ~/.local/share/chezmoi: mise run kbd_flash_left
      - from ~/.local/share/chezmoi: mise run kbd_flash_right
    - Or direct commands:
@@ -40,3 +40,4 @@ Corne QMK workflow (programmatic)
 
 7) Keep source keymap authoritative
    - Main source: ~/.config/keyboard/corne-qmk/keymaps/ezra_corne/
+   - Repos under ~/Projects are auto-trusted by mise via ~/.config/mise/config.toml

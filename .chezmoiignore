@@ -11,6 +11,7 @@ backups/**
 dot_config/nvim/lazy-lock.json
 dot_config/nvim/lazyvim.json
 dot_config/nvim/spell/
+mise.toml
 setup.sh.backup
 
 {{- if eq .chezmoi.os "linux" }}

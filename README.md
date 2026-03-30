@@ -71,15 +71,25 @@ Commands:
 - `kbd-hud-reload` → reload Hammerspoon HUD overlay
 - `kbd-open-artifacts` → open UF2 artifact folder in Finder
 
-`mise run` tasks are available only from the repo-local [`mise.toml`](mise.toml), so run them from this chezmoi checkout (for example `cd ~/.local/share/chezmoi && mise trust && mise run kbd_flash_left`).
+`mise run` keyboard tasks are defined in the source repo's repo-local [`mise.toml`](mise.toml), and `.chezmoiignore` keeps that file from being deployed to `~/mise.toml`. Run them from this chezmoi checkout, not from arbitrary directories.
 
-If `kbd_*` tasks show up from unrelated directories, remove any legacy home-level task files first:
+`~/Projects` is auto-trusted via `~/.config/mise/config.toml`, so project repos under that tree do not need manual `mise trust`.
+
+This chezmoi checkout is intentionally not auto-trusted. If needed, trust it explicitly before running repo-local keyboard tasks:
+
+```bash
+cd ~/.local/share/chezmoi
+mise trust
+mise run kbd_flash_left
+```
+
+If you still have a legacy home-level `mise` task file from the old setup, remove it once:
 
 ```bash
 rm -f ~/mise.toml ~/.mise.toml
 ```
 
-After that cleanup, the keyboard tasks should only appear when your current directory is this chezmoi checkout.
+After cleanup, the keyboard tasks should only appear when your current directory is this chezmoi checkout.
 
 Available repo-local tasks:
 
@@ -91,6 +101,8 @@ Available repo-local tasks:
 - `mise run kbd_build_right`
 - `mise run kbd_flash_left`
 - `mise run kbd_flash_right`
+- `mise run kbd_hud`
+- `mise run kbd_images`
 
 ## Adding/Editing Configs
 
