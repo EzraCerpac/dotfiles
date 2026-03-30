@@ -85,10 +85,6 @@ path = "/Users/ezracerpac/.codex/skills/.system/skill-installer/SKILL.md"
 enabled = false
 
 [[skills.config]]
-name = "github:gh-address-comments"
-enabled = false
-
-[[skills.config]]
 path = "/Users/ezracerpac/.codex/skills/.system/imagegen/SKILL.md"
 enabled = false
 
