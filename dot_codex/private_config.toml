@@ -89,16 +89,5 @@ path = "/Users/ezracerpac/.codex/skills/.system/imagegen/SKILL.md"
 enabled = false
 
 [[skills.config]]
-name = "github:yeet"
-enabled = false
-
-[[skills.config]]
-name = "github:gh-fix-ci"
-enabled = false
-
-[[skills.config]]
 path = "/Users/ezracerpac/.codex/skills/.system/plugin-creator/SKILL.md"
 enabled = false
-
-[plugins."github@openai-curated"]
-enabled = true
