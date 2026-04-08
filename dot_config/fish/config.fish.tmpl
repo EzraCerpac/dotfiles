@@ -179,6 +179,7 @@ alias grealpath realpath
 # OpenClaw Completion (lazy-loaded to speed up shell startup)
 function __openclaw_lazy_load --on-event fish_preexec
     string match -q "openclaw*" -- $argv[1]
+    and type -q openclaw
     and openclaw completion --shell fish 2>/dev/null | source
     and functions --erase __openclaw_lazy_load
 end
