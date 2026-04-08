@@ -24,11 +24,11 @@ catch e
     @warn "Error initializing Cthulhu in startup.jl" exception = (e, catch_backtrace())
 end
 
-try
-    using AbbreviatedStackTraces
-catch e
-    @warn "Error initializing AbbreviatedStackTraces in startup.jl" exception = (e, catch_backtrace())
-end
+#= try =#
+#=     using AbbreviatedStackTraces =#
+#= catch e =#
+#=     @warn "Error initializing AbbreviatedStackTraces in startup.jl" exception = (e, catch_backtrace()) =#
+#= end =#
 
 try
     using BenchmarkTools
