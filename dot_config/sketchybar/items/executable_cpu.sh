@@ -3,6 +3,7 @@
 # Add CPU item with black and white nerd font icon
 sketchybar --add item cpu right \
   --set cpu icon=󰻠 \
+             icon.font="Hack Nerd Font:Bold:17.0" \
              icon.color=$WHITE \
              label.color=$WHITE \
              label.shadow.drawing=off \

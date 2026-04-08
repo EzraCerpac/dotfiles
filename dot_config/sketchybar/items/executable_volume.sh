@@ -5,6 +5,7 @@
 # Base volume item (icon + numeric label)
 sketchybar --add item volume right \
            --set volume script="$PLUGIN_DIR/volume.sh" \
+                     icon.font="Hack Nerd Font:Bold:17.0" \
                      icon.color=$WHITE \
                      label.color=$WHITE \
                      label.shadow.drawing=off \
