@@ -4,6 +4,11 @@ set -euo pipefail
 
 {{- if eq .chezmoi.os "darwin" }}
 
+{{- if (index . "skipKeyboardSetup") }}
+echo "Skipping keyboard development setup on this machine."
+exit 0
+{{- end }}
+
 echo "Setting up keyboard development environment..."
 
 if ! command -v kbd-setup &>/dev/null; then

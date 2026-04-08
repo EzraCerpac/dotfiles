@@ -1,4 +1,4 @@
-model = "gpt-5.3-codex"
+model = "gpt-5.4"
 model_reasoning_effort = "medium"
 personality = "pragmatic"
 sandbox_mode = "danger-full-access"
@@ -20,8 +20,12 @@ trust_level = "trusted"
 [projects."/Users/ezracerpac/Projects/Courses/ScientificComputing"]
 trust_level = "trusted"
 
+[projects."/Users/ezracerpac"]
+trust_level = "trusted"
+
 [notice.model_migrations]
 "gpt-5.2-codex" = "gpt-5.3-codex"
+"gpt-5.3-codex" = "gpt-5.4"
 
 [features]
 apps = true
@@ -34,3 +38,9 @@ disabled_reason = "user"
 [apps.connector_947e0d954944416db111db556030eea6]
 enabled = false
 disabled_reason = "user"
+
+[plugins."google-calendar@openai-curated"]
+enabled = true
+
+[plugins."github@openai-curated"]
+enabled = true

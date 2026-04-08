@@ -24,10 +24,18 @@ fi
 if [[ -n "${BREW_BIN}" ]]; then
     # Always use ARM brew on Apple Silicon, regardless of how the shell is running
     eval "$("${BREW_BIN}" shellenv)"
+    {{- if not (index . "skipKeyboardSetup") }}
     "${BREW_BIN}" tap qmk/qmk || true
     "${BREW_BIN}" tap osx-cross/arm || true
     "${BREW_BIN}" tap osx-cross/avr || true
+    {{- end }}
     echo "Installing system packages via Homebrew..."
+    {{- if (index . "skipKeyboardSetup") }}
+    "${BREW_BIN}" install \
+        fish gnupg curl wget htop tree node \
+        dos2unix \
+        librsvg
+    {{- else }}
     "${BREW_BIN}" install \
         fish gnupg curl wget htop tree node \
         qmk/qmk/qmk dos2unix \
@@ -35,6 +43,7 @@ if [[ -n "${BREW_BIN}" ]]; then
         osx-cross/avr/avr-gcc@9 \
         osx-cross/arm/arm-none-eabi-binutils \
         osx-cross/arm/arm-none-eabi-gcc@9
+    {{- end }}
 else
     echo "Warning: Homebrew not found, skipping system packages"
 fi
@@ -70,9 +79,11 @@ if command -v mise &>/dev/null; then
     mise install --yes
     echo "mise tools installed"
 
+    {{- if not (index . "skipKeyboardSetup") }}
     if command -v uv &>/dev/null; then
         uv tool install --upgrade keymap-drawer || true
     fi
+    {{- end }}
 
 else
     echo "Warning: mise not found, skipping mise tools"
