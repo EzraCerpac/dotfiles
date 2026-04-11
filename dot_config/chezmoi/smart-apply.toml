@@ -1,5 +1,10 @@
 allowlist = [
     "~/.codex/config.toml",
     "~/.config/fish/fish_variables",
-  "~/.config/gitlogue-saver/config.toml",
+    "~/.config/gitlogue-saver/config.toml",
+]
+
+overwrite_allowlist = [
+    "~/.config/fish/config.fish",
+    "~/.config/mise/config.toml",
 ]

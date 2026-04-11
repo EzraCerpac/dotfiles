@@ -1,0 +1,60 @@
+display-name = "Ezra Cerpac"
+downloads-dir = "~/Downloads"
+
+[accounts.icloud]
+default = true
+email = "e.cerpac@icloud.com"
+display-name = "Ezra Cerpac"
+downloads-dir = "/Users/ezracerpac/Downloads"
+backend.type = "imap"
+backend.host = "imap.mail.me.com"
+backend.port = 993
+backend.login = "e.cerpac@icloud.com"
+backend.encryption.type = "tls"
+backend.auth.type = "password"
+backend.auth.command = "security find-generic-password -a e.cerpac@icloud.com -s himalaya-icloud-e.cerpac@icloud.com -w"
+message.send.backend.type = "smtp"
+message.send.backend.host = "smtp.mail.me.com"
+message.send.backend.port = 587
+message.send.backend.login = "e.cerpac@icloud.com"
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.command = "security find-generic-password -a e.cerpac@icloud.com -s himalaya-icloud-e.cerpac@icloud.com -w"
+
+[accounts.tuberlin]
+email = "e.cerpac@campus.tu-berlin.de"
+display-name = "Ezra Cerpac"
+downloads-dir = "/Users/ezracerpac/Downloads"
+backend.type = "imap"
+backend.host = "mail.tu-berlin.de"
+backend.port = 993
+backend.login = "ezracerpac"
+backend.encryption.type = "tls"
+backend.auth.type = "password"
+backend.auth.command = "security find-generic-password -a ezracerpac -s himalaya-tuberlin-ezracerpac -w"
+message.send.backend.type = "smtp"
+message.send.backend.host = "mail.tu-berlin.de"
+message.send.backend.port = 587
+message.send.backend.login = "ezracerpac"
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.command = "security find-generic-password -a ezracerpac -s himalaya-tuberlin-ezracerpac -w"
+
+[accounts.tudelft]
+email = "e.cerpac@student.tudelft.nl"
+display-name = "Ezra Cerpac"
+downloads-dir = "/Users/ezracerpac/Downloads"
+backend.type = "imap"
+backend.host = "outlook.office365.com"
+backend.port = 993
+backend.login = "ecerpac@tudelft.nl"
+backend.encryption.type = "tls"
+backend.auth.type = "password"
+backend.auth.command = "security find-generic-password -a ecerpac@tudelft.nl -s himalaya-tudelft-ecerpac -w"
+message.send.backend.type = "smtp"
+message.send.backend.host = "smtp.office365.com"
+message.send.backend.port = 587
+message.send.backend.login = "ecerpac@tudelft.nl"
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.command = "security find-generic-password -a ecerpac@tudelft.nl -s himalaya-tudelft-ecerpac -w"
