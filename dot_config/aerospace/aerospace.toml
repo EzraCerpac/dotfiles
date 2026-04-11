@@ -236,4 +236,9 @@ app-name-regex-substring = "spotify|music"
 [[on-window-detected]]
 run = ["layout floating"]
 [on-window-detected.if]
+app-name-regex-substring = "antinote"
+
+[[on-window-detected]]
+run = ["layout floating"]
+[on-window-detected.if]
 app-name-regex-substring = "weather|contacts"
