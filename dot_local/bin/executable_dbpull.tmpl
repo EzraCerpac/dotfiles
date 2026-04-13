@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "usage: dbpull <remote-subpath> [local-dest]" >&2
+    exit 1
+fi
+
+remote_path="/scratch/${DB_NETID}/$1"
+local_dest="${2:-.}"
+
+exec rsync -avh --progress "${DB_HOST_ALIAS}:${remote_path}" "${local_dest}"

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+if db_is_cluster_host; then
+    exec squeue --me
+fi
+
+exec db_remote "squeue --me"

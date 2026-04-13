@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name=julia-mpi
+#SBATCH --account={{ .delftblue.slurm_account }}
+#SBATCH --partition={{ .delftblue.default_cpu_partition }}
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --time=01:00:00
+#SBATCH --output=%x-%j.out
+
+set -euo pipefail
+
+module load {{ .delftblue.module_stack }} openmpi julia
+
+PROJECT_DIR="${PROJECT_DIR:-$HOME/Projects/replace-me}"
+SCRIPT_PATH="${SCRIPT_PATH:-scripts/run_mpi.jl}"
+
+cd "${PROJECT_DIR}"
+
+julia --project=. -e 'using MPIPreferences; MPIPreferences.use_system_binary()'
+srun julia --project=. "${SCRIPT_PATH}"

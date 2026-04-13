@@ -4,15 +4,17 @@
 	signingkey = D041C1286F71DBDF
 [commit]
 ; 	gpgSign = true
-[includeIf "gitdir:/Users/ezracerpac/PhpstormProjects/"]
-	path = /Users/ezracerpac/PhpstormProjects/.gitconfig
+{{- if ne .profile "delftblue" }}
+[includeIf "gitdir:{{ .chezmoi.homeDir }}/PhpstormProjects/"]
+	path = {{ .chezmoi.homeDir }}/PhpstormProjects/.gitconfig
+{{- end }}
 [filter "lfs"]
 	process = git-lfs filter-process
 	required = true
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
 [core]
-	excludesfile = /Users/ezracerpac/.gitignore
+	excludesfile = {{ .chezmoi.homeDir }}/.gitignore
 	autocrlf = input
 	pager = less --tabs=4 -RFX
 	compression = 9
@@ -38,6 +40,7 @@
 	context = 3
 	renames = copies
 	interHunkContext = 10
+{{- if ne .profile "delftblue" }}
 [merge]
     tool = pycharm
 [mergetool "pycharm"]
@@ -49,6 +52,7 @@
 [delta]
 	side-by-side = true
 	navigate = true
+{{- end }}
 [color "diff"]
 	meta = black bold
 	frag = magenta
@@ -60,7 +64,9 @@
 	maxRequests = 20
 	version = HTTP/1.1
 [interactive]
+{{- if ne .profile "delftblue" }}
 	diffFilter = delta --side-by-side --paging=never
+{{- end }}
 	singleKey = true
 [alias]
 	staash = stash --all

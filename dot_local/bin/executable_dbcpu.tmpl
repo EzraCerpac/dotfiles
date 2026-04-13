@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+time_limit="${1:-00:30:00}"
+cpus="${2:-4}"
+mem="${3:-8G}"
+
+cmd=(
+    srun
+    --account="${DB_SLURM_ACCOUNT}"
+    --partition="${DB_CPU_PARTITION}"
+    --cpus-per-task="${cpus}"
+    --mem="${mem}"
+    --time="${time_limit}"
+    --pty
+    bash -l
+)
+
+if db_is_cluster_host; then
+    exec "${cmd[@]}"
+fi
+
+remote_cmd=$(printf "%q " "${cmd[@]}")
+exec ssh -t "${DB_HOST_ALIAS}" "${remote_cmd% }"

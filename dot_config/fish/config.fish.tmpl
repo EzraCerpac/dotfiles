@@ -1,3 +1,26 @@
+{{- if eq .profile "delftblue" }}
+fish_add_path -m -p $HOME/.local/bin
+
+set -gx EDITOR vim
+set -gx VISUAL $EDITOR
+set -gx GIT_EDITOR $EDITOR
+set -gx DB_MODULE_STACK "{{ .delftblue.module_stack }}"
+set -gx DB_SLURM_ACCOUNT "{{ .delftblue.slurm_account }}"
+set -gx DB_CPU_PARTITION "{{ .delftblue.default_cpu_partition }}"
+set -gx DB_GPU_PARTITION "{{ .delftblue.default_gpu_partition }}"
+set -gx DB_PROJECT_STORAGE_ROOT "{{ .delftblue.project_storage_root }}"
+
+function fish_greeting
+end
+
+function dbmod-julia
+    module load $DB_MODULE_STACK julia
+end
+
+function dbmod-julia-mpi
+    module load $DB_MODULE_STACK openmpi julia
+end
+{{- else }}
 {{- if eq .chezmoi.os "darwin" }}
 # Homebrew (Apple Silicon only)
 fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
@@ -190,4 +213,5 @@ function __openclaw_lazy_load --on-event fish_preexec
     and openclaw completion --shell fish 2>/dev/null | source
     and functions --erase __openclaw_lazy_load
 end
+{{- end }}
 {{- end }}

@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --job-name=julia-cpu
+#SBATCH --account={{ .delftblue.slurm_account }}
+#SBATCH --partition={{ .delftblue.default_cpu_partition }}
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=32G
+#SBATCH --time=02:00:00
+#SBATCH --output=%x-%j.out
+
+set -euo pipefail
+
+module load {{ .delftblue.module_stack }} julia
+
+export JULIA_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+
+PROJECT_DIR="${PROJECT_DIR:-$HOME/Projects/replace-me}"
+SCRIPT_PATH="${SCRIPT_PATH:-scripts/run_large_benchmark.jl}"
+
+cd "${PROJECT_DIR}"
+julia --project=. "${SCRIPT_PATH}"

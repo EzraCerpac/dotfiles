@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+db_require_cluster_host
+
+project_dir="${1:-$PWD}"
+
+module load "${DB_MODULE_STACK}" openmpi julia
+
+cd "${project_dir}"
+
+julia --project=. -e 'using Pkg; Pkg.instantiate(); using MPIPreferences; MPIPreferences.use_system_binary()'
