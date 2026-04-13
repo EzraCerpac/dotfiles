@@ -173,6 +173,7 @@ That layer is still explicit and conservative:
 
 - bootstrap Spack with `dbdev-bootstrap`
 - run `dbdev-bootstrap` on the login node, because compute nodes do not have outbound internet
+- `dbdev-bootstrap` also installs `jj` and `jjui` from their Linux release binaries on the login node
 - install the curated toolset with `dbdev-install` inside `dbcpu`
 - load it only when needed with `dbdev`
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
