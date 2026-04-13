@@ -9,6 +9,7 @@ set -gx DB_SLURM_ACCOUNT "{{ .delftblue.slurm_account }}"
 set -gx DB_CPU_PARTITION "{{ .delftblue.default_cpu_partition }}"
 set -gx DB_GPU_PARTITION "{{ .delftblue.default_gpu_partition }}"
 set -gx DB_PROJECT_STORAGE_ROOT "{{ .delftblue.project_storage_root }}"
+set -gx DB_SPACK_ROOT "$HOME/spack"
 
 function fish_greeting
 end
@@ -19,6 +20,16 @@ end
 
 function dbmod-julia-mpi
     module load $DB_MODULE_STACK openmpi julia
+end
+
+function dbspack
+    echo "Use bash for dbspack/dbdev on DelftBlue; the Spack helper is bash-oriented." >&2
+    return 1
+end
+
+function dbdev
+    echo "Use bash for dbspack/dbdev on DelftBlue; the Spack helper is bash-oriented." >&2
+    return 1
 end
 {{- else }}
 {{- if eq .chezmoi.os "darwin" }}

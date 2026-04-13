@@ -1,3 +1,5 @@
+local delftblue = require("config.delftblue")
+
 return {
   {
     "julienvincent/hunk.nvim",
@@ -12,6 +14,9 @@ return {
   -- Use jjui.nvim to toggle jjui in a floating terminal
   {
     "ReKylee/jjui.nvim",
+    enabled = function()
+      return vim.fn.executable("jjui") == 1
+    end,
     cmd = { "JJUI" },
     keys = {
       { "<leader>jj", "<cmd>JJUI<cr>", desc = "Toggle JJUI" },
@@ -36,6 +41,7 @@ return {
     dir = vim.fn.expand("~/Projects/jj-waltz.nvim"),
     name = "jj-waltz.nvim",
     main = "jj-waltz",
+    enabled = not delftblue.enabled(),
     cmd = {
       "JwPick",
       "JwSwitch",
@@ -58,6 +64,9 @@ return {
   {
     -- https://github.com/NicolasGB/jj.nvim
     "nicolasgb/jj.nvim",
+    enabled = function()
+      return vim.fn.executable("jj") == 1
+    end,
     dependencies = {
       "folke/snacks.nvim", -- Optional only if you use picker's
     },

@@ -15,6 +15,7 @@ export DB_SLURM_ACCOUNT="{{ .delftblue.slurm_account }}"
 export DB_CPU_PARTITION="{{ .delftblue.default_cpu_partition }}"
 export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
+export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
 
 dbmod-julia() {
     module load "$DB_MODULE_STACK" julia
@@ -34,4 +35,52 @@ dbproject() {
         return 1
     fi
     cd "$DB_PROJECT_STORAGE_ROOT"
+}
+
+dbspack() {
+    source "$HOME/.local/bin/db-spack-env.sh"
+}
+
+dbdev() {
+    dbspack || return 1
+
+    if command -v module >/dev/null 2>&1; then
+        module load "$DB_MODULE_STACK" julia >/dev/null 2>&1 || true
+    fi
+
+    local packages=(
+        neovim
+        ripgrep
+        fd
+        fzf
+        tmux
+        bat
+        jq
+        git-delta
+        gh
+        jujutsu
+        lazygit
+        gitui
+        lua-language-server
+        stylua
+        shfmt
+        shellcheck
+        texlab
+        tinymist
+        typst
+    )
+
+    local pkg
+    for pkg in "${packages[@]}"; do
+        spack load --first "$pkg" >/dev/null 2>&1 || true
+    done
+
+    export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+
+    if [[ $# -gt 0 ]]; then
+        "$@"
+        return $?
+    fi
+
+    echo "DelftBlue dev environment loaded in the current shell."
 }

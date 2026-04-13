@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "source ~/.local/bin/db-spack-env.sh" >&2
+    exit 1
+fi
+
+if command -v module >/dev/null 2>&1; then
+    module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
+fi
+
+DB_SPACK_ROOT="${DB_SPACK_ROOT:-${HOME}/spack}"
+export DB_SPACK_ROOT
+
+if [[ ! -f "${DB_SPACK_ROOT}/share/spack/setup-env.sh" ]]; then
+    echo "Spack is not bootstrapped yet. Run dbdev-bootstrap first." >&2
+    return 1
+fi
+
+# shellcheck source=/dev/null
+source "${DB_SPACK_ROOT}/share/spack/setup-env.sh"
+
+DB_DEV_ENV_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/delftblue/spack/dev"
+export DB_DEV_ENV_DIR
+
+if [[ -f "${DB_DEV_ENV_DIR}/spack.yaml" ]]; then
+    spack env activate "${DB_DEV_ENV_DIR}" >/dev/null
+fi
