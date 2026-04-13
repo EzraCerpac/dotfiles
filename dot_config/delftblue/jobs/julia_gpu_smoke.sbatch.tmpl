@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name=julia-gpu-smoke
+#SBATCH --account={{ .delftblue.slurm_account }}
+#SBATCH --partition={{ .delftblue.default_gpu_partition }}
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --gpus-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
+#SBATCH --time=00:15:00
+#SBATCH --output=%x-%j.out
+
+set -euo pipefail
+
+module load {{ .delftblue.module_stack }} julia cuda
+
+PROJECT_DIR="${PROJECT_DIR:-$HOME/Projects/replace-me}"
+
+cd "${PROJECT_DIR}"
+julia --project=. -e 'using CUDA; CUDA.versioninfo()'

@@ -130,9 +130,9 @@ cmd-ctrl-alt-shift-6 = "move-node-to-workspace 6 --focus-follows-window"
 cmd-ctrl-alt-shift-7 = "move-node-to-workspace 7 --focus-follows-window"
 cmd-ctrl-alt-shift-8 = "move-node-to-workspace 8 --focus-follows-window"
 cmd-ctrl-alt-shift-9 = "move-node-to-workspace 9 --focus-follows-window"
-cmd-ctrl-alt-shift-e = 'exec-and-forget ~/.config/aerospace/bin/app-or-workspace "Mail" "Mail" E'
-cmd-ctrl-alt-shift-b = 'exec-and-forget ~/.config/aerospace/bin/app-or-workspace "ChatGPT Atlas" "ChatGPT Atlas" B'
-cmd-ctrl-alt-shift-m = 'exec-and-forget ~/.config/aerospace/bin/app-or-workspace "Music" "Music" M'
+cmd-ctrl-alt-shift-e = "move-node-to-workspace E --focus-follows-window"
+cmd-ctrl-alt-shift-b = "move-node-to-workspace B --focus-follows-window"
+cmd-ctrl-alt-shift-m = 'exec-and-forget open -a "Music"'
 cmd-ctrl-alt-shift-t = "move-node-to-workspace T --focus-follows-window"
 
 alt-shift-1 = "move-node-to-workspace 1 --focus-follows-window"
@@ -150,7 +150,8 @@ alt-shift-m = "move-node-to-workspace M --focus-follows-window"
 alt-shift-t = "move-node-to-workspace T --focus-follows-window"
 
 # Hyper app launchers. Window management above uses Meh; app/workspace shortcuts stay on Hyper.
-cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
+# cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
+cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "ChatGPT Atlas"'
 cmd-ctrl-alt-shift-f = 'exec-and-forget open -a "Finder"'
 cmd-ctrl-alt-shift-y = 'exec-and-forget open -a "System Settings"'
 cmd-ctrl-alt-shift-w = 'exec-and-forget open -a "WhatsApp"'

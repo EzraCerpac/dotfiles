@@ -8,6 +8,19 @@ echo "Setting up shell configuration..."
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
+{{- if eq .profile "delftblue" }}
+echo "DelftBlue profile detected; leaving the default login shell unchanged."
+echo "Shell setup complete"
+
+cat << 'EOF'
+
+DelftBlue dotfiles ready
+Next: restart terminal | source ~/.bashrc | dbacct
+
+EOF
+exit 0
+{{- end }}
+
 CURRENT_USER_SHELL=""
 if [[ "${OSTYPE}" == darwin* ]]; then
     CURRENT_USER_SHELL="$(dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}' || true)"

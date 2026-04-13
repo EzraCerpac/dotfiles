@@ -1,0 +1,37 @@
+if [[ -f /etc/bashrc ]]; then
+    # Preserve cluster-provided shell setup, including module integration.
+    source /etc/bashrc
+elif [[ -f /etc/bash.bashrc ]]; then
+    source /etc/bash.bashrc
+fi
+
+export PATH="$HOME/.local/bin:$PATH"
+export EDITOR="vim"
+export VISUAL="$EDITOR"
+export GIT_EDITOR="$EDITOR"
+
+export DB_MODULE_STACK="{{ .delftblue.module_stack }}"
+export DB_SLURM_ACCOUNT="{{ .delftblue.slurm_account }}"
+export DB_CPU_PARTITION="{{ .delftblue.default_cpu_partition }}"
+export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
+export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
+
+dbmod-julia() {
+    module load "$DB_MODULE_STACK" julia
+}
+
+dbmod-julia-mpi() {
+    module load "$DB_MODULE_STACK" openmpi julia
+}
+
+dbscratch() {
+    cd "/scratch/$USER"
+}
+
+dbproject() {
+    if [[ -z "$DB_PROJECT_STORAGE_ROOT" ]]; then
+        echo "DB_PROJECT_STORAGE_ROOT is not set." >&2
+        return 1
+    fi
+    cd "$DB_PROJECT_STORAGE_ROOT"
+}

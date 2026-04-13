@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+if [[ -z "${DB_PROJECT_STORAGE_ROOT}" ]]; then
+    echo "DB_PROJECT_STORAGE_ROOT is not set." >&2
+    exit 1
+fi
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "usage: dbprojectpush <local-path> [remote-subdir]" >&2
+    exit 1
+fi
+
+src="$1"
+dest_path="${DB_PROJECT_STORAGE_ROOT}"
+if [[ $# -eq 2 ]]; then
+    dest_path="${DB_PROJECT_STORAGE_ROOT}/$2"
+fi
+
+exec rsync -avh --progress "${src}" "${DB_HOST_ALIAS}:${dest_path}"

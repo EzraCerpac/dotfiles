@@ -8,6 +8,12 @@ echo "Installing tools..."
 
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
+{{- if eq .profile "delftblue" }}
+echo "DelftBlue profile detected; skipping workstation tool installation."
+echo "Prefer 'module load {{ .delftblue.module_stack }} ...' inside jobs or interactive allocations."
+exit 0
+{{- end }}
+
 # --- System packages (not available via mise) ---
 
 {{- if eq .chezmoi.os "darwin" }}

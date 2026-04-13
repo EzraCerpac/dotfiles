@@ -7,6 +7,12 @@ set -euo pipefail
 
 echo "Installing package managers..."
 
+{{- if eq .profile "delftblue" }}
+echo "DelftBlue profile detected; skipping package-manager bootstrap."
+echo "Use the cluster module system for software on DelftBlue."
+exit 0
+{{- end }}
+
 {{- if eq .chezmoi.os "darwin" }}
 
 # --- Homebrew (macOS only) ---

@@ -13,6 +13,9 @@ dot_config/nvim/lazyvim.json
 dot_config/nvim/spell/
 mise.toml
 setup.sh.backup
+{{- if ne .profile "delftblue" }}
+dot_bashrc.tmpl
+{{- end }}
 
 {{- if eq .chezmoi.os "linux" }}
 # macOS-only apps (source paths)
@@ -30,4 +33,30 @@ dot_wezterm.lua
 .config/raycast/
 .config/svim/
 .wezterm.lua
+{{- end }}
+
+{{- if eq .profile "delftblue" }}
+# Workstation-heavy config excluded on DelftBlue
+dot_codex/
+dot_config/atuin/
+dot_config/gh/
+dot_config/gh-dash/
+dot_config/gitui/
+dot_config/goose/
+dot_config/jjui/
+dot_config/lazygit/
+dot_config/mise/
+dot_config/nvim/
+dot_config/opencode/
+dot_config/private_himalaya/
+dot_config/private_jj/
+dot_config/starship-jj/
+dot_config/television/
+dot_config/worktrunk/
+dot_julia/environments/
+dot_zprofile
+dot_zshenv
+dot_zshrc
+run_after_25-configure-gitlogue-screensaver.sh.tmpl
+run_after_26-sync-jj-waltz-skill.sh.tmpl
 {{- end }}

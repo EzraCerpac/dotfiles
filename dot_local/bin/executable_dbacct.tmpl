@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+if db_is_cluster_host; then
+    exec sacctmgr --noheader --parsable2 list assoc user="${USER}" format=account,cluster,partition,qos
+fi
+
+exec db_remote "sacctmgr --noheader --parsable2 list assoc user='${DB_NETID}' format=account,cluster,partition,qos"

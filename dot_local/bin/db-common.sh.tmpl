@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DB_HOST_ALIAS="{{ .delftblue.host_alias }}"
+DB_HOSTNAME="{{ .delftblue.hostname }}"
+DB_NETID="{{ .delftblue.netid }}"
+DB_MODULE_STACK="{{ .delftblue.module_stack }}"
+DB_SLURM_ACCOUNT="{{ .delftblue.slurm_account }}"
+DB_CPU_PARTITION="{{ .delftblue.default_cpu_partition }}"
+DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
+DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
+
+db_is_cluster_host() {
+    if [[ -n "${SLURM_CLUSTER_NAME:-}" ]]; then
+        return 0
+    fi
+
+    if command -v squeue >/dev/null 2>&1 && [[ -d "/scratch/${USER}" ]]; then
+        return 0
+    fi
+
+    local host=""
+    host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)"
+    [[ "${host}" == *"delftblue"* || "${host}" == "${DB_HOSTNAME}" ]]
+}
+
+db_remote() {
+    ssh "${DB_HOST_ALIAS}" "$@"
+}
+
+db_require_cluster_host() {
+    if ! db_is_cluster_host; then
+        echo "This command should be run on DelftBlue. Use ssh ${DB_HOST_ALIAS} first." >&2
+        exit 1
+    fi
+}

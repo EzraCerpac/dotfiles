@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+
+if db_is_cluster_host; then
+    exec sacctmgr --noheader show assoc where user="${USER}" account="${DB_SLURM_ACCOUNT}" format=account,user,grptresmins,maxjobs,maxsubmitjobs
+fi
+
+exec db_remote "sacctmgr --noheader show assoc where user='${DB_NETID}' account='${DB_SLURM_ACCOUNT}' format=account,user,grptresmins,maxjobs,maxsubmitjobs"

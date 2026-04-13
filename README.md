@@ -125,3 +125,41 @@ and stops for manual `chezmoi merge` if any other destination drift is present.
 - Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
 - On Linux, system packages install via `apt-get`; on macOS, via `brew`
 - `mise` is used only for version-sensitive runtimes and pinned tools, not as the universal installer
+
+## DelftBlue Profile
+
+This repo now supports a conservative `delftblue` profile for TU Delft's cluster.
+It is intentionally smaller than the normal Linux workstation setup:
+
+- package-manager bootstrap is skipped
+- workstation-heavy config is excluded
+- bash stays the default shell
+- module-based Julia/MPI helpers are added
+- Slurm starter templates live in `~/.config/delftblue/jobs/`
+- local SSH and `rsync` helpers are installed via `~/.ssh/config` and `~/.local/bin/db*`
+
+Set it in your chezmoi config on DelftBlue:
+
+```toml
+[data]
+profile = "delftblue"
+
+[data.delftblue]
+netid = "ecerpac"
+slurm_account = "education-eemcs-msc-cosse"
+project_storage_root = "/path/to/project/storage" # optional
+```
+
+Important helpers:
+
+- `dbacct`, `dblimits`, `dbjobs`
+- `dbcpu [time] [cpus] [mem]`
+- `dbgpusmoke [time]`
+- `dbjulia-mpi-init <project-dir>`
+- `dbpush`, `dbpull`
+- `dbprojectpush`, `dbprojectpull` when `project_storage_root` is set
+
+Important shell functions on DelftBlue:
+
+- `dbmod-julia`
+- `dbmod-julia-mpi`
