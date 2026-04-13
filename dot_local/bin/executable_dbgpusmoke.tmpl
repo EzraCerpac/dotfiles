@@ -5,16 +5,19 @@ set -euo pipefail
 source "${HOME}/.local/bin/db-common.sh"
 
 time_limit="${1:-00:15:00}"
+mem_per_cpu="${2:-4G}"
 cmd=(
     srun
+    --job-name="int_gpu_job"
     --account="${DB_SLURM_ACCOUNT}"
     --partition="${DB_GPU_PARTITION}"
+    --ntasks=1
     --gpus-per-node=1
     --cpus-per-task=4
-    --mem=16G
+    --mem-per-cpu="${mem_per_cpu}"
     --time="${time_limit}"
     --pty
-    bash -l
+    bash -il
 )
 
 if db_is_cluster_host; then
