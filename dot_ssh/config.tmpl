@@ -1,3 +1,15 @@
+{{- if eq .chezmoi.os "darwin" }}
+# Added by OrbStack: 'orb' SSH host for Linux machines
+# This only works if it's at the top of ssh_config (before any Host blocks).
+Include {{ .chezmoi.homeDir }}/.orbstack/ssh/config
+
+{{- end }}
+Host gitlab.ewi.tudelft.nl
+    User git
+    IdentityFile {{ .chezmoi.homeDir }}/.ssh/id_ed25519
+    IdentitiesOnly yes
+    AddKeysToAgent yes
+
 Host {{ .delftblue.host_alias }}
     HostName {{ .delftblue.hostname }}
     User {{ .delftblue.netid }}
