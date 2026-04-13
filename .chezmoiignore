@@ -15,6 +15,7 @@ mise.toml
 setup.sh.backup
 {{- if ne .profile "delftblue" }}
 dot_bashrc.tmpl
+dot_DELFTBLUE.md.tmpl
 {{- end }}
 
 {{- if eq .chezmoi.os "linux" }}

@@ -1,0 +1,151 @@
+# DelftBlue Setup Guide
+
+This file documents the DelftBlue-specific functionality deployed by this chezmoi repo.
+It is rendered only when `profile = "delftblue"`.
+
+## What This Profile Changes
+
+- Leaves the default login shell unchanged and keeps the setup bash-first.
+- Skips package-manager bootstrap and workstation-style tool installation.
+- Adds DelftBlue shell helpers, Slurm helper commands, transfer helpers, and job templates.
+- Installs a simple SSH host entry for `{{ .delftblue.host_alias }}` on machines where this repo manages `~/.ssh/config`.
+
+Rendered defaults:
+
+- SSH alias: `{{ .delftblue.host_alias }}`
+- Login host: `{{ .delftblue.hostname }}`
+- Module stack: `{{ .delftblue.module_stack }}`
+- Slurm account: `{{ .delftblue.slurm_account }}`
+- Default CPU partition: `{{ .delftblue.default_cpu_partition }}`
+- Default GPU partition: `{{ .delftblue.default_gpu_partition }}`
+{{- if .delftblue.project_storage_root }}
+- Project storage root: `{{ .delftblue.project_storage_root }}`
+{{- else }}
+- Project storage root: not configured
+{{- end }}
+
+## Files Added By This Setup
+
+- `~/.bashrc`
+  Loads the cluster bash setup if available and defines DelftBlue shell functions.
+- `~/.local/bin/db*`
+  CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
+- `~/.config/delftblue/jobs/`
+  Starter `sbatch` templates for Julia CPU, Julia MPI, and a small GPU smoke test.
+- `~/.ssh/config`
+  Contains `Host {{ .delftblue.host_alias }}` with `HostName {{ .delftblue.hostname }}` and `User {{ .delftblue.netid }}` when this repo also manages your local machine.
+
+## Shell Functions
+
+These come from `~/.bashrc` on DelftBlue.
+
+- `dbmod-julia`
+  Loads the Julia module stack:
+  `module load {{ .delftblue.module_stack }} julia`
+- `dbmod-julia-mpi`
+  Loads the Julia + OpenMPI module stack:
+  `module load {{ .delftblue.module_stack }} openmpi julia`
+- `dbscratch`
+  Changes directory to `/scratch/$USER`
+- `dbproject`
+  Changes directory to `DB_PROJECT_STORAGE_ROOT` if configured
+
+## Main Helper Commands
+
+These are installed in `~/.local/bin/`.
+
+- `dbacct`
+  Shows your DelftBlue Slurm associations and accounts.
+- `dblimits`
+  Shows Slurm association limits for `{{ .delftblue.slurm_account }}`.
+- `dbjobs`
+  Runs `squeue --me`.
+- `dbcpu [time] [cpus] [mem]`
+  Starts a conservative interactive CPU allocation.
+  Default: `dbcpu 00:30:00 4 8G`
+- `dbgpusmoke [time]`
+  Starts a conservative interactive GPU allocation on `{{ .delftblue.default_gpu_partition }}`.
+  Default: `dbgpusmoke 00:15:00`
+- `dbjulia-mpi-init <project-dir>`
+  Loads `{{ .delftblue.module_stack }} openmpi julia`, instantiates the Julia project, and runs:
+  `using MPIPreferences; MPIPreferences.use_system_binary()`
+- `dbpush <local-path> [remote-subdir]`
+  Rsyncs data to `/scratch/{{ .delftblue.netid }}` by default.
+- `dbpull <remote-subpath> [local-dest]`
+  Rsyncs data back from `/scratch/{{ .delftblue.netid }}`.
+{{- if .delftblue.project_storage_root }}
+- `dbprojectpush <local-path> [remote-subdir]`
+  Rsyncs data to `{{ .delftblue.project_storage_root }}`.
+- `dbprojectpull <remote-subpath> [local-dest]`
+  Rsyncs data back from `{{ .delftblue.project_storage_root }}`.
+{{- else }}
+- `dbprojectpush` / `dbprojectpull`
+  Installed but inactive until `project_storage_root` is set in chezmoi data.
+{{- end }}
+
+## Job Templates
+
+Templates are stored in `~/.config/delftblue/jobs/`.
+
+- `julia_cpu.sbatch`
+  Single-node Julia CPU job.
+  Defaults:
+  - account `{{ .delftblue.slurm_account }}`
+  - partition `{{ .delftblue.default_cpu_partition }}`
+  - `--cpus-per-task=12`
+  - `--mem=32G`
+  - `--time=02:00:00`
+- `julia_mpi.sbatch`
+  Multi-node Julia + MPI job.
+  Defaults:
+  - account `{{ .delftblue.slurm_account }}`
+  - partition `{{ .delftblue.default_cpu_partition }}`
+  - `--nodes=2`
+  - `--ntasks-per-node=8`
+  - `--cpus-per-task=1`
+  - `--time=01:00:00`
+- `julia_gpu_smoke.sbatch`
+  Minimal GPU verification job.
+  Defaults:
+  - account `{{ .delftblue.slurm_account }}`
+  - partition `{{ .delftblue.default_gpu_partition }}`
+  - `--gpus-per-node=1`
+  - `--cpus-per-task=4`
+  - `--time=00:15:00`
+
+Typical usage:
+
+```bash
+cp ~/.config/delftblue/jobs/julia_cpu.sbatch myjob.sbatch
+$EDITOR myjob.sbatch
+sbatch myjob.sbatch
+```
+
+## Recommended Workflow
+
+1. Login with:
+   `ssh {{ .delftblue.host_alias }}`
+2. Check your account setup:
+   `dbacct`
+3. Move to scratch for active run data:
+   `dbscratch`
+4. For Julia + MPI projects, initialize once inside the project:
+   `dbjulia-mpi-init /path/to/project`
+5. For quick exploratory work, use an interactive allocation instead of the login node:
+   `dbcpu`
+   or
+   `dbgpusmoke`
+6. For longer runs, copy a template from `~/.config/delftblue/jobs/`, edit it, and submit with `sbatch`.
+7. Transfer large outputs with `dbpush` / `dbpull` and keep scratch as the default staging area.
+
+## Safety Notes
+
+- Do not run heavy compute jobs on the login node.
+- Load modules inside interactive allocations or job scripts rather than assuming they are always active.
+- Use `/scratch/$USER` for active job data and large temporary output.
+{{- if .delftblue.project_storage_root }}
+- Use project storage for longer-lived shared data at `{{ .delftblue.project_storage_root }}`.
+{{- else }}
+- Configure `project_storage_root` if you want project-storage transfer helpers and `dbproject`.
+{{- end }}
+- If this repo is also applied on your laptop, the SSH alias `{{ .delftblue.host_alias }}` should work with the rendered `~/.ssh/config`.
