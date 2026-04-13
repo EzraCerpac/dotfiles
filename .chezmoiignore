@@ -40,14 +40,11 @@ dot_wezterm.lua
 # Workstation-heavy config excluded on DelftBlue
 dot_codex/
 dot_config/atuin/
-dot_config/gh/
 dot_config/gh-dash/
 dot_config/gitui/
 dot_config/goose/
 dot_config/jjui/
-dot_config/lazygit/
 dot_config/mise/
-dot_config/nvim/
 dot_config/opencode/
 dot_config/private_himalaya/
 dot_config/private_jj/

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/db-common.sh"
+db_require_cluster_host
+
+DB_SPACK_ROOT="${DB_SPACK_ROOT:-${HOME}/spack}"
+DB_SPACK_UPSTREAM="/projects/unsupported/spack2025/etc/spack"
+
+if command -v module >/dev/null 2>&1; then
+    module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
+fi
+
+if [[ ! -d "${DB_SPACK_ROOT}" ]]; then
+    git clone --branch v0.23.1 --depth 1 https://github.com/spack/spack.git "${DB_SPACK_ROOT}"
+fi
+
+mkdir -p "${HOME}/.spack"
+if [[ -d "${DB_SPACK_UPSTREAM}" ]]; then
+    cp -f "${DB_SPACK_UPSTREAM}"/*.yaml "${HOME}/.spack/" 2>/dev/null || true
+fi
+
+# shellcheck source=/dev/null
+source "${DB_SPACK_ROOT}/share/spack/setup-env.sh"
+spack compiler find
+
+echo "Spack bootstrapped at ${DB_SPACK_ROOT}"
+echo "Next: dbcpu && dbdev-install"

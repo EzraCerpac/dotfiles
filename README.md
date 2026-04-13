@@ -152,6 +152,10 @@ project_storage_root = "/path/to/project/storage" # optional
 
 Important helpers:
 
+- `dbdev-bootstrap`
+- `dbdev-install`
+- `dbspack`
+- `dbdev [command ...]`
 - `dbacct`, `dblimits`, `dbjobs`
 - `dbcpu [time] [cpus] [mem]`
 - `dbgpusmoke [time]`
@@ -163,3 +167,11 @@ Important shell functions on DelftBlue:
 
 - `dbmod-julia`
 - `dbmod-julia-mpi`
+
+The DelftBlue profile can now also render a cluster-aware Neovim setup and a broader dev shell.
+That layer is still explicit and conservative:
+
+- bootstrap Spack with `dbdev-bootstrap`
+- install the curated toolset with `dbdev-install`
+- load it only when needed with `dbdev`
+- use a short `dbcpu` allocation for one-time installs instead of doing them on the login node
