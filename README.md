@@ -157,8 +157,8 @@ Important helpers:
 - `dbspack`
 - `dbdev [command ...]`
 - `dbacct`, `dblimits`, `dbjobs`
-- `dbcpu [time] [cpus] [mem]`
-- `dbgpusmoke [time]`
+- `dbcpu [time] [cpus] [mem-per-cpu]`
+- `dbgpusmoke [time] [mem-per-cpu]`
 - `dbjulia-mpi-init <project-dir>`
 - `dbpush`, `dbpull`
 - `dbprojectpush`, `dbprojectpull` when `project_storage_root` is set

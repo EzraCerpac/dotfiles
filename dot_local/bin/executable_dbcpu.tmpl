@@ -6,17 +6,19 @@ source "${HOME}/.local/bin/db-common.sh"
 
 time_limit="${1:-00:30:00}"
 cpus="${2:-4}"
-mem="${3:-8G}"
+mem_per_cpu="${3:-2G}"
 
 cmd=(
     srun
+    --job-name="int_cpu_job"
     --account="${DB_SLURM_ACCOUNT}"
     --partition="${DB_CPU_PARTITION}"
+    --ntasks=1
     --cpus-per-task="${cpus}"
-    --mem="${mem}"
+    --mem-per-cpu="${mem_per_cpu}"
     --time="${time_limit}"
     --pty
-    bash -l
+    bash -il
 )
 
 if db_is_cluster_host; then
