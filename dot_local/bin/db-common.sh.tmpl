@@ -11,6 +11,36 @@ DB_CPU_PARTITION="{{ .delftblue.default_cpu_partition }}"
 DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 
+db_hostname() {
+    hostname -f 2>/dev/null || hostname 2>/dev/null || true
+}
+
+db_node_kind() {
+    local host=""
+    host="$(db_hostname)"
+    host="${host%%.*}"
+    host="${host,,}"
+
+    case "${host}" in
+        login*)
+            echo "login"
+            ;;
+        cmp*|compute*)
+            echo "compute"
+            ;;
+        vis*|visual*)
+            echo "visual"
+            ;;
+        *)
+            if [[ -n "${SLURM_CLUSTER_NAME:-}" ]]; then
+                echo "compute"
+            else
+                echo "unknown"
+            fi
+            ;;
+    esac
+}
+
 db_is_cluster_host() {
     if [[ -n "${SLURM_CLUSTER_NAME:-}" ]]; then
         return 0
@@ -21,7 +51,7 @@ db_is_cluster_host() {
     fi
 
     local host=""
-    host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || true)"
+    host="$(db_hostname)"
     [[ "${host}" == *"delftblue"* || "${host}" == "${DB_HOSTNAME}" ]]
 }
 

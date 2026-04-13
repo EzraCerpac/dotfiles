@@ -172,6 +172,7 @@ The DelftBlue profile can now also render a cluster-aware Neovim setup and a bro
 That layer is still explicit and conservative:
 
 - bootstrap Spack with `dbdev-bootstrap`
-- install the curated toolset with `dbdev-install`
+- run `dbdev-bootstrap` on the login node, because compute nodes do not have outbound internet
+- install the curated toolset with `dbdev-install` inside `dbcpu`
 - load it only when needed with `dbdev`
-- use a short `dbcpu` allocation for one-time installs instead of doing them on the login node
+- use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
