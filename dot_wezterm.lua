@@ -160,6 +160,16 @@ local function split_nav(resize_or_move, key)
   }
 end
 
+local function spawn_delftblue_window()
+  if not has_delftblue_domain then
+    return
+  end
+
+  wezterm.mux.spawn_window({
+    domain = { DomainName = delftblue_domain_name },
+  })
+end
+
 -- Register pane navigation events with minimal duplication
 for dir, key in pairs({ left = "h", right = "l", up = "k", down = "j" }) do
   wezterm.on("ActivatePaneDirection-" .. dir, split_nav_callback("move", key))
@@ -201,8 +211,8 @@ config.keys = {
       and {
         key = "T",
         mods = "CMD|SHIFT",
-        action = act.SpawnCommandInNewTab({
-          domain = { DomainName = delftblue_domain_name },
+        action = act.SpawnTab({
+          DomainName = delftblue_domain_name,
         }),
       }
     or nil,
@@ -213,9 +223,7 @@ config.keys = {
       and {
         key = "N",
         mods = "CMD|SHIFT",
-        action = act.SpawnCommandInNewWindow({
-          domain = { DomainName = delftblue_domain_name },
-        }),
+        action = wezterm.action_callback(spawn_delftblue_window),
       }
     or nil,
 
