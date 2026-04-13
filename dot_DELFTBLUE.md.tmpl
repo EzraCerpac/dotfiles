@@ -65,8 +65,10 @@ These come from `~/.bashrc` on DelftBlue.
 These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
+  Run this on a login node.
   Clones Spack `v0.23.1`, copies the DelftBlue upstream config, and runs `spack compiler find`.
 - `dbdev-install`
+  Run this in a short CPU allocation started with `dbcpu`.
   Concretizes and installs the curated Spack environment, then installs `jjui` with:
   `go install github.com/idursun/jjui/cmd/jjui@latest`
 - `dbacct`
@@ -167,6 +169,12 @@ Additional install:
 
 - `jjui`
 
+Internet/GPU note:
+
+- Compute nodes do not have outbound internet access.
+- Use the login node for lightweight internet-requiring bootstrap work such as `dbdev-bootstrap`.
+- Use a visual node only for GPU/CUDA-related installation or setup that requires both internet and access to a visible GPU.
+
 ## DelftBlue Neovim Overlay
 
 The DelftBlue profile renders your Neovim config again, but with a cluster overlay.
@@ -195,31 +203,32 @@ Disabled on DelftBlue:
 
 1. Login with:
    `ssh {{ .delftblue.host_alias }}`
-2. Bootstrap the dev layer once, ideally in a short CPU allocation:
-   `dbcpu`
-   then
+2. Bootstrap the dev layer once on the login node:
    `dbdev-bootstrap`
-   and
-   `dbdev-install`
 3. Check your account setup:
    `dbacct`
-4. Load the broader CLI/editor toolset when you want it:
+4. Start a short CPU allocation for heavier one-time installs:
+   `dbcpu`
+   then
+   `dbdev-install`
+5. Load the broader CLI/editor toolset when you want it:
    `dbdev`
-5. Move to scratch for active run data:
+6. Move to scratch for active run data:
    `dbscratch`
-6. For Julia + MPI projects, initialize once inside the project:
+7. For Julia + MPI projects, initialize once inside the project:
    `dbjulia-mpi-init /path/to/project`
-7. For quick exploratory work, use an interactive allocation instead of the login node:
+8. For quick exploratory work, use an interactive allocation instead of the login node:
    `dbcpu`
    or
    `dbgpusmoke`
-8. For longer runs, copy a template from `~/.config/delftblue/jobs/`, edit it, and submit with `sbatch`.
-9. Transfer large outputs with `dbpush` / `dbpull` and keep scratch as the default staging area.
+9. For longer runs, copy a template from `~/.config/delftblue/jobs/`, edit it, and submit with `sbatch`.
+10. Transfer large outputs with `dbpush` / `dbpull` and keep scratch as the default staging area.
 
 ## Safety Notes
 
 - Do not run heavy compute jobs on the login node.
-- Do one-time devtool and plugin installation in a short interactive allocation such as `dbcpu`, not as casual login-shell work.
+- Run lightweight internet-requiring bootstrap actions on the login node, not on compute nodes.
+- Do one-time heavy devtool and plugin installation in a short interactive allocation such as `dbcpu`, not as casual login-shell work.
 - Load modules inside interactive allocations or job scripts rather than assuming they are always active.
 - Use `/scratch/$USER` for active job data and large temporary output.
 {{- if .delftblue.project_storage_root }}

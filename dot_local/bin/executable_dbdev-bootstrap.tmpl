@@ -5,6 +5,15 @@ set -euo pipefail
 source "${HOME}/.local/bin/db-common.sh"
 db_require_cluster_host
 
+node_kind="$(db_node_kind)"
+if [[ "${node_kind}" == "compute" ]]; then
+    echo "dbdev-bootstrap must be run on a DelftBlue login node, not on compute nodes." >&2
+    echo "Compute nodes do not have outbound internet access." >&2
+    echo "Run it from login, then start 'dbcpu' and run 'dbdev-install' there." >&2
+    echo "Use a visual node only for GPU/CUDA-related setup that needs internet and a visible GPU." >&2
+    exit 1
+fi
+
 DB_SPACK_ROOT="${DB_SPACK_ROOT:-${HOME}/spack}"
 DB_SPACK_UPSTREAM="/projects/unsupported/spack2025/etc/spack"
 
@@ -26,4 +35,4 @@ source "${DB_SPACK_ROOT}/share/spack/setup-env.sh"
 spack compiler find
 
 echo "Spack bootstrapped at ${DB_SPACK_ROOT}"
-echo "Next: dbcpu && dbdev-install"
+echo "Next: start a short CPU allocation with 'dbcpu', then run 'dbdev-install'."
