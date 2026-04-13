@@ -73,6 +73,7 @@ local inverse_direction_keys = {
 }
 local resize_mod = "CTRL|ALT"
 local move_mod = "META"
+local delftblue_domain_name = "SSH:delftblue"
 
 local aerospace_cli_candidates = {}
 do
@@ -82,6 +83,30 @@ do
   end
   table.insert(aerospace_cli_candidates, "aerospace")
   table.insert(aerospace_cli_candidates, "/opt/homebrew/bin/aerospace")
+end
+
+config.ssh_domains = {}
+for _, dom in ipairs(wezterm.default_ssh_domains()) do
+  if dom.name and not dom.name:match("^SSHMUX:") then
+    dom.assume_shell = "Posix"
+    table.insert(config.ssh_domains, dom)
+  end
+end
+
+local has_delftblue_domain = false
+for _, dom in ipairs(config.ssh_domains) do
+  if dom.name == delftblue_domain_name then
+    has_delftblue_domain = true
+    break
+  end
+end
+
+config.launch_menu = config.launch_menu or {}
+if has_delftblue_domain then
+  table.insert(config.launch_menu, 1, {
+    label = "DelftBlue",
+    domain = { DomainName = delftblue_domain_name },
+  })
 end
 
 local function focus_aerospace(direction)
@@ -172,9 +197,27 @@ config.keys = {
 
   -- Tabs
   { key = "t", mods = "CMD", action = act.SpawnTab("CurrentPaneDomain") },
+  has_delftblue_domain
+      and {
+        key = "T",
+        mods = "CMD|SHIFT",
+        action = act.SpawnCommandInNewTab({
+          domain = { DomainName = delftblue_domain_name },
+        }),
+      }
+    or nil,
   { key = "w", mods = "CMD", action = act.CloseCurrentPane({ confirm = false }) },
   { key = "LeftArrow", mods = "CMD|SHIFT", action = act.ActivateTabRelative(-1) },
   { key = "RightArrow", mods = "CMD|SHIFT", action = act.ActivateTabRelative(1) },
+  has_delftblue_domain
+      and {
+        key = "N",
+        mods = "CMD|SHIFT",
+        action = act.SpawnCommandInNewWindow({
+          domain = { DomainName = delftblue_domain_name },
+        }),
+      }
+    or nil,
 
   -- Copy/Paste like macOS
   { key = "c", mods = "CMD", action = act.CopyTo("Clipboard") },
@@ -190,5 +233,13 @@ config.keys = {
   split_nav("resize", "k"),
   split_nav("resize", "l"),
 }
+
+local compact_keys = {}
+for _, entry in ipairs(config.keys) do
+  if entry ~= nil then
+    table.insert(compact_keys, entry)
+  end
+end
+config.keys = compact_keys
 
 return config

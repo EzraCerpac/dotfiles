@@ -9,6 +9,7 @@ It is rendered only when `profile = "delftblue"`.
 - Skips package-manager bootstrap and workstation-style tool installation.
 - Adds DelftBlue shell helpers, Slurm helper commands, transfer helpers, and job templates.
 - Installs a simple SSH host entry for `{{ .delftblue.host_alias }}` on machines where this repo manages `~/.ssh/config`.
+- Supports a WezTerm remote-domain workflow on macOS so DelftBlue tabs and splits can stay remote.
 
 Rendered defaults:
 
@@ -40,6 +41,10 @@ Rendered defaults:
   Curated Spack environment used by the DelftBlue dev shell.
 - `~/.ssh/config`
   Contains `Host {{ .delftblue.host_alias }}` with `HostName {{ .delftblue.hostname }}` and `User {{ .delftblue.netid }}` when this repo also manages your local machine.
+{{- if eq .chezmoi.os "darwin" }}
+- `~/.wezterm.lua`
+  Defines a WezTerm `SSH:{{ .delftblue.host_alias }}` domain and launcher entry for remote DelftBlue sessions on macOS.
+{{- end }}
 
 ## Shell Functions
 
@@ -223,6 +228,30 @@ Disabled on DelftBlue:
    `dbgpusmoke`
 9. For longer runs, copy a template from `~/.config/delftblue/jobs/`, edit it, and submit with `sbatch`.
 10. Transfer large outputs with `dbpush` / `dbpull` and keep scratch as the default staging area.
+
+## WezTerm On Your Mac
+
+If this repo is also applied on your macOS machine, WezTerm is configured so DelftBlue can be used as a proper remote domain instead of a plain `ssh` command typed into a local shell.
+
+- Use the WezTerm launcher entry `DelftBlue`, or the dedicated remote shortcuts, to start a DelftBlue session.
+- Once you are in that remote WezTerm domain, normal tab and split actions stay on DelftBlue because they use `CurrentPaneDomain`.
+- The remote bash prompt emits OSC 7 cwd updates, so new remote tabs and splits can usually start in the same directory.
+- If you type plain `ssh {{ .delftblue.host_alias }}` inside a local pane, WezTerm still sees that pane as local, so remote tab inheritance is less reliable.
+
+Recommended one-time SSH key setup on a trusted machine:
+
+```bash
+ssh-copy-id {{ .delftblue.host_alias }}
+ssh {{ .delftblue.host_alias }}
+```
+
+With this repo managing your local `~/.ssh/config`, the `{{ .delftblue.host_alias }}` host entry is set up to use `~/.ssh/id_ed25519`, add it to your agent, and on macOS also use the system keychain.
+
+If you log in with SSH keys and later need access to `/tudelft.net`, run:
+
+```bash
+kinit
+```
 
 ## Safety Notes
 

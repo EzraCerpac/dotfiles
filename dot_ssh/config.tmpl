@@ -14,4 +14,10 @@ Host {{ .delftblue.host_alias }}
     HostName {{ .delftblue.hostname }}
     User {{ .delftblue.netid }}
     Port 22
+    IdentityFile {{ .chezmoi.homeDir }}/.ssh/id_ed25519
+    IdentitiesOnly yes
+    AddKeysToAgent yes
+{{- if eq .chezmoi.os "darwin" }}
+    UseKeychain yes
+{{- end }}
     VerifyHostKeyDNS yes
