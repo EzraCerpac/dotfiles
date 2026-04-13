@@ -176,6 +176,7 @@ That layer is still explicit and conservative:
 - install the curated toolset with `dbdev-install` inside `dbcpu`
 - load it only when needed with `dbdev`
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
+- optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
 
 If this repo is also applied on your macOS machine, WezTerm and SSH can be set up so DelftBlue feels like a first-class remote terminal:
 
