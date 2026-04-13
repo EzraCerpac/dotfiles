@@ -15,11 +15,6 @@ source "${HOME}/.local/bin/db-spack-env.sh"
 spack concretize -f
 spack install --reuse
 
-if command -v go >/dev/null 2>&1; then
-    GOBIN="${HOME}/.local/bin" go install github.com/idursun/jjui/cmd/jjui@latest
-else
-    echo "Go not available after Spack install; skipping jjui install" >&2
-fi
-
 echo "DelftBlue dev tools installed."
+echo "If jj or jjui are missing, rerun dbdev-bootstrap on a login node."
 echo "Run: dbdev"

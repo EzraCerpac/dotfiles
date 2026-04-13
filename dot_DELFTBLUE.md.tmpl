@@ -32,9 +32,10 @@ Rendered defaults:
 - `~/.local/bin/db*`
   CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
 - `~/.local/bin/dbdev-bootstrap`
-  Bootstraps a user Spack checkout for DelftBlue-compatible dev tools.
+  Bootstraps a user Spack checkout for DelftBlue-compatible dev tools and installs
+  `jj` plus `jjui` into `~/.local/bin`.
 - `~/.local/bin/dbdev-install`
-  Installs the curated DelftBlue devtool set and `jjui`.
+  Installs the curated DelftBlue devtool set from Spack.
 - `~/.config/delftblue/jobs/`
   Starter `sbatch` templates for Julia CPU, Julia MPI, and a small GPU smoke test.
 - `~/.config/delftblue/spack/dev/spack.yaml`
@@ -71,11 +72,12 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Clones Spack `v0.23.1`, copies the DelftBlue upstream config, and runs `spack compiler find`.
+  Clones Spack `v0.23.1`, copies the DelftBlue upstream config, runs `spack compiler find`,
+  and installs `jj` plus `jjui` into `~/.local/bin`.
 - `dbdev-install`
   Run this in a short CPU allocation started with `dbcpu`.
-  Concretizes and installs the curated Spack environment, then installs `jjui` with:
-  `go install github.com/idursun/jjui/cmd/jjui@latest`
+  Concretizes and installs the curated Spack environment.
+  Internet-requiring binary installs belong in `dbdev-bootstrap`, not here.
 - `dbacct`
   Shows your DelftBlue Slurm associations and accounts.
 - `dblimits`
@@ -157,17 +159,18 @@ Curated tools installed through the Spack environment:
 - `tmux`
 - `bat`
 - `jq`
+- `delta`
 - `gh`
-- `jj`
 - `lazygit`
 - `shellcheck`
 - `typst`
 
-Additional install:
+- Additional login-node binary installs:
 
+- `jj`
 - `jjui`
 
-Optional editor-side tools such as `delta`, `gitui`, `lua-language-server`, `stylua`,
+Optional editor-side tools such as `gitui`, `lua-language-server`, `stylua`,
 `shfmt`, `texlab`, and `tinymist` are not part of the default DelftBlue Spack env right now.
 The DelftBlue Neovim overlay disables those integrations automatically when the binaries are
 missing.
