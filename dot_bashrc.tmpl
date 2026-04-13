@@ -17,6 +17,23 @@ export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
 
+__wezterm_set_cwd() {
+    if [[ -z "${WEZTERM_PANE:-}" ]]; then
+        return 0
+    fi
+
+    local host="${HOSTNAME%%.*}"
+    printf '\033]7;file://%s%s\033\\' "${host:-localhost}" "$PWD"
+}
+
+if [[ -n "${WEZTERM_PANE:-}" ]]; then
+    if [[ -n "${PROMPT_COMMAND:-}" ]]; then
+        PROMPT_COMMAND="__wezterm_set_cwd; ${PROMPT_COMMAND}"
+    else
+        PROMPT_COMMAND="__wezterm_set_cwd"
+    fi
+fi
+
 dbmod-julia() {
     module load "$DB_MODULE_STACK" julia
 }

@@ -176,3 +176,11 @@ That layer is still explicit and conservative:
 - install the curated toolset with `dbdev-install` inside `dbcpu`
 - load it only when needed with `dbdev`
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
+
+If this repo is also applied on your macOS machine, WezTerm and SSH can be set up so DelftBlue feels like a first-class remote terminal:
+
+- `~/.ssh/config` renders a `Host delftblue` entry with key-based auth settings for `~/.ssh/id_ed25519`
+- WezTerm exposes `SSH:delftblue` as a remote domain and a launcher entry
+- opening DelftBlue from that WezTerm remote domain makes normal tab/split keys stay on DelftBlue
+- remote bash emits OSC 7 cwd updates so new remote tabs/splits can inherit the current directory
+- DelftBlue docs recommend `ssh-copy-id delftblue` for passwordless login on a trusted machine; if you log in with SSH keys and later need `/tudelft.net`, run `kinit` on the login node
