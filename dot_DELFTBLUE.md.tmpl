@@ -32,7 +32,7 @@ Rendered defaults:
 - `~/.local/bin/db*`
   CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
 - `~/.local/bin/dbdev-bootstrap`
-  Installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` into `~/.local/bin`
+  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`
   and can optionally bootstrap a DelftBlue-compatible Spack checkout.
 - `~/.local/bin/dbdev-install`
   Compatibility check for the module-first dev layer.
@@ -40,6 +40,8 @@ Rendered defaults:
   Starter `sbatch` templates for Julia CPU, Julia MPI, and a small GPU smoke test.
 - `~/.config/delftblue/spack/dev/spack.yaml`
   Optional Spack environment for explicit extras beyond the default module-first dev shell.
+- repo `AGENTS.md`
+  Kept in the chezmoi source repo only and not copied into `~`.
 - `~/.ssh/config`
   Contains `Host {{ .delftblue.host_alias }}` with `HostName {{ .delftblue.hostname }}` and `User {{ .delftblue.netid }}` when this repo also manages your local machine.
 {{- if eq .chezmoi.os "darwin" }}
@@ -66,8 +68,8 @@ These come from `~/.bashrc` on DelftBlue.
 - `dbdev [command ...]`
   Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
 - default bash niceties
-  The DelftBlue bash profile restores `..`, `...`, `....`, `v`, and initializes
-  `zoxide` plus `tv` when those tools are present.
+  The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
+  and initializes `atuin`, `zoxide`, and `tv` when those tools are present.
 
 ## Main Helper Commands
 
@@ -75,7 +77,7 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` into `~/.local/bin`.
+  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`.
   If you explicitly want Spack as an extra layer, run:
   `dbdev-bootstrap --with-spack`
   which clones Spack `v0.23.1`, copies the DelftBlue upstream config into
@@ -169,6 +171,8 @@ Default module-first tool loading attempted by `dbdev`:
 - `lazygit`
 - `shellcheck`
 - `typst`
+- `eza`
+- `atuin`
 
 - Additional login-node binary installs:
 
@@ -176,13 +180,21 @@ Default module-first tool loading attempted by `dbdev`:
 - `jjui`
 - `nvim`
 - `bat`
+- `eza`
 - `zoxide`
 - `tv`
+- `atuin`
 
 Optional editor-side tools such as `gitui`, `lua-language-server`, `stylua`,
 `shfmt`, `texlab`, and `tinymist` are not part of the default DelftBlue Spack env right now.
 The DelftBlue Neovim overlay disables those integrations automatically when the binaries are
 missing.
+
+Neovim note:
+
+- The default fallback Neovim binary comes from the `neovim/neovim-releases` unsupported-builds
+  project rather than the main Neovim release tarball, because the main Linux release requires
+  newer glibc than DelftBlue provides.
 
 Internet/GPU note:
 

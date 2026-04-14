@@ -39,13 +39,27 @@ if [[ -n "${WEZTERM_PANE:-}" ]]; then
     fi
 fi
 
-if [[ -o interactive ]]; then
-    alias ..='cd ..'
-    alias ...='cd ../..'
-    alias ....='cd ../../..'
-    alias .....='cd ../../../..'
-    alias ......='cd ../../../../..'
+..() {
+    cd ..
+}
 
+...() {
+    cd ../..
+}
+
+....() {
+    cd ../../..
+}
+
+.....() {
+    cd ../../../..
+}
+
+......() {
+    cd ../../../../..
+}
+
+if [[ -o interactive ]]; then
     if command -v nvim >/dev/null 2>&1; then
         alias v='nvim'
     fi
@@ -55,6 +69,10 @@ if [[ -o interactive ]]; then
         alias la='eza -a --icons=auto --group-directories-first --git'
         alias ll='eza -la --icons=auto --group-directories-first --git'
         alias tree='eza --tree --level=2 --icons=auto --git'
+    fi
+
+    if command -v atuin >/dev/null 2>&1; then
+        eval "$(atuin init bash --disable-up-arrow)"
     fi
 
     if command -v zoxide >/dev/null 2>&1; then
@@ -114,12 +132,14 @@ dbdev() {
         dbdev_try_module fzf
         dbdev_try_module tmux
         dbdev_try_module bat
+        dbdev_try_module eza
         dbdev_try_module jq
         dbdev_try_module delta git-delta
         dbdev_try_module gh
         dbdev_try_module lazygit
         dbdev_try_module shellcheck
         dbdev_try_module typst
+        dbdev_try_module atuin
     fi
 
     if [[ "${DB_DEV_USE_SPACK:-0}" == "1" ]] && [[ -f "$HOME/.local/bin/db-spack-env.sh" ]]; then
