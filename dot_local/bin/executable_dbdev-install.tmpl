@@ -6,7 +6,7 @@ source "${HOME}/.local/bin/db-common.sh"
 db_require_cluster_host
 
 missing=()
-for bin in jj jjui; do
+for bin in jj jjui nvim bat zoxide tv; do
     if ! command -v "${bin}" >/dev/null 2>&1; then
         missing+=("${bin}")
     fi
@@ -14,7 +14,7 @@ done
 
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
-echo "Use modules where available, plus ~/.local/bin for standalone tools like jj and jjui."
+echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, zoxide, and tv."
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Missing local binaries: ${missing[*]}" >&2

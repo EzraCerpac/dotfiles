@@ -32,8 +32,8 @@ Rendered defaults:
 - `~/.local/bin/db*`
   CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
 - `~/.local/bin/dbdev-bootstrap`
-  Installs `jj` plus `jjui` into `~/.local/bin` and can optionally bootstrap a
-  DelftBlue-compatible Spack checkout.
+  Installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` into `~/.local/bin`
+  and can optionally bootstrap a DelftBlue-compatible Spack checkout.
 - `~/.local/bin/dbdev-install`
   Compatibility check for the module-first dev layer.
 - `~/.config/delftblue/jobs/`
@@ -65,6 +65,9 @@ These come from `~/.bashrc` on DelftBlue.
   Sources the optional DelftBlue Spack environment in the current bash shell
 - `dbdev [command ...]`
   Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
+- default bash niceties
+  The DelftBlue bash profile restores `..`, `...`, `....`, `v`, and initializes
+  `zoxide` plus `tv` when those tools are present.
 
 ## Main Helper Commands
 
@@ -72,7 +75,7 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Installs `jj` plus `jjui` into `~/.local/bin`.
+  Installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` into `~/.local/bin`.
   If you explicitly want Spack as an extra layer, run:
   `dbdev-bootstrap --with-spack`
   which clones Spack `v0.23.1`, copies the DelftBlue upstream config into
@@ -171,6 +174,10 @@ Default module-first tool loading attempted by `dbdev`:
 
 - `jj`
 - `jjui`
+- `nvim`
+- `bat`
+- `zoxide`
+- `tv`
 
 Optional editor-side tools such as `gitui`, `lua-language-server`, `stylua`,
 `shfmt`, `texlab`, and `tinymist` are not part of the default DelftBlue Spack env right now.
@@ -220,6 +227,7 @@ Disabled on DelftBlue:
    `dbdev-install`
 5. Load the broader CLI/editor toolset when you want it:
    `dbdev`
+   or just start using the restored default shell aliases and binaries directly
 6. Move to scratch for active run data:
    `dbscratch`
 7. For Julia + MPI projects, initialize once inside the project:
