@@ -94,10 +94,12 @@ if [[ -o interactive ]]; then
 
     if [[ -f "${HOME}/.config/television/shell/integration.bash" ]]; then
         source "${HOME}/.config/television/shell/integration.bash"
+    elif command -v tv >/dev/null 2>&1; then
+        eval "$(tv init bash)"
     fi
 
-    if [[ -f "${HOME}/.config/atuin/shell/integration.bash" ]]; then
-        source "${HOME}/.config/atuin/shell/integration.bash"
+    if command -v atuin >/dev/null 2>&1; then
+        eval "$(atuin init bash --disable-up-arrow --disable-ctrl-r)"
     fi
 
     if declare -F __atuin_history >/dev/null 2>&1; then
@@ -123,7 +125,6 @@ dbshell-check() {
     bind -P 2>/dev/null | rg 'edit-and-execute-command|reverse-search-history|transpose-chars' || true
     echo
     echo "Integration files:"
-    ls -l "${HOME}/.config/atuin/shell/integration.bash" 2>/dev/null || true
     ls -l "${HOME}/.config/television/shell/integration.bash" 2>/dev/null || true
 }
 
