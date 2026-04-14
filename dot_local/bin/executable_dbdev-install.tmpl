@@ -13,9 +13,6 @@ for bin in jj jjui nvim bat eza rg fd zoxide tv atuin carapace; do
 done
 
 integration_issues=()
-if [[ ! -f "${HOME}/.config/atuin/shell/integration.bash" ]]; then
-    integration_issues+=("missing ~/.config/atuin/shell/integration.bash")
-fi
 if [[ ! -f "${HOME}/.config/television/shell/integration.bash" ]]; then
     integration_issues+=("missing ~/.config/television/shell/integration.bash")
 fi
@@ -38,7 +35,7 @@ fi
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
 echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, and carapace."
-echo "Shell integrations are sourced from ~/.config/atuin/shell/integration.bash and ~/.config/television/shell/integration.bash."
+echo "Shell integration uses ~/.config/television/shell/integration.bash plus live 'atuin init bash --disable-up-arrow --disable-ctrl-r'."
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Missing local binaries: ${missing[*]}" >&2
