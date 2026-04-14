@@ -12,6 +12,29 @@ for bin in jj jjui nvim bat eza rg fd zoxide tv atuin carapace; do
     fi
 done
 
+integration_issues=()
+if [[ ! -f "${HOME}/.config/atuin/shell/integration.bash" ]]; then
+    integration_issues+=("missing ~/.config/atuin/shell/integration.bash")
+fi
+if [[ ! -f "${HOME}/.config/television/shell/integration.bash" ]]; then
+    integration_issues+=("missing ~/.config/television/shell/integration.bash")
+fi
+
+if ! declare -F __atuin_history >/dev/null 2>&1; then
+    integration_issues+=("Atuin shell function __atuin_history not loaded in current shell")
+fi
+if ! declare -F tv_smart_autocomplete >/dev/null 2>&1; then
+    integration_issues+=("Television shell function tv_smart_autocomplete not loaded in current shell")
+fi
+
+bind_x_output="$(bind -X 2>/dev/null || true)"
+if [[ "${bind_x_output}" != *'__atuin_history'* ]]; then
+    integration_issues+=("Ctrl-R is not bound to Atuin in current shell")
+fi
+if [[ "${bind_x_output}" != *'tv_smart_autocomplete'* ]]; then
+    integration_issues+=("Ctrl-T is not bound to Television in current shell")
+fi
+
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
 echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, and carapace."
@@ -24,5 +47,12 @@ fi
 if [[ -d "${HOME}/spack" ]]; then
     echo "Optional Spack checkout detected at ${HOME}/spack."
     echo "Keep it opt-in; set DB_DEV_USE_SPACK=1 only if you explicitly need extra tools."
+fi
+if [[ ${#integration_issues[@]} -gt 0 ]]; then
+    echo "Shell integration issues detected:" >&2
+    for issue in "${integration_issues[@]}"; do
+        echo "  - ${issue}" >&2
+    done
+    echo "Start a fresh login shell after running dbdev-bootstrap." >&2
 fi
 echo "Run: dbdev"
