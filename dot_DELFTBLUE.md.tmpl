@@ -72,7 +72,8 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Clones Spack `v0.23.1`, copies the DelftBlue upstream config, runs `spack compiler find`,
+  Clones Spack `v0.23.1`, copies the DelftBlue upstream config into
+  `${DB_SPACK_ROOT}/etc/spack/`, runs `spack compiler find`,
   and installs `jj` plus `jjui` into `~/.local/bin`.
 - `dbdev-install`
   Run this in a short CPU allocation started with `dbcpu`.
