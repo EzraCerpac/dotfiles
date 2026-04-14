@@ -59,33 +59,40 @@ dbspack() {
 }
 
 dbdev() {
-    dbspack || return 1
+    export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+
+    dbdev_try_module() {
+        local mod
+        for mod in "$@"; do
+            if module load "$DB_MODULE_STACK" "$mod" >/dev/null 2>&1; then
+                return 0
+            fi
+            if module load "$mod" >/dev/null 2>&1; then
+                return 0
+            fi
+        done
+        return 1
+    }
 
     if command -v module >/dev/null 2>&1; then
-        module load "$DB_MODULE_STACK" julia >/dev/null 2>&1 || true
+        dbdev_try_module julia
+        dbdev_try_module neovim nvim
+        dbdev_try_module ripgrep rg
+        dbdev_try_module fd fd-find
+        dbdev_try_module fzf
+        dbdev_try_module tmux
+        dbdev_try_module bat
+        dbdev_try_module jq
+        dbdev_try_module delta git-delta
+        dbdev_try_module gh
+        dbdev_try_module lazygit
+        dbdev_try_module shellcheck
+        dbdev_try_module typst
     fi
 
-    local packages=(
-        neovim
-        ripgrep
-        fd
-        fzf
-        tmux
-        bat
-        jq
-        delta
-        gh
-        lazygit
-        shellcheck
-        typst
-    )
-
-    local pkg
-    for pkg in "${packages[@]}"; do
-        spack load --first "$pkg" >/dev/null 2>&1 || true
-    done
-
-    export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+    if [[ "${DB_DEV_USE_SPACK:-0}" == "1" ]] && [[ -f "$HOME/.local/bin/db-spack-env.sh" ]]; then
+        dbspack >/dev/null 2>&1 || true
+    fi
 
     if [[ $# -gt 0 ]]; then
         "$@"
@@ -93,4 +100,5 @@ dbdev() {
     fi
 
     echo "DelftBlue dev environment loaded in the current shell."
+    echo "Default mode is module-first. Set DB_DEV_USE_SPACK=1 only for optional extras."
 }

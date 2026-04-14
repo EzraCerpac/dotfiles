@@ -5,11 +5,19 @@ set -euo pipefail
 source "${HOME}/.local/bin/db-common.sh"
 db_require_cluster_host
 
+WITH_SPACK=0
+if [[ "${1:-}" == "--with-spack" ]]; then
+    WITH_SPACK=1
+elif [[ $# -gt 0 ]]; then
+    echo "usage: dbdev-bootstrap [--with-spack]" >&2
+    exit 1
+fi
+
 node_kind="$(db_node_kind)"
 if [[ "${node_kind}" == "compute" ]]; then
     echo "dbdev-bootstrap must be run on a DelftBlue login node, not on compute nodes." >&2
     echo "Compute nodes do not have outbound internet access." >&2
-    echo "Run it from login, then start 'dbcpu' and run 'dbdev-install' there." >&2
+    echo "Run it from login." >&2
     echo "Use a visual node only for GPU/CUDA-related setup that needs internet and a visible GPU." >&2
     exit 1
 fi
@@ -24,18 +32,20 @@ if command -v module >/dev/null 2>&1; then
     module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
 fi
 
-if [[ ! -d "${DB_SPACK_ROOT}" ]]; then
-    git clone --branch v0.23.1 --depth 1 https://github.com/spack/spack.git "${DB_SPACK_ROOT}"
-fi
+if [[ "${WITH_SPACK}" -eq 1 ]]; then
+    if [[ ! -d "${DB_SPACK_ROOT}" ]]; then
+        git clone --branch v0.23.1 --depth 1 https://github.com/spack/spack.git "${DB_SPACK_ROOT}"
+    fi
 
-mkdir -p "${DB_SPACK_SITE_CONFIG}"
-if [[ -d "${DB_SPACK_UPSTREAM}" ]]; then
-    cp -f "${DB_SPACK_UPSTREAM}"/*.yaml "${DB_SPACK_SITE_CONFIG}/" 2>/dev/null || true
-fi
+    mkdir -p "${DB_SPACK_SITE_CONFIG}"
+    if [[ -d "${DB_SPACK_UPSTREAM}" ]]; then
+        cp -f "${DB_SPACK_UPSTREAM}"/*.yaml "${DB_SPACK_SITE_CONFIG}/" 2>/dev/null || true
+    fi
 
-# shellcheck source=/dev/null
-source "${DB_SPACK_ROOT}/share/spack/setup-env.sh"
-spack compiler find
+    # shellcheck source=/dev/null
+    source "${DB_SPACK_ROOT}/share/spack/setup-env.sh"
+    spack compiler find
+fi
 
 arch="$(uname -m)"
 case "${arch}" in
@@ -77,6 +87,10 @@ PY
     install -m 0755 "${tmpdir}/jjui" "${HOME}/.local/bin/jjui"
 fi
 
-echo "Spack bootstrapped at ${DB_SPACK_ROOT}"
 echo "Installed login-node binaries: jj, jjui"
-echo "Next: start a short CPU allocation with 'dbcpu', then run 'dbdev-install'."
+if [[ "${WITH_SPACK}" -eq 1 ]]; then
+    echo "Optional Spack bootstrapped at ${DB_SPACK_ROOT}"
+else
+    echo "Spack is not bootstrapped by default. Use dbdev-bootstrap --with-spack only if you explicitly need it."
+fi
+echo "No compute-node install step is required for the default dev layer."

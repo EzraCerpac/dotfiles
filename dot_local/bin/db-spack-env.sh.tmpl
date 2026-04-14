@@ -13,7 +13,7 @@ DB_SPACK_ROOT="${DB_SPACK_ROOT:-${HOME}/spack}"
 export DB_SPACK_ROOT
 
 if [[ ! -f "${DB_SPACK_ROOT}/share/spack/setup-env.sh" ]]; then
-    echo "Spack is not bootstrapped yet. Run dbdev-bootstrap first." >&2
+    echo "Spack is not bootstrapped. Run dbdev-bootstrap --with-spack if you explicitly need optional Spack tools." >&2
     return 1
 fi
 

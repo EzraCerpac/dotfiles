@@ -5,16 +5,24 @@ set -euo pipefail
 source "${HOME}/.local/bin/db-common.sh"
 db_require_cluster_host
 
-if command -v module >/dev/null 2>&1; then
-    module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
+missing=()
+for bin in jj jjui; do
+    if ! command -v "${bin}" >/dev/null 2>&1; then
+        missing+=("${bin}")
+    fi
+done
+
+echo "DelftBlue dev layer is module-first; there is nothing to install by default."
+echo "Run: dbdev"
+echo "Use modules where available, plus ~/.local/bin for standalone tools like jj and jjui."
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Missing local binaries: ${missing[*]}" >&2
+    echo "Rerun dbdev-bootstrap on a login node." >&2
 fi
 
-# shellcheck source=/dev/null
-source "${HOME}/.local/bin/db-spack-env.sh"
-
-spack concretize -f
-spack install --reuse
-
-echo "DelftBlue dev tools installed."
-echo "If jj or jjui are missing, rerun dbdev-bootstrap on a login node."
+if [[ -d "${HOME}/spack" ]]; then
+    echo "Optional Spack checkout detected at ${HOME}/spack."
+    echo "Keep it opt-in; set DB_DEV_USE_SPACK=1 only if you explicitly need extra tools."
+fi
 echo "Run: dbdev"

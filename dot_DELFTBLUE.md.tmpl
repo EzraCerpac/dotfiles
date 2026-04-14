@@ -32,14 +32,14 @@ Rendered defaults:
 - `~/.local/bin/db*`
   CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
 - `~/.local/bin/dbdev-bootstrap`
-  Bootstraps a user Spack checkout for DelftBlue-compatible dev tools and installs
-  `jj` plus `jjui` into `~/.local/bin`.
+  Installs `jj` plus `jjui` into `~/.local/bin` and can optionally bootstrap a
+  DelftBlue-compatible Spack checkout.
 - `~/.local/bin/dbdev-install`
-  Installs the curated DelftBlue devtool set from Spack.
+  Compatibility check for the module-first dev layer.
 - `~/.config/delftblue/jobs/`
   Starter `sbatch` templates for Julia CPU, Julia MPI, and a small GPU smoke test.
 - `~/.config/delftblue/spack/dev/spack.yaml`
-  Curated Spack environment used by the DelftBlue dev shell.
+  Optional Spack environment for explicit extras beyond the default module-first dev shell.
 - `~/.ssh/config`
   Contains `Host {{ .delftblue.host_alias }}` with `HostName {{ .delftblue.hostname }}` and `User {{ .delftblue.netid }}` when this repo also manages your local machine.
 {{- if eq .chezmoi.os "darwin" }}
@@ -62,9 +62,9 @@ These come from `~/.bashrc` on DelftBlue.
 - `dbproject`
   Changes directory to `DB_PROJECT_STORAGE_ROOT` if configured
 - `dbspack`
-  Sources the DelftBlue Spack environment in the current bash shell
+  Sources the optional DelftBlue Spack environment in the current bash shell
 - `dbdev [command ...]`
-  Loads the curated DelftBlue dev environment in the current shell, or runs a command inside it
+  Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
 
 ## Main Helper Commands
 
@@ -72,13 +72,14 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Clones Spack `v0.23.1`, copies the DelftBlue upstream config into
-  `${DB_SPACK_ROOT}/etc/spack/`, runs `spack compiler find`,
-  and installs `jj` plus `jjui` into `~/.local/bin`.
+  Installs `jj` plus `jjui` into `~/.local/bin`.
+  If you explicitly want Spack as an extra layer, run:
+  `dbdev-bootstrap --with-spack`
+  which clones Spack `v0.23.1`, copies the DelftBlue upstream config into
+  `${DB_SPACK_ROOT}/etc/spack/`, and runs `spack compiler find`.
 - `dbdev-install`
-  Run this in a short CPU allocation started with `dbcpu`.
-  Concretizes and installs the curated Spack environment.
-  Internet-requiring binary installs belong in `dbdev-bootstrap`, not here.
+  No-op compatibility check for the default module-first setup.
+  The default DelftBlue dev layer does not need a compute-node install step.
 - `dbacct`
   Shows your DelftBlue Slurm associations and accounts.
 - `dblimits`
@@ -151,7 +152,7 @@ sbatch myjob.sbatch
 
 The DelftBlue dev shell is broader than the minimal HPC helper layer, but it is still loaded explicitly with `dbdev` instead of on every login.
 
-Curated tools installed through the Spack environment:
+Default module-first tool loading attempted by `dbdev`:
 
 - `nvim`
 - `ripgrep`
@@ -181,6 +182,7 @@ Internet/GPU note:
 - Compute nodes do not have outbound internet access.
 - Use the login node for lightweight internet-requiring bootstrap work such as `dbdev-bootstrap`.
 - Use a visual node only for GPU/CUDA-related installation or setup that requires both internet and access to a visible GPU.
+- Module availability can differ by partition, so `dbdev` loads what it can in the current environment and does not assume every tool exists everywhere.
 
 ## DelftBlue Neovim Overlay
 
@@ -214,9 +216,7 @@ Disabled on DelftBlue:
    `dbdev-bootstrap`
 3. Check your account setup:
    `dbacct`
-4. Start a short CPU allocation for heavier one-time installs:
-   `dbcpu`
-   then
+4. Optionally run the compatibility check:
    `dbdev-install`
 5. Load the broader CLI/editor toolset when you want it:
    `dbdev`
