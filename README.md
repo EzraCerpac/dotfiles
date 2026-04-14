@@ -174,13 +174,15 @@ That layer is still explicit and conservative:
 - bootstrap the default dev layer with `dbdev-bootstrap`
 - run `dbdev-bootstrap` on the login node, because compute nodes do not have outbound internet
 - `dbdev-bootstrap` also installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` from pinned release binaries on the login node
+- `dbdev-bootstrap` also installs `eza` and `atuin` from pinned release binaries on the login node
 - `dbdev-install` is now just a compatibility check; the default dev layer is module-first and does not need a compute-node install step
 - if you explicitly want Spack as an extra layer, use `dbdev-bootstrap --with-spack`
 - load it only when needed with `dbdev`
-- the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, and guarded `zoxide` / `tv` init
+- the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, `ls -> eza`, and guarded `atuin` / `zoxide` / `tv` init
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
 - module availability varies by partition, so `dbdev` only loads tools that actually exist in the current environment
 - optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
+- `AGENTS.md` stays in the repo only and is not deployed into `$HOME`
 
 If this repo is also applied on your macOS machine, WezTerm and SSH can be set up so DelftBlue feels like a first-class remote terminal:
 

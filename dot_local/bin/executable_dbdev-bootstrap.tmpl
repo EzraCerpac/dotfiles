@@ -29,8 +29,10 @@ JJ_VERSION="0.40.0"
 JJUI_VERSION="0.10.2"
 NVIM_VERSION="0.12.1"
 BAT_VERSION="0.26.1"
+EZA_VERSION="0.23.4"
 ZOXIDE_VERSION="0.9.9"
 TV_VERSION="0.15.5"
+ATUIN_VERSION="18.14.1"
 
 if command -v module >/dev/null 2>&1; then
     module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
@@ -57,17 +59,21 @@ case "${arch}" in
         jj_asset="jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz"
         jjui_asset="jjui-${JJUI_VERSION}-linux-amd64.zip"
         nvim_asset="nvim-linux-x86_64.tar.gz"
-        bat_asset="bat-v${BAT_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+        bat_asset="bat-v${BAT_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        eza_asset="eza_x86_64-unknown-linux-musl.tar.gz"
         zoxide_asset="zoxide-${ZOXIDE_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-        tv_asset="tv-${TV_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+        tv_asset="tv-${TV_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        atuin_asset="atuin-x86_64-unknown-linux-musl.tar.gz"
         ;;
     aarch64|arm64)
         jj_asset="jj-v${JJ_VERSION}-aarch64-unknown-linux-musl.tar.gz"
         jjui_asset="jjui-${JJUI_VERSION}-linux-arm64.zip"
         nvim_asset="nvim-linux-arm64.tar.gz"
-        bat_asset="bat-v${BAT_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
+        bat_asset="bat-v${BAT_VERSION}-aarch64-unknown-linux-musl.tar.gz"
+        eza_asset="eza_aarch64-unknown-linux-gnu.tar.gz"
         zoxide_asset="zoxide-${ZOXIDE_VERSION}-aarch64-unknown-linux-musl.tar.gz"
         tv_asset="tv-${TV_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
+        atuin_asset="atuin-aarch64-unknown-linux-musl.tar.gz"
         ;;
     *)
         echo "Unsupported architecture for jj/jjui bootstrap: ${arch}" >&2
@@ -75,8 +81,10 @@ case "${arch}" in
         jjui_asset=""
         nvim_asset=""
         bat_asset=""
+        eza_asset=""
         zoxide_asset=""
         tv_asset=""
+        atuin_asset=""
         ;;
 esac
 
@@ -128,6 +136,12 @@ PY
         "${tmpdir}"
 
     install_tar_binary \
+        "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/${eza_asset}" \
+        "eza" \
+        "${HOME}/.local/bin/eza" \
+        "${tmpdir}"
+
+    install_tar_binary \
         "https://github.com/ajeetdsouza/zoxide/releases/download/v${ZOXIDE_VERSION}/${zoxide_asset}" \
         "zoxide" \
         "${HOME}/.local/bin/zoxide" \
@@ -139,9 +153,15 @@ PY
         "${HOME}/.local/bin/tv" \
         "${tmpdir}"
 
+    install_tar_binary \
+        "https://github.com/atuinsh/atuin/releases/download/v${ATUIN_VERSION}/${atuin_asset}" \
+        "atuin" \
+        "${HOME}/.local/bin/atuin" \
+        "${tmpdir}"
+
     nvim_dir="${nvim_asset%.tar.gz}"
     curl -fsSL --retry 3 -o "${tmpdir}/${nvim_asset}" \
-        "https://github.com/neovim/neovim/releases/download/v${NVIM_VERSION}/${nvim_asset}"
+        "https://github.com/neovim/neovim-releases/releases/download/v${NVIM_VERSION}/${nvim_asset}"
     tar -xzf "${tmpdir}/${nvim_asset}" -C "${tmpdir}"
     rm -rf "${HOME}/.local/opt/nvim"
     mkdir -p "${HOME}/.local/opt"
@@ -149,7 +169,7 @@ PY
     ln -sfn "${HOME}/.local/opt/nvim/bin/nvim" "${HOME}/.local/bin/nvim"
 fi
 
-echo "Installed login-node binaries: jj, jjui, nvim, bat, zoxide, tv"
+echo "Installed login-node binaries: jj, jjui, nvim, bat, eza, zoxide, tv, atuin"
 if [[ "${WITH_SPACK}" -eq 1 ]]; then
     echo "Optional Spack bootstrapped at ${DB_SPACK_ROOT}"
 else

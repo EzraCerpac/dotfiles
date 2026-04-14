@@ -1,3 +1,4 @@
+AGENTS.md
 */*.org#
 
 backups/
@@ -39,7 +40,7 @@ dot_wezterm.lua
 {{- if eq .profile "delftblue" }}
 # Workstation-heavy config excluded on DelftBlue
 dot_codex/
-dot_config/atuin/
+dot_config/atuin/atuin-receipt.json
 dot_config/gh-dash/
 dot_config/gitui/
 dot_config/goose/
