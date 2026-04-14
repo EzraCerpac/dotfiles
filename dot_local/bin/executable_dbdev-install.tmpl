@@ -38,6 +38,7 @@ fi
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
 echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, and carapace."
+echo "Shell integrations are sourced from ~/.config/atuin/shell/integration.bash and ~/.config/television/shell/integration.bash."
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Missing local binaries: ${missing[*]}" >&2
@@ -53,6 +54,7 @@ if [[ ${#integration_issues[@]} -gt 0 ]]; then
     for issue in "${integration_issues[@]}"; do
         echo "  - ${issue}" >&2
     done
-    echo "Start a fresh login shell after running dbdev-bootstrap." >&2
+    echo "Rerun dbdev-bootstrap on a login node, then start a fresh login shell." >&2
+    echo "Use dbshell-check inside that shell for detailed status." >&2
 fi
 echo "Run: dbdev"

@@ -181,7 +181,8 @@ That layer is still explicit and conservative:
 - the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, `ls -> eza`, and guarded `atuin` / `zoxide` / `tv` init
 - a DelftBlue-only `~/.bash_profile` is rendered to source `~/.bashrc`, so those bash customizations appear in fresh login shells
 - `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
-- Atuin and Television bash integrations are generated once into `~/.config/atuin/shell/integration.bash` and `~/.config/television/shell/integration.bash`, then sourced from `~/.bashrc`
+- Atuin and Television bash integrations are generated once into `~/.config/atuin/shell/integration.bash` and `~/.config/television/shell/integration.bash`, then sourced directly from `~/.bashrc`
+- use `dbshell-check` in a DelftBlue bash shell to inspect loaded functions and active key bindings
 - bash also loads `carapace` as an extra completion bridge when available
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
 - module availability varies by partition, so `dbdev` only loads tools that actually exist in the current environment
