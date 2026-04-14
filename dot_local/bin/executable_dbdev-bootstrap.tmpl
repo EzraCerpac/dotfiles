@@ -16,6 +16,7 @@ fi
 
 DB_SPACK_ROOT="${DB_SPACK_ROOT:-${HOME}/spack}"
 DB_SPACK_UPSTREAM="/projects/unsupported/spack2025/etc/spack"
+DB_SPACK_SITE_CONFIG="${DB_SPACK_ROOT}/etc/spack"
 JJ_VERSION="0.40.0"
 JJUI_VERSION="0.10.2"
 
@@ -27,9 +28,9 @@ if [[ ! -d "${DB_SPACK_ROOT}" ]]; then
     git clone --branch v0.23.1 --depth 1 https://github.com/spack/spack.git "${DB_SPACK_ROOT}"
 fi
 
-mkdir -p "${HOME}/.spack"
+mkdir -p "${DB_SPACK_SITE_CONFIG}"
 if [[ -d "${DB_SPACK_UPSTREAM}" ]]; then
-    cp -f "${DB_SPACK_UPSTREAM}"/*.yaml "${HOME}/.spack/" 2>/dev/null || true
+    cp -f "${DB_SPACK_UPSTREAM}"/*.yaml "${DB_SPACK_SITE_CONFIG}/" 2>/dev/null || true
 fi
 
 # shellcheck source=/dev/null
