@@ -17,6 +17,11 @@ function fish_user_key_bindings
         bind -M insert \cr _atuin_search
     end
 
+    if functions -q _atuin_ai_question_mark
+        bind -M default ? _atuin_ai_question_mark
+        bind -M insert ? _atuin_ai_question_mark
+    end
+
     if functions -q tv_smart_autocomplete
         bind -M default \ct tv_smart_autocomplete
         bind -M insert \ct tv_smart_autocomplete

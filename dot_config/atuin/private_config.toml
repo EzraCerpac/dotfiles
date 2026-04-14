@@ -249,6 +249,13 @@ records = true
 ## The port that should be used for TCP on non unix systems
 # tcp_port = 8889
 
+[ai]
+enabled = true
+
+[ai.opening]
+send_cwd = true
+send_last_command = true
+
 # [theme]
 ## Color theme to use for rendering in the terminal.
 ## There are some built-in themes, including the base theme ("default"),
