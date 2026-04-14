@@ -22,6 +22,14 @@ export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
 
+v() {
+    if command -v nvim >/dev/null 2>&1; then
+        nvim "$@"
+    else
+        "${EDITOR:-vim}" "$@"
+    fi
+}
+
 __wezterm_set_cwd() {
     if [[ -z "${WEZTERM_PANE:-}" ]]; then
         return 0
@@ -60,8 +68,10 @@ fi
 }
 
 if [[ -o interactive ]]; then
-    if command -v nvim >/dev/null 2>&1; then
-        alias v='nvim'
+    if [[ -f /etc/bash_completion ]]; then
+        source /etc/bash_completion
+    elif [[ -f /usr/share/bash-completion/bash_completion ]]; then
+        source /usr/share/bash-completion/bash_completion
     fi
 
     if command -v eza >/dev/null 2>&1; then
@@ -82,6 +92,12 @@ if [[ -o interactive ]]; then
     if command -v tv >/dev/null 2>&1; then
         eval "$(tv init bash)"
     fi
+
+    if command -v atuin >/dev/null 2>&1 && command -v atuin-bind >/dev/null 2>&1; then
+        atuin-bind '\C-r' atuin-search
+    fi
+
+    bind '"\C-e": edit-and-execute-command'
 fi
 
 dbmod-julia() {

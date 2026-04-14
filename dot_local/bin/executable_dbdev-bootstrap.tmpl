@@ -30,6 +30,8 @@ JJUI_VERSION="0.10.2"
 NVIM_VERSION="0.12.1"
 BAT_VERSION="0.26.1"
 EZA_VERSION="0.23.4"
+RG_VERSION="15.1.0"
+FD_VERSION="10.4.2"
 ZOXIDE_VERSION="0.9.9"
 TV_VERSION="0.15.5"
 ATUIN_VERSION="18.14.1"
@@ -61,6 +63,8 @@ case "${arch}" in
         nvim_asset="nvim-linux-x86_64.tar.gz"
         bat_asset="bat-v${BAT_VERSION}-x86_64-unknown-linux-musl.tar.gz"
         eza_asset="eza_x86_64-unknown-linux-musl.tar.gz"
+        rg_asset="ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        fd_asset="fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz"
         zoxide_asset="zoxide-${ZOXIDE_VERSION}-x86_64-unknown-linux-musl.tar.gz"
         tv_asset="tv-${TV_VERSION}-x86_64-unknown-linux-musl.tar.gz"
         atuin_asset="atuin-x86_64-unknown-linux-musl.tar.gz"
@@ -71,6 +75,8 @@ case "${arch}" in
         nvim_asset="nvim-linux-arm64.tar.gz"
         bat_asset="bat-v${BAT_VERSION}-aarch64-unknown-linux-musl.tar.gz"
         eza_asset="eza_aarch64-unknown-linux-gnu.tar.gz"
+        rg_asset="ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
+        fd_asset="fd-v${FD_VERSION}-aarch64-unknown-linux-musl.tar.gz"
         zoxide_asset="zoxide-${ZOXIDE_VERSION}-aarch64-unknown-linux-musl.tar.gz"
         tv_asset="tv-${TV_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
         atuin_asset="atuin-aarch64-unknown-linux-musl.tar.gz"
@@ -82,11 +88,16 @@ case "${arch}" in
         nvim_asset=""
         bat_asset=""
         eza_asset=""
+        rg_asset=""
+        fd_asset=""
         zoxide_asset=""
         tv_asset=""
         atuin_asset=""
         ;;
 esac
+
+completion_dir="${XDG_DATA_HOME:-${HOME}/.local/share}/bash-completion/completions"
+mkdir -p "${completion_dir}"
 
 install_tar_binary() {
     local url="$1"
@@ -105,6 +116,18 @@ install_tar_binary() {
         exit 1
     fi
     install -m 0755 "${binary_path}" "${target}"
+}
+
+install_completion_file() {
+    local source_name="$1"
+    local target_name="$2"
+    local tmpdir="$3"
+    local source_path=""
+
+    source_path="$(find "${tmpdir}" -type f -name "${source_name}" | head -n 1)"
+    if [[ -n "${source_path}" ]]; then
+        install -m 0644 "${source_path}" "${completion_dir}/${target_name}"
+    fi
 }
 
 if [[ -n "${jj_asset}" ]]; then
@@ -134,18 +157,38 @@ PY
         "bat" \
         "${HOME}/.local/bin/bat" \
         "${tmpdir}"
+    install_completion_file "bat.bash" "bat" "${tmpdir}"
 
     install_tar_binary \
         "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/${eza_asset}" \
         "eza" \
         "${HOME}/.local/bin/eza" \
         "${tmpdir}"
+    curl -fsSL --retry 3 -o "${tmpdir}/completions-${EZA_VERSION}.tar.gz" \
+        "https://github.com/eza-community/eza/releases/download/v${EZA_VERSION}/completions-${EZA_VERSION}.tar.gz"
+    tar -xzf "${tmpdir}/completions-${EZA_VERSION}.tar.gz" -C "${tmpdir}"
+    install_completion_file "eza" "eza" "${tmpdir}"
+
+    install_tar_binary \
+        "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${rg_asset}" \
+        "rg" \
+        "${HOME}/.local/bin/rg" \
+        "${tmpdir}"
+    install_completion_file "rg.bash" "rg" "${tmpdir}"
+
+    install_tar_binary \
+        "https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/${fd_asset}" \
+        "fd" \
+        "${HOME}/.local/bin/fd" \
+        "${tmpdir}"
+    install_completion_file "fd.bash" "fd" "${tmpdir}"
 
     install_tar_binary \
         "https://github.com/ajeetdsouza/zoxide/releases/download/v${ZOXIDE_VERSION}/${zoxide_asset}" \
         "zoxide" \
         "${HOME}/.local/bin/zoxide" \
         "${tmpdir}"
+    install_completion_file "zoxide.bash" "zoxide" "${tmpdir}"
 
     install_tar_binary \
         "https://github.com/alexpasmantier/television/releases/download/${TV_VERSION}/${tv_asset}" \
@@ -158,6 +201,7 @@ PY
         "atuin" \
         "${HOME}/.local/bin/atuin" \
         "${tmpdir}"
+    "${HOME}/.local/bin/atuin" gen-completions --shell bash --out-dir "${completion_dir}" >/dev/null
 
     nvim_dir="${nvim_asset%.tar.gz}"
     curl -fsSL --retry 3 -o "${tmpdir}/${nvim_asset}" \
@@ -169,7 +213,8 @@ PY
     ln -sfn "${HOME}/.local/opt/nvim/bin/nvim" "${HOME}/.local/bin/nvim"
 fi
 
-echo "Installed login-node binaries: jj, jjui, nvim, bat, eza, zoxide, tv, atuin"
+echo "Installed login-node binaries: jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin"
+echo "Installed bash completions under ${completion_dir}"
 if [[ "${WITH_SPACK}" -eq 1 ]]; then
     echo "Optional Spack bootstrapped at ${DB_SPACK_ROOT}"
 else

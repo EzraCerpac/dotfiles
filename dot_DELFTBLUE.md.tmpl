@@ -29,10 +29,12 @@ Rendered defaults:
 
 - `~/.bashrc`
   Loads the cluster bash setup if available and defines DelftBlue shell functions.
+- `~/.bash_profile`
+  Sources `~/.bashrc` so DelftBlue login shells actually pick up the bash customizations.
 - `~/.local/bin/db*`
   CLI helpers for accounts, jobs, interactive allocations, Julia+MPI initialization, and transfer.
 - `~/.local/bin/dbdev-bootstrap`
-  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`
+  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `rg`, `fd`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`
   and can optionally bootstrap a DelftBlue-compatible Spack checkout.
 - `~/.local/bin/dbdev-install`
   Compatibility check for the module-first dev layer.
@@ -70,6 +72,9 @@ These come from `~/.bashrc` on DelftBlue.
 - default bash niceties
   The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
   and initializes `atuin`, `zoxide`, and `tv` when those tools are present.
+- default keybindings
+  `Ctrl-R` opens Atuin history search, `Ctrl-T` triggers Television shell integration,
+  and `Ctrl-E` uses bash's `edit-and-execute-command` with `nvim` as the editor.
 
 ## Main Helper Commands
 
@@ -77,7 +82,8 @@ These are installed in `~/.local/bin/`.
 
 - `dbdev-bootstrap`
   Run this on a login node.
-  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`.
+  Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `rg`, `fd`, `zoxide`, `tv`, and `atuin` into `~/.local/bin`.
+  It also installs bash completion files into `~/.local/share/bash-completion/completions/`.
   If you explicitly want Spack as an extra layer, run:
   `dbdev-bootstrap --with-spack`
   which clones Spack `v0.23.1`, copies the DelftBlue upstream config into
@@ -173,6 +179,8 @@ Default module-first tool loading attempted by `dbdev`:
 - `typst`
 - `eza`
 - `atuin`
+- `rg`
+- `fd`
 
 - Additional login-node binary installs:
 
@@ -181,6 +189,8 @@ Default module-first tool loading attempted by `dbdev`:
 - `nvim`
 - `bat`
 - `eza`
+- `rg`
+- `fd`
 - `zoxide`
 - `tv`
 - `atuin`

@@ -16,6 +16,7 @@ mise.toml
 setup.sh.backup
 {{- if ne .profile "delftblue" }}
 dot_bashrc.tmpl
+dot_bash_profile.tmpl
 dot_DELFTBLUE.md.tmpl
 {{- end }}
 
