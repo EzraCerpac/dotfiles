@@ -94,22 +94,14 @@ if [[ -o interactive ]]; then
 
     if [[ -f "${HOME}/.config/television/shell/integration.bash" ]]; then
         source "${HOME}/.config/television/shell/integration.bash"
-    elif command -v tv >/dev/null 2>&1; then
-        eval "$(tv init bash)"
     fi
 
     if command -v atuin >/dev/null 2>&1; then
         eval "$(atuin init bash --disable-up-arrow --disable-ctrl-r)"
     fi
 
-    if declare -F __atuin_history >/dev/null 2>&1; then
-        bind -x '"\C-r": __atuin_history --keymap-mode=emacs'
-    fi
-
-    if declare -F tv_smart_autocomplete >/dev/null 2>&1; then
-        bind -x '"\C-t": tv_smart_autocomplete'
-    fi
-
+    bind -x '"\C-r": __atuin_history --keymap-mode=emacs'
+    bind -x '"\C-t": tv_smart_autocomplete'
     bind '"\C-e": edit-and-execute-command'
 fi
 
