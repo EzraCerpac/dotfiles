@@ -6,7 +6,7 @@ source "${HOME}/.local/bin/db-common.sh"
 db_require_cluster_host
 
 missing=()
-for bin in jj jjui nvim bat eza rg fd zoxide tv atuin carapace tree-sitter; do
+for bin in jj jjui nvim bat eza rg fd zoxide tv atuin carapace; do
     if ! command -v "${bin}" >/dev/null 2>&1; then
         missing+=("${bin}")
     fi
@@ -40,7 +40,8 @@ fi
 
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
-echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, carapace, and tree-sitter."
+echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, and carapace."
+echo "tree-sitter CLI is optional on DelftBlue and is only used when the module system provides it."
 echo "Shell integration uses ~/.config/television/shell/integration.bash, ~/.local/share/bash-preexec/bash-preexec.sh, and live 'atuin init bash --disable-up-arrow --disable-ctrl-r'."
 
 if [[ ${#missing[@]} -gt 0 ]]; then

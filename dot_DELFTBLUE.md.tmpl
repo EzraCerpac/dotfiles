@@ -254,7 +254,7 @@ Disabled on DelftBlue:
    `ssh {{ .delftblue.host_alias }}`
 2. Bootstrap the dev layer once on the login node:
    `dbdev-bootstrap`
-   This also provisions `tree-sitter` CLI with a module-first strategy and a pinned local fallback.
+   If DelftBlue provides a `tree-sitter` module, `dbdev` will pick it up; otherwise the CLI is skipped.
 3. Check your account setup:
    `dbacct`
 4. Optionally run the compatibility check:
