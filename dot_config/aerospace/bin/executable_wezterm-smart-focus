@@ -27,31 +27,18 @@ fallback_to_aerospace() {
   "${AEROSPACE_CLI:-aerospace}" focus --boundaries all-monitors-outer-frame "${direction}" || true
 }
 
-encode_base64() {
-  printf '%s' "$1" | base64 | tr -d '\n'
+direction_title_case() {
+  case "${direction_lower}" in
+    left) printf 'Left' ;;
+    right) printf 'Right' ;;
+    up) printf 'Up' ;;
+    down) printf 'Down' ;;
+  esac
 }
 
-send_user_var() {
-  local pane_id="$1"
-  local tty_name="$2"
-  local payload osc
-
-  payload=$(encode_base64 "${direction_lower}")
-  osc=$'\033]1337;SetUserVar=ActivatePaneFromAerospace='"${payload}"$'\007'
-
-  if [[ -n "${tty_name}" && -w "${tty_name}" ]]; then
-    if printf '%s' "${osc}" >"${tty_name}"; then
-      return 0
-    fi
-  fi
-
-  if [[ -n "${pane_id}" ]]; then
-    if printf '%s' "${osc}" | "${WEZTERM_CLI}" cli send-text --pane-id "${pane_id}" --no-paste >/dev/null 2>&1; then
-      return 0
-    fi
-  fi
-
-  return 1
+is_remote_ssh_title() {
+  local title="$1"
+  [[ "${title}" =~ ^[^[:space:]@]+@[^[:space:]:]+:.*$ ]]
 }
 
 main() {
@@ -89,18 +76,29 @@ main() {
       exit 0
     fi
 
-    local focused_pane_id
+    local focused_pane_id focused_title pane_direction
     focused_pane_id=$("${WEZTERM_CLI}" cli list-clients --format json 2>/dev/null \
       | jq -r 'map(select(.focused_pane_id != null)) | first | .focused_pane_id // empty' 2>/dev/null || true)
 
     if [[ -n "${focused_pane_id}" ]]; then
-      local focused_tty
-      focused_tty=$("${WEZTERM_CLI}" cli list --format json 2>/dev/null \
-        | jq -r --arg id "${focused_pane_id}" '.[] | select((.pane_id|tostring) == $id) | .tty_name' \
+      focused_title=$("${WEZTERM_CLI}" cli list --format json 2>/dev/null \
+        | jq -r --arg id "${focused_pane_id}" '.[] | select((.pane_id|tostring) == $id) | .title // empty' \
         | head -n1 2>/dev/null || true)
 
-      if send_user_var "${focused_pane_id}" "${focused_tty}"; then
+      if is_remote_ssh_title "${focused_title}"; then
+        fallback_to_aerospace
         exit 0
+      fi
+
+      pane_direction="$(direction_title_case)"
+      if [[ -n "${pane_direction}" ]]; then
+        local adjacent_pane_id
+        adjacent_pane_id=$("${WEZTERM_CLI}" cli get-pane-direction --pane-id "${focused_pane_id}" "${pane_direction}" 2>/dev/null || true)
+        if [[ -n "${adjacent_pane_id}" ]]; then
+          if "${WEZTERM_CLI}" cli activate-pane-direction --pane-id "${focused_pane_id}" "${pane_direction}" >/dev/null 2>&1; then
+            exit 0
+          fi
+        fi
       fi
     fi
   fi
