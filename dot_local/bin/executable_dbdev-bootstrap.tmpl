@@ -37,6 +37,7 @@ TV_VERSION="0.15.5"
 ATUIN_VERSION="18.14.1"
 CARAPACE_VERSION="1.6.4"
 BASH_PREEXEC_VERSION="0.6.0"
+TREE_SITTER_VERSION="0.26.8"
 
 if command -v module >/dev/null 2>&1; then
     module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
@@ -129,6 +130,32 @@ install_tar_binary() {
     install -m 0755 "${binary_path}" "${target}"
 }
 
+install_zip_binary() {
+    local url="$1"
+    local bin_name="$2"
+    local target="$3"
+    local tmpdir="$4"
+    local archive="${tmpdir}/$(basename "${url}")"
+
+    curl -fsSL --retry 3 -o "${archive}" "${url}"
+    python - <<'PY' "${archive}" "${tmpdir}"
+import sys
+import zipfile
+
+archive_path, output_dir = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(archive_path) as zf:
+    zf.extractall(output_dir)
+PY
+
+    local binary_path=""
+    binary_path="$(find "${tmpdir}" -type f -name "${bin_name}" -perm -u+x | head -n 1)"
+    if [[ -z "${binary_path}" ]]; then
+        echo "Failed to locate ${bin_name} in $(basename "${url}")" >&2
+        exit 1
+    fi
+    install -m 0755 "${binary_path}" "${target}"
+}
+
 install_completion_file() {
     local source_name="$1"
     local target_name="$2"
@@ -141,9 +168,30 @@ install_completion_file() {
     fi
 }
 
+find_available_module() {
+    local mod
+    if ! command -v module >/dev/null 2>&1; then
+        return 1
+    fi
+
+    for mod in "$@"; do
+        if module -t spider "${mod}" >/dev/null 2>&1; then
+            printf '%s\n' "${mod}"
+            return 0
+        fi
+        if module -t avail "${mod}" 2>&1 | grep -Eiq "(^|/|[[:space:]])${mod}($|/|[[:space:]])"; then
+            printf '%s\n' "${mod}"
+            return 0
+        fi
+    done
+    return 1
+}
+
 if [[ -n "${jj_asset}" ]]; then
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "${tmpdir}"' EXIT
+    treesitter_module="$(find_available_module tree-sitter tree-sitter-cli || true)"
+    treesitter_install_desc="module ${treesitter_module}"
 
     curl -fsSL --retry 3 "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/${jj_asset}" \
         | tar -xzf - -C "${tmpdir}"
@@ -221,6 +269,31 @@ PY
         "${HOME}/.local/bin/carapace" \
         "${tmpdir}"
 
+    if [[ -z "${treesitter_module}" ]]; then
+        case "${arch}" in
+            x86_64)
+                tree_sitter_asset="tree-sitter-cli-linux-x64.zip"
+                ;;
+            aarch64|arm64)
+                tree_sitter_asset="tree-sitter-cli-linux-arm64.zip"
+                ;;
+            *)
+                tree_sitter_asset=""
+                ;;
+        esac
+
+        if [[ -n "${tree_sitter_asset}" ]]; then
+            install_zip_binary \
+                "https://github.com/tree-sitter/tree-sitter/releases/download/v${TREE_SITTER_VERSION}/${tree_sitter_asset}" \
+                "tree-sitter" \
+                "${HOME}/.local/bin/tree-sitter" \
+                "${tmpdir}"
+            treesitter_install_desc="~/.local/bin/tree-sitter"
+        else
+            treesitter_install_desc="unsupported architecture"
+        fi
+    fi
+
     curl -fsSL --retry 3 -o "${tmpdir}/bash-preexec-${BASH_PREEXEC_VERSION}.tar.gz" \
         "https://github.com/rcaloras/bash-preexec/archive/refs/tags/${BASH_PREEXEC_VERSION}.tar.gz"
     tar -xzf "${tmpdir}/bash-preexec-${BASH_PREEXEC_VERSION}.tar.gz" -C "${tmpdir}"
@@ -241,6 +314,7 @@ PY
 fi
 
 echo "Installed login-node binaries: jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, carapace"
+echo "tree-sitter CLI: ${treesitter_install_desc:-unavailable}"
 echo "Installed bash-preexec under ${bash_preexec_dir}"
 echo "Installed bash completions under ${completion_dir}"
 echo "Generated shell integrations:"

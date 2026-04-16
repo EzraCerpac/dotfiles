@@ -246,6 +246,7 @@ Disabled on DelftBlue:
 - DAP stack
 - local-path-only `jj-waltz.nvim`
 - Lazy plugin update checking
+- Mason-driven LSP/tool installs and repeated CMake/neocmake install attempts
 
 ## Recommended Workflow
 
@@ -253,6 +254,7 @@ Disabled on DelftBlue:
    `ssh {{ .delftblue.host_alias }}`
 2. Bootstrap the dev layer once on the login node:
    `dbdev-bootstrap`
+   This also provisions `tree-sitter` CLI with a module-first strategy and a pinned local fallback.
 3. Check your account setup:
    `dbacct`
 4. Optionally run the compatibility check:
