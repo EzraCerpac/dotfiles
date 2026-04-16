@@ -248,6 +248,27 @@ for _, entry in ipairs(config.keys) do
     table.insert(compact_keys, entry)
   end
 end
+
+for fn = 13, 24 do
+  local key = "F" .. tostring(fn)
+  table.insert(compact_keys, { key = key, mods = "", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "CTRL", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "ALT", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|CTRL", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|ALT", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "CTRL|ALT", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "CTRL|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "ALT|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|CTRL|ALT", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|CTRL|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|ALT|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "CTRL|ALT|CMD", action = act.Nop })
+  table.insert(compact_keys, { key = key, mods = "SHIFT|CTRL|ALT|CMD", action = act.Nop })
+end
+
 config.keys = compact_keys
 
 return config
