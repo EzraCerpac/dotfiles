@@ -177,7 +177,7 @@ That layer is still explicit and conservative:
 - `dbdev-bootstrap` also installs `eza`, `rg`, `fd`, `atuin`, and `carapace` from pinned release binaries on the login node
 - `dbdev-install` is now just a compatibility check; the default dev layer is module-first and does not need a compute-node install step
 - the DelftBlue Neovim overlay disables Mason-driven installs and Sidekick runtime hooks, so cluster startup stays quiet and does not keep retrying unavailable tools
-- `tree-sitter` CLI is module-first on DelftBlue, with a pinned login-node binary fallback when no usable module is available
+- `tree-sitter` CLI is optional on DelftBlue and only used when the module system provides it
 - if you explicitly want Spack as an extra layer, use `dbdev-bootstrap --with-spack`
 - load it only when needed with `dbdev`
 - the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, `ls -> eza`, and guarded `atuin` / `zoxide` / `tv` init
