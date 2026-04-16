@@ -21,10 +21,67 @@ return {
   { "stevearc/conform.nvim", dependencies = {} },
   {
     "nvim-treesitter/nvim-treesitter",
+    build = function() end,
     opts = function(_, opts)
       opts.auto_install = false
       opts.ensure_installed = {}
       return opts
+    end,
+    config = function(_, opts)
+      local TS = require("nvim-treesitter")
+
+      setmetatable(require("nvim-treesitter.install"), {
+        __newindex = function(_, k)
+          if k == "compilers" then
+            vim.schedule(function()
+              LazyVim.error({
+                "Setting custom compilers for `nvim-treesitter` is no longer supported.",
+                "",
+                "For more info, see:",
+                "- [compilers](https://docs.rs/cc/latest/cc/#compile-time-requirements)",
+              })
+            end)
+          end
+        end,
+      })
+
+      if not TS.get_installed then
+        return LazyVim.error("Please use `:Lazy` and update `nvim-treesitter`")
+      end
+
+      TS.setup(opts)
+      LazyVim.treesitter.get_installed(true)
+
+      vim.api.nvim_create_autocmd("FileType", {
+        group = vim.api.nvim_create_augroup("lazyvim_treesitter", { clear = true }),
+        callback = function(ev)
+          local ft, lang = ev.match, vim.treesitter.language.get_lang(ev.match)
+          if not LazyVim.treesitter.have(ft) then
+            return
+          end
+
+          local function enabled(feat, query)
+            local f = opts[feat] or {}
+            return f.enable ~= false
+              and not (type(f.disable) == "table" and vim.tbl_contains(f.disable, lang))
+              and LazyVim.treesitter.have(ft, query)
+          end
+
+          if enabled("highlight", "highlights") then
+            pcall(vim.treesitter.start, ev.buf)
+          end
+
+          if enabled("indent", "indents") then
+            LazyVim.set_default("indentexpr", "v:lua.LazyVim.treesitter.indentexpr()")
+          end
+
+          if enabled("folds", "folds") then
+            if LazyVim.set_default("foldmethod", "expr") then
+              LazyVim.set_default("foldexpr", "v:lua.LazyVim.treesitter.foldexpr()")
+            end
+          end
+        end,
+      })
     end,
   },
   {
