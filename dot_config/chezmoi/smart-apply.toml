@@ -2,6 +2,7 @@ allowlist = [
     "~/.codex/config.toml",
     "~/.config/fish/fish_variables",
     "~/.config/gitlogue-saver/config.toml",
+    "~/.config/atuin/config.toml",
 ]
 
 overwrite_allowlist = [
