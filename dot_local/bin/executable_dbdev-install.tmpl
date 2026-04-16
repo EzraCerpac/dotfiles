@@ -16,6 +16,9 @@ integration_issues=()
 if [[ ! -f "${HOME}/.config/television/shell/integration.bash" ]]; then
     integration_issues+=("missing ~/.config/television/shell/integration.bash")
 fi
+if [[ ! -f "${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec/bash-preexec.sh" ]]; then
+    integration_issues+=("missing ~/.local/share/bash-preexec/bash-preexec.sh")
+fi
 
 if ! declare -F __atuin_history >/dev/null 2>&1; then
     integration_issues+=("Atuin shell function __atuin_history not loaded in current shell")
@@ -31,11 +34,14 @@ fi
 if [[ "${bind_x_output}" != *'tv_smart_autocomplete'* ]]; then
     integration_issues+=("Ctrl-T is not bound to Television in current shell")
 fi
+if [[ "${ATUIN_PREEXEC_BACKEND:-unset}" == *':none' ]] || [[ "${ATUIN_PREEXEC_BACKEND:-unset}" == "unset" ]]; then
+    integration_issues+=("Atuin preexec backend is ${ATUIN_PREEXEC_BACKEND:-unset}; new commands will not be recorded")
+fi
 
 echo "DelftBlue dev layer is module-first; there is nothing to install by default."
 echo "Run: dbdev"
 echo "Use modules where available, plus ~/.local/bin for standalone tools like jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, and carapace."
-echo "Shell integration uses ~/.config/television/shell/integration.bash plus live 'atuin init bash --disable-up-arrow --disable-ctrl-r'."
+echo "Shell integration uses ~/.config/television/shell/integration.bash, ~/.local/share/bash-preexec/bash-preexec.sh, and live 'atuin init bash --disable-up-arrow --disable-ctrl-r'."
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "Missing local binaries: ${missing[*]}" >&2
