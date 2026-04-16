@@ -148,7 +148,7 @@ with zipfile.ZipFile(archive_path) as zf:
 PY
 
     local binary_path=""
-    binary_path="$(find "${tmpdir}" -type f -name "${bin_name}" -perm -u+x | head -n 1)"
+    binary_path="$(find "${tmpdir}" -type f -name "${bin_name}" | head -n 1)"
     if [[ -z "${binary_path}" ]]; then
         echo "Failed to locate ${bin_name} in $(basename "${url}")" >&2
         exit 1
