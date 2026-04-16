@@ -23,6 +23,31 @@ return {
     "nvim-treesitter/nvim-treesitter",
     opts = function(_, opts)
       opts.auto_install = false
+      opts.ensure_installed = {}
+      return opts
+    end,
+  },
+  {
+    "stevearc/conform.nvim",
+    optional = true,
+    opts = function(_, opts)
+      opts = opts or {}
+      opts.formatters_by_ft = opts.formatters_by_ft or {}
+      opts.formatters = opts.formatters or {}
+      opts.formatters_by_ft.markdown = nil
+      opts.formatters_by_ft["markdown.mdx"] = nil
+      opts.formatters["markdownlint-cli2"] = nil
+      opts.formatters["markdown-toc"] = nil
+      return opts
+    end,
+  },
+  {
+    "mfussenegger/nvim-lint",
+    optional = true,
+    opts = function(_, opts)
+      opts = opts or {}
+      opts.linters_by_ft = opts.linters_by_ft or {}
+      opts.linters_by_ft.markdown = {}
       return opts
     end,
   },
