@@ -8,34 +8,6 @@ local function safe_del(mode, lhs)
   pcall(vim.keymap.del, mode, lhs)
 end
 
-local function suppress_modified_high_function_keys()
-  local modes = { "n", "i", "x", "s", "o", "c", "t" }
-  local modifier_keys = { "S", "C", "A", "M" }
-  local modifiers = {}
-
-  for mask = 1, (2 ^ #modifier_keys) - 1 do
-    local combo = {}
-    for index, modifier in ipairs(modifier_keys) do
-      if bit.band(mask, bit.lshift(1, index - 1)) ~= 0 then
-        table.insert(combo, modifier)
-      end
-    end
-    table.insert(modifiers, table.concat(combo, "-"))
-  end
-
-  for fn = 13, 24 do
-    for _, mods in ipairs(modifiers) do
-      vim.keymap.set(modes, string.format("<%s-F%d>", mods, fn), "<Nop>", {
-        desc = string.format("Ignore <%s-F%d>", mods, fn),
-        noremap = true,
-        silent = true,
-      })
-    end
-  end
-end
-
-suppress_modified_high_function_keys()
-
 -- REMOVED --
 
 -- Tabs
