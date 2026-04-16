@@ -67,7 +67,7 @@ fi
     cd ../../../../..
 }
 
-if [[ -o interactive ]]; then
+if [[ "$-" == *i* ]]; then
     set -o emacs
 
     if [[ -f /etc/bash_completion ]]; then
@@ -89,7 +89,7 @@ if [[ -o interactive ]]; then
     fi
 
     if command -v zoxide >/dev/null 2>&1; then
-        eval "$(zoxide init bash --cmd cd)"
+        eval "$(zoxide init bash)"
     fi
 
     if [[ -f "${HOME}/.config/television/shell/integration.bash" ]]; then
