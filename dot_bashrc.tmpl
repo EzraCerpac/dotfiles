@@ -96,6 +96,10 @@ if [[ "$-" == *i* ]]; then
         source "${HOME}/.config/television/shell/integration.bash"
     fi
 
+    if [[ -f "${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec/bash-preexec.sh" ]]; then
+        source "${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec/bash-preexec.sh"
+    fi
+
     if command -v atuin >/dev/null 2>&1; then
         eval "$(atuin init bash --disable-up-arrow --disable-ctrl-r)"
     fi
@@ -116,8 +120,12 @@ dbshell-check() {
     echo "bind -P:"
     bind -P 2>/dev/null | rg 'edit-and-execute-command|reverse-search-history|transpose-chars' || true
     echo
+    echo "Atuin preexec backend:"
+    printf '%s\n' "${ATUIN_PREEXEC_BACKEND:-unset}"
+    echo
     echo "Integration files:"
     ls -l "${HOME}/.config/television/shell/integration.bash" 2>/dev/null || true
+    ls -l "${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec/bash-preexec.sh" 2>/dev/null || true
 }
 
 dbmod-julia() {

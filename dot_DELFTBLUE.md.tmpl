@@ -73,7 +73,8 @@ These come from `~/.bashrc` on DelftBlue.
   Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
 - default bash niceties
   The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
-  and initializes `atuin`, `zoxide`, and `tv` when those tools are present.
+  initializes `zoxide` and `tv` when those tools are present, sources
+  `~/.local/share/bash-preexec/bash-preexec.sh`, and then initializes `atuin`.
 - default completion bridge
   If `carapace` is present, bash loads it as an extra completion source on top of normal bash completion.
 - default keybindings
@@ -88,6 +89,7 @@ These are installed in `~/.local/bin/`.
   Run this on a login node.
   Installs `jj`, `jjui`, `nvim`, `bat`, `eza`, `rg`, `fd`, `zoxide`, `tv`, `atuin`, and `carapace` into `~/.local/bin`.
   It also installs bash completion files into `~/.local/share/bash-completion/completions/`.
+  It installs `bash-preexec` into `~/.local/share/bash-preexec/`.
   It writes cached Television bash integration to `~/.config/television/shell/integration.bash`.
   Atuin is initialized directly from `~/.bashrc`.
   If you explicitly want Spack as an extra layer, run:

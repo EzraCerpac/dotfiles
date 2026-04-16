@@ -36,6 +36,7 @@ ZOXIDE_VERSION="0.9.9"
 TV_VERSION="0.15.5"
 ATUIN_VERSION="18.14.1"
 CARAPACE_VERSION="1.6.4"
+BASH_PREEXEC_VERSION="0.6.0"
 
 if command -v module >/dev/null 2>&1; then
     module load {{ .delftblue.module_stack }} python >/dev/null 2>&1 || true
@@ -106,6 +107,8 @@ atuin_shell_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/atuin/shell"
 mkdir -p "${atuin_shell_dir}"
 tv_shell_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/television/shell"
 mkdir -p "${tv_shell_dir}"
+bash_preexec_dir="${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec"
+mkdir -p "${bash_preexec_dir}"
 
 install_tar_binary() {
     local url="$1"
@@ -218,6 +221,13 @@ PY
         "${HOME}/.local/bin/carapace" \
         "${tmpdir}"
 
+    curl -fsSL --retry 3 -o "${tmpdir}/bash-preexec-${BASH_PREEXEC_VERSION}.tar.gz" \
+        "https://github.com/rcaloras/bash-preexec/archive/refs/tags/${BASH_PREEXEC_VERSION}.tar.gz"
+    tar -xzf "${tmpdir}/bash-preexec-${BASH_PREEXEC_VERSION}.tar.gz" -C "${tmpdir}"
+    install -m 0644 \
+        "${tmpdir}/bash-preexec-${BASH_PREEXEC_VERSION}/bash-preexec.sh" \
+        "${bash_preexec_dir}/bash-preexec.sh"
+
     nvim_dir="${nvim_asset%.tar.gz}"
     curl -fsSL --retry 3 -o "${tmpdir}/${nvim_asset}" \
         "https://github.com/neovim/neovim-releases/releases/download/v${NVIM_VERSION}/${nvim_asset}"
@@ -231,6 +241,7 @@ PY
 fi
 
 echo "Installed login-node binaries: jj, jjui, nvim, bat, eza, rg, fd, zoxide, tv, atuin, carapace"
+echo "Installed bash-preexec under ${bash_preexec_dir}"
 echo "Installed bash completions under ${completion_dir}"
 echo "Generated shell integrations:"
 echo "  ${atuin_shell_dir}/integration.bash"
