@@ -82,6 +82,8 @@ These come from `~/.bashrc` on DelftBlue.
   DelftBlue also forces Atuin to use normal `fuzzy` search instead of `daemon-fuzzy`,
   and sets sync to run after every command because login nodes have separate `/tmp`
   filesystems.
+  If the local Atuin DB fails a quick integrity check at shell startup, bash will
+  move it aside automatically and force a fresh sync.
 - default completion bridge
   If `carapace` is present, bash loads it as an extra completion source on top of normal bash completion.
 - default keybindings
