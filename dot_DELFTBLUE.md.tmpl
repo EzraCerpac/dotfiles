@@ -77,12 +77,10 @@ These come from `~/.bashrc` on DelftBlue.
   The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
   initializes `zoxide` and `tv` when those tools are present, sources
   `~/.local/share/bash-preexec/bash-preexec.sh`, and then initializes `atuin`.
-  On DelftBlue, Atuin's SQLite DB lives at `/tmp/{{ .delftblue.netid }}/atuin/history.db`
-  instead of the default home-directory path.
-  Atuin's `meta.db` is also redirected to `/tmp/{{ .delftblue.netid }}/atuin/meta.db`
-  via a symlink from `~/.local/share/atuin/meta.db`.
-  That `meta.db` file is treated as disposable node-local cache and is recreated
-  on each fresh login shell.
+  On DelftBlue, Atuin keeps all of its local SQLite state under
+  `/tmp/{{ .delftblue.netid }}/atuin/` instead of the default home-directory path:
+  `history.db`, `records.db`, `meta.db`, `kv.db`, and `scripts.db`.
+  Keys and session remain on persistent home storage.
   DelftBlue also forces Atuin to use normal `fuzzy` search instead of `daemon-fuzzy`,
   and sets sync to run after every command because login nodes have separate `/tmp`
   filesystems.
