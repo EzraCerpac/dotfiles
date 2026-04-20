@@ -42,6 +42,32 @@ revisions.refresh()
 '''
 
 [[actions]]
+name = "tug"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async(
+  "bookmark",
+  "move",
+  "--from",
+  "closest_bookmark(" .. id .. ")",
+  "--to",
+  "closest_pushable(" .. id .. ")"
+)
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "tug"
+key = "ctrl+t"
+scope = "revisions"
+desc = "tug"
+
+[[actions]]
 name = "show-after-revisions"
 lua = '''
 local id = context.change_id()
