@@ -124,6 +124,14 @@ __atuin_ensure_meta_db_link() {
     ln -sfn "${DB_ATUIN_META_DB_PATH}" "${DB_ATUIN_META_LINK_PATH}"
 }
 
+__atuin_reset_meta_cache() {
+    __atuin_ensure_meta_db_link
+    rm -f \
+        "${DB_ATUIN_META_DB_PATH}" \
+        "${DB_ATUIN_META_DB_PATH}-shm" \
+        "${DB_ATUIN_META_DB_PATH}-wal"
+}
+
 __atuin_reset_local_db() {
     local stamp reset_path
     local -a reset_paths=()
@@ -182,8 +190,9 @@ if [[ "$-" == *i* ]]; then
 
     if command -v atuin >/dev/null 2>&1; then
         mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+        __atuin_reset_meta_cache
         __atuin_ensure_meta_db_link
-        if ! __atuin_check_db "${DB_ATUIN_DB_PATH}" || ! __atuin_check_db "${DB_ATUIN_META_DB_PATH}"; then
+        if ! __atuin_check_db "${DB_ATUIN_DB_PATH}"; then
             __atuin_reset_local_db
         fi
     fi
