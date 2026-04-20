@@ -71,10 +71,14 @@ These come from `~/.bashrc` on DelftBlue.
   Sources the optional DelftBlue Spack environment in the current bash shell
 - `dbdev [command ...]`
   Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
+- `dbatuin-reset`
+  Moves a malformed local Atuin SQLite DB out of the way and runs `atuin sync -f`
 - default bash niceties
   The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
   initializes `zoxide` and `tv` when those tools are present, sources
   `~/.local/share/bash-preexec/bash-preexec.sh`, and then initializes `atuin`.
+  On DelftBlue, Atuin's SQLite DB lives at `/tmp/{{ .delftblue.netid }}/atuin/history.db`
+  instead of the default home-directory path.
 - default completion bridge
   If `carapace` is present, bash loads it as an extra completion source on top of normal bash completion.
 - default keybindings

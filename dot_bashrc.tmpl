@@ -21,6 +21,7 @@ export DB_CPU_PARTITION="{{ .delftblue.default_cpu_partition }}"
 export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
+export DB_ATUIN_LOCAL_DIR="/tmp/${USER}/atuin"
 
 v() {
     if command -v nvim >/dev/null 2>&1; then
@@ -69,6 +70,10 @@ fi
 
 if [[ "$-" == *i* ]]; then
     set -o emacs
+
+    if command -v atuin >/dev/null 2>&1; then
+        mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+    fi
 
     if [[ -f /etc/bash_completion ]]; then
         source /etc/bash_completion
@@ -123,9 +128,27 @@ dbshell-check() {
     echo "Atuin preexec backend:"
     printf '%s\n' "${ATUIN_PREEXEC_BACKEND:-unset}"
     echo
+    echo "Atuin DB path:"
+    printf '%s\n' "${DB_ATUIN_LOCAL_DIR}/history.db"
+    echo
     echo "Integration files:"
     ls -l "${HOME}/.config/television/shell/integration.bash" 2>/dev/null || true
     ls -l "${XDG_DATA_HOME:-${HOME}/.local/share}/bash-preexec/bash-preexec.sh" 2>/dev/null || true
+}
+
+dbatuin-reset() {
+    local db_path="${DB_ATUIN_LOCAL_DIR}/history.db"
+    local backup_path="${db_path}.corrupt.$(date +%Y%m%d-%H%M%S)"
+
+    mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+    if [[ -e "${db_path}" ]]; then
+        mv "${db_path}" "${backup_path}"
+        echo "Moved malformed Atuin DB to ${backup_path}"
+    fi
+
+    if command -v atuin >/dev/null 2>&1; then
+        atuin sync -f
+    fi
 }
 
 dbmod-julia() {
