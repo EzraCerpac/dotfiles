@@ -7,6 +7,10 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
+if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate bash --shims)"
+fi
+
 if command -v nvim >/dev/null 2>&1; then
     export EDITOR="nvim"
 else
