@@ -22,6 +22,7 @@ export DB_GPU_PARTITION="{{ .delftblue.default_gpu_partition }}"
 export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
 export DB_ATUIN_LOCAL_DIR="/tmp/${USER}/atuin"
+export DB_ATUIN_DB_PATH="${DB_ATUIN_LOCAL_DIR}/history.db"
 
 v() {
     if command -v nvim >/dev/null 2>&1; then
@@ -38,6 +39,64 @@ __wezterm_set_cwd() {
 
     local host="${HOSTNAME%%.*}"
     printf '\033]7;file://%s%s\033\\' "${host:-localhost}" "$PWD"
+}
+
+__atuin_check_db() {
+    local db_path="${1}"
+
+    if [[ ! -e "${db_path}" ]]; then
+        return 0
+    fi
+
+    if [[ ! -s "${db_path}" ]]; then
+        return 1
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "${db_path}" <<'PY'
+import sqlite3
+import sys
+
+path = sys.argv[1]
+try:
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    row = conn.execute("PRAGMA quick_check").fetchone()
+    conn.close()
+    raise SystemExit(0 if row and row[0] == "ok" else 1)
+except Exception:
+    raise SystemExit(1)
+PY
+        return $?
+    fi
+
+    if command -v sqlite3 >/dev/null 2>&1; then
+        [[ "$(sqlite3 "${db_path}" 'PRAGMA quick_check' 2>/dev/null | head -n 1)" == "ok" ]]
+        return $?
+    fi
+
+    [[ "$(head -c 16 "${db_path}" 2>/dev/null)" == "SQLite format 3" ]]
+}
+
+__atuin_reset_local_db() {
+    local db_path="${DB_ATUIN_DB_PATH}"
+    local stamp backup_base
+
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    backup_base="${db_path}.corrupt.${stamp}"
+    mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+
+    if [[ -e "${db_path}" ]]; then
+        mv "${db_path}" "${backup_base}"
+    fi
+    if [[ -e "${db_path}-shm" ]]; then
+        mv "${db_path}-shm" "${backup_base}-shm"
+    fi
+    if [[ -e "${db_path}-wal" ]]; then
+        mv "${db_path}-wal" "${backup_base}-wal"
+    fi
+
+    export DB_ATUIN_RESET_NEEDED=1
+    printf 'Reset invalid Atuin DB: %s\n' "${backup_base}" >&2
 }
 
 if [[ -n "${WEZTERM_PANE:-}" ]]; then
@@ -73,6 +132,9 @@ if [[ "$-" == *i* ]]; then
 
     if command -v atuin >/dev/null 2>&1; then
         mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+        if ! __atuin_check_db "${DB_ATUIN_DB_PATH}"; then
+            __atuin_reset_local_db
+        fi
     fi
 
     if [[ -f /etc/bash_completion ]]; then
@@ -107,6 +169,10 @@ if [[ "$-" == *i* ]]; then
 
     if command -v atuin >/dev/null 2>&1; then
         eval "$(atuin init bash --disable-up-arrow --disable-ctrl-r)"
+        if [[ "${DB_ATUIN_RESET_NEEDED:-0}" == "1" ]]; then
+            atuin sync -f >/dev/null 2>&1 || true
+            unset DB_ATUIN_RESET_NEEDED
+        fi
     fi
 
     bind -x '"\C-r": __atuin_history --keymap-mode=emacs'
@@ -129,7 +195,7 @@ dbshell-check() {
     printf '%s\n' "${ATUIN_PREEXEC_BACKEND:-unset}"
     echo
     echo "Atuin DB path:"
-    printf '%s\n' "${DB_ATUIN_LOCAL_DIR}/history.db"
+    printf '%s\n' "${DB_ATUIN_DB_PATH}"
     echo
     echo "Integration files:"
     ls -l "${HOME}/.config/television/shell/integration.bash" 2>/dev/null || true
@@ -137,14 +203,7 @@ dbshell-check() {
 }
 
 dbatuin-reset() {
-    local db_path="${DB_ATUIN_LOCAL_DIR}/history.db"
-    local backup_path="${db_path}.corrupt.$(date +%Y%m%d-%H%M%S)"
-
-    mkdir -p "${DB_ATUIN_LOCAL_DIR}"
-    if [[ -e "${db_path}" ]]; then
-        mv "${db_path}" "${backup_path}"
-        echo "Moved malformed Atuin DB to ${backup_path}"
-    fi
+    __atuin_reset_local_db
 
     if command -v atuin >/dev/null 2>&1; then
         atuin sync -f
