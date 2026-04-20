@@ -173,7 +173,9 @@ keymap_mode = "vim-insert"
 ## in entering the cursor shape.  Available values are "default" and
 ## "{blink,steady}-{block,underline,bar}".
 keymap_cursor = { emacs = "blink-block", vim_insert = "steady-bar", vim_normal = "steady-block" }
+{{- if ne .profile "delftblue" }}
 search_mode = "daemon-fuzzy"
+{{- end }}
 
 # network_connect_timeout = 5
 # network_timeout = 5
