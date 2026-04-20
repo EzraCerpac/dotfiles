@@ -184,9 +184,8 @@ That layer is still explicit and conservative:
 - a DelftBlue-only `~/.bash_profile` is rendered to source `~/.bashrc`, so those bash customizations appear in fresh login shells
 - `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
 - Television bash integration is generated once into `~/.config/television/shell/integration.bash` and sourced from `~/.bashrc`; `bash-preexec` is installed under `~/.local/share/bash-preexec/` and sourced before `atuin init bash --disable-up-arrow --disable-ctrl-r` so new commands are recorded correctly
-- on DelftBlue, Atuin keeps its SQLite history DB at `/tmp/$USER/atuin/history.db` instead of the default home-directory path, because Atuin's docs warn that SQLite does not behave well on network filesystems
-- on DelftBlue, Atuin's `meta.db` is also redirected to `/tmp/$USER/atuin/meta.db` via `~/.local/share/atuin/meta.db`
-- on DelftBlue, `meta.db` is treated as disposable node-local cache and is recreated on each fresh login shell
+- on DelftBlue, Atuin keeps all local SQLite state under `/tmp/$USER/atuin/` instead of the default home-directory path: `history.db`, `records.db`, `meta.db`, `kv.db`, and `scripts.db`
+- keys and session remain on persistent home storage
 - on DelftBlue, Atuin also uses normal `fuzzy` search and `sync_frequency = "0"` so each command syncs immediately from node-local storage
 - on DelftBlue, bash runs a quick integrity check on the local Atuin DB at shell startup and automatically rotates it out if it is not a valid SQLite database
 - use `dbatuin-reset` in a DelftBlue bash shell to rotate out malformed local Atuin DBs and repopulate from sync

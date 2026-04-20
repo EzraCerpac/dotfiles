@@ -1,8 +1,16 @@
 {{- if eq .profile "delftblue" }}
 ## Atuin uses SQLite, and the Atuin docs warn that SQLite does not tend to
 ## like network filesystems. DelftBlue home storage is network-backed, so keep
-## the local history DB on node-local tmp instead.
+## local SQLite state on node-local tmp instead.
 db_path = "/tmp/{{ .delftblue.netid }}/atuin/history.db"
+record_store_path = "/tmp/{{ .delftblue.netid }}/atuin/records.db"
+[meta]
+db_path = "/tmp/{{ .delftblue.netid }}/atuin/meta.db"
+[kv]
+db_path = "/tmp/{{ .delftblue.netid }}/atuin/kv.db"
+[scripts]
+db_path = "/tmp/{{ .delftblue.netid }}/atuin/scripts.db"
+
 ## The daemon-backed search mode is not a good fit for DelftBlue login shells.
 ## Keep search local and simple, and sync after every command because sessions
 ## are spread across multiple login nodes with separate /tmp filesystems.
