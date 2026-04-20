@@ -185,9 +185,10 @@ That layer is still explicit and conservative:
 - `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
 - Television bash integration is generated once into `~/.config/television/shell/integration.bash` and sourced from `~/.bashrc`; `bash-preexec` is installed under `~/.local/share/bash-preexec/` and sourced before `atuin init bash --disable-up-arrow --disable-ctrl-r` so new commands are recorded correctly
 - on DelftBlue, Atuin keeps its SQLite history DB at `/tmp/$USER/atuin/history.db` instead of the default home-directory path, because Atuin's docs warn that SQLite does not behave well on network filesystems
+- on DelftBlue, Atuin's `meta.db` is also redirected to `/tmp/$USER/atuin/meta.db` via `~/.local/share/atuin/meta.db`
 - on DelftBlue, Atuin also uses normal `fuzzy` search and `sync_frequency = "0"` so each command syncs immediately from node-local storage
 - on DelftBlue, bash runs a quick integrity check on the local Atuin DB at shell startup and automatically rotates it out if it is not a valid SQLite database
-- use `dbatuin-reset` in a DelftBlue bash shell to rotate out a malformed local Atuin DB and repopulate from sync
+- use `dbatuin-reset` in a DelftBlue bash shell to rotate out malformed local Atuin DBs and repopulate from sync
 - use `dbshell-check` in a DelftBlue bash shell to inspect loaded functions and active key bindings
 - bash also loads `carapace` as an extra completion bridge when available
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU

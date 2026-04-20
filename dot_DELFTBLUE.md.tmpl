@@ -72,13 +72,15 @@ These come from `~/.bashrc` on DelftBlue.
 - `dbdev [command ...]`
   Loads the module-first DelftBlue dev environment in the current shell, or runs a command inside it
 - `dbatuin-reset`
-  Moves a malformed local Atuin SQLite DB out of the way and runs `atuin sync -f`
+  Moves malformed local Atuin SQLite DBs out of the way and runs `atuin sync -f`
 - default bash niceties
   The DelftBlue bash profile restores `..`, `...`, `....`, `v`, aliases `ls` to `eza`,
   initializes `zoxide` and `tv` when those tools are present, sources
   `~/.local/share/bash-preexec/bash-preexec.sh`, and then initializes `atuin`.
   On DelftBlue, Atuin's SQLite DB lives at `/tmp/{{ .delftblue.netid }}/atuin/history.db`
   instead of the default home-directory path.
+  Atuin's `meta.db` is also redirected to `/tmp/{{ .delftblue.netid }}/atuin/meta.db`
+  via a symlink from `~/.local/share/atuin/meta.db`.
   DelftBlue also forces Atuin to use normal `fuzzy` search instead of `daemon-fuzzy`,
   and sets sync to run after every command because login nodes have separate `/tmp`
   filesystems.

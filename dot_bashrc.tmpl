@@ -23,6 +23,9 @@ export DB_PROJECT_STORAGE_ROOT="{{ .delftblue.project_storage_root }}"
 export DB_SPACK_ROOT="${DB_SPACK_ROOT:-$HOME/spack}"
 export DB_ATUIN_LOCAL_DIR="/tmp/${USER}/atuin"
 export DB_ATUIN_DB_PATH="${DB_ATUIN_LOCAL_DIR}/history.db"
+export DB_ATUIN_META_HOME_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/atuin"
+export DB_ATUIN_META_DB_PATH="${DB_ATUIN_LOCAL_DIR}/meta.db"
+export DB_ATUIN_META_LINK_PATH="${DB_ATUIN_META_HOME_DIR}/meta.db"
 
 v() {
     if command -v nvim >/dev/null 2>&1; then
@@ -77,26 +80,73 @@ PY
     [[ "$(head -c 16 "${db_path}" 2>/dev/null)" == "SQLite format 3" ]]
 }
 
-__atuin_reset_local_db() {
-    local db_path="${DB_ATUIN_DB_PATH}"
-    local stamp backup_base
-
-    stamp="$(date +%Y%m%d-%H%M%S)"
-    backup_base="${db_path}.corrupt.${stamp}"
-    mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+__atuin_reset_db_path() {
+    local db_path="${1}"
+    local stamp="${2}"
+    local backup_base="${db_path}.corrupt.${stamp}"
+    local moved=0
 
     if [[ -e "${db_path}" ]]; then
         mv "${db_path}" "${backup_base}"
+        moved=1
     fi
     if [[ -e "${db_path}-shm" ]]; then
         mv "${db_path}-shm" "${backup_base}-shm"
+        moved=1
     fi
     if [[ -e "${db_path}-wal" ]]; then
         mv "${db_path}-wal" "${backup_base}-wal"
+        moved=1
+    fi
+
+    if [[ "${moved}" -eq 1 ]]; then
+        printf '%s\n' "${backup_base}"
+    fi
+}
+
+__atuin_ensure_meta_db_link() {
+    mkdir -p "${DB_ATUIN_LOCAL_DIR}" "${DB_ATUIN_META_HOME_DIR}"
+
+    if [[ -L "${DB_ATUIN_META_LINK_PATH}" ]]; then
+        return 0
+    fi
+
+    if [[ -e "${DB_ATUIN_META_LINK_PATH}" ]]; then
+        mv "${DB_ATUIN_META_LINK_PATH}" "${DB_ATUIN_META_DB_PATH}"
+    fi
+    if [[ -e "${DB_ATUIN_META_LINK_PATH}-shm" ]]; then
+        mv "${DB_ATUIN_META_LINK_PATH}-shm" "${DB_ATUIN_META_DB_PATH}-shm"
+    fi
+    if [[ -e "${DB_ATUIN_META_LINK_PATH}-wal" ]]; then
+        mv "${DB_ATUIN_META_LINK_PATH}-wal" "${DB_ATUIN_META_DB_PATH}-wal"
+    fi
+
+    ln -sfn "${DB_ATUIN_META_DB_PATH}" "${DB_ATUIN_META_LINK_PATH}"
+}
+
+__atuin_reset_local_db() {
+    local stamp reset_path
+    local -a reset_paths=()
+
+    mkdir -p "${DB_ATUIN_LOCAL_DIR}"
+    __atuin_ensure_meta_db_link
+
+    stamp="$(date +%Y%m%d-%H%M%S)"
+
+    reset_path="$(__atuin_reset_db_path "${DB_ATUIN_DB_PATH}" "${stamp}")"
+    if [[ -n "${reset_path}" ]]; then
+        reset_paths+=("${reset_path}")
+    fi
+
+    reset_path="$(__atuin_reset_db_path "${DB_ATUIN_META_DB_PATH}" "${stamp}")"
+    if [[ -n "${reset_path}" ]]; then
+        reset_paths+=("${reset_path}")
     fi
 
     export DB_ATUIN_RESET_NEEDED=1
-    printf 'Reset invalid Atuin DB: %s\n' "${backup_base}" >&2
+    if [[ ${#reset_paths[@]} -gt 0 ]]; then
+        printf 'Reset invalid Atuin DBs: %s\n' "${reset_paths[*]}" >&2
+    fi
 }
 
 if [[ -n "${WEZTERM_PANE:-}" ]]; then
@@ -132,7 +182,8 @@ if [[ "$-" == *i* ]]; then
 
     if command -v atuin >/dev/null 2>&1; then
         mkdir -p "${DB_ATUIN_LOCAL_DIR}"
-        if ! __atuin_check_db "${DB_ATUIN_DB_PATH}"; then
+        __atuin_ensure_meta_db_link
+        if ! __atuin_check_db "${DB_ATUIN_DB_PATH}" || ! __atuin_check_db "${DB_ATUIN_META_DB_PATH}"; then
             __atuin_reset_local_db
         fi
     fi
@@ -196,6 +247,12 @@ dbshell-check() {
     echo
     echo "Atuin DB path:"
     printf '%s\n' "${DB_ATUIN_DB_PATH}"
+    echo
+    echo "Atuin meta DB path:"
+    printf '%s\n' "${DB_ATUIN_META_DB_PATH}"
+    echo
+    echo "Atuin meta link:"
+    ls -l "${DB_ATUIN_META_LINK_PATH}" 2>/dev/null || true
     echo
     echo "Integration files:"
     ls -l "${HOME}/.config/television/shell/integration.bash" 2>/dev/null || true
