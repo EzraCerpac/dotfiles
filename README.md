@@ -184,6 +184,8 @@ That layer is still explicit and conservative:
 - a DelftBlue-only `~/.bash_profile` is rendered to source `~/.bashrc`, so those bash customizations appear in fresh login shells
 - `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
 - Television bash integration is generated once into `~/.config/television/shell/integration.bash` and sourced from `~/.bashrc`; `bash-preexec` is installed under `~/.local/share/bash-preexec/` and sourced before `atuin init bash --disable-up-arrow --disable-ctrl-r` so new commands are recorded correctly
+- on DelftBlue, Atuin keeps its SQLite history DB at `/tmp/$USER/atuin/history.db` instead of the default home-directory path, because Atuin's docs warn that SQLite does not behave well on network filesystems
+- use `dbatuin-reset` in a DelftBlue bash shell to rotate out a malformed local Atuin DB and repopulate from sync
 - use `dbshell-check` in a DelftBlue bash shell to inspect loaded functions and active key bindings
 - bash also loads `carapace` as an extra completion bridge when available
 - use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
