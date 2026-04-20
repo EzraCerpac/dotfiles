@@ -3,6 +3,11 @@
 ## like network filesystems. DelftBlue home storage is network-backed, so keep
 ## the local history DB on node-local tmp instead.
 db_path = "/tmp/{{ .delftblue.netid }}/atuin/history.db"
+## The daemon-backed search mode is not a good fit for DelftBlue login shells.
+## Keep search local and simple, and sync after every command because sessions
+## are spread across multiple login nodes with separate /tmp filesystems.
+search_mode = "fuzzy"
+sync_frequency = "0"
 {{- end }}
 
 ## where to store your database, default is your system data directory
