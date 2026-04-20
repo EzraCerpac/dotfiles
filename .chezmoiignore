@@ -53,6 +53,8 @@ dot_config/private_jj/
 dot_config/starship-jj/
 dot_config/worktrunk/
 dot_julia/
+.julia/
+.julia/**
 dot_zprofile
 dot_zshenv
 dot_zshrc
