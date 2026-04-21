@@ -1,0 +1,3 @@
+[workspace]
+create_bookmark = true
+bookmark_template = "wip/{workspace}"
