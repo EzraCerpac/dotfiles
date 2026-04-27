@@ -8,6 +8,9 @@ KARABINER_MANAGER="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Content
 KARABINER_DAEMON="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
 KARABINER_PLIST="/Library/LaunchDaemons/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi.plist"
 KARABINER_LABEL="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
+KARABINER_CORE_SERVICE="/Library/Application Support/org.pqrs/Karabiner-Elements/Karabiner-Core-Service.app/Contents/MacOS/Karabiner-Core-Service"
+KARABINER_CORE_PLIST="/Library/LaunchDaemons/org.pqrs.service.daemon.Karabiner-Core-Service.plist"
+KARABINER_CORE_LABEL="org.pqrs.service.daemon.Karabiner-Core-Service"
 
 if [[ ! -x "${KARABINER_MANAGER}" ]] || [[ ! -x "${KARABINER_DAEMON}" ]]; then
     echo "Karabiner VirtualHID components not installed yet; skipping setup"
@@ -22,8 +25,46 @@ if ! systemextensionsctl list | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHID
     fi
 fi
 
+TMP_FILES=()
+cleanup() {
+    rm -f "${TMP_FILES[@]}"
+}
+trap cleanup EXIT
+
+install_launch_daemon() {
+    local label="$1"
+    local plist="$2"
+    local tmp_file="$3"
+    local log_name="$4"
+
+    if [[ -f "${plist}" ]] && cmp -s "${tmp_file}" "${plist}"; then
+        if sudo -n launchctl print "system/${label}" >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+
+    echo "Installing ${label} launch daemon..."
+
+    if sudo install -o root -g wheel -m 644 "${tmp_file}" "${plist}" >/dev/null 2>&1; then
+        if sudo launchctl print "system/${label}" >/dev/null 2>&1; then
+            sudo launchctl bootout "system/${label}" >/dev/null 2>&1 || true
+        fi
+        sudo launchctl bootstrap system "${plist}" >/dev/null 2>&1 || true
+        sudo launchctl enable "system/${label}" >/dev/null 2>&1 || true
+        if sudo launchctl kickstart -k "system/${label}" >/dev/null 2>&1; then
+            echo "${label} installed and started"
+        else
+            echo "${label} installed, but could not be started automatically"
+            echo "Check logs with: sudo tail -n 50 /var/log/${log_name}.err.log"
+        fi
+    else
+        echo "Could not install ${plist}"
+        echo "Re-run: chezmoi apply"
+    fi
+}
+
 TMP_FILE="$(mktemp)"
-trap 'rm -f "${TMP_FILE}"' EXIT
+TMP_FILES+=("${TMP_FILE}")
 
 cat > "${TMP_FILE}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -48,27 +89,40 @@ cat > "${TMP_FILE}" <<EOF
 </plist>
 EOF
 
-if [[ -f "${KARABINER_PLIST}" ]] && cmp -s "${TMP_FILE}" "${KARABINER_PLIST}"; then
-    exit 0
-fi
+install_launch_daemon "${KARABINER_LABEL}" "${KARABINER_PLIST}" "${TMP_FILE}" "karabiner-virtualhid"
 
-echo "Installing Karabiner VirtualHID launch daemon..."
+if [[ -x "${KARABINER_CORE_SERVICE}" ]]; then
+    CORE_TMP_FILE="$(mktemp)"
+    TMP_FILES+=("${CORE_TMP_FILE}")
 
-if sudo install -o root -g wheel -m 644 "${TMP_FILE}" "${KARABINER_PLIST}" >/dev/null 2>&1; then
-    if sudo launchctl print "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
-        sudo launchctl bootout "system/${KARABINER_LABEL}" >/dev/null 2>&1 || true
-    fi
-    sudo launchctl bootstrap system "${KARABINER_PLIST}" >/dev/null 2>&1 || true
-    sudo launchctl enable "system/${KARABINER_LABEL}" >/dev/null 2>&1 || true
-    if sudo launchctl kickstart -k "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
-        echo "Karabiner VirtualHID daemon installed and started"
-    else
-        echo "Karabiner VirtualHID daemon installed, but could not be started automatically"
-        echo "Check logs with: sudo tail -n 50 /var/log/karabiner-virtualhid.err.log"
-    fi
+    cat > "${CORE_TMP_FILE}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${KARABINER_CORE_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${KARABINER_CORE_SERVICE}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardOutPath</key>
+    <string>/var/log/karabiner-core-service.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/karabiner-core-service.err.log</string>
+</dict>
+</plist>
+EOF
+
+    install_launch_daemon "${KARABINER_CORE_LABEL}" "${KARABINER_CORE_PLIST}" "${CORE_TMP_FILE}" "karabiner-core-service"
 else
-    echo "Could not install ${KARABINER_PLIST}"
-    echo "Re-run: chezmoi apply"
+    echo "Karabiner Core-Service not installed yet; skipping setup"
 fi
 
 {{- end }}

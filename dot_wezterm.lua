@@ -198,6 +198,10 @@ config.keys = {
   { key = "LeftArrow", mods = "CTRL", action = act.SendKey({ key = "LeftArrow", mods = "CTRL" }) },
   { key = "RightArrow", mods = "CTRL", action = act.SendKey({ key = "RightArrow", mods = "CTRL" }) },
 
+  -- Pass Ctrl+V through for terminal apps (e.g. Neovim block select).
+  { key = "v", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
+  { key = "V", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
+
   -- Split panes
   { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
   { key = "D", mods = "CMD|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },

@@ -104,15 +104,23 @@ return {
       local all_modes = { "n", "i", "v", "x", "s", "o", "t" }
       -- these keymaps will also accept a range,
       -- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
-      vim.keymap.set(all_modes, "<C-A-h>", smart_splits.resize_left)
-      vim.keymap.set(all_modes, "<C-A-j>", smart_splits.resize_down)
-      vim.keymap.set(all_modes, "<C-A-k>", smart_splits.resize_up)
-      vim.keymap.set(all_modes, "<C-A-l>", smart_splits.resize_right)
+      vim.keymap.set(all_modes, "<S-A-h>", smart_splits.resize_left)
+      vim.keymap.set(all_modes, "<S-A-j>", smart_splits.resize_down)
+      vim.keymap.set(all_modes, "<S-A-k>", smart_splits.resize_up)
+      vim.keymap.set(all_modes, "<S-A-l>", smart_splits.resize_right)
+      vim.keymap.set(all_modes, "<S-A-Left>", smart_splits.resize_left)
+      vim.keymap.set(all_modes, "<S-A-Down>", smart_splits.resize_down)
+      vim.keymap.set(all_modes, "<S-A-Up>", smart_splits.resize_up)
+      vim.keymap.set(all_modes, "<S-A-Right>", smart_splits.resize_right)
       -- moving between splits
       vim.keymap.set(all_modes, "<A-h>", smart_splits.move_cursor_left, { remap = true })
       vim.keymap.set(all_modes, "<A-j>", smart_splits.move_cursor_down, { remap = true })
       vim.keymap.set(all_modes, "<A-k>", smart_splits.move_cursor_up, { remap = true })
       vim.keymap.set(all_modes, "<A-l>", smart_splits.move_cursor_right, { remap = true })
+      vim.keymap.set(all_modes, "<A-Left>", smart_splits.move_cursor_left, { remap = true })
+      vim.keymap.set(all_modes, "<A-Down>", smart_splits.move_cursor_down, { remap = true })
+      vim.keymap.set(all_modes, "<A-Up>", smart_splits.move_cursor_up, { remap = true })
+      vim.keymap.set(all_modes, "<A-Right>", smart_splits.move_cursor_right, { remap = true })
     end
 
     apply_mappings()
