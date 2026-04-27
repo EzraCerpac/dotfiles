@@ -58,6 +58,6 @@ merge-tool-edits-conflict-markers = true
 "bug(x)" = "heads(bug_all(x))"
 "bug_root(x)" = "roots(bug_all(x))"
 # Notes and connected history
-"just_notes()" = "subject(substring:\"NOTE:\")"
+"just_notes()" = "subject(substring:\"NOTE:\") | subject(substring:\"TODO:\")"
 "my_notes()" = "connected(mine() & just_notes())"
 "notes()" = "present(@) | just_notes() | just_notes()-"
