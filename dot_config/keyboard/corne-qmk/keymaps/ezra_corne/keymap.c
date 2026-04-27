@@ -17,7 +17,10 @@ enum custom_keycodes {
     NUM_LOCK_SWITCH,
     TH_NAV_S,
     TH_NAV_E,
-    TH_DEL_MEH,
+    TH_NAV_BACK_GUI,
+    TH_NAV_FWD_ALT,
+    TH_NAV_TAB_CTL,
+    TH_DEL_NAV,
     GAME_EXIT,
 };
 
@@ -35,7 +38,7 @@ enum combos {
     GAME_MODE_COMBO_GAME,
 };
 
-const uint16_t PROGMEM game_mode_combo_base[] = {TH_HUD_MEH, TH_DEL_MEH, COMBO_END};
+const uint16_t PROGMEM game_mode_combo_base[] = {TH_HUD_MEH, TH_DEL_NAV, COMBO_END};
 const uint16_t PROGMEM game_mode_combo_game[] = {KC_LCTL, KC_RALT, COMBO_END};
 
 combo_t key_combos[] = {
@@ -48,19 +51,19 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB,  KC_Q,            KC_W,            KC_F,            KC_P,            KC_B,            KC_J,            KC_L,            KC_U,            KC_Y,            KC_SCLN,         KC_PGUP,
         HYPR_T(KC_ESC), HRM_A,           HRM_R,           TH_NAV_S,         HRM_T,           KC_G,            KC_M,            HRM_N,           TH_NAV_E,        HRM_I,           HRM_O,           KC_QUOT,
         KC_NUBS, KC_Z,            KC_X,            KC_C,            KC_D,            KC_V,            KC_K,            KC_H,            KC_COMM,         KC_DOT,          KC_SLSH,         KC_PGDN,
-                                            TH_HUD_MEH,      LSFT_T(KC_ENT),      TH_HYP_NUM,          TH_NUM_BSPC,        LSFT_T(KC_SPC), TH_DEL_MEH
+                                            TH_HUD_MEH,      LSFT_T(KC_ENT),      TH_HYP_NUM,          TH_NUM_BSPC,        LSFT_T(KC_SPC), TH_DEL_NAV
     ),
 
     [_NUM_SYM] = LAYOUT_split_3x6_3(
         KC_LPRN, KC_RPRN, KC_LBRC, KC_RBRC, KC_LCBR, KC_RCBR, KC_ASTR, KC_7,         KC_8,         KC_9,          KC_EQL,          NUM_LOCK_SWITCH,
-        KC_EXLM, LGUI_T(KC_AT), LALT_T(KC_HASH), KC_DLR,  LCTL_T(KC_PERC), KC_CIRC, KC_SLSH, RCTL_T(KC_4), KC_5, RALT_T(KC_6), RGUI_T(KC_MINS), KC_PLUS,
+        KC_TRNS, LGUI_T(KC_AT), LALT_T(KC_HASH), KC_DLR,  LCTL_T(KC_PERC), KC_CIRC, KC_SLSH, RCTL_T(KC_4), KC_5, RALT_T(KC_6), RGUI_T(KC_MINS), KC_PLUS,
         KC_UNDS, KC_PIPE, KC_BSLS, KC_GRV,  KC_TILD, KC_AMPR, KC_0,    KC_1,         KC_2,         KC_3,          KC_COMM,         KC_DOT,
                                    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     ),
 
     [_NAV_FN] = LAYOUT_split_3x6_3(
         KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   KC_F6,   KC_F7,   KC_F8,   KC_F9,   KC_F10,  KC_F11,  KC_F12,
-        KC_ESC,  KC_WBAK, KC_WFWD, C(S(KC_TAB)), C(KC_TAB), KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
+        KC_TRNS, TH_NAV_BACK_GUI, TH_NAV_FWD_ALT, C(S(KC_TAB)), TH_NAV_TAB_CTL, KC_WREF, KC_LEFT, KC_DOWN,  KC_UP,   KC_RGHT, KC_BRID, KC_BRIU,
         QK_BOOT, KC_MPRV, KC_MPLY, KC_MNXT, KC_MUTE, KC_WBAK, KC_WFWD, KC_WREF, KC_WSTP, KC_VOLD, KC_VOLU, KC_MUTE,
                                    KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS
     ),
@@ -96,10 +99,25 @@ static bool nav_e_pressed = false;
 static bool nav_e_interrupted = false;
 static uint16_t nav_e_timer = 0;
 
-static bool del_meh_pressed = false;
-static bool del_meh_hold = false;
-static bool del_meh_interrupted = false;
-static uint16_t del_meh_timer = 0;
+static bool nav_back_gui_pressed = false;
+static bool nav_back_gui_hold = false;
+static bool nav_back_gui_interrupted = false;
+static uint16_t nav_back_gui_timer = 0;
+
+static bool nav_fwd_alt_pressed = false;
+static bool nav_fwd_alt_hold = false;
+static bool nav_fwd_alt_interrupted = false;
+static uint16_t nav_fwd_alt_timer = 0;
+
+static bool nav_tab_ctl_pressed = false;
+static bool nav_tab_ctl_hold = false;
+static bool nav_tab_ctl_interrupted = false;
+static uint16_t nav_tab_ctl_timer = 0;
+
+static bool del_nav_pressed = false;
+static bool del_nav_hold = false;
+static bool del_nav_interrupted = false;
+static uint16_t del_nav_timer = 0;
 
 static uint8_t nav_hold_refs = 0;
 static uint8_t num_hold_refs = 0;
@@ -113,10 +131,24 @@ static void activate_hud_hold(void) {
     }
 }
 
-static void activate_del_meh_hold(void) {
-    if (!del_meh_hold) {
-        register_mods(MEH_MASK);
-        del_meh_hold = true;
+static void activate_nav_back_gui_hold(void) {
+    if (!nav_back_gui_hold) {
+        register_mods(MOD_BIT(KC_LGUI));
+        nav_back_gui_hold = true;
+    }
+}
+
+static void activate_nav_fwd_alt_hold(void) {
+    if (!nav_fwd_alt_hold) {
+        register_mods(MOD_BIT(KC_LALT));
+        nav_fwd_alt_hold = true;
+    }
+}
+
+static void activate_nav_tab_ctl_hold(void) {
+    if (!nav_tab_ctl_hold) {
+        register_mods(MOD_BIT(KC_LCTL));
+        nav_tab_ctl_hold = true;
     }
 }
 
@@ -165,6 +197,13 @@ static void nav_layer_ref_dec(void) {
     nav_hold_refs--;
     if (nav_hold_refs == 0) {
         layer_off(_NAV_FN);
+    }
+}
+
+static void activate_del_nav_hold(void) {
+    if (!del_nav_hold) {
+        nav_layer_ref_inc();
+        del_nav_hold = true;
     }
 }
 
@@ -235,9 +274,24 @@ static void activate_pending_holds(uint16_t keycode) {
         nav_e_interrupted = true;
     }
 
-    if (del_meh_pressed && !del_meh_hold && keycode != TH_DEL_MEH) {
-        del_meh_interrupted = true;
-        activate_del_meh_hold();
+    if (nav_back_gui_pressed && !nav_back_gui_hold && keycode != TH_NAV_BACK_GUI) {
+        nav_back_gui_interrupted = true;
+        activate_nav_back_gui_hold();
+    }
+
+    if (nav_fwd_alt_pressed && !nav_fwd_alt_hold && keycode != TH_NAV_FWD_ALT) {
+        nav_fwd_alt_interrupted = true;
+        activate_nav_fwd_alt_hold();
+    }
+
+    if (nav_tab_ctl_pressed && !nav_tab_ctl_hold && keycode != TH_NAV_TAB_CTL) {
+        nav_tab_ctl_interrupted = true;
+        activate_nav_tab_ctl_hold();
+    }
+
+    if (del_nav_pressed && !del_nav_hold && keycode != TH_DEL_NAV) {
+        del_nav_interrupted = true;
+        activate_del_nav_hold();
     }
 }
 
@@ -338,17 +392,62 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 }
             }
             return false;
-        case TH_DEL_MEH:
+        case TH_NAV_BACK_GUI:
             if (record->event.pressed) {
-                del_meh_pressed = true;
-                del_meh_hold = false;
-                del_meh_interrupted = false;
-                del_meh_timer = timer_read();
+                nav_back_gui_pressed = true;
+                nav_back_gui_hold = false;
+                nav_back_gui_interrupted = false;
+                nav_back_gui_timer = timer_read();
             } else {
-                del_meh_pressed = false;
-                if (del_meh_hold) {
-                    unregister_mods(MEH_MASK);
-                } else if (!del_meh_interrupted && timer_elapsed(del_meh_timer) < TAPPING_TERM) {
+                nav_back_gui_pressed = false;
+                if (nav_back_gui_hold) {
+                    unregister_mods(MOD_BIT(KC_LGUI));
+                } else if (!nav_back_gui_interrupted && timer_elapsed(nav_back_gui_timer) < TAPPING_TERM) {
+                    tap_code(KC_WBAK);
+                }
+            }
+            return false;
+        case TH_NAV_FWD_ALT:
+            if (record->event.pressed) {
+                nav_fwd_alt_pressed = true;
+                nav_fwd_alt_hold = false;
+                nav_fwd_alt_interrupted = false;
+                nav_fwd_alt_timer = timer_read();
+            } else {
+                nav_fwd_alt_pressed = false;
+                if (nav_fwd_alt_hold) {
+                    unregister_mods(MOD_BIT(KC_LALT));
+                } else if (!nav_fwd_alt_interrupted && timer_elapsed(nav_fwd_alt_timer) < TAPPING_TERM) {
+                    tap_code(KC_WFWD);
+                }
+            }
+            return false;
+        case TH_NAV_TAB_CTL:
+            if (record->event.pressed) {
+                nav_tab_ctl_pressed = true;
+                nav_tab_ctl_hold = false;
+                nav_tab_ctl_interrupted = false;
+                nav_tab_ctl_timer = timer_read();
+            } else {
+                nav_tab_ctl_pressed = false;
+                if (nav_tab_ctl_hold) {
+                    unregister_mods(MOD_BIT(KC_LCTL));
+                } else if (!nav_tab_ctl_interrupted && timer_elapsed(nav_tab_ctl_timer) < TAPPING_TERM) {
+                    tap_code16(C(KC_TAB));
+                }
+            }
+            return false;
+        case TH_DEL_NAV:
+            if (record->event.pressed) {
+                del_nav_pressed = true;
+                del_nav_hold = false;
+                del_nav_interrupted = false;
+                del_nav_timer = timer_read();
+            } else {
+                del_nav_pressed = false;
+                if (del_nav_hold) {
+                    nav_layer_ref_dec();
+                } else if (!del_nav_interrupted && timer_elapsed(del_nav_timer) < TAPPING_TERM) {
                     tap_code(KC_DEL);
                 }
             }
@@ -396,8 +495,20 @@ void matrix_scan_user(void) {
         activate_num_r_hold();
     }
 
-    if (del_meh_pressed && !del_meh_hold && timer_elapsed(del_meh_timer) >= TAPPING_TERM) {
-        activate_del_meh_hold();
+    if (nav_back_gui_pressed && !nav_back_gui_hold && timer_elapsed(nav_back_gui_timer) >= TAPPING_TERM) {
+        activate_nav_back_gui_hold();
+    }
+
+    if (nav_fwd_alt_pressed && !nav_fwd_alt_hold && timer_elapsed(nav_fwd_alt_timer) >= TAPPING_TERM) {
+        activate_nav_fwd_alt_hold();
+    }
+
+    if (nav_tab_ctl_pressed && !nav_tab_ctl_hold && timer_elapsed(nav_tab_ctl_timer) >= TAPPING_TERM) {
+        activate_nav_tab_ctl_hold();
+    }
+
+    if (del_nav_pressed && !del_nav_hold && timer_elapsed(del_nav_timer) >= TAPPING_TERM) {
+        activate_del_nav_hold();
     }
 }
 
