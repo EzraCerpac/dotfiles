@@ -49,11 +49,14 @@ run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_once_03-install-tools.sh.tmpl       → install general CLI tools via brew/apt, then versioned tools via mise
 run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, alt-tab, hammerspoon)
 run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd-setup exists)
+run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
-run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + daemon
+run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID + Core-Service daemons
 run_after_20-setup-kanata-launchd.sh.tmpl → macOS kanata launch daemon via /Library/LaunchDaemons
 ```
+
+`chezmoi apply` rebuilds the local `jw` binary through a `run_onchange` script whose rendered fingerprint is computed from the external `~/Projects/jj-waltz` Rust build inputs. This lets chezmoi notice local source changes even though that checkout is not managed by this dotfiles repo.
 
 ## Keyboard Workflow (Corne + QMK)
 

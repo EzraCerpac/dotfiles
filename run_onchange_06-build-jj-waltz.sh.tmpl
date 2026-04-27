@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# jj-waltz source fingerprint: {{ output "bash" "-c" `dir="$HOME/Projects/jj-waltz"; if [[ ! -f "$dir/Cargo.toml" ]]; then printf missing; exit 0; fi; (cd "$dir" && { for f in Cargo.toml Cargo.lock rust-toolchain.toml; do [[ -f "$f" ]] && printf "%s\n" "$f"; done; [[ -d src ]] && find src -type f -print; } | LC_ALL=C sort | while IFS= read -r f; do shasum -a 256 "$f"; done | shasum -a 256 | awk "{print \$1}")` }}
+
+{{- if eq .profile "delftblue" }}
+echo "DelftBlue profile detected; skipping local jj-waltz build."
+exit 0
+{{- end }}
+
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
+JJ_WALTZ_DIR="$HOME/Projects/jj-waltz"
+if [[ ! -f "$JJ_WALTZ_DIR/Cargo.toml" ]]; then
+    echo "Skipping local jj-waltz build: $JJ_WALTZ_DIR/Cargo.toml not found"
+    exit 0
+fi
+
+echo "Building local jj-waltz from $JJ_WALTZ_DIR..."
+if command -v cargo &>/dev/null; then
+    cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+elif command -v mise &>/dev/null; then
+    mise exec rust -- cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+else
+    echo "Error: cargo not found, and mise is unavailable for the local jj-waltz build" >&2
+    echo "Install Rust or keep it in mise to enable the local jw build" >&2
+    exit 1
+fi
+
+echo "jj-waltz release binary is up to date at $JJ_WALTZ_DIR/target/release/jw"
