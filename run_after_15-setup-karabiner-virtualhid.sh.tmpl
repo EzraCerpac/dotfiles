@@ -38,7 +38,7 @@ install_launch_daemon() {
     local log_name="$4"
 
     if [[ -f "${plist}" ]] && cmp -s "${tmp_file}" "${plist}"; then
-        if sudo -n launchctl print "system/${label}" >/dev/null 2>&1; then
+        if launchctl print "system/${label}" >/dev/null 2>&1; then
             return 0
         fi
     fi
