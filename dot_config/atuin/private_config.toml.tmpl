@@ -11,10 +11,8 @@ db_path = "/tmp/{{ .delftblue.netid }}/atuin/kv.db"
 [scripts]
 db_path = "/tmp/{{ .delftblue.netid }}/atuin/scripts.db"
 
-## The daemon-backed search mode is not a good fit for DelftBlue login shells.
-## Keep search local and simple, and sync after every command because sessions
-## are spread across multiple login nodes with separate /tmp filesystems.
-search_mode = "fuzzy"
+## Sync after every command because sessions are spread across multiple login
+## nodes with separate /tmp filesystems.
 sync_frequency = "0"
 {{- end }}
 
@@ -181,9 +179,10 @@ keymap_mode = "vim-insert"
 ## in entering the cursor shape.  Available values are "default" and
 ## "{blink,steady}-{block,underline,bar}".
 keymap_cursor = { emacs = "blink-block", vim_insert = "steady-bar", vim_normal = "steady-block" }
-{{- if ne .profile "delftblue" }}
-search_mode = "daemon-fuzzy"
-{{- end }}
+
+## Avoid daemon-backed search; stale local daemon sockets make shell search fail
+## with connection-refused errors.
+search_mode = "fuzzy"
 
 # network_connect_timeout = 5
 # network_timeout = 5
