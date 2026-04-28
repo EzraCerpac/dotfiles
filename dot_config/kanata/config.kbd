@@ -101,7 +101,7 @@
   tab    q    w    e r t y u i o p [ ] bksl
   esc    a    s    d f g h j k l ; ' ret
   lsft   nubs z    x c v b n m , . / rsft
-  fn     lctl lalt lmet spc rmet ralt left down up rght
+  fn     lctl lalt lmet spc mrgt mmid left down up rght
 )
 
 (deflayer nav-layer
