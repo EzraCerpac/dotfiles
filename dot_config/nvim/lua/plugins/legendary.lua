@@ -1,11 +1,21 @@
 return {
   -- https://github.com/mrjones2014/legendary.nvim
   "mrjones2014/legendary.nvim",
-  -- since legendary.nvim handles all your keymaps/commands,
-  -- its recommended to load legendary.nvim before other plugins
-  enable = false,
-  priority = 10000,
-  lazy = false,
+  lazy = true,
+  cmd = {
+    "Legendary",
+    "LegendaryRepeat",
+    "LegendaryScratch",
+    "LegendaryScratchToggle",
+    "LegendaryEvalLine",
+    "LegendaryEvalLines",
+    "LegendaryEvalBuf",
+    "LegendaryApi",
+    "LegendaryDeprecated",
+    "LegendaryLog",
+    "LegendaryFrecencyReset",
+    "LegendaryLogLevel",
+  },
   -- sqlite is only needed if you want to use frecency sorting
   dependencies = { "kkharji/sqlite.lua" },
   keys = {

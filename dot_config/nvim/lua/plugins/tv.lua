@@ -1,17 +1,35 @@
 return {
   "alexpasmantier/tv.nvim",
+  lazy = true,
+  cmd = "Tv",
+  keys = {
+    {
+      "<leader>tv",
+      function()
+        require("tv").tv_channels()
+      end,
+      desc = "TV: Select channel",
+    },
+    {
+      "<C-t>",
+      function()
+        require("tv").tv_channel("files")
+      end,
+      desc = "TV: Files",
+    },
+  },
   config = function()
     local h = require("tv").handlers
 
     require("tv").setup({
       global_keybindings = {
-        channels = "<leader>tv",
+        channels = false,
       },
       -- per-channel configurations
       channels = {
         -- `files`: fuzzy find files in your project
         files = {
-          keybinding = "<C-t>",
+          keybinding = false,
           -- what happens when you press a key
           handlers = {
             ["<CR>"] = h.open_as_files, -- default: open selected files
