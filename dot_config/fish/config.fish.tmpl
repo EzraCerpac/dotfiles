@@ -166,7 +166,7 @@ if command -q screenpipe
 end
 
 # ---------- Julia ----------
-alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true, require_secret_for_access=false)'"
+alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true, require_secret_for_access=false, require_secret_for_open_links=false)'"
 alias lss='julia -e "import LiveServer as LS; LS.serve(launch_browser=true)"'
 
 # ---------- Gitlogue ----------
