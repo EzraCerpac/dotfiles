@@ -202,6 +202,11 @@ config.keys = {
   { key = "v", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
   { key = "V", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
 
+  -- macOS-style line navigation for shells that bind these private CSI sequences.
+  { key = "LeftArrow", mods = "CMD", action = act.SendString("\x1b[1;13D") },
+  { key = "RightArrow", mods = "CMD", action = act.SendString("\x1b[1;13C") },
+  { key = "Backspace", mods = "CMD", action = act.SendString("\x1b[1;13~") },
+
   -- Split panes
   { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
   { key = "D", mods = "CMD|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },

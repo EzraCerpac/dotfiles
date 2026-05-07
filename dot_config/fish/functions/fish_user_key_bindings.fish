@@ -12,6 +12,17 @@ function fish_user_key_bindings
     bind -M default \ce edit_command_buffer
     bind -M insert  \ce edit_command_buffer
 
+    # WezTerm Option/Alt escape sequences in vi insert mode
+    bind -M insert \e\[1\;3D backward-word
+    bind -M insert \e\[1\;9D backward-word
+    bind -M insert \e\[1\;3C forward-word
+    bind -M insert \e\[1\;9C forward-word
+    bind -M insert \e\x7f backward-kill-word
+    bind -M insert \e\b backward-kill-word
+    bind -M insert \e\[1\;13D beginning-of-line
+    bind -M insert \e\[1\;13C end-of-line
+    bind -M insert \e\[1\;13~ backward-kill-line
+
     if functions -q _atuin_search
         bind -M default \cr _atuin_search
         bind -M insert \cr _atuin_search
