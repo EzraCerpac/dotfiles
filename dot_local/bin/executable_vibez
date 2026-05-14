@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+machine="${VIBEZ_ORB_MACHINE:-vibez}"
+
+if ! command -v orbctl >/dev/null 2>&1; then
+    echo "vibez: orbctl not found; install or start OrbStack first" >&2
+    exit 127
+fi
+
+if ! orbctl info "$machine" >/dev/null 2>&1; then
+    echo "vibez: OrbStack machine '$machine' not found; run vibez-orb-setup" >&2
+    exit 1
+fi
+
+if ! orbctl run -m "$machine" sh -lc 'command -v xz >/dev/null 2>&1 && test -x "$HOME/.local/bin/vibez"' >/dev/null 2>&1; then
+    echo "vibez: VM is missing vibez dependencies; run vibez-orb-setup" >&2
+    exit 1
+fi
+
+exec orbctl run -m "$machine" sh -lc 'exec "$HOME/.local/bin/vibez" "$@"' vibez "$@"
