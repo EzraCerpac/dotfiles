@@ -10,6 +10,17 @@ Host gitlab.ewi.tudelft.nl
     IdentitiesOnly yes
     AddKeysToAgent yes
 
+Host cerpacnas nas
+    HostName cerpacnas.manatee-python.ts.net
+    User root
+    Port 22
+    IdentityFile {{ .chezmoi.homeDir }}/.ssh/id_ed25519
+    IdentitiesOnly yes
+    AddKeysToAgent yes
+{{- if eq .chezmoi.os "darwin" }}
+    UseKeychain yes
+{{- end }}
+
 Host {{ .delftblue.host_alias }}
     HostName {{ .delftblue.hostname }}
     User {{ .delftblue.netid }}
