@@ -18,4 +18,16 @@ if ! orbctl run -m "$machine" sh -lc 'command -v xz >/dev/null 2>&1 && test -x "
     exit 1
 fi
 
-exec orbctl run -m "$machine" sh -lc 'exec "$HOME/.local/bin/vibez" "$@"' vibez "$@"
+if [ "${VIBEZ_ORB_AUDIO:-1}" != 0 ]; then
+    if ! command -v vibez-orb-audio >/dev/null 2>&1; then
+        echo "vibez: audio bridge helper not found; run chezmoi apply ~/.local/bin/vibez-orb-audio" >&2
+        exit 1
+    fi
+    VIBEZ_ORB_MACHINE="$machine" vibez-orb-audio
+fi
+
+if [ -n "${VIBEZ_ORB_PULSE_SERVER:-}" ]; then
+    exec orbctl run -m "$machine" env PULSE_SERVER="$VIBEZ_ORB_PULSE_SERVER" sh -lc 'exec "$HOME/.local/bin/vibez" "$@"' vibez "$@"
+fi
+
+exec orbctl run -m "$machine" env PULSE_SERVER="tcp:host.orb.internal:4713" sh -lc 'exec "$HOME/.local/bin/vibez" "$@"' vibez "$@"

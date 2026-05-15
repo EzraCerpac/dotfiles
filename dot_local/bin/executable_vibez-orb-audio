@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+port="${VIBEZ_ORB_PULSE_PORT:-4713}"
+listen="${VIBEZ_ORB_PULSE_LISTEN:-0.0.0.0}"
+machine="${VIBEZ_ORB_MACHINE:-vibez}"
+
+default_acl="127.0.0.1"
+if command -v orbctl >/dev/null 2>&1 && orbctl info "$machine" >/dev/null 2>&1; then
+    vm_ipv4="$(orbctl run -m "$machine" sh -lc 'ip -4 -o addr show dev eth0 | awk "{print \$4}" | sed -n "s#/.*##p;q"' 2>/dev/null || true)"
+    if [ -n "$vm_ipv4" ]; then
+        vm_subnet="$(printf '%s\n' "$vm_ipv4" | awk -F. '{print $1"."$2"."$3".0/24"}')"
+        default_acl="${default_acl};${vm_subnet}"
+    fi
+    host_ipv6="$(orbctl run -m "$machine" sh -lc 'getent hosts host.orb.internal | awk "/:/{print \$1; exit}"' 2>/dev/null || true)"
+    if [ -n "$host_ipv6" ]; then
+        host_ipv6_prefix="$(printf '%s\n' "$host_ipv6" | awk -F: '{print $1":"$2":"$3"::/48"}')"
+        default_acl="${default_acl};${host_ipv6_prefix}"
+    fi
+fi
+
+acl="${VIBEZ_ORB_PULSE_ACL:-$default_acl}"
+module_args="auth-anonymous=1 auth-ip-acl=${acl} listen=${listen} port=${port}"
+
+if ! command -v pulseaudio >/dev/null 2>&1 || ! command -v pactl >/dev/null 2>&1; then
+    echo "vibez-orb-audio: pulseaudio missing on macOS; run brew install pulseaudio" >&2
+    exit 127
+fi
+
+if ! pulseaudio --check >/dev/null 2>&1; then
+    pulseaudio --daemonize=yes --exit-idle-time=-1
+fi
+
+current_tcp_modules="$(pactl list modules short | grep -F "module-native-protocol-tcp" || true)"
+if [ -n "$current_tcp_modules" ] && ! printf '%s\n' "$current_tcp_modules" | grep -Fq "$module_args"; then
+    printf '%s\n' "$current_tcp_modules" | awk '{print $1}' | while IFS= read -r module_id; do
+        pactl unload-module "$module_id" >/dev/null
+    done
+    current_tcp_modules=""
+fi
+
+if [ -z "$current_tcp_modules" ]; then
+    pactl load-module module-native-protocol-tcp "$module_args" >/dev/null
+fi
+
+if ! pactl list sinks short | grep -q .; then
+    echo "vibez-orb-audio: PulseAudio running, but no macOS audio sink found" >&2
+    exit 1
+fi
