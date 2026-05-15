@@ -3,6 +3,7 @@ allowlist = [
     "~/.config/fish/fish_variables",
     "~/.config/gitlogue-saver/config.toml",
     "~/.config/atuin/config.toml",
+    "~/.config/xonsh/rc.xsh",
 ]
 
 overwrite_allowlist = [
