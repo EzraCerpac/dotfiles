@@ -321,6 +321,13 @@ if $XONSH_INTERACTIVE:
         )
         if television_init.returncode == 0:
             television_script = television_init.stdout.replace('"tv"', repr(str(television_bin)))
+            television_script = television_script.replace(
+                '''        @bindings.add("c-r", eager=True)
+        def _tv_shell_history(event):
+            tv_shell_history(event)
+''',
+                "",
+            )
             execx(television_script, "exec", __xonsh__.ctx, filename="television")
 
     if _have("zoxide"):
