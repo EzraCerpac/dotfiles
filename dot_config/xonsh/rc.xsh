@@ -13,7 +13,7 @@ aliases = XSH.aliases
 
 
 def _have(command):
-    return shutil.which(command) is not None
+    return shutil.which(command, path=env.detype().get("PATH")) is not None
 
 
 def _prepend_path(*paths):
@@ -26,12 +26,11 @@ def _prepend_path(*paths):
 
 
 def _sync_process_env(*names):
+    detyped = env.detype()
     for name in names:
-        value = env.get(name)
+        value = detyped.get(name)
         if value is None:
             continue
-        if name == "PATH" and isinstance(value, (list, tuple)):
-            value = os.pathsep.join(str(part) for part in value)
         os.environ[name] = str(value)
 
 
