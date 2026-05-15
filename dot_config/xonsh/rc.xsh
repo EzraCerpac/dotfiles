@@ -285,6 +285,18 @@ if $XONSH_INTERACTIVE:
     if _have("atuin"):
         execx($(atuin init xonsh))
 
+    television_bin = Path.home() / "Projects/television/target/debug/tv"
+    if television_bin.exists():
+        television_init = subprocess.run(
+            [str(television_bin), "init", "xonsh"],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        if television_init.returncode == 0:
+            television_script = television_init.stdout.replace('"tv"', repr(str(television_bin)))
+            execx(television_script, "exec", __xonsh__.ctx, filename="television")
+
     if _have("zoxide"):
         execx($(zoxide init xonsh --cmd cd), "exec", __xonsh__.ctx, filename="zoxide")
 
