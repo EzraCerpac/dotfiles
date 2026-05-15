@@ -25,6 +25,16 @@ def _prepend_path(*paths):
     env["PATH"] = current
 
 
+def _sync_process_env(*names):
+    for name in names:
+        value = env.get(name)
+        if value is None:
+            continue
+        if name == "PATH" and isinstance(value, (list, tuple)):
+            value = os.pathsep.join(str(part) for part in value)
+        os.environ[name] = str(value)
+
+
 if ON_DARWIN:
     _prepend_path("/opt/homebrew/bin", "/opt/homebrew/sbin")
 elif ON_LINUX and os.path.isdir("/home/linuxbrew/.linuxbrew/bin"):
@@ -36,14 +46,11 @@ if ON_DARWIN:
     _prepend_path("/opt/homebrew/opt/uutils-coreutils/libexec/uubin")
     _prepend_path("~/.orbstack/bin")
 
-env["EDITOR"] = "nvim"
+env["EDITOR"] = shutil.which("nvim") or "nvim"
 env["VISUAL"] = env["EDITOR"]
 env["GIT_EDITOR"] = env["EDITOR"]
 env["XDG_CONFIG_HOME"] = str(Path.home() / ".config")
-os.environ["EDITOR"] = env["EDITOR"]
-os.environ["VISUAL"] = env["VISUAL"]
-os.environ["GIT_EDITOR"] = env["GIT_EDITOR"]
-os.environ["XDG_CONFIG_HOME"] = env["XDG_CONFIG_HOME"]
+_sync_process_env("PATH", "EDITOR", "VISUAL", "GIT_EDITOR", "XDG_CONFIG_HOME")
 
 aliases["ls"] = "eza --icons=auto --group-directories-first --git"
 aliases["la"] = "eza -a --icons=auto --group-directories-first --git"
@@ -270,6 +277,10 @@ if $XONSH_INTERACTIVE:
 
     if _have("mise"):
         execx($(mise activate xonsh))
+        env["EDITOR"] = shutil.which("nvim") or env["EDITOR"]
+        env["VISUAL"] = env["EDITOR"]
+        env["GIT_EDITOR"] = env["EDITOR"]
+        _sync_process_env("PATH", "EDITOR", "VISUAL", "GIT_EDITOR")
 
     if _have("atuin"):
         execx($(atuin init xonsh))
