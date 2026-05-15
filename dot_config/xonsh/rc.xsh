@@ -11,6 +11,10 @@ from xonsh.platform import ON_DARWIN, ON_LINUX
 env = XSH.env
 aliases = XSH.aliases
 
+if env.get("XONSH_INTERACTIVE") and env.get("TERM") == "dumb":
+    env["TERM"] = "xterm-256color"
+    env["SHELL_TYPE"] = "prompt_toolkit"
+
 
 def _have(command):
     return shutil.which(command, path=env.detype().get("PATH")) is not None
