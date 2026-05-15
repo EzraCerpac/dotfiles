@@ -5,11 +5,15 @@ import sys
 import tempfile
 from pathlib import Path
 
+from prompt_toolkit.application import run_in_terminal
+from prompt_toolkit.document import Document
 from xonsh.built_ins import XSH
 from xonsh.platform import ON_DARWIN, ON_LINUX
 
 env = XSH.env
 aliases = XSH.aliases
+
+env["UPDATE_OS_ENVIRON"] = True
 
 if env.get("XONSH_INTERACTIVE") and env.get("TERM") == "dumb":
     env["TERM"] = "xterm-256color"
@@ -268,6 +272,26 @@ if _have("wt"):
     aliases["wt"] = _wt
 
 
+def _open_buffer_in_neovim(buffer):
+    editor = env.get("VISUAL") or env.get("EDITOR") or shutil.which("nvim") or "nvim"
+    fd, path = tempfile.mkstemp(suffix=".xsh", text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(buffer.text)
+
+        exit_code = subprocess.call([str(editor), path], env=env.detype())
+        if exit_code == 0:
+            text = Path(path).read_text(encoding="utf-8")
+            if text.endswith("\n"):
+                text = text[:-1]
+            buffer.document = Document(text=text, cursor_position=len(text))
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+
+
 if $XONSH_INTERACTIVE:
     from xonsh.events import events
 
@@ -275,8 +299,7 @@ if $XONSH_INTERACTIVE:
     def _bind_ctrl_e_editor(bindings, **_kwargs):
         @bindings.add("c-e")
         def _open_editor(event):
-            event.current_buffer.tempfile_suffix = ".xsh"
-            event.current_buffer.open_in_editor()
+            run_in_terminal(lambda: _open_buffer_in_neovim(event.current_buffer))
 
     if _have("mise"):
         execx($(mise activate xonsh))
