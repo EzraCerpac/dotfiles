@@ -40,6 +40,10 @@ env["EDITOR"] = "nvim"
 env["VISUAL"] = env["EDITOR"]
 env["GIT_EDITOR"] = env["EDITOR"]
 env["XDG_CONFIG_HOME"] = str(Path.home() / ".config")
+os.environ["EDITOR"] = env["EDITOR"]
+os.environ["VISUAL"] = env["VISUAL"]
+os.environ["GIT_EDITOR"] = env["GIT_EDITOR"]
+os.environ["XDG_CONFIG_HOME"] = env["XDG_CONFIG_HOME"]
 
 aliases["ls"] = "eza --icons=auto --group-directories-first --git"
 aliases["la"] = "eza -a --icons=auto --group-directories-first --git"
@@ -255,6 +259,15 @@ if _have("wt"):
 
 
 if $XONSH_INTERACTIVE:
+    from xonsh.events import events
+
+    @events.on_ptk_create
+    def _bind_ctrl_e_editor(bindings, **_kwargs):
+        @bindings.add("c-e")
+        def _open_editor(event):
+            event.current_buffer.tempfile_suffix = ".xsh"
+            event.current_buffer.open_in_editor()
+
     if _have("mise"):
         execx($(mise activate xonsh))
 
