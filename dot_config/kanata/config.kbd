@@ -36,7 +36,7 @@
 
 (defalias
   escsuper (tap-hold $tap-time $hold-time-slow esc (multi lmet lctl lalt lsft))
-  fnl fn
+  fnl (multi fn f)
   gaming_mode_toggle (on-press toggle-virtualkey gaming_toggle)
   num_lock_switch (on-press toggle-virtualkey num_toggle)
   meh (multi lmet lctrl lalt)
@@ -79,6 +79,19 @@
 
   numexit_esc (multi esc (on-press-fakekey sig_base tap))
   numexit_caps (on-press-fakekey sig_base tap)
+
+  real_f1 (multi fn f1)
+  real_f2 (multi fn f2)
+  real_f3 (multi fn f3)
+  real_f4 (multi fn f4)
+  real_f5 (multi fn f5)
+  real_f6 (multi fn f6)
+  real_f7 (multi fn f7)
+  real_f8 (multi fn f8)
+  real_f9 (multi fn f9)
+  real_f10 (multi fn f10)
+  real_f11 (multi fn f11)
+  real_f12 (multi fn f12)
 )
 
 (defchordsv2
@@ -101,11 +114,11 @@
   tab    q    w    e r t y u i o p [ ] bksl
   esc    a    s    d f g h j k l ; ' ret
   lsft   nubs z    x c v b n m , . / rsft
-  fn     lctl lalt lmet spc mrgt mmid left down up rght
+  @fnl   lctl lalt lmet spc mrgt mmid left down up rght
 )
 
 (deflayer nav-layer
-  esc    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  esc    @real_f1 @real_f2 @real_f3 @real_f4 @real_f5 @real_f6 @real_f7 @real_f8 @real_f9 @real_f10 @real_f11 @real_f12
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   _      _    _    _    _    _    _    _    _    _    _    _    _    _
   esc    @nav_a @nav_s C-S-tab @nav_t C-r left down up right brdn brup ret

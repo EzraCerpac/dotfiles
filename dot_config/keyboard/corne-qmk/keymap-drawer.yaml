@@ -15,7 +15,7 @@ parse_config:
     "TH_NAV_TAB_CTL": "C-Tab\nCtrl"
     "TH_DEL_NAV": "Del\nNav"
     "GAME_EXIT": "Base\nOut"
-    "KC_NUBS": "Fn\nGlobe"
+    "KC_NUBS": "Wispr\nFn-F"
     "MO(_NAV_FN)": "Nav"
     "MO(_NUM_SYM)": "Num"
     "LGUI_T(KC_A)": "A\nGui"
