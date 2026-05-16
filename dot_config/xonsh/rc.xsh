@@ -23,6 +23,9 @@ env["UPDATE_OS_ENVIRON"] = True
 env["VI_MODE"] = True
 env["XONSH_PROMPT_CURSOR_SHAPE"] = "modal"
 
+ATUIN_AI_QUESTION = "\x81"
+ANSI_SEQUENCES["?"] = ATUIN_AI_QUESTION
+
 for _backtab_sequence in ("\x1b[Z", "\x1b\t", "\x1b[9;2u", "\x1b[27;2;9~"):
     ANSI_SEQUENCES[_backtab_sequence] = Keys.BackTab
 _IS_PREFIX_OF_LONGER_MATCH_CACHE.clear()
@@ -408,13 +411,39 @@ if $XONSH_INTERACTIVE:
         def _open_editor(event):
             run_in_terminal(lambda: _open_buffer_in_neovim(event.current_buffer))
 
-        @bindings.add("?")
-        def _open_atuin_from_empty_prompt(event):
+        @bindings.add(ATUIN_AI_QUESTION, filter=insert_mode, eager=True)
+        def _open_atuin_ai_from_empty_prompt(event):
             buffer = event.current_buffer
-            if buffer.text or not _have("atuin") or "_search" not in globals():
+            if buffer.text and buffer.text != "?":
                 buffer.insert_text("?")
                 return
-            _search(event, extra_args=[])
+            if not _have("atuin"):
+                buffer.insert_text("?")
+                return
+
+            buffer.reset()
+            result = subprocess.run(
+                ["atuin", "ai", "inline", "--hook"],
+                stdout=sys.stderr,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            ).stderr.rstrip("\n")
+            event.cli.renderer.erase()
+
+            if not result or result == "__atuin_ai_cancel__":
+                return
+            if result.startswith("__atuin_ai_print__:"):
+                print(result.removeprefix("__atuin_ai_print__:"), flush=True)
+                return
+            if result.startswith("__atuin_ai_execute__:"):
+                buffer.insert_text(result.removeprefix("__atuin_ai_execute__:"))
+                buffer.validate_and_handle()
+                return
+            if result.startswith("__atuin_ai_insert__:"):
+                buffer.insert_text(result.removeprefix("__atuin_ai_insert__:"))
+                return
+            buffer.insert_text(result)
 
         @bindings.add(
             Keys.BackTab,
