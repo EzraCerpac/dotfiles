@@ -338,7 +338,7 @@ class _RestoringFuzzyCompleter(Completer):
 
 def _start_fuzzy_completion(buffer):
     if buffer.complete_state:
-        buffer.complete_next()
+        buffer.complete_previous()
         return
 
     original_completer = buffer.completer
