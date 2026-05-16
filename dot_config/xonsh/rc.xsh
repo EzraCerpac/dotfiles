@@ -400,6 +400,9 @@ if $XONSH_INTERACTIVE:
         backward_word = get_by_name("backward-word").handler
         forward_word = get_by_name("forward-word").handler
         backward_kill_word = get_by_name("backward-kill-word").handler
+        beginning_of_line = get_by_name("beginning-of-line").handler
+        end_of_line = get_by_name("end-of-line").handler
+        unix_line_discard = get_by_name("unix-line-discard").handler
 
         @bindings.add("c-e")
         def _open_editor(event):
@@ -424,6 +427,48 @@ if $XONSH_INTERACTIVE:
         @bindings.add(Keys.Escape, Keys.ControlH, filter=insert_mode, eager=True)
         def _alt_backspace_word(event):
             backward_kill_word(event)
+
+        @bindings.add(
+            Keys.Escape,
+            "[",
+            "1",
+            ";",
+            "1",
+            "3",
+            "D",
+            filter=insert_mode,
+            eager=True,
+        )
+        def _cmd_left_line(event):
+            beginning_of_line(event)
+
+        @bindings.add(
+            Keys.Escape,
+            "[",
+            "1",
+            ";",
+            "1",
+            "3",
+            "C",
+            filter=insert_mode,
+            eager=True,
+        )
+        def _cmd_right_line(event):
+            end_of_line(event)
+
+        @bindings.add(
+            Keys.Escape,
+            "[",
+            "1",
+            ";",
+            "1",
+            "3",
+            "~",
+            filter=insert_mode,
+            eager=True,
+        )
+        def _cmd_backspace_line(event):
+            unix_line_discard(event)
 
     if _have("mise"):
         execx($(mise activate xonsh))
