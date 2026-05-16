@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 from prompt_toolkit.application import run_in_terminal
-from prompt_toolkit.completion import Completer, FuzzyCompleter
+from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import EmacsInsertMode, ViInsertMode
 from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
@@ -309,45 +309,86 @@ def _open_buffer_in_neovim(buffer):
             pass
 
 
-class _RestoringFuzzyCompleter(Completer):
-    def __init__(self, buffer, original_completer):
-        self.buffer = buffer
-        self.original_completer = original_completer
-        self.fuzzy_completer = FuzzyCompleter(original_completer, WORD=True)
-
-    def _restore(self):
-        if self.buffer.completer is self:
-            self.buffer.completer = self.original_completer
-
-    def get_completions(self, document, complete_event):
-        try:
-            yield from self.fuzzy_completer.get_completions(document, complete_event)
-        finally:
-            self._restore()
-
-    async def get_completions_async(self, document, complete_event):
-        try:
-            async for completion in self.fuzzy_completer.get_completions_async(
-                document,
-                complete_event,
-            ):
-                yield completion
-        finally:
-            self._restore()
+def _clean_fzf_field(value):
+    return str(value).replace("\t", " ").replace("\n", " ")
 
 
-def _start_fuzzy_completion(buffer):
+def _completion_source_document(document, query):
+    cursor = document.cursor_position
+    source_text = document.text[: cursor - len(query)] + document.text[cursor:]
+    return Document(source_text, cursor_position=cursor - len(query))
+
+
+def _collect_completion_candidates(buffer, query):
+    source_document = _completion_source_document(buffer.document, query)
+    complete_event = CompleteEvent(completion_requested=True)
+    completions = list(buffer.completer.get_completions(source_document, complete_event))
+    return source_document, completions
+
+
+def _choose_completion_with_fzf(completions, query):
+    if not completions or not _have("fzf"):
+        return None
+
+    lines = []
+    for index, completion in enumerate(completions):
+        display = completion.display_text or completion.text
+        meta = completion.display_meta_text
+        lines.append(
+            f"{index}\t{_clean_fzf_field(display)}\t{_clean_fzf_field(meta)}"
+        )
+
+    result = subprocess.run(
+        [
+            "fzf",
+            "--ansi",
+            "--delimiter",
+            "\t",
+            "--with-nth",
+            "2..",
+            "--prompt",
+            "completion> ",
+            "--query",
+            query,
+        ],
+        input="\n".join(lines) + "\n",
+        stdout=subprocess.PIPE,
+        text=True,
+        env=env.detype(),
+    )
+    if result.returncode != 0 or not result.stdout:
+        return None
+
+    try:
+        index = int(result.stdout.split("\t", 1)[0])
+    except ValueError:
+        return None
+    if index < 0 or index >= len(completions):
+        return None
+    return completions[index]
+
+
+def _apply_completion(buffer, source_document, completion):
+    document = buffer.document
+    start = source_document.cursor_position + completion.start_position
+    end = document.cursor_position
+    text = document.text[:start] + completion.text + document.text[end:]
+    buffer.document = Document(text, cursor_position=start + len(completion.text))
+
+
+def _pick_completion_with_fzf(buffer, chooser=_choose_completion_with_fzf):
+    query = buffer.document.get_word_before_cursor(WORD=True)
+    source_document, completions = _collect_completion_candidates(buffer, query)
+    completion = chooser(completions, query)
+    if completion is not None:
+        _apply_completion(buffer, source_document, completion)
+
+
+def _shift_tab_completion(buffer):
     if buffer.complete_state:
         buffer.complete_previous()
         return
-
-    original_completer = buffer.completer
-    buffer.completer = _RestoringFuzzyCompleter(buffer, original_completer)
-    try:
-        buffer.start_completion(select_first=False)
-    except Exception:
-        buffer.completer = original_completer
-        raise
+    _pick_completion_with_fzf(buffer)
 
 
 if $XONSH_INTERACTIVE:
@@ -370,7 +411,7 @@ if $XONSH_INTERACTIVE:
             eager=True,
         )
         def _open_fuzzy_completion(event):
-            _start_fuzzy_completion(event.current_buffer)
+            run_in_terminal(lambda: _shift_tab_completion(event.current_buffer))
 
         @bindings.add(Keys.Escape, Keys.Left, filter=insert_mode, eager=True)
         def _alt_left_word(event):
