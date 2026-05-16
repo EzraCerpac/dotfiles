@@ -408,6 +408,14 @@ if $XONSH_INTERACTIVE:
         def _open_editor(event):
             run_in_terminal(lambda: _open_buffer_in_neovim(event.current_buffer))
 
+        @bindings.add("?")
+        def _open_atuin_from_empty_prompt(event):
+            buffer = event.current_buffer
+            if buffer.text or not _have("atuin") or "_search" not in globals():
+                buffer.insert_text("?")
+                return
+            _search(event, extra_args=[])
+
         @bindings.add(
             Keys.BackTab,
             filter=insert_mode,
