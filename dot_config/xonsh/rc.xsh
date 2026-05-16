@@ -6,7 +6,10 @@ import tempfile
 from pathlib import Path
 
 from prompt_toolkit.application import run_in_terminal
+from prompt_toolkit.completion import FuzzyCompleter
 from prompt_toolkit.document import Document
+from prompt_toolkit.filters import EmacsInsertMode, ViInsertMode
+from prompt_toolkit.keys import Keys
 from xonsh.built_ins import XSH
 from xonsh.platform import ON_DARWIN, ON_LINUX
 
@@ -294,14 +297,44 @@ def _open_buffer_in_neovim(buffer):
             pass
 
 
+def _start_fuzzy_completion(buffer):
+    if buffer.complete_state:
+        buffer.complete_next()
+        return
+
+    original_completer = buffer.completer
+    fuzzy_completer = FuzzyCompleter(original_completer, WORD=True)
+
+    def _restore_completer(_buffer):
+        buffer.on_completions_changed -= _restore_completer
+        buffer.completer = original_completer
+
+    buffer.completer = fuzzy_completer
+    buffer.on_completions_changed += _restore_completer
+    try:
+        buffer.start_completion(select_first=False)
+    except Exception:
+        buffer.on_completions_changed -= _restore_completer
+        buffer.completer = original_completer
+        raise
+
+
 if $XONSH_INTERACTIVE:
     from xonsh.events import events
 
     @events.on_ptk_create
-    def _bind_ctrl_e_editor(bindings, **_kwargs):
+    def _bind_prompt_keys(bindings, **_kwargs):
         @bindings.add("c-e")
         def _open_editor(event):
             run_in_terminal(lambda: _open_buffer_in_neovim(event.current_buffer))
+
+        @bindings.add(
+            Keys.BackTab,
+            filter=ViInsertMode() | EmacsInsertMode(),
+            eager=True,
+        )
+        def _open_fuzzy_completion(event):
+            _start_fuzzy_completion(event.current_buffer)
 
     if _have("mise"):
         execx($(mise activate xonsh))
