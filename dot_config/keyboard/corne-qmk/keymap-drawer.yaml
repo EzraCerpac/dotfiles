@@ -38,7 +38,7 @@ parse_config:
     "S(G(KC_1))": "⌘⇧1\nShot"
     "S(G(KC_4))": "⌘⇧4\nArea"
     "KC_MCTL": "Mission\nCtrl"
-    "KC_F11": "Show\nDesk"
+    "G(KC_MCTL)": "Show\nDesk"
     "C(G(KC_Q))": "Lock\nScreen"
     "KC_WBAK": "←\nBack"
     "KC_WFWD": "→\nFwd"
