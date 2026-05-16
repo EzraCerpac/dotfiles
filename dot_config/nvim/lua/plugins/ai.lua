@@ -40,7 +40,10 @@ return {
       },
       interactions = {
         chat = {
-          adapter = "codex",
+          adapter = {
+            name = "codex",
+            model = "gpt-5.5",
+          },
           tools = {
             ["create_file"] = { opts = { require_approval_before = false } },
             ["delete_file"] = { opts = { allowed_in_yolo_mode = true, require_approval_before = false } },
@@ -112,7 +115,7 @@ return {
         "<cmd>CodeCompanionChat Add<cr>",
         { noremap = true, silent = true, desc = "Add selection to chat" }
       )
-      vim.cmd([[cab cc CodeCompanion]])
+      vim.cmd([[cab cc CodeCompanionChat adapter=codex]])
       vim.cmd([[cab ccc CodeCompanionChat adapter=codex]])
       vim.cmd([[cab ccp CodeCompanionChat adapter=copilot_acp]])
       vim.g.codecompanion_yolo_mode = true
