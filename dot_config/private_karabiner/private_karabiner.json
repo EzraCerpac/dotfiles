@@ -83,443 +83,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international1",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f1",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international2",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f2",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international3",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f3",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international4",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f4",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international5",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f5",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international6",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f6",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international7",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f7",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international8",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f8",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "international9",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f9",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "lang1",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f10",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "lang2",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f11",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_unless",
-                                        "value": true
-                                    }
-                                ],
-                                "from": {
-                                    "key_code": "lang3",
-                                    "modifiers": {
-                                        "optional": [
-                                            "any"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "f12",
-                                        "modifiers": [
-                                            "fn"
-                                        ]
-                                    }
-                                ],
-                                "type": "basic"
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "identifiers": [
-                                            {
-                                                "is_keyboard": true,
-                                                "product_id": 1,
-                                                "vendor_id": 18003
-                                            }
-                                        ],
-                                        "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -548,11 +111,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -581,11 +139,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -614,11 +167,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -647,11 +195,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -680,11 +223,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -713,11 +251,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -746,11 +279,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -779,11 +307,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -812,11 +335,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -845,11 +363,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
@@ -878,11 +391,6 @@
                                             }
                                         ],
                                         "type": "device_if"
-                                    },
-                                    {
-                                        "name": "system.use_fkeys_as_standard_function_keys",
-                                        "type": "variable_if",
-                                        "value": true
                                     }
                                 ],
                                 "from": {
