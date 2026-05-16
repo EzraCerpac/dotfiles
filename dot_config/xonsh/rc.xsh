@@ -8,12 +8,11 @@ from pathlib import Path
 from prompt_toolkit.application import run_in_terminal
 from prompt_toolkit.completion import CompleteEvent
 from prompt_toolkit.document import Document
-from prompt_toolkit.filters import EmacsInsertMode, ViInsertMode, ViNavigationMode, ViSelectionMode
+from prompt_toolkit.filters import EmacsInsertMode, ViInsertMode
 from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
 from prompt_toolkit.input.vt100_parser import _IS_PREFIX_OF_LONGER_MATCH_CACHE
 from prompt_toolkit.key_binding.bindings.named_commands import get_by_name
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.selection import SelectionType
 from xonsh.built_ins import XSH
 from xonsh.platform import ON_DARWIN, ON_LINUX
 
@@ -23,9 +22,6 @@ aliases = XSH.aliases
 env["UPDATE_OS_ENVIRON"] = True
 env["VI_MODE"] = True
 env["XONSH_PROMPT_CURSOR_SHAPE"] = "modal"
-
-if env.get("XONSH_INTERACTIVE"):
-    env["SHELL_TYPE"] = "prompt_toolkit"
 
 for _backtab_sequence in ("\x1b[Z", "\x1b\t", "\x1b[9;2u", "\x1b[27;2;9~"):
     ANSI_SEQUENCES[_backtab_sequence] = Keys.BackTab
@@ -38,6 +34,7 @@ if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.
 
 if env.get("XONSH_INTERACTIVE") and env.get("TERM") == "dumb":
     env["TERM"] = "xterm-256color"
+    env["SHELL_TYPE"] = "prompt_toolkit"
 
 
 def _have(command):
@@ -403,9 +400,6 @@ if $XONSH_INTERACTIVE:
         backward_word = get_by_name("backward-word").handler
         forward_word = get_by_name("forward-word").handler
         backward_kill_word = get_by_name("backward-kill-word").handler
-        quoted_insert = get_by_name("quoted-insert").handler
-        vi_navigation_mode = ViNavigationMode()
-        vi_selection_mode = ViSelectionMode()
 
         @bindings.add("c-e")
         def _open_editor(event):
@@ -418,24 +412,6 @@ if $XONSH_INTERACTIVE:
         )
         def _open_fuzzy_completion(event):
             run_in_terminal(lambda: _shift_tab_completion(event.current_buffer))
-
-        @bindings.add("c-v", filter=insert_mode, eager=True)
-        def _quoted_insert(event):
-            quoted_insert(event)
-
-        @bindings.add("c-v", filter=vi_navigation_mode, eager=True)
-        def _visual_block(event):
-            event.current_buffer.start_selection(selection_type=SelectionType.BLOCK)
-
-        @bindings.add("c-v", filter=vi_selection_mode, eager=True)
-        def _toggle_visual_block(event):
-            selection_state = event.current_buffer.selection_state
-            if selection_state is None:
-                event.current_buffer.start_selection(selection_type=SelectionType.BLOCK)
-            elif selection_state.type != SelectionType.BLOCK:
-                selection_state.type = SelectionType.BLOCK
-            else:
-                event.current_buffer.exit_selection()
 
         @bindings.add(Keys.Escape, Keys.Left, filter=insert_mode, eager=True)
         def _alt_left_word(event):

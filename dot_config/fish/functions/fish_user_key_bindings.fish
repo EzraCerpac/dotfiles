@@ -23,6 +23,11 @@ function fish_user_key_bindings
     bind -M insert \e\[1\;13C end-of-line
     bind -M insert \e\[1\;13~ backward-kill-line
 
+    # Fish 4 binds Ctrl-V to clipboard paste by default; keep paste on Cmd-V in WezTerm.
+    bind -M default \cv begin-selection repaint-mode
+    bind -M visual \cv end-selection repaint-mode
+    bind -M insert \cv self-insert
+
     if functions -q _atuin_search
         bind -M default \cr _atuin_search
         bind -M insert \cr _atuin_search

@@ -201,7 +201,6 @@ config.keys = {
   -- Pass Ctrl+V through for terminal apps (e.g. Neovim block select).
   { key = "v", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
   { key = "V", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
-  { key = "phys:V", mods = "CTRL", action = act.SendKey({ key = "v", mods = "CTRL" }) },
 
   -- macOS-style line navigation for shells that bind these private CSI sequences.
   { key = "LeftArrow", mods = "CMD", action = act.SendString("\x1b[1;13D") },
