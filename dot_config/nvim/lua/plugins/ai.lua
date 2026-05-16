@@ -28,9 +28,6 @@ return {
                 auth_method = "chatgpt",
                 session_config_options = {
                   model = "gpt-5.5",
-                  model_reasoning_effort = "low",
-                  approval_policy = "never",
-                  sandbox_mode = "danger-full-access",
                 },
               },
             })
