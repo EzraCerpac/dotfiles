@@ -1,0 +1,10 @@
+from xonsh.built_ins import XSH
+
+env = XSH.env
+
+if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
+    env["COLOR_INPUT"] = False
+    env["COLOR_RESULTS"] = False
+    env["XONSH_COLOR_STYLE"] = "default"
+else:
+    env["XONSH_COLOR_STYLE"] = "material"

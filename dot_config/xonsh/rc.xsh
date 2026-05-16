@@ -20,6 +20,11 @@ env["UPDATE_OS_ENVIRON"] = True
 env["VI_MODE"] = True
 env["XONSH_PROMPT_CURSOR_SHAPE"] = "modal"
 
+if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
+    env["COLOR_INPUT"] = False
+    env["COLOR_RESULTS"] = False
+    env["XONSH_COLOR_STYLE"] = "default"
+
 if env.get("XONSH_INTERACTIVE") and env.get("TERM") == "dumb":
     env["TERM"] = "xterm-256color"
     env["SHELL_TYPE"] = "prompt_toolkit"
