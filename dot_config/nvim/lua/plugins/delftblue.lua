@@ -6,7 +6,6 @@ end
 
 return {
   { "olimorris/codecompanion.nvim", enabled = false },
-  { "piersolenski/wtf.nvim", enabled = false },
   { "ThePrimeagen/99", enabled = false },
   { "folke/sidekick.nvim", enabled = false },
   { "mason-org/mason.nvim", enabled = false },

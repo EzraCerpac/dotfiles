@@ -9,53 +9,102 @@ return {
     opts = {
       adapters = {
         acp = {
-          opencode = function()
-            return require("codecompanion.adapters").extend("opencode", {
+          codex = function()
+            return require("codecompanion.adapters").extend("codex", {
               commands = {
-                default = { "opencode", "acp" },
-                sonnet_4_5 = {
-                  "opencode",
-                  "acp",
-                  "-m",
-                  "github-copilot/claude-sonnet-4.5",
+                default = {
+                  "codex-acp",
+                  "-c",
+                  'model="gpt-5.5"',
+                  "-c",
+                  'model_reasoning_effort="low"',
+                  "-c",
+                  'approval_policy="never"',
+                  "-c",
+                  'sandbox_mode="danger-full-access"',
                 },
-                opus_4_5 = {
-                  "opencode",
-                  "acp",
-                  "-m",
-                  "github-copilot/claude-opus-4.5",
-                },
-                gpt_5_2 = {
-                  "opencode",
-                  "acp",
-                  "-m",
-                  "github-copilot/gpt-5.2",
-                },
-                glm_4_7_free = {
-                  "opencode",
-                  "acp",
-                  "-m",
-                  "opencode/glm-4.7-free",
+              },
+              defaults = {
+                auth_method = "chatgpt",
+                session_config_options = {
+                  model = "gpt-5.5",
+                  model_reasoning_effort = "low",
+                  approval_policy = "never",
+                  sandbox_mode = "danger-full-access",
                 },
               },
             })
           end,
+          copilot_acp = "copilot_acp",
         },
       },
-      strategies = {
+      interactions = {
         chat = {
-          adapter = "opencode",
+          adapter = "codex",
+          tools = {
+            ["create_file"] = { opts = { require_approval_before = false } },
+            ["delete_file"] = { opts = { allowed_in_yolo_mode = true, require_approval_before = false } },
+            ["grep_search"] = { opts = { require_approval_before = false } },
+            ["read_file"] = { opts = { require_approval_before = false } },
+            ["run_command"] = {
+              opts = {
+                allowed_in_yolo_mode = true,
+                require_approval_before = false,
+                require_cmd_approval = false,
+              },
+            },
+            ["insert_edit_into_file"] = {
+              opts = {
+                require_approval_before = { buffer = false, file = false },
+                require_confirmation_after = false,
+              },
+            },
+            opts = {
+              default_tools = { "agent" },
+              notify_on_approval = false,
+            },
+          },
+        },
+        inline = {
+          adapter = "copilot",
+        },
+        shared = {
+          editor_context = {
+            ["buffer"] = {
+              opts = {
+                default_params = "all",
+              },
+            },
+          },
+        },
+      },
+      display = {
+        chat = {
+          window = {
+            layout = "vertical",
+            position = "right",
+            width = 0.45,
+          },
+          show_context = true,
         },
       },
     },
     config = function(_, opts)
       require("codecompanion").setup(vim.tbl_deep_extend("force", opts, {}))
 
+      local function chat_with_current_buffer()
+        require("codecompanion").chat({
+          auto_submit = false,
+          params = { adapter = "codex" },
+          user_prompt = "#{buffer}{all}\n\n",
+        })
+      end
+
       vim.keymap.set(
         { "n", "v" },
         "<LocalLeader>a",
-        "<cmd>CodeCompanionChat Toggle<cr>",
-        { noremap = true, silent = true, desc = "Toggle CodeCompanion chat" }
+        chat_with_current_buffer,
+        { noremap = true, silent = true, desc = "CodeCompanion edit buffer" }
       )
       vim.keymap.set(
         "v",
@@ -64,6 +113,8 @@ return {
         { noremap = true, silent = true, desc = "Add selection to chat" }
       )
       vim.cmd([[cab cc CodeCompanion]])
+      vim.cmd([[cab ccc CodeCompanionChat adapter=codex]])
+      vim.cmd([[cab ccp CodeCompanionChat adapter=copilot_acp]])
       vim.g.codecompanion_yolo_mode = true
 
       local progress = require("fidget.progress")
@@ -95,73 +146,6 @@ return {
         end,
       })
     end,
-  },
-  {
-    "piersolenski/wtf.nvim",
-    event = "VeryLazy",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "MunifTanjim/nui.nvim",
-      "ibhagwan/fzf-lua",
-    },
-    opts = {
-      provider = "copilot",
-      providers = {
-        copilot = {
-          model_id = "claude-sonnet-4.5",
-        },
-      },
-    },
-    keys = {
-      {
-        "<localLeader>wd",
-        mode = { "n", "x" },
-        function()
-          require("wtf").diagnose()
-        end,
-        desc = "Debug diagnostic with AI",
-      },
-      {
-        "<localLeader>wf",
-        mode = { "n", "x" },
-        function()
-          require("wtf").fix()
-        end,
-        desc = "Fix diagnostic with AI",
-      },
-      {
-        mode = { "n" },
-        "<localLeader>ws",
-        function()
-          require("wtf").search()
-        end,
-        desc = "Search diagnostic with Google",
-      },
-      {
-        mode = { "n" },
-        "<localLeader>wp",
-        function()
-          require("wtf").pick_provider()
-        end,
-        desc = "Pick provider",
-      },
-      {
-        mode = { "n" },
-        "<localLeader>wh",
-        function()
-          require("wtf").history()
-        end,
-        desc = "Populate the quickfix list with previous chat history",
-      },
-      {
-        mode = { "n" },
-        "<localLeader>wg",
-        function()
-          require("wtf").grep_history()
-        end,
-        desc = "Grep previous chat history with fzf-lua",
-      },
-    },
   },
   {
     "ThePrimeagen/99",

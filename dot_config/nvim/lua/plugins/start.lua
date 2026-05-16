@@ -123,6 +123,20 @@ return {
       return { name = name, action = action, section = section }
     end
 
+    local function restore_session()
+      local starter_buf = vim.api.nvim_get_current_buf()
+
+      pcall(require("lazy").load, { plugins = { "nvim-lspconfig" } })
+
+      if vim.api.nvim_buf_is_valid(starter_buf) and vim.bo[starter_buf].filetype == "ministarter" then
+        pcall(starter.close, starter_buf)
+      end
+
+      vim.schedule(function()
+        require("persistence").load()
+      end)
+    end
+
     local function collapse_single_item_sections(content)
       local remove = {}
       local line = 1
@@ -179,7 +193,7 @@ return {
     opts.header = logo
     opts.footer = build_footer()
     opts.items = {
-      item("Restore session", [[lua require("persistence").load()]], "Session"),
+      item("Restore session", restore_session, "Session"),
       recent_files,
       item("Find files", LazyVim.pick(), "Find Files"),
       recent_projects,

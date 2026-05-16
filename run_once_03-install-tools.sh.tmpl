@@ -91,4 +91,14 @@ else
     echo "Warning: mise not found, skipping mise tools"
 fi
 
+if command -v npm &>/dev/null; then
+    if npm install --global @zed-industries/codex-acp; then
+        echo "codex-acp installed via npm"
+    else
+        echo "Warning: could not install codex-acp via npm"
+    fi
+else
+    echo "Warning: npm not found, skipping codex-acp"
+fi
+
 echo "Tools installation complete"
