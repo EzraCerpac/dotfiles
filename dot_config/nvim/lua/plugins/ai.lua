@@ -20,6 +20,21 @@ return {
                   type = "string",
                   default = "medium",
                 },
+                max_tokens = {
+                  enabled = function()
+                    return false
+                  end,
+                },
+                n = {
+                  enabled = function()
+                    return false
+                  end,
+                },
+                top_p = {
+                  enabled = function()
+                    return false
+                  end,
+                },
               },
             })
           end,
