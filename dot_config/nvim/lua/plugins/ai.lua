@@ -8,6 +8,22 @@ return {
     },
     opts = {
       adapters = {
+        http = {
+          copilot = function()
+            return require("codecompanion.adapters").extend("copilot", {
+              schema = {
+                model = {
+                  default = "gpt-5.3-codex",
+                },
+                ["reasoning.effort"] = {
+                  mapping = "parameters",
+                  type = "string",
+                  default = "medium",
+                },
+              },
+            })
+          end,
+        },
         acp = {
           codex = function()
             return require("codecompanion.adapters").extend("codex", {
@@ -112,7 +128,7 @@ return {
         "<cmd>CodeCompanionChat Add<cr>",
         { noremap = true, silent = true, desc = "Add selection to chat" }
       )
-      vim.cmd([[cab cc CodeCompanionChat adapter=codex]])
+      vim.cmd([[cab cc CodeCompanion adapter=copilot #{buffer}]])
       vim.cmd([[cab ccc CodeCompanionChat adapter=codex]])
       vim.cmd([[cab ccp CodeCompanionChat adapter=copilot_acp]])
       vim.g.codecompanion_yolo_mode = true
