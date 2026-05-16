@@ -14,6 +14,8 @@ env = XSH.env
 aliases = XSH.aliases
 
 env["UPDATE_OS_ENVIRON"] = True
+env["VI_MODE"] = True
+env["XONSH_PROMPT_CURSOR_SHAPE"] = "modal"
 
 if env.get("XONSH_INTERACTIVE") and env.get("TERM") == "dumb":
     env["TERM"] = "xterm-256color"
