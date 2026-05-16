@@ -62,6 +62,12 @@ killall SystemUIServer >/dev/null 2>&1 || true
 echo "Configuring function keys to send standard F1-F12..."
 defaults write -g com.apple.keyboard.fnState -bool true
 
+echo "Enabling Mission Control Show Desktop shortcut..."
+/usr/libexec/PlistBuddy -c "Set :AppleSymbolicHotKeys:36:enabled true" "${HOME}/Library/Preferences/com.apple.symbolichotkeys.plist" 2>/dev/null || true
+killall cfprefsd >/dev/null 2>&1 || true
+killall Dock >/dev/null 2>&1 || true
+killall SystemUIServer >/dev/null 2>&1 || true
+
 KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
 if [[ -f "${KANATA_PLIST}" ]]; then
   KANATA_LABEL="$(plutil -extract Label raw -o - "${KANATA_PLIST}" 2>/dev/null || true)"
