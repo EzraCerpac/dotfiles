@@ -6,9 +6,12 @@ import tempfile
 from pathlib import Path
 
 from prompt_toolkit.application import run_in_terminal
-from prompt_toolkit.completion import FuzzyCompleter
+from prompt_toolkit.completion import Completer, FuzzyCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.filters import EmacsInsertMode, ViInsertMode
+from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
+from prompt_toolkit.input.vt100_parser import _IS_PREFIX_OF_LONGER_MATCH_CACHE
+from prompt_toolkit.key_binding.bindings.named_commands import get_by_name
 from prompt_toolkit.keys import Keys
 from xonsh.built_ins import XSH
 from xonsh.platform import ON_DARWIN, ON_LINUX
@@ -19,6 +22,10 @@ aliases = XSH.aliases
 env["UPDATE_OS_ENVIRON"] = True
 env["VI_MODE"] = True
 env["XONSH_PROMPT_CURSOR_SHAPE"] = "modal"
+
+for _backtab_sequence in ("\x1b[Z", "\x1b\t", "\x1b[9;2u", "\x1b[27;2;9~"):
+    ANSI_SEQUENCES[_backtab_sequence] = Keys.BackTab
+_IS_PREFIX_OF_LONGER_MATCH_CACHE.clear()
 
 if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
     env["COLOR_INPUT"] = False
@@ -302,24 +309,43 @@ def _open_buffer_in_neovim(buffer):
             pass
 
 
+class _RestoringFuzzyCompleter(Completer):
+    def __init__(self, buffer, original_completer):
+        self.buffer = buffer
+        self.original_completer = original_completer
+        self.fuzzy_completer = FuzzyCompleter(original_completer, WORD=True)
+
+    def _restore(self):
+        if self.buffer.completer is self:
+            self.buffer.completer = self.original_completer
+
+    def get_completions(self, document, complete_event):
+        try:
+            yield from self.fuzzy_completer.get_completions(document, complete_event)
+        finally:
+            self._restore()
+
+    async def get_completions_async(self, document, complete_event):
+        try:
+            async for completion in self.fuzzy_completer.get_completions_async(
+                document,
+                complete_event,
+            ):
+                yield completion
+        finally:
+            self._restore()
+
+
 def _start_fuzzy_completion(buffer):
     if buffer.complete_state:
         buffer.complete_next()
         return
 
     original_completer = buffer.completer
-    fuzzy_completer = FuzzyCompleter(original_completer, WORD=True)
-
-    def _restore_completer(_buffer):
-        buffer.on_completions_changed -= _restore_completer
-        buffer.completer = original_completer
-
-    buffer.completer = fuzzy_completer
-    buffer.on_completions_changed += _restore_completer
+    buffer.completer = _RestoringFuzzyCompleter(buffer, original_completer)
     try:
         buffer.start_completion(select_first=False)
     except Exception:
-        buffer.on_completions_changed -= _restore_completer
         buffer.completer = original_completer
         raise
 
@@ -329,17 +355,34 @@ if $XONSH_INTERACTIVE:
 
     @events.on_ptk_create
     def _bind_prompt_keys(bindings, **_kwargs):
+        insert_mode = ViInsertMode() | EmacsInsertMode()
+        backward_word = get_by_name("backward-word").handler
+        forward_word = get_by_name("forward-word").handler
+        backward_kill_word = get_by_name("backward-kill-word").handler
+
         @bindings.add("c-e")
         def _open_editor(event):
             run_in_terminal(lambda: _open_buffer_in_neovim(event.current_buffer))
 
         @bindings.add(
             Keys.BackTab,
-            filter=ViInsertMode() | EmacsInsertMode(),
+            filter=insert_mode,
             eager=True,
         )
         def _open_fuzzy_completion(event):
             _start_fuzzy_completion(event.current_buffer)
+
+        @bindings.add(Keys.Escape, Keys.Left, filter=insert_mode, eager=True)
+        def _alt_left_word(event):
+            backward_word(event)
+
+        @bindings.add(Keys.Escape, Keys.Right, filter=insert_mode, eager=True)
+        def _alt_right_word(event):
+            forward_word(event)
+
+        @bindings.add(Keys.Escape, Keys.ControlH, filter=insert_mode, eager=True)
+        def _alt_backspace_word(event):
+            backward_kill_word(event)
 
     if _have("mise"):
         execx($(mise activate xonsh))

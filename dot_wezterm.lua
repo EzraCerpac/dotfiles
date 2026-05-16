@@ -206,6 +206,7 @@ config.keys = {
   { key = "LeftArrow", mods = "CMD", action = act.SendString("\x1b[1;13D") },
   { key = "RightArrow", mods = "CMD", action = act.SendString("\x1b[1;13C") },
   { key = "Backspace", mods = "CMD", action = act.SendString("\x1b[1;13~") },
+  { key = "Tab", mods = "SHIFT", action = act.SendString("\x1b[Z") },
 
   -- Split panes
   { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
