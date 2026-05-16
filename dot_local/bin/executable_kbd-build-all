@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-kbd-build --convert-to rp2040_ce
-kbd-build --convert-to sparkfun_pm2040
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/kbd-common.sh"
+
+"$(resolve_kbd_script kbd-build "${SCRIPT_DIR}")" --convert-to rp2040_ce
+"$(resolve_kbd_script kbd-build "${SCRIPT_DIR}")" --convert-to sparkfun_pm2040
 
 echo "all firmware targets built"

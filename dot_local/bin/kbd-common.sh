@@ -5,6 +5,8 @@ if [[ -n "${KBD_COMMON_SH_LOADED:-}" ]]; then
 fi
 readonly KBD_COMMON_SH_LOADED=1
 
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
+
 QMK_RUNNER=()
 QMK_RUNNER_MODE=""
 QMK_RUNNER_WORKDIR=""
