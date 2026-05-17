@@ -541,8 +541,3 @@ if $XONSH_INTERACTIVE:
 
     if _have("starship"):
         execx($(starship init xonsh --print-full-init))
-
-    if _have("carapace"):
-        env["CARAPACE_BRIDGES"] = "zsh,fish,bash,inshellisense"
-        env["COMPLETIONS_CONFIRM"] = True
-        exec($(carapace _carapace xonsh))
