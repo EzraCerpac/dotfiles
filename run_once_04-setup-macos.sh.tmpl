@@ -53,6 +53,9 @@ fi
 
 echo "Configuring Dock to show only running apps..."
 defaults write com.apple.dock static-only -bool true
+
+echo "Configuring Mission Control to group windows by application..."
+defaults write com.apple.dock expose-group-apps -bool true
 killall Dock >/dev/null 2>&1 || true
 
 echo "Configuring screenshot format to JPEG..."
