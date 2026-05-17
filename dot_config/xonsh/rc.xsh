@@ -394,6 +394,36 @@ def _shift_tab_completion(buffer):
     _pick_completion_with_fzf(buffer)
 
 
+def _load_carapace_completions():
+    if not _have("carapace"):
+        return
+
+    run_env = env.detype()
+    run_env["CARAPACE_BRIDGES"] = "bash,inshellisense"
+    env["CARAPACE_BRIDGES"] = run_env["CARAPACE_BRIDGES"]
+
+    try:
+        carapace_init = subprocess.run(
+            ["carapace", "_carapace", "xonsh"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=1.0,
+            check=False,
+            env=run_env,
+        )
+    except subprocess.TimeoutExpired:
+        print("carapace: xonsh init timed out; skipping completions", file=sys.stderr)
+        return
+
+    if carapace_init.returncode != 0:
+        message = carapace_init.stderr.strip() or "unknown error"
+        print(f"carapace: xonsh init failed: {message}", file=sys.stderr)
+        return
+
+    execx(carapace_init.stdout, "exec", __xonsh__.ctx, filename="carapace")
+
+
 if $XONSH_INTERACTIVE:
     from xonsh.events import events
 
@@ -541,3 +571,5 @@ if $XONSH_INTERACTIVE:
 
     if _have("starship"):
         execx($(starship init xonsh --print-full-init))
+
+    _load_carapace_completions()
