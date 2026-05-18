@@ -208,6 +208,11 @@ config.keys = {
   { key = "Backspace", mods = "CMD", action = act.SendString("\x1b[1;13~") },
   { key = "Tab", mods = "SHIFT", action = act.SendString("\x1b[Z") },
 
+  -- Font size: support both Cmd+= and Cmd++ on macOS keyboards.
+  { key = "=", mods = "CMD", action = act.IncreaseFontSize },
+  { key = "+", mods = "CMD", action = act.IncreaseFontSize },
+  { key = "=", mods = "CMD|SHIFT", action = act.IncreaseFontSize },
+
   -- Split panes
   { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
   { key = "D", mods = "CMD|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
