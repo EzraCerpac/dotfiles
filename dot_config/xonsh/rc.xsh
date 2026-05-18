@@ -1,8 +1,10 @@
 import os
+import json
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from prompt_toolkit.application import run_in_terminal
@@ -395,33 +397,98 @@ def _shift_tab_completion(buffer):
 
 
 def _load_carapace_completions():
-    if not _have("carapace"):
+    carapace = shutil.which("carapace", path=env.detype().get("PATH"))
+    if not carapace:
         return
 
-    run_env = env.detype()
-    run_env["CARAPACE_BRIDGES"] = "bash,inshellisense"
-    env["CARAPACE_BRIDGES"] = run_env["CARAPACE_BRIDGES"]
+    from xonsh.completers.completer import add_one_completer
+    from xonsh.completers.tools import RichCompletion, contextual_command_completer
 
-    try:
-        carapace_init = subprocess.run(
-            ["carapace", "_carapace", "xonsh"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=1.0,
-            check=False,
-            env=run_env,
+    env["CARAPACE_BRIDGES"] = "bash,inshellisense"
+
+    def _run_carapace(args, run_env):
+        # Carapace 1.6.6 can spin when spawned as a direct xonsh child.
+        # Detach the actual completion process and collect its bounded result.
+        script = r'''
+out=$1
+status=$2
+shift 2
+(
+    "$@" >"$out" 2>/dev/null
+    printf "%s" "$?" >"$status"
+) &
+'''
+        with tempfile.TemporaryDirectory(prefix="xonsh-carapace-") as tmpdir:
+            out_path = Path(tmpdir) / "out.json"
+            status_path = Path(tmpdir) / "status"
+
+            try:
+                subprocess.run(
+                    ["/bin/sh", "-c", script, "xonsh-carapace", str(out_path), str(status_path), *args],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    timeout=0.2,
+                    check=False,
+                    env=run_env,
+                )
+            except subprocess.TimeoutExpired:
+                return None
+
+            deadline = time.monotonic() + 1.0
+            while time.monotonic() < deadline:
+                if status_path.exists():
+                    if status_path.read_text() != "0":
+                        return None
+                    return out_path.read_text()
+                time.sleep(0.01)
+
+        return None
+
+    @contextual_command_completer
+    def _carapace_completer(context):
+        if not context.command:
+            return None
+
+        run_env = env.detype()
+        run_env["CARAPACE_BRIDGES"] = env["CARAPACE_BRIDGES"]
+
+        output = _run_carapace(
+            [
+                carapace,
+                context.command,
+                "xonsh",
+                "--",
+                *[arg.value for arg in context.args[1:]],
+                context.prefix.translate(str.maketrans("", "", "'\"")),
+            ],
+            run_env,
         )
-    except subprocess.TimeoutExpired:
-        print("carapace: xonsh init timed out; skipping completions", file=sys.stderr)
-        return
+        if output is None:
+            return None
 
-    if carapace_init.returncode != 0:
-        message = carapace_init.stderr.strip() or "unknown error"
-        print(f"carapace: xonsh init failed: {message}", file=sys.stderr)
-        return
+        try:
+            candidates = json.loads(output)
+        except json.JSONDecodeError:
+            return None
 
-    execx(carapace_init.stdout, "exec", __xonsh__.ctx, filename="carapace")
+        if not candidates:
+            return None
+
+        return {
+            RichCompletion(
+                candidate["Value"],
+                display=candidate["Display"],
+                description=candidate["Description"],
+                prefix_len=len(context.raw_prefix),
+                append_closing_quote=False,
+                style=candidate["Style"],
+            )
+            for candidate in candidates
+        }
+
+    add_one_completer("carapace", _carapace_completer, "start")
 
 
 if $XONSH_INTERACTIVE:
