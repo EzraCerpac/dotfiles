@@ -30,13 +30,13 @@ else
     CURRENT_USER_SHELL="${SHELL:-}"
 fi
 
-# Prefer xonsh as login shell when present; fall back to fish.
-if command -v xonsh &>/dev/null; then
-    SHELL_NAME="xonsh"
-    TARGET_SHELL_PATH="$(which xonsh)"
-elif command -v fish &>/dev/null; then
+# Prefer fish as login shell when present; fall back to xonsh.
+if command -v fish &>/dev/null; then
     SHELL_NAME="fish"
     TARGET_SHELL_PATH="$(which fish)"
+elif command -v xonsh &>/dev/null; then
+    SHELL_NAME="xonsh"
+    TARGET_SHELL_PATH="$(which xonsh)"
 else
     SHELL_NAME=""
     TARGET_SHELL_PATH=""
