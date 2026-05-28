@@ -14,29 +14,37 @@ return {
   },
   {
     "neovim/nvim-lspconfig",
-    opts = {
-      servers = {
-        pyright = {
-          enabled = false, -- using ty instead
-        },
-        julials = {
-          -- critical: do NOT let Mason manage Julia LS
-          mason = false,
-          cmd = vim.list_extend({
-            "julia",
-            "--startup-file=no",
-            "--history-file=no",
-          }, { vim.fn.stdpath("config") .. "/lua/helpers/julials.jl" }),
-          -- keep the same settings as the LazyVim Julia extra
-          settings = {
-            julia = {
-              completionmode = "qualify",
-              -- lint = { missingrefs = "none" },
-            },
+    opts = function(_, opts)
+      opts = opts or {}
+      opts.servers = opts.servers or {}
+      opts.servers.pyright = { enabled = false } -- using ty instead
+      opts.setup = opts.setup or {}
+      opts.setup.julials = function(_, sopts)
+        -- critical: do NOT let Mason manage Julia LS
+        -- mason = false alone is not enough: Mason's automatic_enable still
+        -- overrides the config. Returning truthy here adds the server to
+        -- mason_exclude and skips vim.lsp.config — we call it ourselves below
+        -- to preserve the default on_attach (which registers :LspJuliaActivateEnv).
+        sopts.mason = false
+        sopts.cmd = {
+          "julia",
+          "--startup-file=no",
+          "--history-file=no",
+          vim.fn.stdpath("config") .. "/lua/helpers/julials.jl",
+        }
+        sopts.settings = vim.tbl_deep_extend("force", sopts.settings or {}, {
+          julia = {
+            completionmode = "qualify",
+            -- lint = { missingrefs = "none" },
           },
-        },
-      },
-    },
+        })
+        sopts.single_file_support = true
+        vim.lsp.config("julials", sopts)
+        vim.lsp.enable("julials")
+        return true
+      end
+      return opts
+    end,
   },
   -- Julia DAP configuration via nvim-dap-julia
   {
