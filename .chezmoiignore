@@ -1,5 +1,7 @@
 AGENTS.md
 */*.org#
+**/.DS_Store
+**/__pycache__/
 
 backups/
 backups/**
