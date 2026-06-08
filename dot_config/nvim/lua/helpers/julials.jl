@@ -17,7 +17,12 @@ function is_instantiated(path)
     elseif isfile(path)
         # https://discourse.julialang.org/t/determine-whether-a-project-has-been-instantiated/
         env = Pkg.Types.EnvCache(path)
-        return Pkg.Operations.is_instantiated(env)
+        try
+            return Pkg.Operations.is_instantiated(env)
+        catch err
+            @warn "Could not inspect Julia project; treating as not instantiated" path exception = (err, catch_backtrace())
+            return false
+        end
     end
     return false
 end
