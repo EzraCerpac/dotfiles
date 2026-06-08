@@ -8,6 +8,31 @@ export EDITOR="nvim"
 export VISUAL="$EDITOR"
 export GIT_EDITOR="$EDITOR"
 
+if [ -z "${OPENAI_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
+    openai_api_key="$(security find-generic-password -a "$USER" -s OPENAI_API_KEY -w 2>/dev/null || true)"
+    if [ -n "$openai_api_key" ]; then
+        export OPENAI_API_KEY="$openai_api_key"
+    fi
+    unset openai_api_key
+fi
+
+if [ -z "${ELEVENLABS_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
+    elevenlabs_api_key="$(security find-generic-password -a "$USER" -s ELEVENLABS_API_KEY -w 2>/dev/null || true)"
+    if [ -n "$elevenlabs_api_key" ]; then
+        export ELEVENLABS_API_KEY="$elevenlabs_api_key"
+    fi
+    unset elevenlabs_api_key
+fi
+
+if [ -z "${HF_TOKEN:-}" ] && command -v security >/dev/null 2>&1; then
+    hf_token="$(security find-generic-password -a "$USER" -s HF_TOKEN -w 2>/dev/null || true)"
+    if [ -n "$hf_token" ]; then
+        export HF_TOKEN="$hf_token"
+        export HUGGINGFACE_HUB_TOKEN="$hf_token"
+    fi
+    unset hf_token
+fi
+
 # Alias: quick launch nvim with `v`
 alias v='nvim'
 if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | rg -q '^github/gh-copilot'; then

@@ -96,6 +96,28 @@ set -gx GIT_EDITOR $EDITOR
 
 # ---------- XDG Config ----------
 set -gx XDG_CONFIG_HOME $HOME/.config
+# ---------- OpenAI ----------
+if not set -q OPENAI_API_KEY; and command -q security
+    set -l openai_api_key (security find-generic-password -a "$USER" -s OPENAI_API_KEY -w 2>/dev/null)
+    if test -n "$openai_api_key"
+        set -gx OPENAI_API_KEY "$openai_api_key"
+    end
+end
+
+if not set -q ELEVENLABS_API_KEY; and command -q security
+    set -l elevenlabs_api_key (security find-generic-password -a "$USER" -s ELEVENLABS_API_KEY -w 2>/dev/null)
+    if test -n "$elevenlabs_api_key"
+        set -gx ELEVENLABS_API_KEY "$elevenlabs_api_key"
+    end
+end
+
+if not set -q HF_TOKEN; and command -q security
+    set -l hf_token (security find-generic-password -a "$USER" -s HF_TOKEN -w 2>/dev/null)
+    if test -n "$hf_token"
+        set -gx HF_TOKEN "$hf_token"
+        set -gx HUGGINGFACE_HUB_TOKEN "$hf_token"
+    end
+end
 
 # Replace ls with eza
 alias ls='eza --icons=auto --group-directories-first --git'

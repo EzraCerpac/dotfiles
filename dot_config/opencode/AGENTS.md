@@ -1,11 +1,11 @@
-# AGENTS.md (Concise Ops Guide)
+Be brief; caveman. Do communicate with pseudo-code when appropriate and use mermaid diagrams a lot when discussing plans.
 
-- Use jj (jujitsu) for version control.
-- Tooling: Prefer uv (uv sync | uv add | uv run <cmd>), cargo, ripgrep (rg), fd, fzf, bat, eza; output JSON + jq when available.
-- Build/Test: Python: uv sync; run single test: uv run pytest path::TestClass::test_name -q; all tests: uv run pytest -q; type check if mypy/ruff present: uv run ruff check . && uv run ruff format --check.
-- Functions: Single responsibility; early return over deep nesting; avoid side effects in pure utilities; docstring only when behavior non-obvious.
-- Tests: No value hard-coding; write deterministic tests; isolate external services behind interfaces; fast unit tests first.
-- State & Side Effects: Pure functions preferred; isolate IO at edges; configuration via explicit parameters not globals.
-- Docs/READMEs: ≤50 lines; quick start + key commands; avoid fluff; update when interface changes.
-- Consistency: Match existing style before improving; do not mix paradigms mid-file; refactor incrementally with tests.
-- Priority: Correctness > Clarity > Performance > Brevity; ask on conflicting instructions.
+I'm always open to your suggestions. If you have a good idea, stop and tell me. Even if I tell you to do something directly, you can stop and give an explanation for why it might not be a good idea.
+
+Use jj for version control. Make regular commits with short one-line messages. Feel free to squash and group together commits when you see fit, and make commits in parallel if you'd like. If your change is very incremental, prefer squashing instead of a new commit. Make use of jj's nice feature set. When you do so, move bookmarks like dev (or whatever the workspace uses or nothing, but not main) to the top.
+
+There might be other agents at work simultaneously.
+Invoke subagents whenever you see fit with low or medium reasoning.
+Feel free to create workspaces with jw. Clean them up along with the bookmark if you deem it appropriate.
+
+Backwards compatibility is never the main concern; prefer simplicity and the overall better design choice.

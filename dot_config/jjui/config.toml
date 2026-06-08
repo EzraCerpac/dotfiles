@@ -42,32 +42,6 @@ revisions.refresh()
 '''
 
 [[actions]]
-name = "tug"
-lua = '''
-local id = context.change_id()
-if not id then
-  flash({ text = "No change selected", error = true })
-  return
-end
-
-jj_async(
-  "bookmark",
-  "move",
-  "--from",
-  "closest_bookmark(" .. id .. ")",
-  "--to",
-  "closest_pushable(" .. id .. ")"
-)
-revisions.refresh()
-'''
-
-[[bindings]]
-action = "tug"
-key = "ctrl+t"
-scope = "revisions"
-desc = "tug"
-
-[[actions]]
 name = "show-after-revisions"
 lua = '''
 local id = context.change_id()
@@ -265,25 +239,29 @@ scope = "revisions"
 desc = "jw interactive switch"
 
 [[actions]]
-name = "jw-switch-at-change"
+name = "jw-add-at-change"
 lua = '''
-local id = context.change_id()
-if not id then
+local function shell_quote(value)
+  return "'" .. value:gsub("'", "'\\''") .. "'"
+end
+
+local rev = context.commit_id() or context.change_id()
+if not rev then
   flash({ text = "No change selected", error = true })
   return
 end
 
-local name = input({ title = "jw switch --at", prompt = "Workspace name:" })
+local name = input({ title = "jw add --at", prompt = "Workspace name:" })
 if not name or name == "" then
   return
 end
 
-local quoted = "'" .. name:gsub("'", "'\\''") .. "'"
-exec_shell("jw switch " .. quoted .. " --at " .. id)
+exec_shell("jw add --at " .. shell_quote(rev) .. " " .. shell_quote(name))
+revisions.refresh()
 '''
 
 [[bindings]]
-action = "jw-switch-at-change"
+action = "jw-add-at-change"
 seq = ["\\", "w", "n"]
 scope = "revisions"
-desc = "jw switch --at"
+desc = "jw add --at"
