@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .chezmoi.os "darwin" }}
+
+BREW_BIN=""
+if [[ -x /opt/homebrew/bin/brew ]]; then
+    BREW_BIN="/opt/homebrew/bin/brew"
+elif [[ -x /usr/local/bin/brew ]]; then
+    BREW_BIN="/usr/local/bin/brew"
+elif command -v brew &>/dev/null; then
+    BREW_BIN="$(command -v brew)"
+fi
+
+if [[ -z "${BREW_BIN}" ]]; then
+    echo "Warning: Homebrew not found, skipping CLIProxyAPI service setup"
+    exit 0
+fi
+
+eval "$("${BREW_BIN}" shellenv)"
+
+if ! "${BREW_BIN}" list --formula cliproxyapi >/dev/null 2>&1; then
+    "${BREW_BIN}" install cliproxyapi
+fi
+
+mkdir -p "${HOME}/.cli-proxy-api"
+
+CONFIG_SOURCE="${HOME}/.cli-proxy-api/config.yaml"
+CONFIG_TARGET="$("${BREW_BIN}" --prefix)/etc/cliproxyapi.conf"
+
+if [[ ! -f "${CONFIG_SOURCE}" ]]; then
+    echo "Warning: ${CONFIG_SOURCE} missing, skipping CLIProxyAPI service setup"
+    exit 0
+fi
+
+if [[ -e "${CONFIG_TARGET}" && ! -L "${CONFIG_TARGET}" ]]; then
+    mv "${CONFIG_TARGET}" "${CONFIG_TARGET}.bak"
+fi
+
+ln -sfn "${CONFIG_SOURCE}" "${CONFIG_TARGET}"
+"${BREW_BIN}" services restart cliproxyapi
+
+echo "CLIProxyAPI service configured"
+
+{{- end }}
