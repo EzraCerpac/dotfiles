@@ -12,6 +12,6 @@ sketchybar --add item cpu right \
              padding_left=2 padding_right=2 \
              icon.padding_left=10 icon.padding_right=10 \
              label.padding_right=20 \
-             update_freq=2 \
+             update_freq=15 \
              script="$PLUGIN_DIR/cpu.sh" \
              --subscribe cpu mouse.entered mouse.exited.global
