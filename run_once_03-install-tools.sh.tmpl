@@ -23,8 +23,11 @@ BREW_BIN="/opt/homebrew/bin/brew"
 if [[ -x "${BREW_BIN}" ]]; then
     eval "$("${BREW_BIN}" shellenv)"
     "${BREW_BIN}" tap qmk/qmk || true
+    "${BREW_BIN}" trust --tap qmk/qmk || true
     "${BREW_BIN}" tap osx-cross/arm || true
+    "${BREW_BIN}" trust --tap osx-cross/arm || true
     "${BREW_BIN}" tap osx-cross/avr || true
+    "${BREW_BIN}" trust --tap osx-cross/avr || true
     echo "Installing tools via Homebrew..."
     "${BREW_BIN}" install \
         atuin bat carapace cliproxyapi curl delta eza fd fish fzf gh gitlogue gnupg gum htop \
