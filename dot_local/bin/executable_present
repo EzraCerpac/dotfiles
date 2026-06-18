@@ -1,0 +1,559 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/present"
+STATE_FILE="${STATE_DIR}/state"
+AGENTS_FILE="${STATE_DIR}/agents"
+REPORT_FILE="${STATE_DIR}/last-report.txt"
+CAFFEINATE_PID_FILE="${STATE_DIR}/caffeinate.pid"
+UID_VALUE="$(id -u)"
+GUI_DOMAIN="gui/${UID_VALUE}"
+DRY_RUN=0
+CMD=""
+
+PRESENT_SHORTCUT="${PRESENT_SHORTCUT:-Presentation Mode}"
+CPU_FAIL="${PRESENT_CPU_FAIL:-150}"
+MEM_FREE_FAIL="${PRESENT_MEM_FREE_FAIL:-15}"
+DISK_FREE_GB_FAIL="${PRESENT_DISK_FREE_GB_FAIL:-20}"
+
+usage() {
+    cat <<'EOF'
+usage: present <on|off|status|doctor> [--dry-run]
+
+  on       enter Presentation Mode
+  off      leave Presentation Mode and restore stopped launch agents
+  status   show current risk snapshot
+  doctor   preflight check; nonzero means fix before presenting
+EOF
+}
+
+log() {
+    printf '%s\n' "$*"
+}
+
+warn() {
+    printf 'warning: %s\n' "$*" >&2
+}
+
+die() {
+    printf 'present: %s\n' "$*" >&2
+    exit 1
+}
+
+require_macos() {
+    [[ "$(uname -s)" == "Darwin" ]] || die "macOS only"
+}
+
+ensure_state_dir() {
+    [[ "${DRY_RUN}" -eq 1 ]] || mkdir -p "${STATE_DIR}"
+}
+
+shortcut_exists() {
+    local name="${1:?shortcut name required}"
+    command -v shortcuts >/dev/null 2>&1 || return 1
+    shortcuts list 2>/dev/null | grep -Fxq "${name}"
+}
+
+run_presentation_shortcut() {
+    local mode="${1:?mode required}"
+    local marker=""
+    local tmp=""
+
+    [[ "${PRESENT_FROM_SHORTCUT:-0}" == "1" ]] && return 0
+
+    case "${mode}" in
+        on)
+            marker="dnd-on"
+            ;;
+        off)
+            marker="dnd-off"
+            ;;
+        *)
+            die "unsupported shortcut mode: ${mode}"
+            ;;
+    esac
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] shortcuts run ${PRESENT_SHORTCUT} --input ${marker}"
+        return 0
+    fi
+
+    if ! shortcut_exists "${PRESENT_SHORTCUT}"; then
+        warn "missing Shortcut: ${PRESENT_SHORTCUT}"
+        return 1
+    fi
+
+    tmp="$(mktemp)"
+    printf '%s\n' "${marker}" >"${tmp}"
+    shortcuts run "${PRESENT_SHORTCUT}" --input-path "${tmp}" >/dev/null 2>&1 || {
+        rm -f "${tmp}"
+        warn "Shortcut failed: ${PRESENT_SHORTCUT}"
+        return 1
+    }
+    rm -f "${tmp}"
+}
+
+caffeinate_pid_alive() {
+    local pid=""
+    [[ -f "${CAFFEINATE_PID_FILE}" ]] || return 1
+    pid="$(cat "${CAFFEINATE_PID_FILE}" 2>/dev/null || true)"
+    [[ -n "${pid}" ]] || return 1
+    kill -0 "${pid}" >/dev/null 2>&1
+}
+
+start_caffeinate() {
+    ensure_state_dir
+
+    if caffeinate_pid_alive; then
+        log "caffeinate already running: $(cat "${CAFFEINATE_PID_FILE}")"
+        return 0
+    fi
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] caffeinate -dimsu &"
+        return 0
+    fi
+
+    caffeinate -dimsu >/dev/null 2>&1 &
+    printf '%s\n' "$!" >"${CAFFEINATE_PID_FILE}"
+    log "caffeinate: $!"
+}
+
+stop_caffeinate() {
+    local pid=""
+
+    [[ -f "${CAFFEINATE_PID_FILE}" ]] || return 0
+    pid="$(cat "${CAFFEINATE_PID_FILE}" 2>/dev/null || true)"
+    [[ -n "${pid}" ]] || return 0
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] kill ${pid}"
+        return 0
+    fi
+
+    if kill -0 "${pid}" >/dev/null 2>&1; then
+        kill "${pid}" >/dev/null 2>&1 || true
+    fi
+    rm -f "${CAFFEINATE_PID_FILE}"
+}
+
+agent_plist() {
+    local label="${1:?label required}"
+    local path=""
+
+    for path in \
+        "${HOME}/Library/LaunchAgents/${label}.plist" \
+        "/Library/LaunchAgents/${label}.plist"; do
+        if [[ -f "${path}" ]]; then
+            printf '%s\n' "${path}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+agent_loaded() {
+    local label="${1:?label required}"
+    launchctl print "${GUI_DOMAIN}/${label}" >/dev/null 2>&1
+}
+
+stop_agent() {
+    local label="${1:?label required}"
+    local plist=""
+
+    plist="$(agent_plist "${label}" 2>/dev/null || true)"
+    [[ -n "${plist}" ]] || return 0
+    agent_loaded "${label}" || return 0
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] launchctl bootout ${GUI_DOMAIN}/${label}"
+        return 0
+    fi
+
+    printf '%s\t%s\n' "${label}" "${plist}" >>"${AGENTS_FILE}"
+    launchctl bootout "${GUI_DOMAIN}/${label}" >/dev/null 2>&1 || warn "could not stop ${label}"
+}
+
+stop_agents() {
+    ensure_state_dir
+    [[ "${DRY_RUN}" -eq 1 ]] || : >"${AGENTS_FILE}"
+
+    while IFS= read -r label; do
+        [[ -n "${label}" ]] || continue
+        stop_agent "${label}"
+    done <<'EOF'
+homebrew.mxcl.cliproxyapi
+ai.openclaw.gateway
+com.steipete.summarize.daemon
+com.google.GoogleUpdater.wake
+com.google.keystone.agent
+com.google.keystone.xpcservice
+mega.mac.megaupdater
+EOF
+}
+
+restore_agents() {
+    local label=""
+    local plist=""
+
+    [[ -f "${AGENTS_FILE}" ]] || return 0
+
+    while IFS=$'\t' read -r label plist; do
+        [[ -n "${label}" && -n "${plist}" && -f "${plist}" ]] || continue
+
+        if [[ "${DRY_RUN}" -eq 1 ]]; then
+            log "[dry-run] launchctl bootstrap ${GUI_DOMAIN} ${plist}"
+            continue
+        fi
+
+        agent_loaded "${label}" && continue
+        launchctl bootstrap "${GUI_DOMAIN}" "${plist}" >/dev/null 2>&1 || warn "could not restore ${label}"
+    done <"${AGENTS_FILE}"
+
+    [[ "${DRY_RUN}" -eq 1 ]] || rm -f "${AGENTS_FILE}"
+}
+
+app_pids() {
+    local name="${1:?name required}"
+    local bundle="${2:-}"
+    local result=""
+
+    if [[ -n "${bundle}" ]]; then
+        result="$(
+            PRESENT_APP_BUNDLE="${bundle}" osascript <<'OSA' 2>/dev/null || true
+set bundleId to system attribute "PRESENT_APP_BUNDLE"
+tell application "System Events"
+    set processIds to unix id of every application process whose bundle identifier is bundleId
+end tell
+return processIds
+OSA
+        )"
+    fi
+
+    if [[ -z "${result}" ]]; then
+        result="$(
+            PRESENT_APP_NAME="${name}" osascript <<'OSA' 2>/dev/null || true
+set appName to system attribute "PRESENT_APP_NAME"
+tell application "System Events"
+    set processIds to unix id of every application process whose name is appName
+end tell
+return processIds
+OSA
+        )"
+    fi
+
+    printf '%s\n' "${result}" | tr ',' '\n' | awk '{$1=$1; if ($0 ~ /^[0-9]+$/) print}'
+}
+
+quit_app() {
+    local name="${1:?name required}"
+    local bundle="${2:-}"
+    local pids=""
+    local pid=""
+
+    pids="$(app_pids "${name}" "${bundle}")"
+    [[ -n "${pids}" ]] || return 0
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] quit app ${name}${bundle:+ (${bundle})}"
+        return 0
+    fi
+
+    PRESENT_APP_NAME="${name}" PRESENT_APP_BUNDLE="${bundle}" osascript <<'OSA' >/dev/null 2>&1 || true
+set appName to system attribute "PRESENT_APP_NAME"
+set bundleId to system attribute "PRESENT_APP_BUNDLE"
+try
+    if bundleId is not "" then
+        tell application id bundleId to quit
+    else
+        tell application appName to quit
+    end if
+end try
+OSA
+
+    sleep 1
+    while IFS= read -r pid; do
+        [[ -n "${pid}" ]] || continue
+        kill -TERM "${pid}" >/dev/null 2>&1 || true
+    done < <(app_pids "${name}" "${bundle}")
+}
+
+quit_apps() {
+    while IFS=$'\t' read -r name bundle; do
+        [[ -n "${name}" ]] || continue
+        quit_app "${name}" "${bundle:-}"
+    done <<'EOF'
+Codex	com.openai.codex
+CodexBar	com.steipete.codexbar
+Cotabby	com.jacobfu.tabby
+VoiceInk	com.prakashjoshipax.VoiceInk
+TypeWhisper	com.typewhisper.mac
+Wispr Flow	com.electron.wispr-flow
+Raycast	com.raycast.macos
+Raycast Beta	com.raycast-x.macos
+Ollama	com.electron.ollama
+MEGAsync	mega.mac
+boringNotch	theboringteam.boringnotch
+Homerow	com.superultra.Homerow
+MiddleClick	art.ginzburg.MiddleClick
+Mattermost	Mattermost.Desktop
+Steam	com.valvesoftware.steam
+EOF
+}
+
+dev_process_match() {
+    local command_line="${1:?command line required}"
+
+    case "${command_line}" in
+        *"codegraph serve --mcp"*|\
+        *"vite dev"*|\
+        *"next dev"*|\
+        *"pnpm dev"*|\
+        *"npm run dev"*|\
+        *"uvicorn"*|\
+        *"cargo watch"*|\
+        *"scripts/serve_api.jl"*|\
+        qlmanage\ -t\ *)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+terminate_dev_servers() {
+    local pid=""
+    local command_line=""
+
+    while IFS= read -r line; do
+        pid="${line%% *}"
+        command_line="${line#* }"
+        [[ "${pid}" =~ ^[0-9]+$ ]] || continue
+        [[ "${pid}" != "$$" ]] || continue
+
+        dev_process_match "${command_line}" || continue
+
+        if [[ "${DRY_RUN}" -eq 1 ]]; then
+            log "[dry-run] kill -TERM ${pid} ${command_line}"
+        else
+            kill -TERM "${pid}" >/dev/null 2>&1 || true
+        fi
+    done < <(ps -Ao pid=,command=)
+}
+
+stop_backup() {
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        log "[dry-run] tmutil stopbackup"
+        return 0
+    fi
+
+    tmutil stopbackup >/dev/null 2>&1 || true
+}
+
+memory_free_percent() {
+    memory_pressure 2>/dev/null | awk -F': ' '/System-wide memory free percentage/ {gsub(/%/, "", $2); print $2; exit}'
+}
+
+disk_free_gb() {
+    df -Pk / | awk 'NR == 2 {printf "%.0f\n", $4 / 1024 / 1024}'
+}
+
+backup_running() {
+    tmutil status 2>/dev/null | awk -F'= ' '/Running/ {gsub(/[; ]/, "", $2); print $2; exit}'
+}
+
+top_cpu_value() {
+    ps -A -o %cpu= | awk 'BEGIN {max=0} {if ($1 > max) max=$1} END {printf "%.0f\n", max}'
+}
+
+print_shortcut_status() {
+    if shortcut_exists "${PRESENT_SHORTCUT}"; then
+        log "shortcut: ok ${PRESENT_SHORTCUT}"
+    else
+        log "shortcut: missing ${PRESENT_SHORTCUT}"
+    fi
+}
+
+print_status() {
+    local pid=""
+
+    log "present: $([[ -f "${STATE_FILE}" ]] && printf active || printf off)"
+    if [[ -f "${CAFFEINATE_PID_FILE}" ]]; then
+        pid="$(cat "${CAFFEINATE_PID_FILE}" 2>/dev/null || true)"
+        if [[ -n "${pid}" ]] && kill -0 "${pid}" >/dev/null 2>&1; then
+            log "caffeinate: ${pid}"
+        else
+            log "caffeinate: stale ${pid}"
+        fi
+    else
+        log "caffeinate: off"
+    fi
+
+    print_shortcut_status
+    log "memory_free_percent: $(memory_free_percent || true)"
+    log "disk_free_gb: $(disk_free_gb || true)"
+    log "time_machine_running: $(backup_running || true)"
+    log
+    log "top_cpu:"
+    ps -A -o %cpu,%mem,pid,comm | sort -nr | head -10 || true
+    log
+    log "display:"
+    system_profiler SPDisplaysDataType 2>/dev/null | awk '/Displays:|Resolution:|Main Display:|Mirror:|Online:|Connection Type:/ {sub(/^[[:space:]]+/, ""); print}' || true
+}
+
+write_report() {
+    [[ "${DRY_RUN}" -eq 1 ]] && return 0
+    ensure_state_dir
+
+    {
+        date
+        echo
+        print_status
+        echo
+        echo "presentation process matches:"
+        ps -Ao pid=,ppid=,%cpu=,%mem=,command= | grep -Ei 'codegraph serve --mcp|vite dev|next dev|pnpm dev|npm run dev|uvicorn|cargo watch|scripts/serve_api.jl|qlmanage -t|CodexBar|Cotabby|VoiceInk|TypeWhisper|Ollama|MEGAsync|Raycast|Mattermost|Steam' || true
+    } >"${REPORT_FILE}"
+}
+
+doctor() {
+    local failures=0
+    local mem=""
+    local disk=""
+    local cpu=""
+    local backup=""
+
+    print_status
+    log
+    log "doctor:"
+
+    if shortcut_exists "${PRESENT_SHORTCUT}"; then
+        log "ok: Shortcut ${PRESENT_SHORTCUT}"
+    else
+        warn "missing Shortcut ${PRESENT_SHORTCUT}"
+        failures=$((failures + 1))
+    fi
+
+    mem="$(memory_free_percent || true)"
+    if [[ -n "${mem}" && "${mem}" -lt "${MEM_FREE_FAIL}" ]]; then
+        warn "memory free ${mem}% < ${MEM_FREE_FAIL}%"
+        failures=$((failures + 1))
+    else
+        log "ok: memory free ${mem:-unknown}%"
+    fi
+
+    disk="$(disk_free_gb || true)"
+    if [[ -n "${disk}" && "${disk}" -lt "${DISK_FREE_GB_FAIL}" ]]; then
+        warn "disk free ${disk}G < ${DISK_FREE_GB_FAIL}G"
+        failures=$((failures + 1))
+    else
+        log "ok: disk free ${disk:-unknown}G"
+    fi
+
+    cpu="$(top_cpu_value || true)"
+    if [[ -n "${cpu}" && "${cpu}" -ge "${CPU_FAIL}" ]]; then
+        warn "top CPU ${cpu}% >= ${CPU_FAIL}%"
+        failures=$((failures + 1))
+    else
+        log "ok: top CPU ${cpu:-unknown}%"
+    fi
+
+    backup="$(backup_running || true)"
+    if [[ "${backup}" == "1" ]]; then
+        warn "Time Machine backup running"
+        failures=$((failures + 1))
+    else
+        log "ok: Time Machine idle"
+    fi
+
+    return "${failures}"
+}
+
+present_on() {
+    if [[ -f "${STATE_FILE}" ]]; then
+        die "already active; run 'present off' first"
+    fi
+
+    write_report
+    ensure_state_dir
+
+    run_presentation_shortcut on || true
+    start_caffeinate
+    stop_backup
+    stop_agents
+    quit_apps
+    terminate_dev_servers
+
+    if [[ "${DRY_RUN}" -eq 0 ]]; then
+        {
+            echo "started_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            echo "report=${REPORT_FILE}"
+        } >"${STATE_FILE}"
+    fi
+
+    # ponytail: quit apps and dev servers are not restorable; relaunch manually after talk.
+    log "present: on"
+    [[ "${DRY_RUN}" -eq 1 ]] || log "report: ${REPORT_FILE}"
+}
+
+present_off() {
+    stop_caffeinate
+    run_presentation_shortcut off || true
+    restore_agents
+
+    if [[ "${DRY_RUN}" -eq 0 ]]; then
+        rm -f "${STATE_FILE}"
+    fi
+
+    log "present: off"
+}
+
+parse_args() {
+    CMD="${1:-}"
+    shift || true
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)
+                DRY_RUN=1
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                die "unknown argument: $1"
+            ;;
+        esac
+    done
+}
+
+main() {
+    require_macos
+    parse_args "$@"
+
+    case "${CMD}" in
+        on)
+            present_on
+            ;;
+        off)
+            present_off
+            ;;
+        status)
+            print_status
+            ;;
+        doctor)
+            doctor
+            ;;
+        -h|--help|"")
+            usage
+            ;;
+        *)
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"
