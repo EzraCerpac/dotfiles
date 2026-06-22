@@ -35,7 +35,8 @@ return {
     if file == "" then
       return nil
     end
-    local args = { "watch", file }
+    local root = util.typst_root(file)
+    local args = { "watch", "--root", root, file }
     if params.out and params.out ~= "" then
       table.insert(args, params.out)
     end
@@ -43,7 +44,7 @@ return {
       name = "typst watch",
       cmd = { "typst" },
       args = args,
-      cwd = util.project_root(),
+      cwd = root,
       components = {
         "default",
         { "on_output_quickfix", open = false },

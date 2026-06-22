@@ -18,6 +18,12 @@ return {
       opts = opts or {}
       opts.servers = opts.servers or {}
       opts.servers.pyright = { enabled = false } -- using ty instead
+      local tinymist = opts.servers.tinymist or {}
+      opts.servers.tinymist = vim.tbl_deep_extend("force", tinymist, {
+        settings = vim.tbl_deep_extend("force", tinymist.settings or {}, {
+          compileStatus = "enable",
+        }),
+      })
       opts.setup = opts.setup or {}
       opts.setup.julials = function(_, sopts)
         -- critical: do NOT let Mason manage Julia LS
@@ -42,6 +48,28 @@ return {
         vim.lsp.config("julials", sopts)
         vim.lsp.enable("julials")
         return true
+      end
+      return opts
+    end,
+  },
+  {
+    "chomosuke/typst-preview.nvim",
+    opts = function(_, opts)
+      opts = opts or {}
+      opts.get_root = function(path_of_main_file)
+        local env_root = os.getenv("TYPST_ROOT")
+        if env_root then
+          return env_root
+        end
+
+        local main_dir = vim.fs.dirname(vim.fn.fnamemodify(path_of_main_file, ":p"))
+        local git = vim.fs.find(".git", { path = main_dir, upward = true, type = "directory" })[1]
+        if git then
+          return vim.fs.dirname(git)
+        end
+
+        local typst_toml = vim.fs.find("typst.toml", { path = main_dir, upward = true, type = "file" })[1]
+        return typst_toml and vim.fs.dirname(typst_toml) or main_dir
       end
       return opts
     end,

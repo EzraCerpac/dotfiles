@@ -26,16 +26,16 @@ return {
     if file == "" then
       return nil
     end
-    local args = { "compile", file }
+    local root = util.typst_root(file)
+    local args = { "compile", "--root", root, file }
     if params.out and params.out ~= "" then
       table.insert(args, params.out)
     end
-    local cwd = util.project_root()
     return {
       name = string.format("typst compile %s", vim.fn.fnamemodify(file, ":t")),
       cmd = { "typst" },
       args = args,
-      cwd = cwd,
+      cwd = root,
       components = {
         "default",
         { "on_complete_notify", statuses = { "FAILURE" } },
