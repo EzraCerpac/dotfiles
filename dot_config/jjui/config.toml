@@ -1,4 +1,17 @@
 [[actions]]
+name = "revisions.diff"
+desc = "diff"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_interactive("diff", "-r", id)
+'''
+
+[[actions]]
 name = "show-oplog-diff"
 lua = '''
 local op_id = context.operation_id()
