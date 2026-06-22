@@ -7,6 +7,8 @@ email = "47384389+EzraCerpac@users.noreply.github.com"
 [ui]
 default-command = ["log"]
 paginate = "never"
+pager = ["hunk", "pager"]
+diff-formatter = ":git"
 editor = "nvim +startinsert"
 merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
