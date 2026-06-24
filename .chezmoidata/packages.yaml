@@ -1,0 +1,92 @@
+packages:
+  darwin:
+    taps:
+      - qmk/qmk
+      - osx-cross/arm
+      - osx-cross/avr
+      - nikitabobko/tap
+      - felixkratz/formulae
+      - homebrew/cask-fonts
+    trusted_taps:
+      - qmk/qmk
+      - osx-cross/arm
+      - osx-cross/avr
+    brews:
+      - atuin
+      - bat
+      - carapace
+      - cliproxyapi
+      - curl
+      - delta
+      - eza
+      - fd
+      - fish
+      - fzf
+      - gh
+      - gitlogue
+      - gnupg
+      - gum
+      - htop
+      - jj
+      - jjui
+      - jq
+      - kanata
+      - lazygit
+      - librsvg
+      - poppler
+      - ripgrep
+      - sshpass
+      - starship
+      - tmux
+      - tree
+      - wget
+      - yazi
+      - zoxide
+      - node
+      - pnpm
+      - xonsh
+      - qmk/qmk/qmk
+      - dos2unix
+      - osx-cross/avr/avr-gcc@9
+      - osx-cross/arm/arm-none-eabi-binutils
+      - osx-cross/arm/arm-none-eabi-gcc@9
+      - worktrunk
+      - usage
+      - felixkratz/formulae/sketchybar
+    casks:
+      - font-sf-pro
+      - font-hack-nerd-font
+      - font-sketchybar-app-font
+      - font-symbols-only-nerd-font
+      - wezterm
+      - raycast
+      - alt-tab
+      - hammerspoon
+      - karabiner-elements
+      - nikitabobko/tap/aerospace
+      - tailscale-app
+      - zoom
+      - codexbar
+      - homerow
+      - jabref
+      - mattermost
+      - warp
+  linux:
+    apt:
+      - bat
+      - build-essential
+      - curl
+      - fd-find
+      - fish
+      - fzf
+      - git
+      - gnupg
+      - htop
+      - jq
+      - poppler-utils
+      - ripgrep
+      - sshpass
+      - tmux
+      - tree
+      - unzip
+      - wget

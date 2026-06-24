@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+pending="${HOMEBREW_BUNDLE_PENDING:-$HOME/.local/state/chezmoi/brew-pending/Brewfile}"
+
+if [[ ! -s "$pending" ]]; then
+    echo "No pending Homebrew packages."
+    exit 0
+fi
+
+cat "$pending"

@@ -22,9 +22,17 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs co
 
 ## Tool Management
 
-`brew` on macOS and `apt-get` on Linux install the general-purpose CLI tools and system dependencies used day to day.
+General-purpose CLI tools, system dependencies, Homebrew taps, and casks are listed in `.chezmoidata/packages.yaml`.
+`chezmoi apply` installs and updates them through the generated `run_onchange_03-install-packages.sh` script.
 
 `mise` is reserved for versioned runtimes and a small set of tools where pinning matters (`~/.config/mise/config.toml`). Today that mainly means Neovim nightly, Rust, UV, and Julia.
+
+For one-off Homebrew installs, use the pending-list helpers:
+
+- `bi ripgrep` installs a formula and records it in `~/.local/state/chezmoi/brew-pending/Brewfile`
+- `bic wezterm` installs a cask and records it in the same pending file
+- `brew-pending` reviews pending entries
+- `brew-promote` moves pending entries into `.chezmoidata/packages.yaml`
 
 Review defaults:
 
@@ -46,8 +54,9 @@ dot_config/                          → ~/.config/
   git/, jj/, starship.toml, ...     → other tool configs
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
-run_once_03-install-tools.sh.tmpl       → install general CLI tools via brew/apt, then versioned tools via mise
-run_once_04-setup-macos.sh.tmpl         → brew casks (wezterm, raycast, alt-tab, hammerspoon)
+run_onchange_03-install-packages.sh.tmpl → install/update packages from .chezmoidata/packages.yaml
+run_once_03-install-tools.sh.tmpl       → install versioned tools via mise
+run_once_04-setup-macos.sh.tmpl         → macOS defaults
 run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd-setup exists)
 run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell

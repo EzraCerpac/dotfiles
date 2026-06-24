@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+pending="${HOMEBREW_BUNDLE_PENDING:-$HOME/.local/state/chezmoi/brew-pending/Brewfile}"
+
+if [[ ! -s "$pending" ]]; then
+    echo "No pending Homebrew packages."
+    exit 0
+fi
+
+if ! command -v chezmoi >/dev/null 2>&1; then
+    echo "chezmoi not found" >&2
+    exit 1
+fi
+
+source_dir="$(chezmoi source-path)"
+packages_file="$source_dir/.chezmoidata/packages.yaml"
+
+if [[ ! -f "$packages_file" ]]; then
+    echo "packages file not found: $packages_file" >&2
+    exit 1
+fi
+
+if ! command -v ruby >/dev/null 2>&1; then
+    echo "ruby not found; cannot update YAML" >&2
+    exit 1
+fi
+
+ruby -ryaml - "$packages_file" "$pending" <<'RUBY'
+packages_file, pending_file = ARGV
+data = YAML.load_file(packages_file) || {}
+packages = data["packages"] ||= {}
+darwin = packages["darwin"] ||= {}
+darwin["brews"] ||= []
+darwin["casks"] ||= []
+darwin["taps"] ||= []
+
+added = 0
+File.readlines(pending_file, chomp: true).each do |line|
+  case line
+  when /^\s*brew\s+"([^"]+)"/
+    name = Regexp.last_match(1)
+    unless darwin["brews"].include?(name)
+      darwin["brews"] << name
+      added += 1
+    end
+  when /^\s*cask\s+"([^"]+)"/
+    name = Regexp.last_match(1)
+    unless darwin["casks"].include?(name)
+      darwin["casks"] << name
+      added += 1
+    end
+  when /^\s*tap\s+"([^"]+)"/
+    name = Regexp.last_match(1)
+    unless darwin["taps"].include?(name)
+      darwin["taps"] << name
+      added += 1
+    end
+  end
+end
+
+File.write(packages_file, YAML.dump(data).sub(/\A---\n/, ""))
+File.truncate(pending_file, 0)
+puts "promoted #{added} Homebrew package#{added == 1 ? "" : "s"} to #{packages_file}"
+RUBY

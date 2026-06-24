@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "usage: bic <cask...>" >&2
+    exit 2
+fi
+
+pending="${HOMEBREW_BUNDLE_PENDING:-$HOME/.local/state/chezmoi/brew-pending/Brewfile}"
+mkdir -p "$(dirname "$pending")"
+touch "$pending"
+
+brew bundle add --install --no-describe --cask --file "$pending" "$@"
+echo "pending: $pending"
