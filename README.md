@@ -57,8 +57,9 @@ run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_onchange_03-install-packages.sh.tmpl → install/update packages from .chezmoidata/packages.yaml
 run_once_03-install-tools.sh.tmpl       → install versioned tools via mise
 run_once_04-setup-macos.sh.tmpl         → macOS defaults
-run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd-setup exists)
+run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd exists)
 run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
+run_once_07-remove-legacy-kbd-commands.sh.tmpl → remove old `kbd-*` helper commands
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
 run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID + Core-Service daemons
@@ -73,15 +74,15 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 
 Commands:
 
-- `kbd-setup` → install keyboard build dependencies and clone/update `qmk_firmware`
-- `kbd-sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
-- `kbd-build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
-- `kbd-build-all` → build both `rp2040_ce` and `sparkfun_pm2040`
-- `kbd-build-left` / `kbd-build-right` → build convenience left/right-tagged UF2 artifacts
-- `kbd-flash-left` / `kbd-flash-right` → authoritative split-handedness flash flow (`uf2-split-left/right`)
-- `kbd-layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
-- `kbd-hud-reload` → reload Hammerspoon HUD overlay
-- `kbd-open-artifacts` → open UF2 artifact folder in Finder
+- `kbd setup` → install keyboard build dependencies and clone/update `qmk_firmware`
+- `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
+- `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
+- `kbd build-all` → build both `rp2040_ce` and `sparkfun_pm2040`
+- `kbd build --left` / `kbd build --right` → build convenience left/right-tagged UF2 artifacts
+- `kbd flash left` / `kbd flash right` → authoritative split-handedness flash flow (`uf2-split-left/right`)
+- `kbd layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
+- `kbd hud-reload` → reload Hammerspoon HUD overlay
+- `kbd open-artifacts` → open UF2 artifact folder in Finder
 
 `mise run` keyboard tasks are defined in the source repo's repo-local [`mise.toml`](mise.toml), and `.chezmoiignore` keeps that file from being deployed to `~/mise.toml`. Run them from this chezmoi checkout, not from arbitrary directories.
 

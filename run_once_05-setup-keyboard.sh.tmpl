@@ -6,13 +6,13 @@ set -euo pipefail
 
 echo "Setting up keyboard development environment..."
 
-if ! command -v kbd-setup &>/dev/null; then
-    echo "kbd-setup command not found."
+if ! command -v kbd &>/dev/null; then
+    echo "kbd command not found."
     echo "Apply the dotfiles first so the helper script is installed, then rerun keyboard setup manually."
     exit 1
 fi
 
-kbd-setup
+kbd setup
 
 echo "Keyboard development setup complete"
 

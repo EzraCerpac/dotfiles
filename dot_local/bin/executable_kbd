@@ -1,0 +1,471 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
+
+readonly CONFIG_DIR="${HOME}/.config/keyboard/corne-qmk"
+readonly KEYMAP_NAME="ezra_corne"
+readonly KEYBOARD="crkbd/rev1"
+readonly KEYMAP_DIR="${CONFIG_DIR}/keymaps/${KEYMAP_NAME}"
+readonly KEYMAP_C="${KEYMAP_DIR}/keymap.c"
+readonly KEYMAP_CFG="${CONFIG_DIR}/keymap-drawer.yaml"
+readonly IMAGE_DIR="${CONFIG_DIR}/images/generated"
+readonly QMK_DIR="${HOME}/Projects/keyboards/qmk_firmware"
+readonly LEGACY_QMK_DIR="${HOME}/Projects/keyboards/vial-qmk"
+readonly QMK_KEYMAP_DIR="${QMK_DIR}/keyboards/crkbd/keymaps/${KEYMAP_NAME}"
+readonly ARTIFACT_DIR="${HOME}/Projects/keyboards/artifacts/corne-rev1"
+readonly ARM_TOOLCHAIN_PATH="/opt/homebrew/opt/arm-none-eabi-gcc@9/bin:/opt/homebrew/opt/arm-none-eabi-binutils/bin"
+
+QMK_RUNNER=()
+QMK_RUNNER_MODE=""
+QMK_RUNNER_WORKDIR=""
+
+usage() {
+    cat <<'EOF'
+usage: kbd <command> [args]
+
+commands:
+  setup
+  sync
+  build [--convert-to target] [--left|--right]
+  build-all
+  flash <left|right> [--convert-to target] [-n|--dry-run]
+  layout-images
+  hud-reload
+  open-artifacts
+EOF
+}
+
+require_value() {
+    local flag="${1:?flag required}"
+    local value="${2:-}"
+
+    if [[ -z "${value}" ]]; then
+        echo "${flag} requires a value" >&2
+        exit 1
+    fi
+}
+
+qmk_env_path() {
+    export PATH="${ARM_TOOLCHAIN_PATH}:${PATH}"
+}
+
+resolve_qmk_runner() {
+    if [[ -n "${QMK_RUNNER_MODE}" ]]; then
+        return 0
+    fi
+
+    local qmk_home="${QMK_HOME:-${QMK_DIR}}"
+    local candidate=""
+    local lib_root=""
+    local py_name=""
+    local prefix=""
+    local python_bin=""
+    local -a site_packages=(
+        /opt/homebrew/Cellar/qmk/*/libexec/lib/python*/site-packages
+        /usr/local/Cellar/qmk/*/libexec/lib/python*/site-packages
+    )
+
+    if [[ -d "${qmk_home}/lib/python/qmk/cli" ]]; then
+        for candidate in "${site_packages[@]}"; do
+            [[ -d "${candidate}" ]] || continue
+
+            lib_root="${candidate%/site-packages}"
+            py_name="$(basename "${lib_root}")"
+            prefix="${lib_root%/lib/*}"
+            python_bin="${prefix}/bin/${py_name}"
+
+            if [[ -x "${python_bin}" ]] && (
+                cd "${qmk_home}" &&
+                    env ORIG_CWD="${qmk_home}" \
+                        PYTHONPATH="${qmk_home}/lib/python:${candidate}${PYTHONPATH:+:${PYTHONPATH}}" \
+                        "${python_bin}" -c 'import sys; from qmk.cli import cli; sys.argv[0] = "qmk"; cli()' --help >/dev/null 2>&1
+            ); then
+                QMK_RUNNER_MODE="local_qmk_home"
+                QMK_RUNNER_WORKDIR="${qmk_home}"
+                QMK_RUNNER=(
+                    env
+                    "ORIG_CWD=${qmk_home}"
+                    "PYTHONPATH=${qmk_home}/lib/python:${candidate}${PYTHONPATH:+:${PYTHONPATH}}"
+                    "${python_bin}"
+                    -c
+                    'import sys; from qmk.cli import cli; sys.argv[0] = "qmk"; cli()'
+                )
+                return 0
+            fi
+        done
+    fi
+
+    if command -v qmk >/dev/null 2>&1 && qmk --version >/dev/null 2>&1; then
+        QMK_RUNNER_MODE="system_qmk"
+        QMK_RUNNER=(qmk)
+        return 0
+    fi
+
+    for candidate in "${site_packages[@]}"; do
+        if [[ -d "${candidate}/qmk_cli" ]] && python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from qmk_cli.script_qmk import main' "${candidate}" >/dev/null 2>&1; then
+            QMK_RUNNER_MODE="wrapper_qmk"
+            QMK_RUNNER=(env "PYTHONPATH=${candidate}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m qmk_cli.script_qmk)
+            return 0
+        fi
+    done
+
+    echo "qmk CLI is unavailable. Re-run kbd setup or repair the Homebrew qmk install." >&2
+    return 1
+}
+
+run_qmk() {
+    resolve_qmk_runner
+    if [[ "${QMK_RUNNER_MODE}" == "local_qmk_home" ]]; then
+        (
+            cd "${QMK_RUNNER_WORKDIR}"
+            "${QMK_RUNNER[@]}" "$@"
+        )
+        return
+    fi
+
+    "${QMK_RUNNER[@]}" "$@"
+}
+
+require_qmk_checkout() {
+    if [[ ! -d "${QMK_DIR}" ]]; then
+        echo "missing qmk_firmware checkout: ${QMK_DIR}" >&2
+        echo "run: kbd setup" >&2
+        exit 1
+    fi
+}
+
+cmd_setup() {
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Homebrew is required on macOS for keyboard tooling." >&2
+        exit 1
+    fi
+
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    fi
+
+    brew tap qmk/qmk >/dev/null 2>&1 || true
+    brew tap osx-cross/arm >/dev/null 2>&1 || true
+    brew tap osx-cross/avr >/dev/null 2>&1 || true
+    brew install \
+        qmk/qmk/qmk \
+        dos2unix \
+        librsvg \
+        uv \
+        osx-cross/avr/avr-gcc@9 \
+        osx-cross/arm/arm-none-eabi-binutils \
+        osx-cross/arm/arm-none-eabi-gcc@9 >/dev/null
+    brew install --cask hammerspoon >/dev/null || true
+
+    mkdir -p "${HOME}/Projects/keyboards"
+    if [[ -d "${QMK_DIR}" ]] && [[ ! -d "${QMK_DIR}/.git" ]]; then
+        mv "${QMK_DIR}" "${QMK_DIR}.incomplete.$(date +%s)" 2>/dev/null || true
+    fi
+    if [[ ! -d "${QMK_DIR}/.git" ]]; then
+        if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 clone --single-branch https://github.com/qmk/qmk_firmware "${QMK_DIR}"; then
+            mv "${QMK_DIR}" "${QMK_DIR}.failed.$(date +%s)" 2>/dev/null || true
+            if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 clone --depth 1 --single-branch https://github.com/qmk/qmk_firmware "${QMK_DIR}"; then
+                if [[ -d "${LEGACY_QMK_DIR}/.git" ]]; then
+                    echo "warning: using existing ${LEGACY_QMK_DIR} as fallback for qmk_firmware" >&2
+                    ln -sfn "${LEGACY_QMK_DIR}" "${QMK_DIR}"
+                else
+                    echo "failed to clone qmk_firmware and no local fallback found" >&2
+                    exit 1
+                fi
+            fi
+        fi
+    else
+        git -C "${QMK_DIR}" fetch origin
+        current_branch="$(git -C "${QMK_DIR}" rev-parse --abbrev-ref HEAD)"
+        git -C "${QMK_DIR}" pull --ff-only origin "${current_branch}"
+    fi
+
+    git -C "${QMK_DIR}" submodule update --init --recursive
+    run_qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1 || true
+    uv tool install --upgrade keymap-drawer >/dev/null
+
+    echo "keyboard setup complete"
+    echo "qmk_firmware: ${QMK_DIR}"
+}
+
+cmd_layout_images() {
+    if [[ ! -f "${KEYMAP_C}" ]]; then
+        echo "missing keymap source: ${KEYMAP_C}" >&2
+        exit 1
+    fi
+
+    if [[ ! -f "${KEYMAP_CFG}" ]]; then
+        echo "missing keymap-drawer config: ${KEYMAP_CFG}" >&2
+        exit 1
+    fi
+
+    if ! resolve_qmk_runner >/dev/null 2>&1; then
+        echo "qmk CLI not found. Run kbd setup." >&2
+        exit 1
+    fi
+
+    if ! command -v keymap >/dev/null 2>&1; then
+        echo "keymap-drawer CLI not found. Run kbd setup." >&2
+        exit 1
+    fi
+
+    if ! command -v rsvg-convert >/dev/null 2>&1; then
+        echo "rsvg-convert not found. Install librsvg (run kbd setup)." >&2
+        exit 1
+    fi
+
+    mkdir -p "${IMAGE_DIR}"
+
+    tmpdir="$(mktemp -d)"
+    trap 'rm -rf "${tmpdir}"' RETURN
+
+    json_file="${tmpdir}/keymap.json"
+    yaml_file="${IMAGE_DIR}/keymap.yaml"
+    full_svg="${IMAGE_DIR}/keymap.svg"
+
+    run_qmk c2json "${KEYMAP_C}" -kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -q -o "${json_file}"
+    keymap -c "${KEYMAP_CFG}" parse -q "${json_file}" -o "${yaml_file}"
+    keymap -c "${KEYMAP_CFG}" draw "${yaml_file}" -o "${full_svg}"
+
+    for pair in "L0:layer0" "L1:layer1" "L2:layer2" "L3:layer3"; do
+        layer="${pair%%:*}"
+        name="${pair##*:}"
+        layer_svg="${IMAGE_DIR}/${name}.svg"
+        layer_png="${IMAGE_DIR}/${name}.png"
+
+        keymap -c "${KEYMAP_CFG}" draw "${yaml_file}" -s "${layer}" -o "${layer_svg}"
+        rsvg-convert -f png -o "${layer_png}" "${layer_svg}"
+    done
+
+    echo "generated layout assets from: ${KEYMAP_C}"
+    echo "full: ${full_svg}"
+    echo "layers: ${IMAGE_DIR}/layer0.png ${IMAGE_DIR}/layer1.png ${IMAGE_DIR}/layer2.png ${IMAGE_DIR}/layer3.png"
+}
+
+cmd_hud_reload() {
+    for f in layer0.png layer1.png layer2.png layer3.png; do
+        if [[ ! -f "${IMAGE_DIR}/${f}" ]]; then
+            echo "missing ${IMAGE_DIR}/${f}" >&2
+            exit 1
+        fi
+    done
+
+    open -a Hammerspoon
+
+    if command -v hs >/dev/null 2>&1; then
+        (hs -c 'hs.reload()' >/dev/null 2>&1 &) || true
+    else
+        echo "hs CLI not found. Restart Hammerspoon manually." >&2
+        exit 1
+    fi
+
+    echo "hammerspoon reloaded"
+}
+
+cmd_sync() {
+    if [[ ! -d "${KEYMAP_DIR}" ]]; then
+        echo "missing source dir: ${KEYMAP_DIR}" >&2
+        exit 1
+    fi
+
+    require_qmk_checkout
+    mkdir -p "${QMK_KEYMAP_DIR}"
+    rsync -a --delete "${KEYMAP_DIR}/" "${QMK_KEYMAP_DIR}/"
+
+    echo "synced keymap to ${QMK_KEYMAP_DIR}"
+
+    cmd_layout_images
+    cmd_hud_reload || true
+}
+
+build_firmware() {
+    local convert_to="${1:?convert target required}"
+    local hand="${2:-}"
+    local uf2_name="crkbd_rev1_ezra_corne_${convert_to}.uf2"
+    local uf2_path="${QMK_DIR}/${uf2_name}"
+    local output_path="${ARTIFACT_DIR}/${uf2_name}"
+    local -a compile_args=(compile -c -kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -e "CONVERT_TO=${convert_to}")
+
+    case "${hand}" in
+        "")
+            ;;
+        left)
+            compile_args+=(-e INIT_EE_HANDS_LEFT=1)
+            output_path="${ARTIFACT_DIR}/crkbd_rev1_ezra_corne_${convert_to}_left.uf2"
+            ;;
+        right)
+            compile_args+=(-e INIT_EE_HANDS_RIGHT=1)
+            output_path="${ARTIFACT_DIR}/crkbd_rev1_ezra_corne_${convert_to}_right.uf2"
+            ;;
+        *)
+            echo "unknown hand: ${hand}" >&2
+            exit 1
+            ;;
+    esac
+
+    qmk_env_path
+    cmd_sync
+    require_qmk_checkout
+
+    (
+        cd "${QMK_DIR}"
+        git submodule sync --recursive
+        git submodule update --init --recursive
+        QMK_HOME="${QMK_DIR}" run_qmk "${compile_args[@]}"
+    )
+
+    mkdir -p "${ARTIFACT_DIR}"
+    if [[ ! -f "${uf2_path}" ]]; then
+        echo "build finished but UF2 not found: ${uf2_path}" >&2
+        exit 1
+    fi
+
+    cp -f "${uf2_path}" "${output_path}"
+    echo "built ${output_path}"
+}
+
+cmd_build() {
+    local convert_to="rp2040_ce"
+    local hand=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --convert-to)
+                require_value "$1" "${2:-}"
+                convert_to="$2"
+                shift 2
+                ;;
+            --left)
+                [[ -z "${hand}" ]] || { echo "choose only one of --left or --right" >&2; exit 1; }
+                hand="left"
+                shift
+                ;;
+            --right)
+                [[ -z "${hand}" ]] || { echo "choose only one of --left or --right" >&2; exit 1; }
+                hand="right"
+                shift
+                ;;
+            *)
+                echo "unknown argument: $1" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    build_firmware "${convert_to}" "${hand}"
+}
+
+cmd_build_all() {
+    build_firmware rp2040_ce
+    build_firmware sparkfun_pm2040
+    echo "all firmware targets built"
+}
+
+cmd_flash() {
+    if [[ $# -lt 1 ]]; then
+        echo "flash requires left or right" >&2
+        exit 1
+    fi
+
+    local hand="$1"
+    local convert_to="rp2040_ce"
+    local dry_run=0
+    shift
+
+    case "${hand}" in
+        left|right)
+            ;;
+        *)
+            echo "flash target must be left or right" >&2
+            exit 1
+            ;;
+    esac
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --convert-to)
+                require_value "$1" "${2:-}"
+                convert_to="$2"
+                shift 2
+                ;;
+            -n|--dry-run)
+                dry_run=1
+                shift
+                ;;
+            *)
+                echo "unknown argument: $1" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    qmk_env_path
+    require_qmk_checkout
+
+    local -a flash_args=(flash)
+    if [[ "${dry_run}" == "1" ]]; then
+        flash_args+=(-n)
+    fi
+    flash_args+=(-kb "${KEYBOARD}" -km "${KEYMAP_NAME}" -e "CONVERT_TO=${convert_to}" -bl "uf2-split-${hand}")
+
+    cd "${QMK_DIR}"
+    if [[ "${dry_run}" == "1" ]]; then
+        QMK_HOME="${QMK_DIR}" run_qmk "${flash_args[@]}"
+    else
+        echo "Put ${hand^^} half in bootloader now (RPI-RP2 mounted), then flashing..."
+        QMK_HOME="${QMK_DIR}" run_qmk "${flash_args[@]}"
+    fi
+}
+
+cmd_open_artifacts() {
+    mkdir -p "${ARTIFACT_DIR}"
+    open "${ARTIFACT_DIR}"
+}
+
+main() {
+    if [[ $# -lt 1 ]]; then
+        usage
+        exit 2
+    fi
+
+    command="$1"
+    shift
+
+    case "${command}" in
+        setup)
+            cmd_setup "$@"
+            ;;
+        sync)
+            cmd_sync "$@"
+            ;;
+        build)
+            cmd_build "$@"
+            ;;
+        build-all)
+            cmd_build_all "$@"
+            ;;
+        flash)
+            cmd_flash "$@"
+            ;;
+        layout-images)
+            cmd_layout_images "$@"
+            ;;
+        hud-reload)
+            cmd_hud_reload "$@"
+            ;;
+        open-artifacts)
+            cmd_open_artifacts "$@"
+            ;;
+        -h|--help|help)
+            usage
+            ;;
+        *)
+            echo "unknown command: ${command}" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+}
+
+main "$@"
