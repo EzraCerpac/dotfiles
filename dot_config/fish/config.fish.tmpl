@@ -119,6 +119,13 @@ if not set -q HF_TOKEN; and command -q security
     end
 end
 
+if not set -q WAKATIME_API_KEY; and command -q security
+    set -l wakatime_api_key (security find-generic-password -a "$USER" -s WAKATIME_API_KEY -w 2>/dev/null)
+    if test -n "$wakatime_api_key"
+        set -gx WAKATIME_API_KEY "$wakatime_api_key"
+    end
+end
+
 # Replace ls with eza
 alias ls='eza --icons=auto --group-directories-first --git'
 alias la='eza -a --icons=auto --group-directories-first --git'
