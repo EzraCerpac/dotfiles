@@ -2,9 +2,15 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: aerospace-focus <left|right|up|down>" >&2
+  echo "usage: aerospace-focus [--from-nvim] <left|right|up|down>" >&2
   exit 2
 }
+
+from_nvim=false
+if [[ "${1:-}" == "--from-nvim" ]]; then
+  from_nvim=true
+  shift
+fi
 
 if [[ $# -ne 1 ]]; then
   usage
@@ -47,12 +53,62 @@ resolve_cli() {
   return 1
 }
 
-if ! cli=$(resolve_cli); then
+if ! aerospace_cli=$(resolve_cli); then
   echo "aerospace-focus: could not locate AeroSpace CLI" >&2
   exit 1
 fi
 
-if ! "$cli" focus --boundaries all-monitors-outer-frame "$direction"; then
+herdr_cli="${HERDR_BIN_PATH:-${HOME}/.local/bin/herdr}"
+jq_cli=$(command -v jq 2>/dev/null || true)
+
+is_herdr_window() {
+  [[ -x "${herdr_cli}" && -n "${jq_cli}" ]] || return 1
+
+  local focused
+  focused=$(
+    "${aerospace_cli}" list-windows --focused --json \
+      --format "%{app-name} %{window-title}" 2>/dev/null
+  ) || return 1
+
+  # ponytail: Herdr owns this outer title; use a client/session API if that changes.
+  "${jq_cli}" -e '
+    .[0]
+    | ((."app-name" // "") | ascii_downcase | contains("wezterm"))
+      and ((."window-title" // "") | ascii_downcase | startswith("herdr"))
+  ' <<<"${focused}" >/dev/null
+}
+
+is_nvim() {
+  "${herdr_cli}" pane process-info --current 2>/dev/null \
+    | "${jq_cli}" -e '
+        .result.process_info.foreground_processes[]?.name
+        | ascii_downcase
+        | test("^g?(view|l?n?vim?x?)(diff)?$")
+      ' >/dev/null
+}
+
+focus_herdr_neighbor() {
+  local neighbor_id
+  neighbor_id=$(
+    "${herdr_cli}" pane neighbor --direction "${direction}" --current 2>/dev/null \
+      | "${jq_cli}" -r '.result.neighbor.neighbor_pane_id // empty'
+  ) || return 1
+  [[ -n "${neighbor_id}" ]] || return 1
+
+  "${herdr_cli}" pane focus --direction "${direction}" --current >/dev/null
+}
+
+if is_herdr_window; then
+  if [[ "${from_nvim}" == false ]] && is_nvim; then
+    if "${herdr_cli}" plugin action invoke "vim-herdr-navigation.${direction}" >/dev/null; then
+      exit 0
+    fi
+  elif focus_herdr_neighbor; then
+    exit 0
+  fi
+fi
+
+if ! "${aerospace_cli}" focus --boundaries all-monitors-outer-frame "${direction}"; then
   echo "aerospace-focus: focus command failed for direction '$direction'" >&2
   exit 1
 fi

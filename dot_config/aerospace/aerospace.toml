@@ -66,14 +66,14 @@ M = 'secondary'
 # Focus
 cmd-ctrl-alt-f = "fullscreen"
 # alt-f = "fullscreen"
-cmd-ctrl-alt-h = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
-cmd-ctrl-alt-j = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
-cmd-ctrl-alt-k = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
-cmd-ctrl-alt-l = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
-cmd-ctrl-alt-left = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus left'
-cmd-ctrl-alt-down = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus down'
-cmd-ctrl-alt-up = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus up'
-cmd-ctrl-alt-right = 'exec-and-forget ~/.config/aerospace/bin/wezterm-smart-focus right'
+cmd-ctrl-alt-h = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus left'
+cmd-ctrl-alt-j = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus down'
+cmd-ctrl-alt-k = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus up'
+cmd-ctrl-alt-l = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus right'
+cmd-ctrl-alt-left = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus left'
+cmd-ctrl-alt-down = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus down'
+cmd-ctrl-alt-up = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus up'
+cmd-ctrl-alt-right = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus right'
 
 # Move
 cmd-ctrl-alt-shift-h = "move left"

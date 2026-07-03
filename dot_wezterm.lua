@@ -1,5 +1,4 @@
--- WezTerm config with sensible defaults and AeroSpace integration
--- Source of integration idea: see repo docs and AeroSpace issue #412
+-- WezTerm config with sensible defaults
 
 ---@type Wezterm
 local wezterm = require("wezterm")
@@ -33,57 +32,7 @@ bar.apply_to_config(config, {
 })
 config.hide_tab_bar_if_only_one_tab = true
 
-local function is_vim(pane)
-  -- this is set by the plugin, and unset on ExitPre in Neovim
-  return pane:get_user_vars().IS_NVIM == "true"
-end
---   -- Prefer explicit user var if a plugin sets it (e.g., smart-splits.nvim)
---   local ok_vars, vars = pcall(function()
---     return pane:get_user_vars()
---   end)
---   if ok_vars and vars and vars.IS_NVIM then
---     local v = tostring(vars.IS_NVIM):lower()
---     if v == "true" or v == "1" or v == "yes" then
---       return true
---     end
---   end
---   -- Fallback: foreground process name (works for local shells)
---   local ok_name, name = pcall(function()
---     return pane:get_foreground_process_name()
---   end)
---   if not ok_name or not name then
---     return false
---   end
---   name = tostring(name):lower()
---   return name:find("nvim") or name:find(" vim$") or name:find("/n?vim$")
--- end
-
-local direction_keys = {
-  h = "Left",
-  j = "Down",
-  k = "Up",
-  l = "Right",
-}
-local aerospace_user_var = "ActivatePaneFromAerospace"
-local inverse_direction_keys = {
-  left = "h",
-  down = "j",
-  up = "k",
-  right = "l",
-}
-local resize_mod = "CTRL|ALT"
-local move_mod = "META"
 local delftblue_domain_name = "SSH:delftblue"
-
-local aerospace_cli_candidates = {}
-do
-  local env_cli = os.getenv("AEROSPACE_CLI")
-  if env_cli and env_cli ~= "" then
-    table.insert(aerospace_cli_candidates, env_cli)
-  end
-  table.insert(aerospace_cli_candidates, "aerospace")
-  table.insert(aerospace_cli_candidates, "/opt/homebrew/bin/aerospace")
-end
 
 config.ssh_domains = {}
 for _, dom in ipairs(wezterm.default_ssh_domains()) do
@@ -109,57 +58,6 @@ if has_delftblue_domain then
   })
 end
 
-local function focus_aerospace(direction)
-  local dir = string.lower(direction)
-  for _, cli in ipairs(aerospace_cli_candidates) do
-    if cli and cli ~= "" then
-      local ok, result = pcall(wezterm.run_child_process, {
-        cli,
-        "focus",
-        "--boundaries",
-        "all-monitors-outer-frame",
-        dir,
-      })
-      if ok and result then
-        return true
-      end
-    end
-  end
-  return false
-end
-
-local function split_nav_callback(resize_or_move, key)
-  return function(win, pane)
-    if is_vim(pane) then
-      win:perform_action({
-        SendKey = { key = key, mods = resize_or_move == "resize" and resize_mod or move_mod },
-      }, pane)
-    else
-      local pane_dir = direction_keys[key]
-      if resize_or_move == "resize" then
-        win:perform_action({ AdjustPaneSize = { pane_dir, 3 } }, pane)
-      else
-        local tab = win:active_tab()
-        if tab and tab:get_pane_direction(pane_dir) then
-          win:perform_action(act.ActivatePaneDirection(pane_dir), pane)
-          return
-        end
-        if not focus_aerospace(pane_dir) then
-          wezterm.log_info("AeroSpace CLI not available for focus " .. pane_dir)
-        end
-      end
-    end
-  end
-end
-
-local function split_nav(resize_or_move, key)
-  return {
-    key = key,
-    mods = resize_or_move == "resize" and resize_mod or move_mod,
-    action = wezterm.action_callback(split_nav_callback(resize_or_move, key)),
-  }
-end
-
 local function spawn_delftblue_window()
   if not has_delftblue_domain then
     return
@@ -170,27 +68,7 @@ local function spawn_delftblue_window()
   })
 end
 
--- Register pane navigation events with minimal duplication
-for dir, key in pairs({ left = "h", right = "l", up = "k", down = "j" }) do
-  wezterm.on("ActivatePaneDirection-" .. dir, split_nav_callback("move", key))
-end
-
-wezterm.on("user-var-changed", function(window, pane, name, value)
-  if name ~= aerospace_user_var then
-    return
-  end
-  if not value or value == "" then
-    return
-  end
-  local key = inverse_direction_keys[string.lower(value)]
-  if not key then
-    wezterm.log_info("Unknown AeroSpace direction: " .. tostring(value))
-    return
-  end
-  split_nav_callback("move", key)(window, pane)
-end)
-
--- Reasonable macOS-centric keys that avoid Alt-h/j/k/l conflicts (handled by AeroSpace)
+-- Reasonable macOS-centric keys
 config.keys = {
   -- Pass Ctrl+Arrow through to terminal apps (e.g. Neovim mini.move).
   { key = "UpArrow", mods = "CTRL", action = act.SendKey({ key = "UpArrow", mods = "CTRL" }) },
@@ -245,16 +123,6 @@ config.keys = {
   -- Copy/Paste like macOS
   { key = "c", mods = "CMD", action = act.CopyTo("Clipboard") },
   { key = "v", mods = "CMD", action = act.PasteFrom("Clipboard") },
-  -- move between split panes
-  split_nav("move", "h"),
-  split_nav("move", "j"),
-  split_nav("move", "k"),
-  split_nav("move", "l"),
-  -- resize panes
-  split_nav("resize", "h"),
-  split_nav("resize", "j"),
-  split_nav("resize", "k"),
-  split_nav("resize", "l"),
 }
 
 local compact_keys = {}
