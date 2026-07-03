@@ -14,6 +14,11 @@ echo "Prefer 'module load {{ .delftblue.module_stack }} ...' inside jobs or inte
 exit 0
 {{- end }}
 
+if ! command -v herdr &>/dev/null; then
+    echo "Installing Herdr..."
+    curl -fsSL https://herdr.dev/install.sh | sh
+fi
+
 # --- Versioned runtimes and pinned tools via mise ---
 # Tools defined in ~/.config/mise/config.toml
 

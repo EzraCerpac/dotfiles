@@ -4,14 +4,8 @@ return {
   -- https://github.com/mrjones2014/smart-splits.nvim?tab=readme-ov-file
   event = "VeryLazy",
   opts = function()
-    -- local wezterm_cli = vim.fn.exepath("wezterm")
-    -- if wezterm_cli == "" then
-    --   wezterm_cli = "wezterm"
-    -- end
     return {
-      multiplexer_integration = "wezterm",
-      disable_multiplexer_nav_when_zoomed = true,
-      -- wezterm_cli_path = wezterm_cli,
+      multiplexer_integration = false,
       at_edge = "stop",
       default_amount = 5, -- default is 3
       float_win_behavior = "mux",
@@ -23,75 +17,33 @@ return {
 
     local function resolve_focus_command(direction)
       if vim.fn.executable(aerospace_focus_script) == 1 then
-        return { aerospace_focus_script, direction }
+        return { aerospace_focus_script, "--from-nvim", direction }, "navigation"
       end
-
-      local env_cli = vim.env.AEROSPACE_CLI
-      if env_cli and env_cli ~= "" and vim.fn.executable(env_cli) == 1 then
-        return { env_cli, "focus", "--boundaries", "all-monitors-outer-frame", direction }
-      end
-
-      local fallback = "aerospace"
-      if vim.fn.executable(fallback) == 1 then
-        return { fallback, "focus", "--boundaries", "all-monitors-outer-frame", direction }
-      end
-
-      local homebrew_cli = "/opt/homebrew/bin/aerospace"
-      if vim.fn.executable(homebrew_cli) == 1 then
-        return { homebrew_cli, "focus", "--boundaries", "all-monitors-outer-frame", direction }
-      end
-
-      local usr_local_cli = "/usr/local/bin/aerospace"
-      if vim.fn.executable(usr_local_cli) == 1 then
-        return { usr_local_cli, "focus", "--boundaries", "all-monitors-outer-frame", direction }
-      end
-    end
-
-    local function focus_with_aerospace(direction)
-      local command = resolve_focus_command(direction)
-      if not command then
-        return false, "AeroSpace CLI unavailable"
-      end
-
-      if vim.fn.has("nvim-0.10") == 1 and vim.system then
-        local result = vim.system(command, { text = true }):wait()
-        if result.code == 0 then
-          return true
-        end
-        local stderr = vim.trim(result.stderr or "")
-        return false, #stderr > 0 and stderr or string.format("command exited with code %d", result.code)
-      end
-
-      local output = vim.fn.system(command)
-      if vim.v.shell_error == 0 then
-        return true
-      end
-      output = vim.trim(output or "")
-      if output == "" then
-        output = string.format("command exited with code %d", vim.v.shell_error)
-      end
-      return false, output
     end
 
     opts.at_edge = function(ctx)
-      local ok, err = focus_with_aerospace(ctx.direction)
-      if ok then
+      local command, backend = resolve_focus_command(ctx.direction)
+      if not command then
         return
       end
 
+      local result = vim.system(command, { text = true }):wait()
+      if result.code == 0 then
+        return
+      end
+      local err = vim.trim(result.stderr or "")
       vim.notify_once(
         string.format(
-          "smart-splits: AeroSpace focus handoff failed for %s (%s)",
+          "smart-splits: %s focus handoff failed for %s (%s)",
+          backend,
           tostring(ctx.direction),
-          err or "unknown"
+          err ~= "" and err or string.format("command exited with code %d", result.code)
         ),
         vim.log.levels.WARN
       )
     end
 
     smart_splits.setup(opts)
-    -- Ensure WezTerm user vars are kept in sync for smart navigation
-    require("smart-splits.mux.utils").startup()
     local function apply_mappings()
       for _, lhs in ipairs({ "<A-j>", "<A-k>" }) do
         for _, mode in ipairs({ "n", "i", "v", "x" }) do
@@ -121,6 +73,11 @@ return {
       vim.keymap.set(all_modes, "<A-Down>", smart_splits.move_cursor_down, { remap = true })
       vim.keymap.set(all_modes, "<A-Up>", smart_splits.move_cursor_up, { remap = true })
       vim.keymap.set(all_modes, "<A-Right>", smart_splits.move_cursor_right, { remap = true })
+      -- vim-herdr-navigation forwards Herdr navigation as Ctrl+h/j/k/l.
+      vim.keymap.set(all_modes, "<C-h>", smart_splits.move_cursor_left, { remap = true })
+      vim.keymap.set(all_modes, "<C-j>", smart_splits.move_cursor_down, { remap = true })
+      vim.keymap.set(all_modes, "<C-k>", smart_splits.move_cursor_up, { remap = true })
+      vim.keymap.set(all_modes, "<C-l>", smart_splits.move_cursor_right, { remap = true })
     end
 
     apply_mappings()

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PLUGIN_ID="vim-herdr-navigation"
+PLUGIN_REPO="paulbkim-dev/vim-herdr-navigation"
+PLUGIN_COMMIT="53e318c772c4d3b7fbd904ac43bcf3e5b5d8b244"
+
+if ! command -v herdr &>/dev/null; then
+    echo "Herdr is not installed; skipping ${PLUGIN_ID}"
+    exit 0
+fi
+
+if ! command -v jq &>/dev/null; then
+    echo "jq is required by ${PLUGIN_ID}; skipping installation"
+    exit 0
+fi
+
+current_commit="$(
+    herdr plugin list --plugin "${PLUGIN_ID}" --json \
+        | jq -r --arg id "${PLUGIN_ID}" \
+            '.result.plugins[]? | select(.plugin_id == $id) | .source.resolved_commit // empty'
+)"
+
+if [[ "${current_commit}" == "${PLUGIN_COMMIT}" ]]; then
+    exit 0
+fi
+
+echo "Installing ${PLUGIN_ID}..."
+herdr plugin install "${PLUGIN_REPO}" --ref "${PLUGIN_COMMIT}" --yes
