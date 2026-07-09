@@ -331,6 +331,7 @@ doctor_check_kanata_runtime() {
     local kanata_config="${HOME}/.config/kanata/config.kbd"
     local karabiner_daemon="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
     local kanata_status
+    local kanata_backend_state
     local kanata_expects_old_socket=0
     local karabiner_uses_new_socket=0
 
@@ -360,7 +361,19 @@ doctor_check_kanata_runtime() {
         doctor_fail "Kanata launch daemon is not running"
     fi
 
-    if [[ -r /var/log/kanata.log ]] && tail -n 80 /var/log/kanata.log | grep -q "connect_failed asio.system:2"; then
+    if [[ -r /var/log/kanata.log ]]; then
+        kanata_backend_state="$(
+            tail -n 160 /var/log/kanata.log | awk '
+                /connect_failed asio.system:2/ { state = "connect_failed" }
+                /virtual_hid_keyboard_ready true|cleared stale virtual HID keyboard state/ { state = "ready" }
+                END { print state }
+            '
+        )"
+    fi
+
+    if [[ "${kanata_backend_state}" == "ready" ]]; then
+        doctor_ok "Kanata VirtualHID output backend is connected"
+    elif [[ "${kanata_backend_state}" == "connect_failed" ]]; then
         doctor_fail "Kanata cannot connect to the Karabiner VirtualHID output backend"
         if command -v strings >/dev/null 2>&1; then
             if grep -q "vhidd_server" < <(strings -a "${kanata_bin}" 2>/dev/null); then
