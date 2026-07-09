@@ -78,35 +78,6 @@ local function partial_completion_text(bufnr, item)
   return text:sub(1, skip - 1) .. suffix
 end
 
-local function set_cursor_after_text(win, row, col, lines)
-  vim.api.nvim_win_set_cursor(win, {
-    row + #lines,
-    (#lines == 1 and col or 0) + #lines[#lines],
-  })
-end
-
-local function apply_text(bufnr, item, text)
-  local lines = vim.split(text, "\n", { plain = true })
-  local range = item.range
-  if range then
-    vim.api.nvim_buf_set_text(bufnr, range.start.row, range.start.col, range.end_.row, range.end_.col, lines)
-    local win = vim.api.nvim_get_current_win()
-    if vim.api.nvim_win_get_buf(win) ~= bufnr then
-      win = vim.fn.bufwinid(bufnr)
-    end
-    if win ~= -1 then
-      set_cursor_after_text(win, range.start.row, range.start.col, lines)
-    end
-    return
-  end
-
-  local win = vim.api.nvim_get_current_win()
-  local cursor = vim.api.nvim_win_get_cursor(win)
-  local row, col = cursor[1] - 1, cursor[2]
-  vim.api.nvim_buf_set_text(bufnr, row, col, row, col, lines)
-  set_cursor_after_text(win, row, col, lines)
-end
-
 local function tab_fallback()
   if vim.fn.maparg("<Plug>(Tabout)", "i") ~= "" then
     return vim.api.nvim_replace_termcodes("<Plug>(Tabout)", true, true, true)
@@ -123,8 +94,8 @@ local function accept_copilot_word_action(bufnr)
         return nil
       end
 
-      apply_text(bufnr, item, text)
-      return nil
+      item.insert_text = text
+      return item
     end,
   })
 end
