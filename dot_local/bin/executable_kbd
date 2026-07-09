@@ -329,7 +329,10 @@ doctor_check_karabiner_runtime() {
 doctor_check_kanata_runtime() {
     local kanata_bin
     local kanata_config="${HOME}/.config/kanata/config.kbd"
+    local karabiner_daemon="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
     local kanata_status
+    local kanata_expects_old_socket=0
+    local karabiner_uses_new_socket=0
 
     kanata_bin="$(resolve_kanata_bin)"
     if [[ -z "${kanata_bin}" ]]; then
@@ -359,6 +362,19 @@ doctor_check_kanata_runtime() {
 
     if [[ -r /var/log/kanata.log ]] && tail -n 80 /var/log/kanata.log | grep -q "connect_failed asio.system:2"; then
         doctor_fail "Kanata cannot connect to the Karabiner VirtualHID output backend"
+        if command -v strings >/dev/null 2>&1; then
+            if grep -q "vhidd_server" < <(strings -a "${kanata_bin}" 2>/dev/null); then
+                kanata_expects_old_socket=1
+            fi
+            if [[ -x "${karabiner_daemon}" ]] && grep -q "karabiner_virtual_hid_device_service.sock" < <(strings -a "${karabiner_daemon}" 2>/dev/null); then
+                karabiner_uses_new_socket=1
+            fi
+        fi
+        if [[ "${kanata_expects_old_socket}" == "1" && "${karabiner_uses_new_socket}" == "1" ]]; then
+            doctor_fail "Kanata and Karabiner VirtualHID use different socket protocols"
+            echo "  kanata expects: /Library/Application Support/org.pqrs/tmp/rootonly/vhidd_server/*.sock"
+            echo "  karabiner provides: /Library/Application Support/org.pqrs/tmp/rootonly/karabiner_virtual_hid_device_service.sock"
+        fi
         echo "  inspect:"
         echo "    sudo find \"/Library/Application Support/org.pqrs/tmp/rootonly\" -maxdepth 3 -ls"
         echo "    sudo lsof -nP -U | grep -Ei 'karabiner_virtual_hid_device_service|kanata|rootonly'"
