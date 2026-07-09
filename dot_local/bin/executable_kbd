@@ -259,6 +259,9 @@ doctor_check_karabiner_runtime() {
     local legacy_virtualhid_plist="/Library/LaunchDaemons/${legacy_virtualhid_label}.plist"
     local core_label="org.pqrs.service.daemon.Karabiner-Core-Service"
     local legacy_core_plist="/Library/LaunchDaemons/${core_label}.plist"
+    local rootonly_dir="/Library/Application Support/org.pqrs/tmp/rootonly"
+    local virtualhid_log="/var/log/karabiner/virtual_hid_device_service.log"
+    local virtualhid_recent_log=""
     local legacy_virtualhid_running=0
 
     if systemextensionsctl list 2>/dev/null | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice.*activated enabled"; then
@@ -296,6 +299,31 @@ doctor_check_karabiner_runtime() {
         doctor_warn "legacy Karabiner Core-Service plist exists: ${legacy_core_plist}"
         echo "  cleanup: sudo rm -f ${legacy_core_plist}"
     fi
+
+    if [[ -d "${rootonly_dir}" ]]; then
+        doctor_ok "Karabiner root-only socket directory exists"
+        if [[ ! -r "${rootonly_dir}" ]]; then
+            doctor_warn "root-only socket directory requires sudo to inspect"
+        fi
+    else
+        doctor_fail "Karabiner root-only socket directory is missing: ${rootonly_dir}"
+    fi
+
+    if [[ -r "${virtualhid_log}" ]]; then
+        virtualhid_recent_log="$(tail -n 160 "${virtualhid_log}" 2>/dev/null || true)"
+        if printf '%s\n' "${virtualhid_recent_log}" | grep -q "virtual_hid_device_service_server: bound"; then
+            doctor_ok "Karabiner VirtualHID service bound its socket"
+        else
+            doctor_warn "Karabiner VirtualHID service log does not show a recent socket bind"
+        fi
+
+        if printf '%s\n' "${virtualhid_recent_log}" | grep -Eq "permissions error|bind_failed|driver_version_ is mismatched"; then
+            doctor_fail "Karabiner VirtualHID service log contains backend errors"
+            printf '%s\n' "${virtualhid_recent_log}" | grep -E "permissions error|bind_failed|driver_version_ is mismatched" | tail -n 8 | sed 's/^/  /'
+        fi
+    else
+        doctor_warn "cannot read ${virtualhid_log}; inspect it with sudo if output still fails"
+    fi
 }
 
 doctor_check_kanata_runtime() {
@@ -331,6 +359,12 @@ doctor_check_kanata_runtime() {
 
     if [[ -r /var/log/kanata.log ]] && tail -n 80 /var/log/kanata.log | grep -q "connect_failed asio.system:2"; then
         doctor_fail "Kanata cannot connect to the Karabiner VirtualHID output backend"
+        echo "  inspect:"
+        echo "    sudo find \"/Library/Application Support/org.pqrs/tmp/rootonly\" -maxdepth 3 -ls"
+        echo "    sudo lsof -nP -U | grep -Ei 'karabiner_virtual_hid_device_service|kanata|rootonly'"
+        echo "  recover:"
+        echo "    sudo launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon"
+        echo "    sudo launchctl kickstart -k system/com.kanata.daemon"
     fi
 }
 
