@@ -62,7 +62,7 @@ run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-walt
 run_once_07-remove-legacy-kbd-commands.sh.tmpl → remove old `kbd-*` helper commands
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
-run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID + Core-Service daemons
+run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + legacy daemon cleanup
 run_after_20-setup-kanata-launchd.sh.tmpl → macOS kanata launch daemon via /Library/LaunchDaemons
 ```
 
@@ -75,6 +75,7 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 Commands:
 
 - `kbd setup` → install keyboard build dependencies and clone/update `qmk_firmware`
+- `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
 - `kbd build-all` → build both `rp2040_ce` and `sparkfun_pm2040`

@@ -6,11 +6,11 @@ set -euo pipefail
 
 KARABINER_MANAGER="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager"
 KARABINER_DAEMON="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
-KARABINER_PLIST="/Library/LaunchDaemons/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi.plist"
-KARABINER_LABEL="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
-KARABINER_CORE_SERVICE="/Library/Application Support/org.pqrs/Karabiner-Elements/Karabiner-Core-Service.app/Contents/MacOS/Karabiner-Core-Service"
-KARABINER_CORE_PLIST="/Library/LaunchDaemons/org.pqrs.service.daemon.Karabiner-Core-Service.plist"
+KARABINER_LABEL="org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon"
 KARABINER_CORE_LABEL="org.pqrs.service.daemon.Karabiner-Core-Service"
+KARABINER_LEGACY_LABEL="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
+KARABINER_LEGACY_PLIST="/Library/LaunchDaemons/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi.plist"
+KARABINER_CORE_LEGACY_PLIST="/Library/LaunchDaemons/org.pqrs.service.daemon.Karabiner-Core-Service.plist"
 
 if [[ ! -x "${KARABINER_MANAGER}" ]] || [[ ! -x "${KARABINER_DAEMON}" ]]; then
     echo "Karabiner VirtualHID components not installed yet; skipping setup"
@@ -25,104 +25,32 @@ if ! systemextensionsctl list | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHID
     fi
 fi
 
-TMP_FILES=()
-cleanup() {
-    rm -f "${TMP_FILES[@]}"
-}
-trap cleanup EXIT
+if sudo launchctl print "system/${KARABINER_LEGACY_LABEL}" >/dev/null 2>&1; then
+    echo "Removing legacy chezmoi Karabiner VirtualHID daemon..."
+    sudo launchctl bootout "system/${KARABINER_LEGACY_LABEL}" >/dev/null 2>&1 || true
+fi
 
-install_launch_daemon() {
-    local label="$1"
-    local plist="$2"
-    local tmp_file="$3"
-    local log_name="$4"
+if [[ -f "${KARABINER_LEGACY_PLIST}" ]]; then
+    echo "Removing ${KARABINER_LEGACY_PLIST}"
+    sudo rm -f "${KARABINER_LEGACY_PLIST}" || true
+fi
 
-    if [[ -f "${plist}" ]] && cmp -s "${tmp_file}" "${plist}"; then
-        if launchctl print "system/${label}" >/dev/null 2>&1; then
-            return 0
-        fi
-    fi
+if [[ -f "${KARABINER_CORE_LEGACY_PLIST}" ]]; then
+    echo "Removing legacy Karabiner Core-Service plist; Karabiner manages this through ServiceManagement"
+    sudo rm -f "${KARABINER_CORE_LEGACY_PLIST}" || true
+fi
 
-    echo "Installing ${label} launch daemon..."
-
-    if sudo install -o root -g wheel -m 644 "${tmp_file}" "${plist}" >/dev/null 2>&1; then
-        if sudo launchctl print "system/${label}" >/dev/null 2>&1; then
-            sudo launchctl bootout "system/${label}" >/dev/null 2>&1 || true
-        fi
-        sudo launchctl bootstrap system "${plist}" >/dev/null 2>&1 || true
-        sudo launchctl enable "system/${label}" >/dev/null 2>&1 || true
-        if sudo launchctl kickstart -k "system/${label}" >/dev/null 2>&1; then
-            echo "${label} installed and started"
-        else
-            echo "${label} installed, but could not be started automatically"
-            echo "Check logs with: sudo tail -n 50 /var/log/${log_name}.err.log"
-        fi
-    else
-        echo "Could not install ${plist}"
-        echo "Re-run: chezmoi apply"
-    fi
-}
-
-TMP_FILE="$(mktemp)"
-TMP_FILES+=("${TMP_FILE}")
-
-cat > "${TMP_FILE}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${KARABINER_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${KARABINER_DAEMON}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/var/log/karabiner-virtualhid.log</string>
-    <key>StandardErrorPath</key>
-    <string>/var/log/karabiner-virtualhid.err.log</string>
-</dict>
-</plist>
-EOF
-
-install_launch_daemon "${KARABINER_LABEL}" "${KARABINER_PLIST}" "${TMP_FILE}" "karabiner-virtualhid"
-
-if [[ -x "${KARABINER_CORE_SERVICE}" ]]; then
-    CORE_TMP_FILE="$(mktemp)"
-    TMP_FILES+=("${CORE_TMP_FILE}")
-
-    cat > "${CORE_TMP_FILE}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${KARABINER_CORE_LABEL}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${KARABINER_CORE_SERVICE}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>ProcessType</key>
-    <string>Interactive</string>
-    <key>StandardOutPath</key>
-    <string>/var/log/karabiner-core-service.log</string>
-    <key>StandardErrorPath</key>
-    <string>/var/log/karabiner-core-service.err.log</string>
-</dict>
-</plist>
-EOF
-
-    install_launch_daemon "${KARABINER_CORE_LABEL}" "${KARABINER_CORE_PLIST}" "${CORE_TMP_FILE}" "karabiner-core-service"
+if launchctl print "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
+    echo "Karabiner VirtualHID daemon is managed by Karabiner"
 else
-    echo "Karabiner Core-Service not installed yet; skipping setup"
+    echo "Karabiner VirtualHID daemon is not running under ${KARABINER_LABEL}"
+    echo "Open Karabiner-Elements once, then check: launchctl print system/${KARABINER_LABEL}"
+fi
+
+if launchctl print "system/${KARABINER_CORE_LABEL}" >/dev/null 2>&1; then
+    echo "Karabiner Core-Service is managed by Karabiner"
+else
+    echo "Karabiner Core-Service is not running under ${KARABINER_CORE_LABEL}"
 fi
 
 {{- end }}

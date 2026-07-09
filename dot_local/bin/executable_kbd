@@ -26,6 +26,7 @@ usage: kbd <command> [args]
 
 commands:
   setup
+  doctor
   sync
   build [--convert-to target] [--left|--right]
   build-all
@@ -35,6 +36,8 @@ commands:
   open-artifacts
 EOF
 }
+
+DOCTOR_FAILURES=0
 
 require_value() {
     local flag="${1:?flag required}"
@@ -187,6 +190,167 @@ cmd_setup() {
 
     echo "keyboard setup complete"
     echo "qmk_firmware: ${QMK_DIR}"
+}
+
+doctor_ok() {
+    echo "ok: $*"
+}
+
+doctor_warn() {
+    echo "warn: $*"
+}
+
+doctor_fail() {
+    echo "fail: $*"
+    DOCTOR_FAILURES=$((DOCTOR_FAILURES + 1))
+}
+
+resolve_kanata_bin() {
+    if [[ -x /opt/homebrew/bin/kanata ]]; then
+        echo /opt/homebrew/bin/kanata
+    elif [[ -x /usr/local/bin/kanata ]]; then
+        echo /usr/local/bin/kanata
+    elif command -v kanata >/dev/null 2>&1; then
+        command -v kanata
+    fi
+}
+
+doctor_check_kanata_tcc() {
+    local kanata_bin="${1:?kanata binary required}"
+    local kanata_realpath
+    local tcc_db="/Library/Application Support/com.apple.TCC/TCC.db"
+    local tcc_rows
+    local stale_rows
+
+    if ! command -v realpath >/dev/null 2>&1; then
+        doctor_warn "realpath is unavailable; skipping Kanata TCC path check"
+        return 0
+    fi
+    kanata_realpath="$(realpath "${kanata_bin}")"
+
+    if [[ ! -r "${tcc_db}" ]] || ! command -v sqlite3 >/dev/null 2>&1; then
+        doctor_warn "cannot read system TCC database; inspect Input Monitoring and Accessibility manually"
+        return 0
+    fi
+
+    tcc_rows="$(sqlite3 "${tcc_db}" "select service || '|' || client || '|' || auth_value from access where lower(client) like '%kanata%' order by service, client;" 2>/dev/null || true)"
+    if printf '%s\n' "${tcc_rows}" | grep -Fqx "kTCCServiceListenEvent|${kanata_realpath}|2"; then
+        doctor_ok "Kanata has Input Monitoring for ${kanata_realpath}"
+    else
+        doctor_fail "Kanata is missing Input Monitoring for ${kanata_realpath}"
+    fi
+
+    if printf '%s\n' "${tcc_rows}" | grep -Fqx "kTCCServiceAccessibility|${kanata_realpath}|2"; then
+        doctor_ok "Kanata has Accessibility for ${kanata_realpath}"
+    else
+        doctor_fail "Kanata is missing Accessibility for ${kanata_realpath}"
+    fi
+
+    stale_rows="$(printf '%s\n' "${tcc_rows}" | awk -F'|' -v current="${kanata_realpath}" 'NF == 3 && $2 != current { print $1 " -> " $2 }')"
+    if [[ -n "${stale_rows}" ]]; then
+        doctor_warn "stale Kanata TCC grants exist:"
+        printf '%s\n' "${stale_rows}" | sed 's/^/  /'
+    fi
+}
+
+doctor_check_karabiner_runtime() {
+    local virtualhid_label="org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon"
+    local legacy_virtualhid_label="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
+    local legacy_virtualhid_plist="/Library/LaunchDaemons/${legacy_virtualhid_label}.plist"
+    local core_label="org.pqrs.service.daemon.Karabiner-Core-Service"
+    local legacy_core_plist="/Library/LaunchDaemons/${core_label}.plist"
+    local legacy_virtualhid_running=0
+
+    if systemextensionsctl list 2>/dev/null | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice.*activated enabled"; then
+        doctor_ok "Karabiner DriverKit VirtualHID extension is activated"
+    else
+        doctor_fail "Karabiner DriverKit VirtualHID extension is not activated"
+    fi
+
+    if launchctl print "system/${virtualhid_label}" >/dev/null 2>&1; then
+        doctor_ok "Karabiner VirtualHID daemon is managed by Karabiner"
+    else
+        doctor_fail "Karabiner VirtualHID daemon is not running under ${virtualhid_label}"
+    fi
+
+    if launchctl print "system/${legacy_virtualhid_label}" >/dev/null 2>&1; then
+        legacy_virtualhid_running=1
+        doctor_fail "legacy chezmoi VirtualHID daemon is also running"
+        echo "  fix:"
+        echo "    sudo launchctl bootout system/${legacy_virtualhid_label} || true"
+        echo "    sudo rm -f ${legacy_virtualhid_plist}"
+    fi
+
+    if [[ -f "${legacy_virtualhid_plist}" && "${legacy_virtualhid_running}" == "0" ]]; then
+        doctor_fail "legacy chezmoi VirtualHID plist exists: ${legacy_virtualhid_plist}"
+        echo "  fix: sudo rm -f ${legacy_virtualhid_plist}"
+    fi
+
+    if launchctl print "system/${core_label}" >/dev/null 2>&1; then
+        doctor_ok "Karabiner Core-Service is running"
+    else
+        doctor_warn "Karabiner Core-Service is not visible under ${core_label}"
+    fi
+
+    if [[ -f "${legacy_core_plist}" ]]; then
+        doctor_warn "legacy Karabiner Core-Service plist exists: ${legacy_core_plist}"
+        echo "  cleanup: sudo rm -f ${legacy_core_plist}"
+    fi
+}
+
+doctor_check_kanata_runtime() {
+    local kanata_bin
+    local kanata_config="${HOME}/.config/kanata/config.kbd"
+    local kanata_status
+
+    kanata_bin="$(resolve_kanata_bin)"
+    if [[ -z "${kanata_bin}" ]]; then
+        doctor_fail "kanata is not installed"
+        return 0
+    fi
+    doctor_ok "kanata binary: ${kanata_bin}"
+
+    if [[ -f "${kanata_config}" ]]; then
+        if "${kanata_bin}" --check --cfg "${kanata_config}" >/dev/null 2>&1; then
+            doctor_ok "Kanata config is valid"
+        else
+            doctor_fail "Kanata config check failed: ${kanata_config}"
+        fi
+    else
+        doctor_fail "Kanata config is missing: ${kanata_config}"
+    fi
+
+    doctor_check_kanata_tcc "${kanata_bin}"
+
+    kanata_status="$(launchctl print system/com.kanata.daemon 2>/dev/null || true)"
+    if printf '%s\n' "${kanata_status}" | grep -q "state = running"; then
+        doctor_ok "Kanata launch daemon is running"
+    else
+        doctor_fail "Kanata launch daemon is not running"
+    fi
+
+    if [[ -r /var/log/kanata.log ]] && tail -n 80 /var/log/kanata.log | grep -q "connect_failed asio.system:2"; then
+        doctor_fail "Kanata cannot connect to the Karabiner VirtualHID output backend"
+    fi
+}
+
+cmd_doctor() {
+    DOCTOR_FAILURES=0
+    echo "kbd doctor"
+
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+        doctor_warn "macOS runtime checks skipped on $(uname -s)"
+    else
+        doctor_check_karabiner_runtime
+        doctor_check_kanata_runtime
+    fi
+
+    if [[ "${DOCTOR_FAILURES}" -gt 0 ]]; then
+        echo "kbd doctor found ${DOCTOR_FAILURES} failure(s)"
+        return 1
+    fi
+
+    echo "kbd doctor passed"
 }
 
 cmd_layout_images() {
@@ -435,6 +599,9 @@ main() {
     case "${command}" in
         setup)
             cmd_setup "$@"
+            ;;
+        doctor)
+            cmd_doctor "$@"
             ;;
         sync)
             cmd_sync "$@"
