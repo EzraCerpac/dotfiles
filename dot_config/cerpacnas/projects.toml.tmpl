@@ -26,3 +26,18 @@ path = "data"
 
 [projects.thesis.artifacts.output]
 path = "code/out"
+
+[projects.jj-waltz]
+repo = "https://github.com/EzraCerpac/jj-waltz.git"
+{{- if eq .profile "nas" }}
+local_path = "/root/Projects/jj-waltz"
+{{- else }}
+local_path = "{{ .chezmoi.homeDir }}/Projects/jj-waltz"
+{{- end }}
+remote_path = "/root/Projects/jj-waltz"
+remote_name = "origin"
+{{- if eq .profile "nas" }}
+rules_file = "/root/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md"
+{{- else }}
+rules_file = "{{ .chezmoi.homeDir }}/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md"
+{{- end }}

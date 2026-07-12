@@ -13,11 +13,22 @@ Use Codex Remote SSH for tasks. Use `nas` only for repository/config coordinatio
 2. Otherwise use current Codex project/cwd.
 3. In chezmoi source, use `nas config status|update`; do not select a manifest project.
 4. In a configured project, omit project only when `nas` can infer it from cwd.
-5. If current path is unknown or ambiguous, stop and ask. Never choose the only manifest entry as fallback.
+5. If `nas projects sync` is requested from an unconfigured repository, add that repository to the manifest when its identity and paths are unambiguous; follow **Add a missing current project** below.
+6. If current path is unknown or ambiguous, stop and ask. Never choose the only manifest entry as fallback.
 
 Run `nas doctor` before first NAS operation. Read [remote policy](references/remote-policy.md) before changing validation or transfer behavior. Read [project manifest](references/projects-manifest.md) before adding projects or artifacts.
 
 Root login is intentional. Never invoke `sudo`, Docker, dangerous sandbox/approval bypass flags, or system package mutations from a remote task.
+
+### Add a missing current project
+
+When sync fails because cwd is not configured:
+
+1. Confirm cwd is the repository root and read its fetch remote. Derive the project key from the repository name, local path from cwd, and NAS path by placing the same repository name directly below `remote_project_root` unless the user names another path.
+2. Read [project manifest](references/projects-manifest.md). Edit the manifest through its chezmoi source, never the rendered file. Add a rendered project-rules file too; reuse supplied repository instructions when available.
+3. Preserve the repository's remote name when practical. Stop if the remote URL, project key, local root, NAS destination, or rules are ambiguous or conflict with another entry.
+4. Validate the chezmoi template and skill. Commit configuration on the configured dotfiles branch. Publishing still requires explicit consent when current instructions prohibit pushing.
+5. After publication, run `nas config update`, then `nas projects sync <project>` to clone or fetch both hosts and install ignored `AGENTS.md`.
 
 ## Run native remote tasks
 
