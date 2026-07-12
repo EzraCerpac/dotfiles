@@ -44,6 +44,8 @@ Review defaults:
 - `jj-waltz` skill content is sourced from `~/Projects/jj-waltz/skills/jj-waltz` and auto-synced on `chezmoi apply` to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
 - `prdiff [pr]` opens `gh pr diff` output in `diffnav`
+- `glf [git-log-args...]` selects a commit and replays it in `gitlogue`
+- `gitlogue-menu` selects a Gitlogue mode, author, date range, commit, or theme
 
 ## Repository Structure
 
@@ -57,13 +59,10 @@ run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_after_03-reconcile-tools.sh.tmpl    → reconcile packages, mise tools, and standalone tools
 run_once_04-setup-macos.sh.tmpl         → macOS defaults
-run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd exists)
 run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
 run_once_07-remove-legacy-kbd-commands.sh.tmpl → remove old `kbd-*` helper commands
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
-run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + legacy daemon cleanup
-run_after_20-setup-kanata-launchd.sh.tmpl → macOS kanata launch daemon via /Library/LaunchDaemons
 ```
 
 `chezmoi apply` rebuilds the local `jw` binary through a `run_onchange` script whose rendered fingerprint is computed from the external `~/Projects/jj-waltz` Rust build inputs. This lets chezmoi notice local source changes even though that checkout is not managed by this dotfiles repo.
@@ -74,8 +73,7 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 
 Commands:
 
-- `kbd provision` → validate keyboard prerequisites managed by `chezmoi apply`
-- `kbd setup` → clone/update `qmk_firmware` after provisioning succeeds
+- `kbd provision` → validate prerequisites managed by `chezmoi apply`, prepare QMK, activate VirtualHID, and install the Kanata daemon
 - `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
@@ -85,6 +83,8 @@ Commands:
 - `kbd layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
 - `kbd hud-reload` → reload Hammerspoon HUD overlay
 - `kbd open-artifacts` → open UF2 artifact folder in Finder
+
+`kbd provision` is the sole keyboard lifecycle command. Run it explicitly after `chezmoi apply`; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same command; finished stages are safe to repeat.
 
 `mise run` keyboard tasks are defined in the source repo's repo-local [`mise.toml`](mise.toml), and `.chezmoiignore` keeps that file from being deployed to `~/mise.toml`. Run them from this chezmoi checkout, not from arbitrary directories.
 
@@ -108,7 +108,7 @@ After cleanup, the keyboard tasks should only appear when your current directory
 
 Available repo-local tasks:
 
-- `mise run kbd_setup`
+- `mise run kbd_provision`
 - `mise run kbd_sync`
 - `mise run kbd_build`
 - `mise run kbd_build_all`
@@ -211,10 +211,26 @@ That layer is still explicit and conservative:
 - optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
 - `AGENTS.md` stays in the repo only and is not deployed into `$HOME`
 
-If this repo is also applied on your macOS machine, WezTerm and SSH can be set up so DelftBlue feels like a first-class remote terminal:
+## Herdr terminal workflow
 
-- `~/.ssh/config` renders a `Host delftblue` entry with key-based auth settings for `~/.ssh/id_ed25519`
-- WezTerm exposes `SSH:delftblue` as a remote domain and a launcher entry
-- opening DelftBlue from that WezTerm remote domain makes normal tab/split keys stay on DelftBlue
-- remote bash emits OSC 7 cwd updates so new remote tabs/splits can inherit the current directory
-- DelftBlue docs recommend `ssh-copy-id delftblue` for passwordless login on a trusted machine; if you log in with SSH keys and later need `/tudelft.net`, run `kinit` on the login node
+WezTerm is the terminal window; Herdr owns terminal organization and persistence:
+
+- a **session** is one persistent Herdr server containing all local work
+- a **workspace** is one project row in Herdr's left sidebar
+- a **tab** is one activity inside a workspace
+- a **pane** is a visible terminal split inside a tab
+- an AeroSpace workspace is a separate macOS desktop and is unrelated to a Herdr workspace
+
+Closing WezTerm or pressing `Ctrl-B`, then `Q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
+
+Useful keys all start with the default `Ctrl-B` prefix:
+
+- `up` / `down`: Herdr Plus Projects / Quick Actions
+- `t`: Picker Plus search across agents, remotes, workspaces, projects, sessions, and actions
+- `left` / `right`: previous / next workspace
+- `Shift-1..9`: switch workspace; `1..9`: switch tab
+- `h/j/k/l`: focus panes; `w`: workspace picker; `?`: full key help
+
+Herdr Plus manages the reproducible project layouts under `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/`. Use the `Remote shells` project for a local shell and a normal `ssh delftblue` tab. SSH keepalives reduce idle disconnects. DelftBlue still needs `kinit` on the login node when `/tudelft.net` credentials expire.
+
+Picker Plus exposes `CerpacNAS` as a remote Herdr target. Selecting it runs Herdr's remote attach flow, bootstraps a matching remote binary when needed, and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `Q`.

@@ -1,0 +1,11 @@
+name = "Remote shells"
+description = "Local shell and DelftBlue access"
+group = "Utilities"
+working_dir = "~"
+
+[[tabs]]
+name = "local"
+
+[[tabs]]
+name = "DelftBlue"
+command = "ssh delftblue"
