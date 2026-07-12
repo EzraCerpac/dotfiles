@@ -1,43 +1,61 @@
 ---
 name: work-on-cerpacnas
-description: Manage CerpacNAS remote Codex work through Tailscale SSH, JJ and jw handoffs, persistent remote agents, chezmoi configuration updates, project inventory sync, and allowlisted artifact transfer. Use when the user mentions CerpacNAS, NAS agents, remote thesis work, Mac-to-NAS handoff, remote Codex sessions, NAS project sync, or moving artifacts between the Mac and NAS.
+description: Manage CerpacNAS work with native Codex Remote SSH tasks plus JJ and jw handoffs, chezmoi configuration updates, project inventory sync, validation limits, and allowlisted artifact transfer. Use when the user mentions CerpacNAS, NAS agents, remote thesis work, Mac-to-NAS handoff, remote Codex tasks, NAS project sync, or moving artifacts between the Mac and NAS.
 ---
 
 # Work on CerpacNAS
 
-Use `nas` as the only daily orchestration interface. Keep code, configuration, and artifacts on separate paths.
+Use Codex Remote SSH for tasks. Use `nas` only for repository/config coordination, validation, and artifacts.
 
-## Start safely
+## Resolve target first
 
-1. Run `nas doctor`.
-2. Run `nas projects status <project>` before handoff or agent work.
-3. Read [remote policy](references/remote-policy.md) before changing validation or transfer behavior.
-4. Read [project manifest](references/projects-manifest.md) before adding projects or artifacts.
+1. Prefer an explicitly named project.
+2. Otherwise use current Codex project/cwd.
+3. In chezmoi source, use `nas config status|update`; do not select a manifest project.
+4. In a configured project, omit project only when `nas` can infer it from cwd.
+5. If current path is unknown or ambiguous, stop and ask. Never choose the only manifest entry as fallback.
 
-Root login is intentional. Still keep all work below `/root/Projects`; never invoke `sudo`, Docker, dangerous sandbox/approval bypass flags, or system package mutations from an agent. `--skip-git-repo-check` is permitted only for secondary JJ workspaces without `.git`.
+Run `nas doctor` before first NAS operation. Read [remote policy](references/remote-policy.md) before changing validation or transfer behavior. Read [project manifest](references/projects-manifest.md) before adding projects or artifacts.
+
+Root login is intentional. Never invoke `sudo`, Docker, dangerous sandbox/approval bypass flags, or system package mutations from a remote task.
+
+## Run native remote tasks
+
+Use Codex app project/thread tools, not `nas agent`, `ssh codex exec`, or tmux:
+
+1. List Codex projects and find host `cerpacnas`.
+2. Choose deepest saved remote project containing target path. Never silently substitute another repository. If no saved project contains target, tell user which remote path must be added.
+3. Create task with local environment. Never request a built-in Git worktree.
+4. Inspect and steer through Codex thread tools.
+
+For read-only exploration:
+
+- Sync/fetch correct remote repository first.
+- Create remote task directly in canonical repository; no bookmark, push, owner state, or `jw` workspace.
+- Use `gpt-5.3-codex-spark`, read-only instructions, and NAS validation limits.
+
+For implementation:
+
+- Prepare exact `wip/<task>` handoff and NAS `jw` workspace first.
+- `--push` requires explicit user publication consent. Never infer consent from request to run an agent.
+- Create remote task against saved remote project containing returned workspace. Prompt it to work only in that exact path and read its `AGENTS.md` first.
+- Use `gpt-5.6-sol`. Allow one work task, or two read-only explorers. Never parallelize heavy commands.
+- Require one described, conflict-free result commit, moved task bookmark, then empty working commit.
+
+Built-in collaboration subagents stay on current host. They do not replace Codex Remote SSH tasks.
 
 ## Hand off code
 
-- Describe and conflict-check the selected commit.
+- Describe and conflict-check selected commit.
 - Put exact result on `wip/<task>`.
-- Run `nas handoff <project> <task> --to nas`; add `--push` only with explicit publication intent.
-- Start work only after command prints NAS `jw` workspace.
-- Return with `nas handoff <project> <task> --to mac [--push]`.
+- Run `nas handoff <project> <task> --to nas`; add `--push` only after explicit consent.
+- Return with `nas handoff <project> <task> --to mac [--push]` after remote task stops.
 - Never move `main`; never sync `.git`, `.jj`, or live project directories.
 
-## Run agents
+## Sync configuration, projects, and artifacts
 
-- Exploration: `nas agent start <project> <task> --mode explore -- <prompt>`.
-- Implementation: `nas agent start <project> <task> --mode work -- <prompt>`.
-- Inspect with `nas agent status`, `logs`, or `attach`; stop only by run id.
-- Allow one work agent or two explorers. Keep validation inside NAS limits from `AGENTS.md`.
-- Run cheap checks with `nas validate <project> <task> web-format|web-pure|web-type|julia-format`.
-- Calibrate a Julia seam with `nas validate <project> <task> focus:<seam> --calibrate`; later runs omit `--calibrate`.
-- A work agent must move the task bookmark to its described result and leave an empty working commit directly above it.
-
-## Sync configuration and artifacts
-
-- Use `nas config status` before `nas config update`.
-- Use `nas projects sync <project>` to clone/fetch and install local rules. It never integrates work.
-- Use `nas artifact plan <project> <key> --direction push|pull` first. The matching `push` or `pull --apply` consumes that one-hour plan receipt.
-- The return handoff reports exact bookmark, commit, recorded checks, and Mac-only skipped checks. Also report run id and artifact key when used.
+- In chezmoi, use `nas config status` then `nas config update`. Configuration travels through published dotfiles `dev`; command never publishes it.
+- Use `nas projects sync [project|--all]` to clone/fetch and install ignored rules. Omitted project resolves from cwd or fails.
+- Use `nas validate <project> <task> web-format|web-pure|web-type|julia-format` for cheap checks.
+- Calibrate one Julia seam with `nas validate <project> <task> focus:<seam> --calibrate`.
+- Use `nas artifact plan <project> <key> --direction push|pull` first. Matching transfer with `--apply` consumes plan receipt.

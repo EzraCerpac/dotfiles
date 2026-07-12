@@ -57,8 +57,6 @@ class HostConfig(NamedTuple):
     remote_home: Path
     remote_project_root: Path
     dotfiles_branch: str
-    explore_model: str
-    work_model: str
 
 
 class ArtifactConfig(NamedTuple):
@@ -142,8 +140,6 @@ def load_manifest(path: Path = DEFAULT_MANIFEST) -> Manifest:
         remote_home=_absolute_path(host_raw, "remote_home", "host"),
         remote_project_root=_absolute_path(host_raw, "remote_project_root", "host"),
         dotfiles_branch=_string(host_raw, "dotfiles_branch", "host"),
-        explore_model=_string(host_raw, "explore_model", "host"),
-        work_model=_string(host_raw, "work_model", "host"),
     )
     projects_raw = raw.get("projects")
     if not isinstance(projects_raw, dict) or not projects_raw:
@@ -208,14 +204,6 @@ def rsync_args(*, apply: bool) -> list[str]:
         arguments.append("--dry-run")
     arguments.extend(f"--exclude={pattern}" for pattern in RSYNC_EXCLUDES)
     return arguments
-
-
-def agent_spec(host: HostConfig, mode: str) -> tuple[str, str]:
-    if mode == "explore":
-        return host.explore_model, "read-only"
-    if mode == "work":
-        return host.work_model, "workspace-write"
-    raise NasError(f"unknown agent mode: {mode}")
 
 
 def run(
@@ -300,6 +288,23 @@ def selected_projects(manifest: Manifest, selection: str) -> list[ProjectConfig]
         return [manifest.projects[selection]]
     except KeyError as error:
         raise NasError(f"unknown project: {selection}") from error
+
+
+def project_for_directory(manifest: Manifest, directory: Path) -> ProjectConfig:
+    resolved = directory.resolve()
+    matches: list[ProjectConfig] = []
+    for project in manifest.projects.values():
+        try:
+            resolved.relative_to(project.local_path.resolve())
+        except ValueError:
+            continue
+        matches.append(project)
+    if not matches:
+        raise NasError("current directory is not a configured project; pass a project name or --all")
+    matches.sort(key=lambda project: len(project.local_path.parts), reverse=True)
+    if len(matches) > 1 and len(matches[0].local_path.parts) == len(matches[1].local_path.parts):
+        raise NasError("current directory matches multiple configured projects; pass a project name")
+    return matches[0]
 
 
 def jj_output(project_path: Path, *arguments: str) -> str:
@@ -430,10 +435,6 @@ def local_owner_path(project: str, bookmark: str) -> Path:
     return Path.home() / STATE_RELATIVE / "owners" / project / f"{bookmark.removeprefix('wip/')}.json"
 
 
-def run_path(manifest: Manifest, run_id: str) -> Path:
-    return state_root(manifest) / "runs" / run_id
-
-
 def resolved_remote_workspace(manifest: Manifest, path: Path) -> Path:
     resolved_root = manifest.host.remote_project_root.resolve()
     resolved = path.resolve()
@@ -510,8 +511,6 @@ def remote_release(manifest: Manifest, project: ProjectConfig, bookmark: str, *,
     payload = _read_json(owner)
     if not payload.get("active"):
         raise NasError(f"task is not active on NAS: {bookmark}")
-    if any(item.get("bookmark") == bookmark for item in active_runs(manifest)):
-        raise NasError(f"an agent is still running for {bookmark}")
     workspace = resolved_remote_workspace(manifest, Path(str(payload["workspace"])))
     workspace_project = project._replace(local_path=workspace)
     if jj_output(workspace, "diff", "-r", "@", "--summary"):
@@ -591,124 +590,6 @@ def handle_handoff(manifest: Manifest, project: ProjectConfig, task: str, target
     skipped = payload.get("skipped", [])
     print("checks: " + (", ".join(str(item) for item in checks) if checks else "none recorded"))
     print("skipped on NAS: " + ", ".join(str(item) for item in skipped))
-
-
-def active_runs(manifest: Manifest) -> list[dict[str, object]]:
-    runs = state_root(manifest) / "runs"
-    if not runs.exists():
-        return []
-    active: list[dict[str, object]] = []
-    for meta in runs.glob("*/meta.json"):
-        payload = _read_json(meta)
-        session = str(payload.get("session", ""))
-        if session and run(["tmux", "has-session", "-t", session], check=False, capture=True).returncode == 0:
-            active.append(payload)
-    return active
-
-
-def remote_agent_start(
-    manifest: Manifest,
-    project: ProjectConfig,
-    bookmark: str,
-    mode: str,
-    prompt: str,
-) -> dict[str, object]:
-    owner = _read_json(owner_path(manifest, project.name, bookmark))
-    if not owner.get("active"):
-        raise NasError(f"task is not active on NAS: {bookmark}")
-    active = active_runs(manifest)
-    if mode == "work" and active:
-        raise NasError("work agent requires exclusive NAS agent slot")
-    if mode == "explore" and (any(item.get("mode") == "work" for item in active) or len(active) >= 2):
-        raise NasError("NAS allows one work agent or two exploration agents")
-    model, sandbox = agent_spec(manifest.host, mode)
-    task = bookmark.removeprefix("wip/")
-    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    run_id = f"{stamp}-{project.name}-{task}-{mode}"
-    session = f"nas-agent-{project.name}-{task}-{mode}"[:63]
-    destination = run_path(manifest, run_id)
-    destination.mkdir(parents=True, exist_ok=False)
-    workspace = resolved_remote_workspace(manifest, Path(str(owner["workspace"])))
-    final_path = destination / "final.md"
-    events_path = destination / "events.jsonl"
-    stderr_path = destination / "stderr.log"
-    exit_path = destination / "exit-code"
-    codex = [
-        "codex",
-        "exec",
-        "-C",
-        str(workspace),
-        "-m",
-        model,
-        "-s",
-        sandbox,
-        "--skip-git-repo-check",
-        "--json",
-        "--output-last-message",
-        str(final_path),
-        (
-            prompt
-            if mode == "explore"
-            else (
-                f"{prompt}\n\n"
-                "NAS completion contract: do not push. Finish with one described, conflict-free result commit; "
-                f"move {bookmark} to that commit; then run `jj new {bookmark}` so the working commit is empty. "
-                "Do not run broad validation, benchmarks, browser tests, API-live tests, or make performance claims."
-            )
-        ),
-    ]
-    shell = (
-        "set +e; export JULIA_NUM_THREADS=1 NAS_VALIDATION_TIMEOUT=180; "
-        f"{remote_shell_command(codex)} > {shlex.quote(str(events_path))} 2> {shlex.quote(str(stderr_path))}; "
-        f'status=$?; printf \'%s\\n\' "$status" > {shlex.quote(str(exit_path))}; exit "$status"'
-    )
-    run(["tmux", "new-session", "-d", "-s", session, "bash", "-lc", shell])
-    payload: dict[str, object] = {
-        "run_id": run_id,
-        "session": session,
-        "project": project.name,
-        "bookmark": bookmark,
-        "workspace": str(workspace),
-        "mode": mode,
-        "model": model,
-        "sandbox": sandbox,
-        "started_at": int(time.time()),
-        "events": str(events_path),
-        "final": str(final_path),
-        "stderr": str(stderr_path),
-        "exit_code": str(exit_path),
-    }
-    _write_json(destination / "meta.json", payload)
-    return payload
-
-
-def remote_agent_status(manifest: Manifest, run_id: str | None = None) -> list[dict[str, object]]:
-    root = state_root(manifest) / "runs"
-    paths = [run_path(manifest, run_id) / "meta.json"] if run_id else sorted(root.glob("*/meta.json"), reverse=True)
-    results: list[dict[str, object]] = []
-    for path in paths[:20]:
-        payload = _read_json(path)
-        running = run(["tmux", "has-session", "-t", str(payload["session"])], check=False, capture=True).returncode == 0
-        exit_file = Path(str(payload["exit_code"]))
-        payload["status"] = "running" if running else "finished"
-        payload["result"] = exit_file.read_text().strip() if exit_file.exists() else None
-        results.append(payload)
-    return results
-
-
-def remote_agent_logs(manifest: Manifest, run_id: str, lines: int) -> str:
-    payload = _read_json(run_path(manifest, run_id) / "meta.json")
-    chunks: list[str] = []
-    for label in ("stderr", "final"):
-        path = Path(str(payload[label]))
-        if path.exists() and path.stat().st_size:
-            content = path.read_text(errors="replace").splitlines()[-lines:]
-            chunks.append(f"== {label} ==\n" + "\n".join(content))
-    events = Path(str(payload["events"]))
-    if events.exists() and events.stat().st_size:
-        content = "\n".join(events.read_text(errors="replace").splitlines()[-lines:])
-        chunks.append("== events ==\n" + content)
-    return "\n".join(chunks)
 
 
 def validation_command(lane: str) -> tuple[list[str], str]:
@@ -811,8 +692,6 @@ def remote_validate(
     owner = _read_json(owner_file)
     if not owner.get("active"):
         raise NasError(f"task is not active on NAS: {bookmark}")
-    if active_runs(manifest):
-        raise NasError("validation requires the exclusive NAS execution slot")
     command, policy_key = validation_command(lane)
     policy_path = state_root(manifest) / "validation-policy" / project.name / f"{policy_key}.json"
     focused = lane.startswith("focus:")
@@ -870,10 +749,15 @@ def remote_validate(
 
 
 def config_targets(manifest: Manifest) -> list[str]:
+    skill = manifest.host.remote_home / ".codex/skills/work-on-cerpacnas"
     return [
         str(manifest.host.remote_home / ".codex/AGENTS.md"),
         str(manifest.host.remote_home / ".codex/config.toml"),
-        str(manifest.host.remote_home / ".codex/skills"),
+        str(skill / "SKILL.md"),
+        str(skill / "agents/openai.yaml"),
+        str(skill / "references/projects-manifest.md"),
+        str(skill / "references/remote-policy.md"),
+        str(skill / "scripts/nas.py"),
         str(manifest.host.remote_home / ".config/cerpacnas"),
         str(manifest.host.remote_home / ".config/git/config"),
         str(manifest.host.remote_home / ".config/mise/config.toml"),
@@ -981,7 +865,7 @@ def github_oauth_scopes(headers: str) -> str | None:
 
 
 def doctor(manifest: Manifest, *, remote_side: bool) -> None:
-    required = ["jj", "jw", "codex", "gh", "uv", "rsync", "tmux", "git"]
+    required = ["jj", "jw", "gh", "uv", "rsync", "git", "chezmoi"]
     missing = [name for name in required if shutil.which(name) is None]
     print(f"host={socket.gethostname()} user={os.environ.get('USER', '')} manifest={manifest.path}")
     print("tools=" + ("ok" if not missing else "missing:" + ",".join(missing)))
@@ -990,7 +874,6 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
     if remote_side:
         if Path.home() != manifest.host.remote_home:
             raise NasError(f"remote home mismatch: expected {manifest.host.remote_home}, got {Path.home()}")
-        run(["codex", "login", "status"])
         run(["gh", "auth", "status"])
         headers = output(["gh", "api", "-i", "user"])
         oauth_scopes = github_oauth_scopes(headers)
@@ -1004,7 +887,7 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="nas", description="Safe CerpacNAS project handoff and remote Codex control")
+    parser = argparse.ArgumentParser(prog="nas", description="Safe CerpacNAS project and configuration coordination")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor")
@@ -1024,22 +907,6 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("task")
     validate.add_argument("lane")
     validate.add_argument("--calibrate", action="store_true")
-    agent = sub.add_parser("agent")
-    agent_sub = agent.add_subparsers(dest="agent_action", required=True)
-    start = agent_sub.add_parser("start")
-    start.add_argument("project")
-    start.add_argument("task")
-    start.add_argument("--mode", choices=("explore", "work"), required=True)
-    start.add_argument("prompt", nargs="+")
-    status = agent_sub.add_parser("status")
-    status.add_argument("run_id", nargs="?")
-    logs = agent_sub.add_parser("logs")
-    logs.add_argument("run_id")
-    logs.add_argument("--lines", type=int, default=80)
-    attach = agent_sub.add_parser("attach")
-    attach.add_argument("run_id")
-    stop = agent_sub.add_parser("stop")
-    stop.add_argument("run_id")
     artifact = sub.add_parser("artifact")
     artifact.add_argument("action", choices=("plan", "push", "pull"))
     artifact.add_argument("project")
@@ -1073,18 +940,6 @@ def remote_parser() -> argparse.ArgumentParser:
     clear = sub.add_parser("handoff-clear")
     clear.add_argument("project")
     clear.add_argument("bookmark")
-    start = sub.add_parser("agent-start")
-    start.add_argument("project")
-    start.add_argument("bookmark")
-    start.add_argument("mode", choices=("explore", "work"))
-    start.add_argument("prompt")
-    status = sub.add_parser("agent-status")
-    status.add_argument("run_id", nargs="?")
-    logs = sub.add_parser("agent-logs")
-    logs.add_argument("run_id")
-    logs.add_argument("lines", type=int)
-    stop = sub.add_parser("agent-stop")
-    stop.add_argument("run_id")
     validate = sub.add_parser("validate")
     validate.add_argument("project")
     validate.add_argument("bookmark")
@@ -1118,7 +973,9 @@ def handle_remote(manifest: Manifest, arguments: list[str]) -> None:
     if options.command == "doctor":
         doctor(manifest, remote_side=True)
     elif options.command == "projects":
-        selection = "--all" if options.all_projects or not options.project else options.project
+        if not options.all_projects and not options.project:
+            raise NasError("remote project selection requires a project name or --all")
+        selection = "--all" if options.all_projects else options.project
         for project in selected_projects(manifest, selection):
             if project.local_path != project.remote_path:
                 raise NasError(f"remote manifest local_path must equal remote_path for {project.name}")
@@ -1146,25 +1003,6 @@ def handle_remote(manifest: Manifest, arguments: list[str]) -> None:
         )
     elif options.command == "handoff-clear":
         remote_clear(manifest, remote_project_by_name(manifest, options.project), options.bookmark)
-    elif options.command == "agent-start":
-        print(
-            json.dumps(
-                remote_agent_start(
-                    manifest,
-                    remote_project_by_name(manifest, options.project),
-                    options.bookmark,
-                    options.mode,
-                    options.prompt,
-                )
-            )
-        )
-    elif options.command == "agent-status":
-        print(json.dumps(remote_agent_status(manifest, options.run_id)))
-    elif options.command == "agent-logs":
-        print(remote_agent_logs(manifest, options.run_id, options.lines))
-    elif options.command == "agent-stop":
-        payload = _read_json(run_path(manifest, options.run_id) / "meta.json")
-        run(["tmux", "kill-session", "-t", str(payload["session"])], check=False)
     elif options.command == "validate":
         print(
             json.dumps(
@@ -1191,7 +1029,11 @@ def main(argv: list[str] | None = None) -> int:
         elif options.command == "config":
             remote(manifest, ["config", options.action])
         elif options.command == "projects":
-            selection = "--all" if options.all_projects or not options.project else options.project
+            selection = (
+                "--all"
+                if options.all_projects
+                else (options.project or project_for_directory(manifest, Path.cwd()).name)
+            )
             for project in selected_projects(manifest, selection):
                 if options.action == "sync":
                     sync_project_local(project)
@@ -1215,45 +1057,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             if not payload["passed"]:
                 raise NasError(f"validation failed; remote log: {payload['log']}")
-        elif options.command == "agent":
-            if options.agent_action == "start":
-                prompt = " ".join(options.prompt).strip()
-                if not prompt:
-                    raise NasError("agent start needs a prompt after --")
-                bookmark = normalize_bookmark(options.task)
-                result = remote(
-                    manifest,
-                    ["agent-start", options.project, bookmark, options.mode, prompt],
-                    capture=True,
-                )
-                payload = last_json(result.stdout)
-                if not isinstance(payload, dict):
-                    raise NasError("invalid agent start payload")
-                print(f"started {payload['run_id']} in {payload['session']}")
-            elif options.agent_action == "status":
-                result = remote(
-                    manifest,
-                    ["agent-status", *([options.run_id] if options.run_id else [])],
-                    capture=True,
-                )
-                payload = last_json(result.stdout)
-                if not isinstance(payload, list):
-                    raise NasError("invalid agent status payload")
-                for item in payload:
-                    print(f"{item['run_id']} {item['status']} mode={item['mode']} result={item['result']}")
-            elif options.agent_action == "logs":
-                result = remote(manifest, ["agent-logs", options.run_id, str(options.lines)], capture=True)
-                print(result.stdout, end="")
-            elif options.agent_action == "attach":
-                status_result = remote(manifest, ["agent-status", options.run_id], capture=True)
-                status_payload = last_json(status_result.stdout)
-                if not isinstance(status_payload, list) or not status_payload:
-                    raise NasError("invalid agent status payload")
-                payload = status_payload[0]
-                command = remote_shell_command(["tmux", "attach", "-t", str(payload["session"])])
-                run(["ssh", "-t", manifest.host.ssh_alias, command], tty=True)
-            elif options.agent_action == "stop":
-                remote(manifest, ["agent-stop", options.run_id])
         elif options.command == "artifact":
             if options.action == "plan" and options.apply:
                 raise NasError("artifact plan cannot use --apply")

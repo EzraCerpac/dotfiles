@@ -7,3 +7,5 @@ Each project requires repository URL, Mac/local path, NAS path, JJ remote name, 
 Artifact paths must stay inside the project and cannot contain `.git`, `.jj`, `.ssh`, `.codex`, `node_modules`, `__pycache__`, absolute paths, or `..`.
 
 `projects sync` clones missing repositories with `jj git clone`, fetches the configured remote, and installs ignored `AGENTS.md`. It never merges, rebases, pushes, deletes, or copies working trees.
+
+When project argument is omitted, `nas` selects deepest configured `local_path` containing cwd. Unknown cwd is an error; it never falls back to sole manifest entry. Chezmoi is separate configuration lane, not generic project entry.

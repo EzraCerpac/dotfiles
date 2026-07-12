@@ -45,12 +45,12 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("neovim", rendered)
         self.assertNotIn("[tools.julia]", rendered)
 
-    def test_nas_manifest_uses_root_and_expected_models(self):
+    def test_nas_manifest_uses_root_paths(self):
         rendered = chezmoi("cat", str(Path.home() / ".config/cerpacnas/projects.toml"), nas=True)
         self.assertIn('local_path = "/root/Projects/Thesis/ezra-cerpac"', rendered)
         self.assertIn('rules_file = "/root/.config/cerpacnas/project-rules/thesis.AGENTS.md"', rendered)
-        self.assertIn('explore_model = "gpt-5.3-codex-spark"', rendered)
-        self.assertIn('work_model = "gpt-5.6-sol"', rendered)
+        self.assertNotIn("explore_model", rendered)
+        self.assertNotIn("work_model", rendered)
 
     def test_nas_package_script_contains_no_apt_or_sudo(self):
         source = (ROOT / "run_onchange_03-install-packages.sh.tmpl").read_text()

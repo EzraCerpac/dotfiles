@@ -23,8 +23,6 @@ ssh_alias = "nas"
 remote_home = "/root"
 remote_project_root = "/root/Projects"
 dotfiles_branch = "dev"
-explore_model = "gpt-5.3-codex-spark"
-work_model = "gpt-5.6-sol"
 
 [projects.thesis]
 repo = "git@github.com:EzraCerpac/master-thesis.git"
@@ -162,16 +160,22 @@ class SafetyTests(unittest.TestCase):
         self.assertNotIn("--dry-run", args)
         self.assertNotIn("--delete", args)
 
-    def test_agent_modes_pin_models_and_sandboxes(self):
+    def test_project_is_inferred_from_deepest_matching_cwd(self):
         manifest = ManifestTests().load()
-        self.assertEqual(
-            nas_cli.agent_spec(manifest.host, "explore"),
-            ("gpt-5.3-codex-spark", "read-only"),
-        )
-        self.assertEqual(
-            nas_cli.agent_spec(manifest.host, "work"),
-            ("gpt-5.6-sol", "workspace-write"),
-        )
+        project = nas_cli.project_for_directory(manifest, Path("/tmp/Projects/Thesis/ezra-cerpac/code"))
+        self.assertEqual(project.name, "thesis")
+
+    def test_unknown_cwd_never_falls_back_to_only_project(self):
+        manifest = ManifestTests().load()
+        with self.assertRaisesRegex(nas_cli.NasError, "not a configured project"):
+            nas_cli.project_for_directory(manifest, Path("/tmp/unrelated"))
+
+    def test_ambiguous_cwd_requires_explicit_project(self):
+        manifest = ManifestTests().load()
+        duplicate = manifest.projects["thesis"]._replace(name="duplicate")
+        manifest.projects["duplicate"] = duplicate
+        with self.assertRaisesRegex(nas_cli.NasError, "multiple configured projects"):
+            nas_cli.project_for_directory(manifest, Path("/tmp/Projects/Thesis/ezra-cerpac"))
 
     def test_validation_lanes_are_curated_and_sequential(self):
         command, key = nas_cli.validation_command("focus:selector")
@@ -186,20 +190,19 @@ class SafetyTests(unittest.TestCase):
         self.assertFalse(nas_cli.validation_within_budget(0, 181, 10))
         self.assertFalse(nas_cli.validation_within_budget(0, 10, 3072.1))
 
-    def test_remote_agent_uses_jj_workspace_compat_without_bypass(self):
+    def test_cli_contains_no_agent_launcher_or_dangerous_bypass(self):
         source = SCRIPT.read_text()
-        self.assertIn('"--skip-git-repo-check"', source)
+        self.assertNotIn('"--skip-git-repo-check"', source)
+        self.assertNotIn('"tmux"', source)
+        self.assertNotIn('"agent-start"', source)
         self.assertNotIn("dangerously-bypass-approvals-and-sandbox", source)
 
     def test_documented_parser_shapes(self):
         parser = nas_cli.build_parser()
         projects = parser.parse_args(["projects", "status", "--all"])
         self.assertTrue(projects.all_projects)
-        start = parser.parse_args(
-            ["agent", "start", "thesis", "selector-ui", "--mode", "explore", "--", "quote; $() stays data"]
-        )
-        self.assertEqual(start.mode, "explore")
-        self.assertEqual(start.prompt, ["quote; $() stays data"])
+        inferred = parser.parse_args(["projects", "status"])
+        self.assertIsNone(inferred.project)
         hidden = parser.parse_args(["_remote", "handoff-release", "thesis", "wip/x", "--no-push"])
         self.assertEqual(hidden.remote_args[-1], "--no-push")
         validate = parser.parse_args(["validate", "thesis", "selector-ui", "focus:selector", "--calibrate"])
@@ -213,6 +216,14 @@ class SafetyTests(unittest.TestCase):
         self.assertNotIn('"git", "checkout"', source)
         self.assertNotIn('"git", "merge"', source)
 
+    def test_config_targets_skill_files_without_parent_directory(self):
+        manifest = ManifestTests().load()
+        targets = nas_cli.config_targets(manifest)
+        skill_root = "/root/.codex/skills/work-on-cerpacnas"
+        self.assertNotIn("/root/.codex/skills", targets)
+        self.assertIn(f"{skill_root}/SKILL.md", targets)
+        self.assertIn(f"{skill_root}/scripts/nas.py", targets)
+
     def test_project_sync_has_no_plain_git_or_delete_fallback(self):
         source = SCRIPT.read_text()
         self.assertNotIn("shutil.rmtree", source)
@@ -220,7 +231,7 @@ class SafetyTests(unittest.TestCase):
 
     def test_remote_workspace_is_resolved_before_use(self):
         source = SCRIPT.read_text()
-        self.assertGreaterEqual(source.count("resolved_remote_workspace("), 5)
+        self.assertGreaterEqual(source.count("resolved_remote_workspace("), 4)
 
     def test_resolved_symlink_escape_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
