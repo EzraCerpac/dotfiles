@@ -23,7 +23,7 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs co
 ## Tool Management
 
 General-purpose CLI tools, system dependencies, Homebrew taps, and casks are listed in `.chezmoidata/packages.yaml`.
-`chezmoi apply` installs and updates them through the generated `run_onchange_03-install-packages.sh` script.
+`chezmoi apply` reconciles them through one generated `run_after_03-reconcile-tools.sh` module. It keeps per-adapter fingerprints under `~/.local/state/chezmoi/tool-reconcile`, checks for missing tools, and invokes only affected ecosystem installers. It never removes undeclared tools.
 
 `mise` is reserved for versioned runtimes and a small set of tools where pinning matters (`~/.config/mise/config.toml`). Today that mainly means Neovim nightly, Rust, UV, and Julia.
 
@@ -33,6 +33,7 @@ For one-off Homebrew installs, use the pending-list helpers:
 - `bic wezterm` installs a cask and records it in the same pending file
 - `brew-pending` reviews pending entries
 - `brew-promote` moves pending entries into `.chezmoidata/packages.yaml`
+- `brew-adopt` interactively reviews Homebrew formulae and casks installed outside those helpers
 
 Review defaults:
 
@@ -54,8 +55,7 @@ dot_config/                          → ~/.config/
   git/, jj/, starship.toml, ...     → other tool configs
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
 run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
-run_onchange_03-install-packages.sh.tmpl → install/update packages from .chezmoidata/packages.yaml
-run_once_03-install-tools.sh.tmpl       → install versioned tools via mise
+run_after_03-reconcile-tools.sh.tmpl    → reconcile packages, mise tools, and standalone tools
 run_once_04-setup-macos.sh.tmpl         → macOS defaults
 run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd exists)
 run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
@@ -74,7 +74,8 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 
 Commands:
 
-- `kbd setup` → install keyboard build dependencies and clone/update `qmk_firmware`
+- `kbd provision` → validate keyboard prerequisites managed by `chezmoi apply`
+- `kbd setup` → clone/update `qmk_firmware` after provisioning succeeds
 - `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)

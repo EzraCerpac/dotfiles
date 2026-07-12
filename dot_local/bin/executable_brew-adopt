@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly IGNORE_FILE="${BREW_ADOPT_IGNORE_FILE:-$HOME/.local/state/chezmoi/brew-adopt/ignored}"
+
+if [[ ! -t 0 || ! -t 1 ]]; then
+    echo "brew-adopt requires an interactive terminal; no changes made." >&2
+    exit 1
+fi
+
+for command_name in brew chezmoi ruby; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        echo "$command_name not found; cannot adopt Homebrew packages." >&2
+        exit 1
+    fi
+done
+
+source_dir="$(chezmoi source-path)"
+packages_file="$source_dir/.chezmoidata/packages.yaml"
+
+if [[ ! -f "$packages_file" ]]; then
+    echo "packages file not found: $packages_file" >&2
+    exit 1
+fi
+
+mkdir -p "$(dirname "$IGNORE_FILE")"
+touch "$IGNORE_FILE"
+
+temporary_dir="$(mktemp -d)"
+trap 'rm -rf "$temporary_dir"' EXIT
+declared_file="$temporary_dir/declared"
+discovered_file="$temporary_dir/discovered"
+: >"$discovered_file"
+
+ruby -ryaml - "$packages_file" >"$declared_file" <<'RUBY'
+data = YAML.load_file(ARGV.fetch(0)) || {}
+darwin = data.fetch("packages", {}).fetch("darwin", {})
+darwin.fetch("brews", []).each { |name| puts "formula\t#{name}" }
+darwin.fetch("casks", []).each { |name| puts "cask\t#{name}" }
+RUBY
+
+while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    info="$(brew info --json=v2 --formula "$name")"
+    IFS=$'\t' read -r full_name tap < <(
+        ruby -rjson -e '
+          formula = JSON.parse(STDIN.read).fetch("formulae").fetch(0)
+          puts [formula["full_name"] || formula.fetch("name"), formula["tap"]].join("\t")
+        ' <<<"$info"
+    )
+    printf 'formula\t%s\t%s\n' "$full_name" "$tap" >>"$discovered_file"
+done < <(brew leaves)
+
+while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    tap=""
+    if [[ "$name" == */*/* ]]; then
+        tap="${name%/*}"
+    fi
+    printf 'cask\t%s\t%s\n' "$name" "$tap" >>"$discovered_file"
+done < <(brew list --cask --full-name)
+
+sort -u -o "$discovered_file" "$discovered_file"
+
+is_reviewed() {
+    local type="${1:?type required}"
+    local name="${2:?name required}"
+
+    grep -Fqx "$type"$'\t'"$name" "$declared_file" ||
+        grep -Fqx "$type"$'\t'"$name" "$IGNORE_FILE"
+}
+
+confirm_adoption() {
+    local type="${1:?type required}"
+    local name="${2:?name required}"
+    local answer
+    local status
+
+    if command -v gum >/dev/null 2>&1; then
+        set +e
+        gum confirm "Add Homebrew $type '$name' to chezmoi manifest?"
+        status=$?
+        set -e
+        if [[ "$status" -gt 1 ]]; then
+            exit "$status"
+        fi
+        return "$status"
+    fi
+
+    read -r -p "Add Homebrew $type '$name' to chezmoi manifest? [y/N] " answer
+    [[ "$answer" =~ ^[Yy]([Ee][Ss])?$ ]]
+}
+
+add_to_manifest() {
+    local type="${1:?type required}"
+    local name="${2:?name required}"
+    local tap="${3:-}"
+
+    ruby -ryaml - "$packages_file" "$type" "$name" "$tap" <<'RUBY'
+packages_file, type, name, tap = ARGV
+data = YAML.load_file(packages_file) || {}
+darwin = (data["packages"] ||= {})["darwin"] ||= {}
+key = type == "formula" ? "brews" : "casks"
+values = darwin[key] ||= []
+values << name unless values.include?(name)
+
+unless tap.empty? || tap == "homebrew/core" || tap == "homebrew/cask"
+  taps = darwin["taps"] ||= []
+  taps << tap unless taps.include?(tap)
+end
+
+temporary = "#{packages_file}.brew-adopt.#{$$}"
+File.write(temporary, YAML.dump(data).sub(/\A---\n/, ""))
+File.rename(temporary, packages_file)
+RUBY
+}
+
+reviewed=0
+adopted=0
+ignored=0
+
+while IFS=$'\t' read -r type name tap; do
+    [[ -n "$name" ]] || continue
+    is_reviewed "$type" "$name" && continue
+
+    reviewed=$((reviewed + 1))
+    if confirm_adoption "$type" "$name"; then
+        add_to_manifest "$type" "$name" "$tap"
+        printf '%s\t%s\n' "$type" "$name" >>"$declared_file"
+        adopted=$((adopted + 1))
+    else
+        printf '%s\t%s\n' "$type" "$name" >>"$IGNORE_FILE"
+        ignored=$((ignored + 1))
+    fi
+done <"$discovered_file"
+
+sort -u -o "$IGNORE_FILE" "$IGNORE_FILE"
+
+if [[ "$reviewed" -eq 0 ]]; then
+    echo "No unmanaged Homebrew packages."
+else
+    echo "Reviewed $reviewed package(s): adopted $adopted, ignored $ignored."
+fi

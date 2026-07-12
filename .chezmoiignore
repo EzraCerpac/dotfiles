@@ -24,6 +24,7 @@ dot_DELFTBLUE.md.tmpl
 
 {{- if eq .chezmoi.os "linux" }}
 # macOS-only apps (source paths)
+dot_local/bin/executable_brew-adopt
 dot_config/aerospace/
 dot_config/sketchybar/
 dot_config/private_karabiner/
@@ -32,6 +33,7 @@ dot_config/raycast/
 dot_config/svim/
 dot_wezterm.lua
 # macOS-only apps (target paths)
+.local/bin/brew-adopt
 .config/aerospace/
 .config/sketchybar/
 .config/karabiner/
