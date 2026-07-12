@@ -6,7 +6,6 @@ packages:
       - osx-cross/avr
       - nikitabobko/tap
       - felixkratz/formulae
-      - homebrew/cask-fonts
     trusted_taps:
       - qmk/qmk
       - osx-cross/arm
