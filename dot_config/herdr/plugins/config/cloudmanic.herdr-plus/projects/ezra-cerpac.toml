@@ -1,0 +1,15 @@
+name = "ezra-cerpac"
+description = "AdaptiveSolverSelection thesis workspace"
+group = "Thesis"
+working_dir = "~/Projects/Thesis/ezra-cerpac"
+
+[[tabs]]
+name = "terminal"
+
+[[tabs]]
+name = "neovim"
+command = "nvim"
+
+[[tabs]]
+name = "jjui"
+command = "jjui"

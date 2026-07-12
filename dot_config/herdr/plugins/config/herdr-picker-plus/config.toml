@@ -1,0 +1,29 @@
+[picker]
+reuse_existing = true
+create_missing = true
+engine = "nucleo"
+source_order = ["agent", "server", "workspace", "project", "session", "zoxide", "root", "quick", "plugin"]
+source_priority_boost = 5
+agent_sort = "herdr"
+preview = true
+
+[sources]
+open_workspaces = true
+herdr_plus_projects = true
+herdr_plus_quick_actions = true
+zoxide = true
+roots = true
+agents = true
+servers = true
+sessions = true
+
+[theme]
+inherit_herdr = true
+
+[sessions]
+local = true
+
+[[sessions.entries]]
+name = "CerpacNAS"
+remote = "cerpacnas"
+tags = ["nas", "remote"]

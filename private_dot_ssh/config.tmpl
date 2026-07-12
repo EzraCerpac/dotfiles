@@ -28,6 +28,8 @@ Host {{ .delftblue.host_alias }}
     IdentityFile {{ .chezmoi.homeDir }}/.ssh/id_ed25519
     IdentitiesOnly yes
     AddKeysToAgent yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
 {{- if eq .chezmoi.os "darwin" }}
     UseKeychain yes
 {{- end }}
