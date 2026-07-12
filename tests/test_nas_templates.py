@@ -117,6 +117,17 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("sudo", rendered)
         self.assertNotIn("apt-get", rendered)
 
+    def test_nas_git_config_has_no_workstation_tool_dependencies(self):
+        rendered = chezmoi("cat", str(Path.home() / ".config/git/config"), nas=True)
+        self.assertIn("local = blue", rendered)
+        for workstation_tool in ("hunk", "pycharm", "diffnav", "delta", "git-lfs", "git.overleaf.com"):
+            self.assertNotIn(workstation_tool, rendered)
+
+    def test_nas_does_not_remove_aerospace_files(self):
+        source = (ROOT / ".chezmoiremove.tmpl").read_text()
+        rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=source)
+        self.assertNotIn("aerospace", rendered)
+
     def test_nas_jw_installer_requires_config_pinned_checksum(self):
         source = (ROOT / "run_onchange_06-build-jj-waltz.sh.tmpl").read_text()
         rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=source)

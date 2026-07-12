@@ -975,6 +975,11 @@ def github_slug(repo: str) -> str:
     return match.group(1)
 
 
+def github_oauth_scopes(headers: str) -> str | None:
+    match = re.search(r"^x-oauth-scopes:\s*(.+)$", headers, flags=re.IGNORECASE | re.MULTILINE)
+    return match.group(1).strip() if match and match.group(1).strip() else None
+
+
 def doctor(manifest: Manifest, *, remote_side: bool) -> None:
     required = ["jj", "jw", "codex", "gh", "uv", "rsync", "tmux", "git"]
     missing = [name for name in required if shutil.which(name) is None]
@@ -988,10 +993,11 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
         run(["codex", "login", "status"])
         run(["gh", "auth", "status"])
         headers = output(["gh", "api", "-i", "user"])
-        oauth_scopes = re.search(r"^x-oauth-scopes:\s*(.+)$", headers, flags=re.IGNORECASE | re.MULTILINE)
-        if oauth_scopes and oauth_scopes.group(1).strip():
-            raise NasError(
-                "GitHub credential uses legacy broad OAuth scopes; replace it with a fine-grained repo token"
+        oauth_scopes = github_oauth_scopes(headers)
+        if oauth_scopes:
+            print(
+                f"warning: GitHub credential has broad legacy OAuth scopes ({oauth_scopes})",
+                file=sys.stderr,
             )
         for project in manifest.projects.values():
             run(["gh", "api", f"repos/{github_slug(project.repo)}", "--jq", ".full_name"])
