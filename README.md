@@ -10,6 +10,8 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 
 This installs chezmoi, clones the repo, bootstraps package managers, installs core tools with `brew` or `apt`, installs versioned runtimes with `mise`, and applies all configs.
 
+See the standalone [workflow guide](docs/workflow-guide.html) for exact daily commands, Herdr concepts and shortcuts, remote workflows, and recovery steps.
+
 ## What's Included
 
 **Shell**: fish, starship prompt, atuin history, zoxide, fzf, carapace completions
@@ -245,7 +247,7 @@ WezTerm is the terminal window; Herdr owns terminal organization and persistence
 - a **pane** is a visible terminal split inside a tab
 - an AeroSpace workspace is a separate macOS desktop and is unrelated to a Herdr workspace
 
-Closing WezTerm or pressing `Ctrl-B`, then `Q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
+Closing WezTerm or pressing `Ctrl-B`, then `q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
 
 Useful keys all start with the default `Ctrl-B` prefix:
 
@@ -257,4 +259,4 @@ Useful keys all start with the default `Ctrl-B` prefix:
 
 Herdr Plus manages the reproducible project layouts under `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/`. Use the `Remote shells` project for a local shell and a normal `ssh delftblue` tab. SSH keepalives reduce idle disconnects. DelftBlue still needs `kinit` on the login node when `/tudelft.net` credentials expire.
 
-Picker Plus exposes `CerpacNAS` as a remote Herdr target. Selecting it runs Herdr's remote attach flow, bootstraps a matching remote binary when needed, and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `Q`.
+Picker Plus exposes `CerpacNAS` as a remote Herdr target. Selecting it runs Herdr's remote attach flow, bootstraps a matching remote binary when needed, and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `q`.

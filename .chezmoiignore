@@ -1,5 +1,6 @@
 AGENTS.md
 tests/
+docs/
 */*.org#
 **/.DS_Store
 **/__pycache__/

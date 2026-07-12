@@ -9,7 +9,7 @@ It is rendered only when `profile = "delftblue"`.
 - Skips package-manager bootstrap and workstation-style tool installation.
 - Adds DelftBlue shell helpers, Slurm helper commands, transfer helpers, and job templates.
 - Installs a simple SSH host entry for `{{ .delftblue.host_alias }}` on machines where this repo manages `~/.ssh/config`.
-- Supports a WezTerm remote-domain workflow on macOS so DelftBlue tabs and splits can stay remote.
+- Adds DelftBlue as a persistent Herdr `Remote shells` tab on macOS.
 
 Rendered defaults:
 
@@ -49,8 +49,8 @@ Rendered defaults:
 - `~/.ssh/config`
   Contains `Host {{ .delftblue.host_alias }}` with `HostName {{ .delftblue.hostname }}` and `User {{ .delftblue.netid }}` when this repo also manages your local machine.
 {{- if eq .chezmoi.os "darwin" }}
-- `~/.wezterm.lua`
-  Defines a WezTerm `SSH:{{ .delftblue.host_alias }}` domain and launcher entry for remote DelftBlue sessions on macOS.
+- `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml`
+  Defines the persistent local and `ssh {{ .delftblue.host_alias }}` tabs opened through Herdr Plus on macOS.
 {{- end }}
 
 ## Shell Functions
@@ -284,14 +284,15 @@ Disabled on DelftBlue:
 9. For longer runs, copy a template from `~/.config/delftblue/jobs/`, edit it, and submit with `sbatch`.
 10. Transfer large outputs with `dbpush` / `dbpull` and keep scratch as the default staging area.
 
-## WezTerm On Your Mac
+## Herdr On Your Mac
 
-If this repo is also applied on your macOS machine, WezTerm is configured so DelftBlue can be used as a proper remote domain instead of a plain `ssh` command typed into a local shell.
+WezTerm now hosts one persistent Herdr session instead of managing its own tabs and splits. Open the Herdr Plus `Remote shells` project (`Ctrl-B`, then `up`) and select its `DelftBlue` tab. That tab runs `ssh {{ .delftblue.host_alias }}` with SSH keepalives enabled.
 
-- Use the WezTerm launcher entry `DelftBlue`, or the dedicated remote shortcuts, to start a DelftBlue session.
-- Once you are in that remote WezTerm domain, normal tab and split actions stay on DelftBlue because they use `CurrentPaneDomain`.
-- The remote bash prompt emits OSC 7 cwd updates, so new remote tabs and splits can usually start in the same directory.
-- If you type plain `ssh {{ .delftblue.host_alias }}` inside a local pane, WezTerm still sees that pane as local, so remote tab inheritance is less reliable.
+- Herdr workspaces are project rows in the left sidebar.
+- Herdr tabs are activities inside a workspace; panes are visible splits inside a tab.
+- Closing WezTerm or pressing `Ctrl-B`, then `q`, detaches without stopping Herdr panes.
+- Use `Ctrl-B`, then `t`, to search Picker Plus across projects, workspaces, agents, actions, and remote Herdr servers.
+- Use `Ctrl-B`, then `?`, to see every active key binding.
 
 Recommended one-time SSH key setup on a trusted machine:
 
