@@ -23,7 +23,9 @@ inherit_herdr = true
 [sessions]
 local = true
 
-[[sessions.entries]]
-name = "CerpacNAS"
-remote = "cerpacnas"
-tags = ["nas", "remote"]
+[[integrations]]
+id = "cerpacnas"
+label = "CerpacNAS"
+collect = '''printf '%s\n' '[{"id":"cerpacnas","title":"CerpacNAS","subtitle":"persistent remote Herdr","kind":"server"}]' '''
+open = '''env -u HERDR_ENV "$HERDR_BIN_PATH" --remote cerpacnas --handoff'''
+notify_success = false

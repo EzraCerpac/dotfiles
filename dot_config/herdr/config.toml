@@ -7,7 +7,8 @@ name = "catppuccin"
 prefix = "ctrl+b"
 previous_workspace = "prefix+left"
 next_workspace = "prefix+right"
-switch_workspace = "prefix+shift+1..9"
+switch_workspace = "prefix+alt+1..9"
+close_workspace = "prefix+d"
 
 [ui.toast]
 delivery = "system"
@@ -52,7 +53,7 @@ command = "ezracerpac.jj-waltz.new-tab"
 description = "new jw workspace in tab"
 
 [[keys.command]]
-key = "prefix+d"
+key = "prefix+shift+d"
 type = "plugin_action"
 command = "ezracerpac.jj-waltz.remove"
 description = "remove jw workspace"

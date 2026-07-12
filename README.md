@@ -252,9 +252,10 @@ Useful keys all start with the default `Ctrl-B` prefix:
 - `up` / `down`: Herdr Plus Projects / Quick Actions
 - `t`: Picker Plus search across agents, remotes, workspaces, projects, sessions, and actions
 - `left` / `right`: previous / next workspace
-- `Shift-1..9`: switch workspace; `1..9`: switch tab
+- `Alt-1..9`: switch workspace; `1..9`: switch tab
+- `d`: close Herdr workspace; `Shift-d`: remove its `jw` checkout
 - `h/j/k/l`: focus panes; `w`: workspace picker; `?`: full key help
 
 Herdr Plus manages the reproducible project layouts under `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/`. Use the `Remote shells` project for a local shell and a normal `ssh delftblue` tab. SSH keepalives reduce idle disconnects. DelftBlue still needs `kinit` on the login node when `/tudelft.net` credentials expire.
 
-Picker Plus exposes `CerpacNAS` as a remote Herdr target. Selecting it runs Herdr's remote attach flow, bootstraps a matching remote binary when needed, and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `q`.
+Picker Plus exposes `CerpacNAS` as a remote Herdr target. Its custom integration clears the inherited `HERDR_ENV` marker before running Herdr's remote handoff, while global nested launches remain disabled. It bootstraps a matching remote binary when needed and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `q`.

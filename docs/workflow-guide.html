@@ -80,11 +80,12 @@ chezmoi verify</code></pre>
         <tr><td><kbd>up</kbd> / <kbd>down</kbd></td><td>Herdr Plus Projects / Quick Actions</td></tr>
         <tr><td><kbd>t</kbd></td><td>Picker Plus: search agents, remotes, workspaces, projects, sessions, actions</td></tr>
         <tr><td><kbd>left</kbd> / <kbd>right</kbd></td><td>Previous / next workspace</td></tr>
-        <tr><td><kbd>Shift-1..9</kbd></td><td>Switch workspace by current sidebar position</td></tr>
+        <tr><td><kbd>Alt-1..9</kbd></td><td>Switch workspace by current sidebar position; Alt survives terminal transport more reliably than Shift-number punctuation</td></tr>
         <tr><td><kbd>1..9</kbd></td><td>Switch tab</td></tr>
         <tr><td><kbd>a</kbd></td><td>Create a new isolated <code>jw</code> workspace</td></tr>
         <tr><td><kbd>Shift-a</kbd></td><td>Create a new isolated <code>jw</code> workspace in a tab</td></tr>
-        <tr><td><kbd>d</kbd></td><td>Remove the current <code>jw</code> workspace; confirm first because its checkout is deleted</td></tr>
+        <tr><td><kbd>d</kbd></td><td>Close the current Herdr workspace; its underlying checkout remains</td></tr>
+        <tr><td><kbd>Shift-d</kbd></td><td>Remove the current <code>jw</code> workspace; confirm first because its checkout is deleted</td></tr>
         <tr><td><kbd>h/j/k/l</kbd></td><td>Focus pane left/down/up/right</td></tr>
         <tr><td><kbd>w</kbd></td><td>Built-in workspace picker</td></tr>
         <tr><td><kbd>v</kbd> / <kbd>-</kbd></td><td>Split right / down</td></tr>
@@ -106,7 +107,8 @@ chezmoi verify</code></pre>
       <h2>Remote terminals</h2>
       <h3>DelftBlue: plain SSH tab</h3><p>Use <strong>DelftBlue</strong> in <strong>Remote shells</strong>. SSH keepalive runs every 30 seconds with three missed replies allowed. Run <code>kinit</code> when <code>/tudelft.net</code> credentials expire.</p>
       <h3>CerpacNAS: full remote Herdr</h3>
-      <ol><li>Press <kbd>Ctrl-B</kbd>, then <kbd>t</kbd>.</li><li>Type <code>CerpacNAS</code> or filter remotes with <kbd>Ctrl-S</kbd>.</li><li>Select target. Picker Plus runs <code>herdr --remote cerpacnas --handoff</code>.</li><li>Use NAS server's separate persistent sidebar.</li><li>Detach with <kbd>Ctrl-B</kbd>, then <kbd>q</kbd>; reopen through Picker Plus.</li></ol>
+      <ol><li>Press <kbd>Ctrl-B</kbd>, then <kbd>t</kbd>.</li><li>Type <code>CerpacNAS</code> or filter remotes with <kbd>Ctrl-S</kbd>.</li><li>Select target. The integration clears only the inherited <code>HERDR_ENV</code> marker, then runs <code>herdr --remote cerpacnas --handoff</code>.</li><li>Use NAS server's separate persistent sidebar.</li><li>Detach with <kbd>Ctrl-B</kbd>, then <kbd>q</kbd>; reopen through Picker Plus.</li></ol>
+      <p>Herdr's global <code>allow_nested</code> safety guard stays disabled. The narrow environment cleanup is required because Picker Plus 0.2.0 otherwise mistakes an intentional remote handoff for a nested local Herdr launch.</p>
       <p>Remote Herdr 0.7.3 lives at <code>/root/.local/bin/herdr</code>. Remote attach manages SSH keepalive and connection reuse.</p>
     </section>
 
