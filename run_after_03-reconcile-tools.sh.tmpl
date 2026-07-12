@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly DEFAULT_TOOL_PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH:/opt/homebrew/bin:/usr/local/bin"
+export PATH="${TOOL_RECONCILE_PATH:-$DEFAULT_TOOL_PATH}"
+
+readonly STATE_DIR="${TOOL_RECONCILE_STATE_DIR:-$HOME/.local/state/chezmoi/tool-reconcile}"
+{{- if eq .chezmoi.os "darwin" }}
+readonly PACKAGES_FINGERPRINT="{{ dict "profile" .profile "packages" .packages.darwin | toJson | sha256sum }}"
+{{- else if eq .chezmoi.os "linux" }}
+readonly PACKAGES_FINGERPRINT="{{ dict "profile" .profile "packages" .packages.linux | toJson | sha256sum }}"
+{{- else }}
+readonly PACKAGES_FINGERPRINT="{{ dict "profile" .profile "os" .chezmoi.os | toJson | sha256sum }}"
+{{- end }}
+readonly MISE_FINGERPRINT="{{ include "dot_config/mise/config.toml" | sha256sum }}"
+readonly HERDR_FINGERPRINT="herdr:https://herdr.dev/install.sh:v1"
+readonly KEYMAP_DRAWER_FINGERPRINT="uv-tool:keymap-drawer:latest"
+readonly CODEX_ACP_FINGERPRINT="npm:@zed-industries/codex-acp:latest"
+
+marker_matches() {
+    local name="${1:?adapter name required}"
+    local fingerprint="${2:?fingerprint required}"
+    local marker="$STATE_DIR/$name"
+
+    [[ -f "$marker" ]] && [[ "$(<"$marker")" == "$fingerprint" ]]
+}
+
+write_marker() {
+    local name="${1:?adapter name required}"
+    local fingerprint="${2:?fingerprint required}"
+    local marker="$STATE_DIR/$name"
+    local temporary
+
+    temporary="$(mktemp "$STATE_DIR/.${name}.XXXXXX")"
+    printf '%s\n' "$fingerprint" >"$temporary"
+    mv "$temporary" "$marker"
+}
+
+{{- if eq .profile "delftblue" }}
+echo "DelftBlue profile detected; skipping workstation tool reconciliation."
+exit 0
+{{- end }}
+
+mkdir -p "$STATE_DIR"
+
+reconcile_packages() {
+{{- if eq .chezmoi.os "darwin" }}
+    local brew_bin="${BREW_BIN:-}"
+    local brewfile
+
+    if [[ -z "$brew_bin" ]]; then
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            brew_bin=/opt/homebrew/bin/brew
+        elif [[ -x /usr/local/bin/brew ]]; then
+            brew_bin=/usr/local/bin/brew
+        elif command -v brew >/dev/null 2>&1; then
+            brew_bin="$(command -v brew)"
+        fi
+    fi
+
+    if [[ -z "$brew_bin" ]]; then
+        echo "Warning: Homebrew not found; package reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+    brewfile="$(mktemp)"
+    cat >"$brewfile" <<'BREWFILE'
+{{- range .packages.darwin.taps }}
+tap "{{ . }}"
+{{- end }}
+{{- range .packages.darwin.brews }}
+brew "{{ . }}"
+{{- end }}
+{{- range .packages.darwin.casks }}
+cask "{{ . }}"
+{{- end }}
+BREWFILE
+
+    if marker_matches packages "$PACKAGES_FINGERPRINT" && "$brew_bin" bundle check --file="$brewfile" >/dev/null 2>&1; then
+        rm -f "$brewfile"
+        return 0
+    fi
+
+    eval "$("$brew_bin" shellenv)"
+{{- range .packages.darwin.taps }}
+    "$brew_bin" tap {{ quote . }} || true
+{{- end }}
+{{- range .packages.darwin.trusted_taps }}
+    "$brew_bin" trust --tap {{ quote . }} || true
+{{- end }}
+
+    if "$brew_bin" bundle check --file="$brewfile" >/dev/null 2>&1; then
+        rm -f "$brewfile"
+        write_marker packages "$PACKAGES_FINGERPRINT"
+        return 0
+    fi
+
+    if ! "$brew_bin" bundle install --file="$brewfile"; then
+        rm -f "$brewfile"
+        return 1
+    fi
+    rm -f "$brewfile"
+
+    if "$brew_bin" list felixkratz/formulae/sketchybar >/dev/null 2>&1; then
+        "$brew_bin" services restart sketchybar >/dev/null 2>&1 || true
+    fi
+{{- else if eq .chezmoi.os "linux" }}
+    local package
+    local missing=0
+
+    if ! command -v apt-get >/dev/null 2>&1; then
+        echo "Warning: apt-get not found; package reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+{{- range .packages.linux.apt }}
+    package={{ quote . }}
+    dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'ok installed' || missing=1
+{{- end }}
+
+    if [[ "$missing" -eq 0 ]]; then
+        write_marker packages "$PACKAGES_FINGERPRINT"
+        return 0
+    fi
+
+    sudo apt-get update -qq || return 1
+    sudo apt-get install -y \
+{{- range .packages.linux.apt }}
+        {{ . }} \
+{{- end }}
+        || return 1
+{{- else }}
+    echo "Warning: unsupported OS; package reconciliation skipped." >&2
+    return 1
+{{- end }}
+
+    write_marker packages "$PACKAGES_FINGERPRINT"
+}
+
+reconcile_mise() {
+    if ! command -v mise >/dev/null 2>&1; then
+        echo "Warning: mise not found; mise reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+    if marker_matches mise "$MISE_FINGERPRINT" && MISE_CONFIG_FILE="$HOME/.config/mise/config.toml" mise install --dry-run-code >/dev/null 2>&1; then
+        return 0
+    fi
+
+    MISE_CONFIG_FILE="$HOME/.config/mise/config.toml" mise install --yes || return 1
+    write_marker mise "$MISE_FINGERPRINT"
+}
+
+reconcile_herdr() {
+    if marker_matches herdr "$HERDR_FINGERPRINT" && command -v herdr >/dev/null 2>&1; then
+        return 0
+    fi
+    if [[ ! -f "$STATE_DIR/herdr" ]] && command -v herdr >/dev/null 2>&1; then
+        write_marker herdr "$HERDR_FINGERPRINT"
+        return 0
+    fi
+
+    curl -fsSL https://herdr.dev/install.sh | sh || return 1
+    command -v herdr >/dev/null 2>&1 || return 1
+    write_marker herdr "$HERDR_FINGERPRINT"
+}
+
+reconcile_keymap_drawer() {
+    if marker_matches keymap-drawer "$KEYMAP_DRAWER_FINGERPRINT" && command -v keymap >/dev/null 2>&1; then
+        return 0
+    fi
+    if [[ ! -f "$STATE_DIR/keymap-drawer" ]] && command -v keymap >/dev/null 2>&1; then
+        write_marker keymap-drawer "$KEYMAP_DRAWER_FINGERPRINT"
+        return 0
+    fi
+    if ! command -v mise >/dev/null 2>&1; then
+        echo "Warning: mise not found; keymap-drawer reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+    mise exec uv -- uv tool install --upgrade keymap-drawer || return 1
+    command -v keymap >/dev/null 2>&1 || return 1
+    write_marker keymap-drawer "$KEYMAP_DRAWER_FINGERPRINT"
+}
+
+reconcile_codex_acp() {
+    if marker_matches codex-acp "$CODEX_ACP_FINGERPRINT" && command -v codex-acp >/dev/null 2>&1; then
+        return 0
+    fi
+    if [[ ! -f "$STATE_DIR/codex-acp" ]] && command -v codex-acp >/dev/null 2>&1; then
+        write_marker codex-acp "$CODEX_ACP_FINGERPRINT"
+        return 0
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "Warning: npm not found; codex-acp reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+    npm install --global @zed-industries/codex-acp || return 1
+    command -v codex-acp >/dev/null 2>&1 || return 1
+    write_marker codex-acp "$CODEX_ACP_FINGERPRINT"
+}
+
+echo "Reconciling managed tools..."
+
+failed=0
+reconcile_packages || failed=1
+reconcile_mise || failed=1
+reconcile_herdr || failed=1
+reconcile_keymap_drawer || failed=1
+reconcile_codex_acp || failed=1
+
+if [[ "$failed" -ne 0 ]]; then
+    echo "Warning: some tool adapters failed; they will retry next apply." >&2
+else
+    echo "Managed tool reconciliation complete"
+fi
