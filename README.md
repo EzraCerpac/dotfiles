@@ -210,10 +210,26 @@ That layer is still explicit and conservative:
 - optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
 - `AGENTS.md` stays in the repo only and is not deployed into `$HOME`
 
-If this repo is also applied on your macOS machine, WezTerm and SSH can be set up so DelftBlue feels like a first-class remote terminal:
+## Herdr terminal workflow
 
-- `~/.ssh/config` renders a `Host delftblue` entry with key-based auth settings for `~/.ssh/id_ed25519`
-- WezTerm exposes `SSH:delftblue` as a remote domain and a launcher entry
-- opening DelftBlue from that WezTerm remote domain makes normal tab/split keys stay on DelftBlue
-- remote bash emits OSC 7 cwd updates so new remote tabs/splits can inherit the current directory
-- DelftBlue docs recommend `ssh-copy-id delftblue` for passwordless login on a trusted machine; if you log in with SSH keys and later need `/tudelft.net`, run `kinit` on the login node
+WezTerm is the terminal window; Herdr owns terminal organization and persistence:
+
+- a **session** is one persistent Herdr server containing all local work
+- a **workspace** is one project row in Herdr's left sidebar
+- a **tab** is one activity inside a workspace
+- a **pane** is a visible terminal split inside a tab
+- an AeroSpace workspace is a separate macOS desktop and is unrelated to a Herdr workspace
+
+Closing WezTerm or pressing `Ctrl-B`, then `Q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
+
+Useful keys all start with the default `Ctrl-B` prefix:
+
+- `up` / `down`: Herdr Plus Projects / Quick Actions
+- `t`: Picker Plus search across agents, remotes, workspaces, projects, sessions, and actions
+- `left` / `right`: previous / next workspace
+- `Shift-1..9`: switch workspace; `1..9`: switch tab
+- `h/j/k/l`: focus panes; `w`: workspace picker; `?`: full key help
+
+Herdr Plus manages the reproducible project layouts under `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/`. Use the `Remote shells` project for a local shell and a normal `ssh delftblue` tab. SSH keepalives reduce idle disconnects. DelftBlue still needs `kinit` on the login node when `/tudelft.net` credentials expire.
+
+Picker Plus exposes `CerpacNAS` as a remote Herdr target. Selecting it runs Herdr's remote attach flow, bootstraps a matching remote binary when needed, and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `Q`.
