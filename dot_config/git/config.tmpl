@@ -1,6 +1,26 @@
 [user]
 	name = Ezra Cerpac
 	email = 47384389+EzraCerpac@users.noreply.github.com
+{{- if eq .profile "nas" }}
+[core]
+	excludesfile = {{ .chezmoi.homeDir }}/.gitignore
+	autocrlf = input
+	compression = 9
+[init]
+	defaultBranch = main
+[url "git@github.com:"]
+	insteadOf = gh:
+[url "git@github.com:EzraCerpac/"]
+	insteadOf = ec:
+[status]
+	branch = true
+[color "branch"]
+	current = magenta
+	local = blue
+	remote = yellow
+	upstream = green
+	plain = blue
+{{- else }}
 	signingkey = D041C1286F71DBDF
 [commit]
 ; 	gpgSign = true
@@ -117,3 +137,4 @@
 {{- end }}
 [submodule]
 	recurse = true
+{{- end }}
