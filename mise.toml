@@ -1,9 +1,9 @@
 [settings]
 experimental = true
 
-[tasks.kbd_setup]
-description = "Setup Corne QMK toolchain"
-run = "./dot_local/bin/executable_kbd setup"
+[tasks.kbd_provision]
+description = "Provision Corne QMK and macOS keyboard runtime"
+run = "./dot_local/bin/executable_kbd provision"
 
 [tasks.kbd_sync]
 description = "Sync keymap + regenerate images + reload HUD"

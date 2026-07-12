@@ -28,39 +28,6 @@ killall cfprefsd >/dev/null 2>&1 || true
 killall Dock >/dev/null 2>&1 || true
 killall SystemUIServer >/dev/null 2>&1 || true
 
-KANATA_PLIST="/Library/LaunchDaemons/com.kanata.daemon.plist"
-if [[ -f "${KANATA_PLIST}" ]]; then
-  KANATA_LABEL="$(plutil -extract Label raw -o - "${KANATA_PLIST}" 2>/dev/null || true)"
-  echo "Restarting kanata daemon..."
-  if [[ -z "${KANATA_LABEL}" ]]; then
-    echo "Could not determine kanata launchd label from ${KANATA_PLIST}"
-    echo "Inspect it with:"
-    echo "  sudo plutil -p ${KANATA_PLIST}"
-  elif sudo -n launchctl print "system/${KANATA_LABEL}" >/dev/null 2>&1; then
-    sudo -n launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1
-    echo "kanata daemon restarted"
-  elif sudo -n launchctl bootstrap system "${KANATA_PLIST}" >/dev/null 2>&1; then
-    sudo -n launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
-    echo "kanata daemon bootstrapped and restarted"
-  else
-    echo "Run this to load and restart kanata once setup finishes:"
-    echo "  sudo launchctl bootstrap system ${KANATA_PLIST}"
-    echo "  sudo launchctl kickstart -k system/${KANATA_LABEL:-<label-from-plist>}"
-  fi
-fi
-
 echo "macOS setup complete"
-
-cat <<'EOF'
-
-If you want Kanata on macOS 11+, install and activate the Karabiner DriverKit VirtualHIDDevice first.
-After installing Karabiner-Elements, run:
-  sudo /Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager activate
-
-Then start the Karabiner VirtualHIDDevice daemon:
-  sudo '/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon'
-
-Then run kanata itself with sudo and your config.
-EOF
 
 {{- end }}

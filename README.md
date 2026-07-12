@@ -57,13 +57,10 @@ run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
 run_onchange_03-install-packages.sh.tmpl → install/update packages from .chezmoidata/packages.yaml
 run_once_03-install-tools.sh.tmpl       → install versioned tools via mise
 run_once_04-setup-macos.sh.tmpl         → macOS defaults
-run_once_05-setup-keyboard.sh.tmpl      → keyboard firmware bootstrap (fails loudly until kbd exists)
 run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
 run_once_07-remove-legacy-kbd-commands.sh.tmpl → remove old `kbd-*` helper commands
 run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
 run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
-run_after_15-setup-karabiner-virtualhid.sh.tmpl → macOS Karabiner VirtualHID activation + legacy daemon cleanup
-run_after_20-setup-kanata-launchd.sh.tmpl → macOS kanata launch daemon via /Library/LaunchDaemons
 ```
 
 `chezmoi apply` rebuilds the local `jw` binary through a `run_onchange` script whose rendered fingerprint is computed from the external `~/Projects/jj-waltz` Rust build inputs. This lets chezmoi notice local source changes even though that checkout is not managed by this dotfiles repo.
@@ -74,7 +71,7 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 
 Commands:
 
-- `kbd setup` → install keyboard build dependencies and clone/update `qmk_firmware`
+- `kbd provision` → validate installed tooling, prepare QMK, activate VirtualHID, and install the Kanata daemon
 - `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
@@ -84,6 +81,8 @@ Commands:
 - `kbd layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
 - `kbd hud-reload` → reload Hammerspoon HUD overlay
 - `kbd open-artifacts` → open UF2 artifact folder in Finder
+
+`kbd provision` is the sole keyboard lifecycle command. Run it explicitly after `chezmoi apply`; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same command; finished stages are safe to repeat.
 
 `mise run` keyboard tasks are defined in the source repo's repo-local [`mise.toml`](mise.toml), and `.chezmoiignore` keeps that file from being deployed to `~/mise.toml`. Run them from this chezmoi checkout, not from arbitrary directories.
 
@@ -107,7 +106,7 @@ After cleanup, the keyboard tasks should only appear when your current directory
 
 Available repo-local tasks:
 
-- `mise run kbd_setup`
+- `mise run kbd_provision`
 - `mise run kbd_sync`
 - `mise run kbd_build`
 - `mise run kbd_build_all`

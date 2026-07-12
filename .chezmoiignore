@@ -5,6 +5,7 @@ AGENTS.md
 
 backups/
 backups/**
+tests/
 *bak
 **/*bak
 **/*.bak

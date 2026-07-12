@@ -1,7 +1,7 @@
 Corne QMK workflow (programmatic)
 
-1) Bootstrap tools and local qmk_firmware checkout
-   kbd setup
+1) Validate tools and provision local keyboard runtime
+   kbd provision
 
 2) Edit keymap source
    - ~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c

@@ -25,7 +25,7 @@ usage() {
 usage: kbd <command> [args]
 
 commands:
-  setup
+  provision
   doctor
   sync
   build [--convert-to target] [--left|--right]
@@ -113,7 +113,7 @@ resolve_qmk_runner() {
         fi
     done
 
-    echo "qmk CLI is unavailable. Re-run kbd setup or repair the Homebrew qmk install." >&2
+    echo "qmk CLI is unavailable. Run chezmoi apply, then rerun: kbd provision" >&2
     return 1
 }
 
@@ -133,34 +133,34 @@ run_qmk() {
 require_qmk_checkout() {
     if [[ ! -d "${QMK_DIR}" ]]; then
         echo "missing qmk_firmware checkout: ${QMK_DIR}" >&2
-        echo "run: kbd setup" >&2
+        echo "run: kbd provision" >&2
         exit 1
     fi
 }
 
-cmd_setup() {
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "Homebrew is required on macOS for keyboard tooling." >&2
-        exit 1
+cmd_provision_prerequisites() {
+    local missing=0
+    local command_name
+    local -a required_commands=(git uv qmk kanata dos2unix rsvg-convert avr-gcc arm-none-eabi-gcc keymap)
+
+    for command_name in "${required_commands[@]}"; do
+        if ! command -v "${command_name}" >/dev/null 2>&1; then
+            echo "missing keyboard prerequisite: ${command_name}" >&2
+            missing=1
+        fi
+    done
+    if ! virtualhid_components_exist; then
+        echo "missing keyboard prerequisite: Karabiner VirtualHID components" >&2
+        missing=1
     fi
-
-    if [[ -x /opt/homebrew/bin/brew ]]; then
-        eval "$(/opt/homebrew/bin/brew shellenv)"
+    if [[ "${missing}" == "1" ]]; then
+        echo "Run: chezmoi apply" >&2
+        echo "Then rerun: kbd provision" >&2
+        return 1
     fi
+}
 
-    brew tap qmk/qmk >/dev/null 2>&1 || true
-    brew tap osx-cross/arm >/dev/null 2>&1 || true
-    brew tap osx-cross/avr >/dev/null 2>&1 || true
-    brew install \
-        qmk/qmk/qmk \
-        dos2unix \
-        librsvg \
-        uv \
-        osx-cross/avr/avr-gcc@9 \
-        osx-cross/arm/arm-none-eabi-binutils \
-        osx-cross/arm/arm-none-eabi-gcc@9 >/dev/null
-    brew install --cask hammerspoon >/dev/null || true
-
+cmd_provision_qmk() {
     mkdir -p "${HOME}/Projects/keyboards"
     if [[ -d "${QMK_DIR}" ]] && [[ ! -d "${QMK_DIR}/.git" ]]; then
         mv "${QMK_DIR}" "${QMK_DIR}.incomplete.$(date +%s)" 2>/dev/null || true
@@ -171,6 +171,7 @@ cmd_setup() {
             if ! git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=30 clone --depth 1 --single-branch https://github.com/qmk/qmk_firmware "${QMK_DIR}"; then
                 if [[ -d "${LEGACY_QMK_DIR}/.git" ]]; then
                     echo "warning: using existing ${LEGACY_QMK_DIR} as fallback for qmk_firmware" >&2
+                    mv "${QMK_DIR}" "${QMK_DIR}.failed.$(date +%s)" 2>/dev/null || true
                     ln -sfn "${LEGACY_QMK_DIR}" "${QMK_DIR}"
                 else
                     echo "failed to clone qmk_firmware and no local fallback found" >&2
@@ -180,16 +181,207 @@ cmd_setup() {
         fi
     else
         git -C "${QMK_DIR}" fetch origin
-        current_branch="$(git -C "${QMK_DIR}" rev-parse --abbrev-ref HEAD)"
-        git -C "${QMK_DIR}" pull --ff-only origin "${current_branch}"
+        current_branch="$(git -C "${QMK_DIR}" symbolic-ref --quiet --short HEAD || true)"
+        if [[ -n "${current_branch}" ]]; then
+            git -C "${QMK_DIR}" pull --ff-only origin "${current_branch}"
+        else
+            echo "qmk_firmware is detached; fetched origin without moving checkout"
+        fi
     fi
 
-    git -C "${QMK_DIR}" submodule update --init --recursive
-    run_qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1 || true
-    uv tool install --upgrade keymap-drawer >/dev/null
+    configure_qmk_checkout
+}
 
-    echo "keyboard setup complete"
+configure_qmk_checkout() {
+    git -C "${QMK_DIR}" submodule update --init --recursive
+    if ! run_qmk config user.qmk_home="${QMK_DIR}" >/dev/null 2>&1; then
+        echo "QMK config failed. Run chezmoi apply, then rerun: kbd provision" >&2
+        return 1
+    fi
+}
+
+readonly KARABINER_MANAGER="${KBD_KARABINER_MANAGER:-/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager}"
+readonly KARABINER_DAEMON="${KBD_KARABINER_DAEMON:-/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon}"
+readonly KARABINER_LABEL="org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon"
+readonly KARABINER_CORE_LABEL="org.pqrs.service.daemon.Karabiner-Core-Service"
+readonly KARABINER_LEGACY_LABEL="org.pqrs.Karabiner-VirtualHIDDevice-Daemon.chezmoi"
+readonly KARABINER_LEGACY_PLIST="${KBD_KARABINER_LEGACY_PLIST:-/Library/LaunchDaemons/${KARABINER_LEGACY_LABEL}.plist}"
+readonly KARABINER_CORE_LEGACY_PLIST="${KBD_KARABINER_CORE_LEGACY_PLIST:-/Library/LaunchDaemons/${KARABINER_CORE_LABEL}.plist}"
+readonly KANATA_CONFIG="${KBD_KANATA_CONFIG:-${HOME}/.config/kanata/config.kbd}"
+readonly KANATA_PLIST="${KBD_KANATA_PLIST:-/Library/LaunchDaemons/com.kanata.daemon.plist}"
+readonly KANATA_LABEL="com.kanata.daemon"
+readonly KANATA_LEGACY_AGENT="${KBD_KANATA_LEGACY_AGENT:-${HOME}/Library/LaunchAgents/com.kanata.agent.plist}"
+readonly TCC_DB="${KBD_TCC_DB:-/Library/Application Support/com.apple.TCC/TCC.db}"
+
+driverkit_is_active() {
+    systemextensionsctl list 2>/dev/null | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice.*activated enabled"
+}
+
+virtualhid_components_exist() {
+    [[ -x "${KARABINER_MANAGER}" ]] && [[ -x "${KARABINER_DAEMON}" ]]
+}
+
+cmd_provision_virtualhid() {
+    if ! virtualhid_components_exist; then
+        echo "Karabiner VirtualHID components are missing. Open Karabiner-Elements once, then rerun: kbd provision" >&2
+        return 1
+    fi
+
+    if ! driverkit_is_active; then
+        echo "Activating Karabiner VirtualHID driver..."
+        if ! sudo "${KARABINER_MANAGER}" activate >/dev/null 2>&1; then
+            echo "Karabiner VirtualHID activation failed. Run: sudo '${KARABINER_MANAGER}' activate" >&2
+            return 1
+        fi
+    fi
+    if ! driverkit_is_active; then
+        echo "Approve Karabiner DriverKit in System Settings > Privacy & Security, then rerun: kbd provision" >&2
+        return 1
+    fi
+
+    if sudo launchctl print "system/${KARABINER_LEGACY_LABEL}" >/dev/null 2>&1; then
+        sudo launchctl bootout "system/${KARABINER_LEGACY_LABEL}" >/dev/null 2>&1 || true
+    fi
+    if [[ -f "${KARABINER_LEGACY_PLIST}" ]]; then
+        sudo rm -f "${KARABINER_LEGACY_PLIST}"
+    fi
+    if [[ -f "${KARABINER_CORE_LEGACY_PLIST}" ]]; then
+        sudo rm -f "${KARABINER_CORE_LEGACY_PLIST}"
+    fi
+
+    if ! launchctl print "system/${KARABINER_LABEL}" >/dev/null 2>&1; then
+        echo "Open Karabiner-Elements once so it starts VirtualHID, then rerun: kbd provision" >&2
+        return 1
+    fi
+}
+
+render_kanata_plist() {
+    local kanata_bin="${1:?kanata binary required}"
+    local output="${2:?output path required}"
+    local escaped_bin
+    local escaped_config
+
+    escaped_bin="$(printf '%s' "${kanata_bin}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+    escaped_config="$(printf '%s' "${KANATA_CONFIG}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+
+    cat >"${output}" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${KANATA_LABEL}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${escaped_bin}</string>
+        <string>--cfg</string>
+        <string>${escaped_config}</string>
+        <string>--no-wait</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/kanata.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/kanata.err.log</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>
+EOF
+}
+
+cmd_provision_kanata() {
+    local kanata_bin="${1:?kanata binary required}"
+    if [[ ! -f "${KANATA_CONFIG}" ]]; then
+        echo "Kanata config is missing: ${KANATA_CONFIG}. Run chezmoi apply, then rerun: kbd provision" >&2
+        return 1
+    fi
+    if ! "${kanata_bin}" --check --cfg "${KANATA_CONFIG}" >/dev/null 2>&1; then
+        echo "Kanata config check failed: ${KANATA_CONFIG}" >&2
+        return 1
+    fi
+
+    if [[ -f "${KANATA_LEGACY_AGENT}" ]]; then
+        launchctl bootout "gui/$(id -u)" "${KANATA_LEGACY_AGENT}" >/dev/null 2>&1 || true
+        rm -f "${KANATA_LEGACY_AGENT}"
+    fi
+
+    (
+        local tmp_file
+        tmp_file="$(mktemp)"
+        trap 'rm -f "${tmp_file}"' EXIT
+        render_kanata_plist "${kanata_bin}" "${tmp_file}"
+
+        if [[ ! -f "${KANATA_PLIST}" ]] || ! cmp -s "${tmp_file}" "${KANATA_PLIST}"; then
+            sudo install -o root -g wheel -m 644 "${tmp_file}" "${KANATA_PLIST}"
+            if sudo launchctl print "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+                sudo launchctl bootout "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
+            fi
+        fi
+
+        if ! sudo launchctl print "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+            sudo launchctl bootstrap system "${KANATA_PLIST}"
+        fi
+    )
+
+    sudo launchctl enable "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
+    if ! sudo launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+        echo "Kanata daemon did not start. Inspect: sudo tail -n 50 /var/log/kanata.err.log" >&2
+        return 1
+    fi
+}
+
+provision_check_kanata_tcc() {
+    local kanata_bin="${1:?kanata binary required}"
+    local kanata_realpath
+    local tcc_rows
+
+    kanata_realpath="$(realpath "${kanata_bin}")"
+    if ! tcc_rows="$(sudo sqlite3 "${TCC_DB}" "select service || '|' || client || '|' || auth_value from access where lower(client) like '%kanata%';" 2>/dev/null)"; then
+        echo "Allow your terminal Full Disk Access so kbd can verify Kanata permissions, then rerun: kbd provision" >&2
+        return 1
+    fi
+
+    if ! printf '%s\n' "${tcc_rows}" | grep -Fqx "kTCCServiceListenEvent|${kanata_realpath}|2"; then
+        echo "Enable ${kanata_realpath} in System Settings > Privacy & Security > Input Monitoring, then rerun: kbd provision" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "${tcc_rows}" | grep -Fqx "kTCCServiceAccessibility|${kanata_realpath}|2"; then
+        echo "Enable ${kanata_realpath} in System Settings > Privacy & Security > Accessibility, then rerun: kbd provision" >&2
+        return 1
+    fi
+}
+
+cmd_provision_runtime() {
+    local kanata_bin
+
+    cmd_provision_virtualhid
+    kanata_bin="$(resolve_kanata_bin)"
+    if [[ -z "${kanata_bin}" ]]; then
+        echo "Kanata is missing. Run chezmoi apply, then rerun: kbd provision" >&2
+        return 1
+    fi
+    provision_check_kanata_tcc "${kanata_bin}"
+    cmd_provision_kanata "${kanata_bin}"
+}
+
+cmd_provision() {
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+        echo "kbd provision supports macOS only." >&2
+        return 1
+    fi
+
+    cmd_provision_prerequisites
+    cmd_provision_qmk
+    sudo -v
+    cmd_provision_runtime
+
+    echo "keyboard provisioning complete"
     echo "qmk_firmware: ${QMK_DIR}"
+    cmd_doctor
 }
 
 doctor_ok() {
@@ -238,12 +430,14 @@ doctor_check_kanata_tcc() {
         doctor_ok "Kanata has Input Monitoring for ${kanata_realpath}"
     else
         doctor_fail "Kanata is missing Input Monitoring for ${kanata_realpath}"
+        echo "  enable ${kanata_realpath} in System Settings > Privacy & Security > Input Monitoring"
     fi
 
     if printf '%s\n' "${tcc_rows}" | grep -Fqx "kTCCServiceAccessibility|${kanata_realpath}|2"; then
         doctor_ok "Kanata has Accessibility for ${kanata_realpath}"
     else
         doctor_fail "Kanata is missing Accessibility for ${kanata_realpath}"
+        echo "  enable ${kanata_realpath} in System Settings > Privacy & Security > Accessibility"
     fi
 
     stale_rows="$(printf '%s\n' "${tcc_rows}" | awk -F'|' -v current="${kanata_realpath}" 'NF == 3 && $2 != current { print $1 " -> " $2 }')"
@@ -328,8 +522,8 @@ doctor_check_karabiner_runtime() {
 
 doctor_check_kanata_runtime() {
     local kanata_bin
-    local kanata_config="${HOME}/.config/kanata/config.kbd"
-    local karabiner_daemon="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
+    local kanata_config="${KANATA_CONFIG}"
+    local karabiner_daemon="${KARABINER_DAEMON}"
     local kanata_status
     local kanata_backend_state
     local kanata_expects_old_socket=0
@@ -428,17 +622,17 @@ cmd_layout_images() {
     fi
 
     if ! resolve_qmk_runner >/dev/null 2>&1; then
-        echo "qmk CLI not found. Run kbd setup." >&2
+        echo "qmk CLI not found. Run chezmoi apply, then rerun: kbd provision" >&2
         exit 1
     fi
 
     if ! command -v keymap >/dev/null 2>&1; then
-        echo "keymap-drawer CLI not found. Run kbd setup." >&2
+        echo "keymap-drawer CLI not found. Run chezmoi apply, then rerun: kbd provision" >&2
         exit 1
     fi
 
     if ! command -v rsvg-convert >/dev/null 2>&1; then
-        echo "rsvg-convert not found. Install librsvg (run kbd setup)." >&2
+        echo "rsvg-convert not found. Run chezmoi apply, then rerun: kbd provision" >&2
         exit 1
     fi
 
@@ -660,8 +854,8 @@ main() {
     shift
 
     case "${command}" in
-        setup)
-            cmd_setup "$@"
+        provision)
+            cmd_provision "$@"
             ;;
         doctor)
             cmd_doctor "$@"
@@ -698,4 +892,6 @@ main() {
     esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
