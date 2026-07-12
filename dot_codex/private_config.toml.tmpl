@@ -6,6 +6,11 @@ approval_policy = "never"
 
 [projects."/root/Projects"]
 trust_level = "trusted"
+{{- if eq .profile "nas" }}
+
+[projects."/root"]
+trust_level = "trusted"
+{{- end }}
 
 [features]
 multi_agent = true

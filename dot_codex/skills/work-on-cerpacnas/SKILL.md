@@ -13,11 +13,22 @@ Use Codex Remote SSH for tasks. Use `nas` only for repository/config coordinatio
 2. Otherwise use current Codex project/cwd.
 3. In chezmoi source, use `nas config status|update`; do not select a manifest project.
 4. In a configured project, omit project only when `nas` can infer it from cwd.
-5. If current path is unknown or ambiguous, stop and ask. Never choose the only manifest entry as fallback.
+5. If `nas projects sync` is requested from an unconfigured repository, add that repository to the manifest when its identity and paths are unambiguous; follow **Add a missing current project** below.
+6. If current path is unknown or ambiguous, stop and ask. Never choose the only manifest entry as fallback.
 
 Run `nas doctor` before first NAS operation. Read [remote policy](references/remote-policy.md) before changing validation or transfer behavior. Read [project manifest](references/projects-manifest.md) before adding projects or artifacts.
 
 Root login is intentional. Never invoke `sudo`, Docker, dangerous sandbox/approval bypass flags, or system package mutations from a remote task.
+
+### Add a missing current project
+
+When sync fails because cwd is not configured:
+
+1. Confirm cwd is the repository root and read its fetch remote. Derive the project key from the repository name, local path from cwd, and NAS path by placing the same repository name directly below `remote_project_root` unless the user names another path.
+2. Read [project manifest](references/projects-manifest.md). Edit the manifest through its chezmoi source, never the rendered file. Add a rendered project-rules file too; reuse supplied repository instructions when available.
+3. Preserve the repository's remote name when practical. Stop if the remote URL, project key, local root, NAS destination, or rules are ambiguous or conflict with another entry.
+4. Validate the chezmoi template and skill. Commit configuration on the configured dotfiles branch. Publishing still requires explicit consent when current instructions prohibit pushing.
+5. After publication, run `nas config update`, then `nas projects sync <project>` to clone or fetch both hosts and install ignored `AGENTS.md`.
 
 ## Run native remote tasks
 
@@ -27,6 +38,16 @@ Use Codex app project/thread tools, not `nas agent`, `ssh codex exec`, or tmux:
 2. Choose deepest saved remote project containing target path. Never silently substitute another repository. If no saved project contains target, tell user which remote path must be added.
 3. Create task with local environment. Never request a built-in Git worktree.
 4. Inspect and steer through Codex thread tools.
+
+If task creation returns `codex-app-server-version-unsupported`, repair the remote app server before giving up:
+
+1. Compare `codex --version` with `codex app-server daemon version` over SSH. Keep this host-maintenance step outside any Codex task.
+2. Upgrade user-scoped Codex tooling. If the managed standalone install is missing, inspect and run the official `https://chatgpt.com/codex/install.sh` installer non-interactively; never use a system package manager.
+3. Run `codex app-server daemon bootstrap --remote-control`. If an old unmanaged `/usr/bin/codex app-server --listen unix://` owns the control socket, gracefully terminate only that exact legacy process, then bootstrap again.
+4. Require `cliVersion`, `managedCodexVersion`, and `appServerVersion` to match, with `autoUpdateEnabled` and `remoteControlEnabled` true. Retry task creation once.
+5. Stop and report the exact error if installation, bootstrap, or the retry fails. Never broadly kill Codex processes or delete sockets by hand.
+
+If a Spark task returns `Unsupported parameter: 'reasoning.summary'`, retry once with `gpt-5.6-sol` and the same read-only limits. The parameter comes from task creation, so do not change host-wide reasoning-summary config to work around it.
 
 For read-only exploration:
 

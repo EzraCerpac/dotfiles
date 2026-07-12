@@ -788,8 +788,8 @@ def config_update(manifest: Manifest) -> None:
     run(["jj", "-R", str(source), "bookmark", "set", branch, "-r", remote_revision])
     run(["jj", "-R", str(source), "new", branch])
     targets = config_targets(manifest)
-    run(["chezmoi", "diff", *targets])
-    run(["chezmoi", "apply", *targets])
+    run(["chezmoi", "--no-pager", "diff", *targets])
+    run(["chezmoi", "apply", "--force", *targets])
 
 
 def artifact_transfer(
