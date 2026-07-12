@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+state_file() {
+  printf '%s/%s' "$AEROSPACE_STATE" "$1"
+}
+
+case "${1:-}" in
+  list-monitors)
+    cat "$(state_file monitors)"
+    ;;
+  list-workspaces)
+    shift
+    if [[ ${1:-} == --focused ]]; then
+      cat "$(state_file focused)"
+      exit 0
+    fi
+
+    [[ ${1:-} == --monitor ]]
+    monitor=$2
+    shift 2
+    if [[ ${1:-} == --empty ]]; then
+      cat "$(state_file "empty_$monitor")"
+    else
+      cat "$(state_file "workspaces_$monitor")"
+    fi
+    ;;
+  list-windows)
+    [[ ${2:-} == --workspace ]]
+    workspace=$3
+    if [[ ${FAIL_QUERY_WORKSPACE:-} == "$workspace" ]]; then
+      exit 1
+    fi
+    cat "$(state_file "windows_$workspace")"
+    ;;
+  workspace)
+    printf 'workspace\t%s\n' "$2" >> "$AEROSPACE_LOG"
+    ;;
+  *)
+    exit 2
+    ;;
+esac

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+printf '%s' "$1" >> "$SKETCHYBAR_LOG"
+for argument in "${@:2}"; do
+  printf '\t%s' "$argument" >> "$SKETCHYBAR_LOG"
+done
+printf '\n' >> "$SKETCHYBAR_LOG"
+
+case "$1" in
+  --query)
+    if [[ $2 == bar ]]; then
+      printf '{\n  "items": [\n'
+      for item_path in "$SKETCHYBAR_STATE"/space.*; do
+        [[ -e $item_path ]] || continue
+        printf '    "%s",\n' "${item_path##*/}"
+      done
+      printf '  ]\n}\n'
+    else
+      [[ -e "$SKETCHYBAR_STATE/$2" ]]
+    fi
+    ;;
+  --add)
+    [[ $2 == item ]]
+    touch "$SKETCHYBAR_STATE/$3"
+    ;;
+esac

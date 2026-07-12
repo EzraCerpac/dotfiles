@@ -16,6 +16,7 @@ dot_config/nvim/lazyvim.json
 dot_config/nvim/spell/
 mise.toml
 setup.sh.backup
+tests/
 {{- if ne .profile "delftblue" }}
 dot_bashrc.tmpl
 dot_bash_profile.tmpl
