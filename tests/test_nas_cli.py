@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPT = Path(__file__).parents[1] / "dot_codex" / "skills" / "work-on-cerpacnas" / "scripts" / "nas.py"
 SPEC = importlib.util.spec_from_file_location("nas_cli", SCRIPT)
@@ -122,6 +125,28 @@ class SafetyTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(nas_cli.NasError, "not supported"):
             nas_cli.github_slug("https://gitlab.com/example/project.git")
+
+    def test_legacy_github_scopes_are_reported_without_being_rejected(self):
+        headers = "HTTP/2 200\nX-Oauth-Scopes: gist, read:org, repo, workflow\n"
+        self.assertEqual(
+            nas_cli.github_oauth_scopes(headers),
+            "gist, read:org, repo, workflow",
+        )
+        manifest = ManifestTests().load()
+        manifest = manifest._replace(host=manifest.host._replace(remote_home=Path.home()))
+        stderr = io.StringIO()
+        with (
+            patch.object(nas_cli.shutil, "which", return_value="/usr/bin/tool"),
+            patch.object(nas_cli, "run") as command,
+            patch.object(nas_cli, "output", return_value=headers),
+            redirect_stderr(stderr),
+        ):
+            nas_cli.doctor(manifest, remote_side=True)
+        self.assertIn("warning: GitHub credential has broad legacy OAuth scopes", stderr.getvalue())
+        self.assertIn(
+            ["gh", "api", "repos/EzraCerpac/master-thesis", "--jq", ".full_name"],
+            [call.args[0] for call in command.call_args_list],
+        )
 
     def test_rsync_is_non_deleting_and_dry_by_default(self):
         args = nas_cli.rsync_args(apply=False)
