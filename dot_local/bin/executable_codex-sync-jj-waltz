@@ -10,7 +10,41 @@ DEST_SKILLS=(
     "${CHEZMOI_SOURCE}/dot_codex/skills/jj-waltz"
     "${CHEZMOI_SOURCE}/dot_config/opencode/skills/jj-waltz"
 )
-VALIDATOR="${HOME}/.codex/skills/.system/skill-creator/scripts/quick_validate.py"
+
+validate_skill() {
+    local skill_dir="${1:?skill directory required}"
+
+    uv run --with pyyaml python - "${skill_dir}" <<'PY'
+from pathlib import Path
+import sys
+
+import yaml
+
+skill_dir = Path(sys.argv[1])
+skill_file = skill_dir / "SKILL.md"
+text = skill_file.read_text(encoding="utf-8")
+
+if not text.startswith("---\n"):
+    raise SystemExit(f"{skill_file}: missing YAML frontmatter")
+
+try:
+    _, frontmatter, body = text.split("---", 2)
+except ValueError as exc:
+    raise SystemExit(f"{skill_file}: unclosed YAML frontmatter") from exc
+
+metadata = yaml.safe_load(frontmatter)
+if not isinstance(metadata, dict):
+    raise SystemExit(f"{skill_file}: frontmatter must be a mapping")
+if metadata.get("name") != skill_dir.name:
+    raise SystemExit(f"{skill_file}: name must be {skill_dir.name!r}")
+if not isinstance(metadata.get("description"), str) or not metadata["description"].strip():
+    raise SystemExit(f"{skill_file}: description is required")
+if not body.strip():
+    raise SystemExit(f"{skill_file}: body is required")
+
+print("Skill is valid!")
+PY
+}
 
 if [[ ! -f "${SOURCE_SKILL}/SKILL.md" ]]; then
     echo "Source skill not found: ${SOURCE_SKILL}" >&2
@@ -29,7 +63,7 @@ for DEST_SKILL in "${DEST_SKILLS[@]}"; do
         --exclude '*' \
         "${SOURCE_SKILL}/" "${DEST_SKILL}/"
 
-    uv run --with pyyaml python "${VALIDATOR}" "${DEST_SKILL}"
+    validate_skill "${DEST_SKILL}"
 done
 
 echo "Synced jj-waltz into chezmoi source:"
