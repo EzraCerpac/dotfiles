@@ -1,0 +1,24 @@
+name = "ezra-cerpac: check"
+description = "Run a focused AdaptiveSolverSelection check"
+type = "select"
+command = 'mise -C "{{.Home}}/Projects/Thesis/ezra-cerpac/code" run "{{.Value}}"; status=$?; printf "\n-- exit %s; press Enter to close (auto-closes in 30s) --\n" "$status"; read -t 30 _ </dev/tty || true; exit "$status"'
+
+[[options]]
+label = "Julia tests"
+value = "test"
+
+[[options]]
+label = "Web tests"
+value = "web-test"
+
+[[options]]
+label = "Web lint"
+value = "web-lint"
+
+[[options]]
+label = "Web build"
+value = "web-build"
+
+[[options]]
+label = "Thesis evidence gate"
+value = "thesis-evidence-gate"

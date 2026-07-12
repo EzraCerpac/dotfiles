@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FZF_CANCEL_STATUS=200
+
+require_command() {
+    local command_name="${1:?command name required}"
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
+        printf 'gitlogue-select: required command not found: %s\n' "${command_name}" >&2
+        exit 127
+    fi
+}
+
+capture_selection() {
+    local value=""
+    local status=0
+
+    set +e
+    value="$("${@:2}")"
+    status=$?
+    set -e
+
+    if [[ ${status} -eq ${FZF_CANCEL_STATUS} ]]; then
+        return "${FZF_CANCEL_STATUS}"
+    fi
+    if [[ ${status} -ne 0 ]]; then
+        return "${status}"
+    fi
+    if [[ -z "${value}" ]]; then
+        return "${FZF_CANCEL_STATUS}"
+    fi
+
+    printf -v "$1" '%s' "${value}"
+}
+
+run_fzf() {
+    local selection=""
+    local status=0
+
+    set +e
+    selection="$(fzf "$@")"
+    status=$?
+    set -e
+
+    if [[ ${status} -eq 1 || ${status} -eq 130 ]]; then
+        return "${FZF_CANCEL_STATUS}"
+    fi
+    if [[ ${status} -ne 0 ]]; then
+        return "${status}"
+    fi
+
+    printf '%s\n' "${selection}"
+}
+
+choose_browse_commit() {
+    local commits=""
+    local selection=""
+    local status=0
+
+    if commits="$(git log --oneline --color=always "$@")"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    if selection="$(run_fzf --ansi --no-sort \
+            --preview 'git show --stat --color=always {1}' \
+            --preview-window=right:60% <<<"${commits}")"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    awk '{print $1}' <<<"${selection}" | sed $'s/\033\\[[0-9;]*m//g'
+}
+
+choose_menu_choice() {
+    printf '%s\n' \
+        'Random commits' \
+        'Specific commit' \
+        'By author' \
+        'By date range' \
+        'Theme selection' |
+        run_fzf --prompt='gitlogue> ' --height=40% --reverse
+}
+
+choose_commit() {
+    local commits=""
+    local selection=""
+    local status=0
+
+    if commits="$(git log --oneline)"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    if selection="$(run_fzf --prompt='Select commit> ' <<<"${commits}")"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    awk '{print $1}' <<<"${selection}"
+}
+
+choose_author() {
+    local authors=""
+    local status=0
+
+    if authors="$(git log --format='%an')"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    authors="$(sort -u <<<"${authors}")"
+    run_fzf --prompt='Select author> ' <<<"${authors}"
+}
+
+choose_after() {
+    printf '%s\n' '1 day ago' '1 week ago' '2 weeks ago' '1 month ago' |
+        run_fzf --prompt='After> '
+}
+
+choose_theme() {
+    local themes=""
+    local status=0
+
+    if themes="$(gitlogue theme list)"; then
+        :
+    else
+        status=$?
+        return "${status}"
+    fi
+
+    themes="$(tail -n +2 <<<"${themes}" | sed 's/^  - //')"
+    run_fzf --prompt='Select theme> ' <<<"${themes}"
+}
+
+launch_selection() {
+    local option="${1:?gitlogue option required}"
+    local selection=""
+    local status=0
+    shift
+
+    if capture_selection selection "$@"; then
+        exec gitlogue "${option}" "${selection}"
+    else
+        status=$?
+        [[ ${status} -eq ${FZF_CANCEL_STATUS} ]] && return 0
+        return "${status}"
+    fi
+}
+
+run_browse() {
+    require_command git
+    launch_selection --commit choose_browse_commit "$@"
+}
+
+run_menu() {
+    local choice=""
+    local status=0
+
+    if capture_selection choice choose_menu_choice; then
+        :
+    else
+        status=$?
+        [[ ${status} -eq ${FZF_CANCEL_STATUS} ]] && return 0
+        return "${status}"
+    fi
+
+    case "${choice}" in
+        'Random commits')
+            exec gitlogue
+            ;;
+        'Specific commit')
+            require_command git
+            launch_selection --commit choose_commit
+            ;;
+        'By author')
+            require_command git
+            launch_selection --author choose_author
+            ;;
+        'By date range')
+            launch_selection --after choose_after
+            ;;
+        'Theme selection')
+            launch_selection --theme choose_theme
+            ;;
+        *)
+            printf 'gitlogue-select: unknown menu choice: %s\n' "${choice}" >&2
+            return 1
+            ;;
+    esac
+}
+
+if [[ $# -eq 0 ]]; then
+    printf 'usage: gitlogue-select <browse|menu> [args...]\n' >&2
+    exit 1
+fi
+
+mode="$1"
+shift
+
+case "${mode}" in
+    browse)
+        require_command fzf
+        require_command gitlogue
+        run_browse "$@"
+        ;;
+    menu)
+        if [[ $# -gt 0 ]]; then
+            printf 'gitlogue-select: menu accepts no arguments\n' >&2
+            exit 1
+        fi
+        require_command fzf
+        require_command gitlogue
+        run_menu
+        ;;
+    *)
+        printf 'gitlogue-select: unknown mode: %s\n' "${mode}" >&2
+        exit 1
+        ;;
+esac

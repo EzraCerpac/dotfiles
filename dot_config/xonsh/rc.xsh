@@ -141,17 +141,9 @@ def _oc(args):
 aliases["oc"] = _oc
 
 
-def _wto(args, stderr=None):
+def _wto(args):
     """Create or switch a worktree and launch OpenCode."""
-    if not args:
-        print("usage: wto <branch> [prompt...]", file=stderr or sys.stderr)
-        return 1
-
-    branch = args[0]
-    prompt = args[1:]
-    if prompt:
-        return _run_streamed(["wt", "switch", "-c", branch, "-x", "opencode", "--", *prompt])
-    return _run_streamed(["wt", "switch", "-c", "-x", "opencode", branch])
+    return _run_streamed(["worktree-opencode", *args])
 
 
 aliases["wto"] = _wto
@@ -159,7 +151,7 @@ aliases["wto"] = _wto
 
 def _prdiff(args):
     """Review a pull request diff in diffnav."""
-    return _run_streamed(["bash", "-lc", 'gh pr diff "$@" | diffnav --side-by-side', "prdiff", *args])
+    return _run_streamed(["prdiff-review", *args])
 
 
 aliases["prdiff"] = _prdiff
@@ -167,15 +159,7 @@ aliases["prdiff"] = _prdiff
 
 def _glf(args):
     """Browse commits and launch gitlogue on selection."""
-    script = r'''
-commit="$(git log --oneline --color=always "$@" |
-    fzf --ansi --no-sort \
-        --preview 'git show --stat --color=always {1}' \
-        --preview-window=right:60% |
-    awk '{print $1}')"
-test -n "$commit" && gitlogue --commit "$commit"
-'''
-    return _run_streamed(["bash", "-lc", script, "glf", *args])
+    return _run_streamed(["gitlogue-select", "browse", *args])
 
 
 aliases["glf"] = _glf
@@ -183,33 +167,7 @@ aliases["glf"] = _glf
 
 def _gitlogue_menu(args):
     """Interactive gitlogue menu."""
-    script = r'''
-choice="$(printf '%s\n' "Random commits" "Specific commit" "By author" "By date range" "Theme selection" |
-    fzf --prompt="gitlogue> " --height=40% --reverse)"
-case "$choice" in
-    "Random commits")
-        gitlogue
-        ;;
-    "Specific commit")
-        commit="$(git log --oneline | fzf --prompt="Select commit> " | awk '{print $1}')"
-        test -n "$commit" && gitlogue --commit "$commit"
-        ;;
-    "By author")
-        author="$(git log --format='%an' | sort -u | fzf --prompt="Select author> ")"
-        test -n "$author" && gitlogue --author "$author"
-        ;;
-    "By date range")
-        after="$(printf '%s\n' "1 day ago" "1 week ago" "2 weeks ago" "1 month ago" |
-            fzf --prompt="After> ")"
-        test -n "$after" && gitlogue --after "$after"
-        ;;
-    "Theme selection")
-        theme="$(gitlogue theme list | tail -n +2 | sed 's/^  - //' | fzf --prompt="Select theme> ")"
-        test -n "$theme" && gitlogue --theme "$theme"
-        ;;
-esac
-'''
-    return _run_streamed(["bash", "-lc", script, "gitlogue-menu", *args])
+    return _run_streamed(["gitlogue-select", "menu", *args])
 
 
 aliases["gitlogue-menu"] = _gitlogue_menu

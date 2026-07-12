@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if eq .profile "nas" }}
+echo "CerpacNAS profile detected; skipping Herdr plugins."
+exit 0
+{{- else }}
+
+if ! command -v herdr &>/dev/null; then
+    echo "Herdr is not installed; skipping plugins"
+    exit 0
+fi
+
+if ! command -v jq &>/dev/null; then
+    echo "jq is required by Herdr plugin setup; skipping installation"
+    exit 0
+fi
+
+install_plugin() {
+    local plugin_id="$1"
+    local plugin_repo="$2"
+    local plugin_commit="$3"
+    local current_commit
+
+    current_commit="$(
+        herdr plugin list --plugin "${plugin_id}" --json \
+            | jq -r --arg id "${plugin_id}" \
+                '.result.plugins[]? | select(.plugin_id == $id) | .source.resolved_commit // empty'
+    )"
+
+    if [[ "${current_commit}" == "${plugin_commit}" ]]; then
+        return
+    fi
+
+    echo "Installing ${plugin_id}..."
+    herdr plugin install "${plugin_repo}" --ref "${plugin_commit}" --yes
+}
+
+install_plugin \
+    "cloudmanic.herdr-plus" \
+    "cloudmanic/herdr-plus" \
+    "013fe1667a638487004164955a01707584ab7b9e"
+install_plugin \
+    "ezracerpac.jj-waltz" \
+    "EzraCerpac/jj-waltz/plugins/herdr" \
+    "fcc2d16d293d66dafbe6d64188370f9d01108ae7"
+install_plugin \
+    "vim-herdr-navigation" \
+    "paulbkim-dev/vim-herdr-navigation" \
+    "53e318c772c4d3b7fbd904ac43bcf3e5b5d8b244"
+install_plugin \
+    "herdr-picker-plus" \
+    "thanhdat77/herdr-picker-plus" \
+    "1a80beef4f4c217ba6052d5153f3dfe876a8ee1c"
+{{- end }}

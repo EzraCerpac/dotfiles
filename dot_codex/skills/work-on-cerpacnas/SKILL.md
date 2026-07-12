@@ -39,5 +39,5 @@ Root login is intentional. Still keep all work below `/root/Projects`; never inv
 
 - Use `nas config status` before `nas config update`.
 - Use `nas projects sync <project>` to clone/fetch and install local rules. It never integrates work.
-- Use `nas artifact plan` first. `push` and `pull` require `--apply` and accept only manifest keys.
+- Use `nas artifact plan <project> <key> --direction push|pull` first. The matching `push` or `pull --apply` consumes that one-hour plan receipt.
 - The return handoff reports exact bookmark, commit, recorded checks, and Mac-only skipped checks. Also report run id and artifact key when used.

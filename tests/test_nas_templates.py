@@ -67,6 +67,23 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("keymap-drawer", rendered)
         self.assertNotIn("codex-acp", rendered)
 
+    def test_nas_ignores_workstation_reconciliation_hooks(self):
+        for name in (
+            "run_after_03-reconcile-tools.sh.tmpl",
+            "run_after_27-install-herdr-plugins.sh.tmpl",
+            "run_once_07-remove-legacy-kbd-commands.sh.tmpl",
+        ):
+            rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=(ROOT / name).read_text())
+            self.assertIn("CerpacNAS profile detected", rendered)
+            self.assertNotIn("sudo apt-get", rendered)
+            self.assertNotIn("herdr plugin install", rendered)
+
+    def test_nas_ignores_workstation_credentials(self):
+        ignored = chezmoi("ignored", nas=True).splitlines()
+        self.assertIn(".wakatime.cfg", ignored)
+        self.assertIn(".cli-proxy-api", ignored)
+        self.assertIn(".ssh/config", ignored)
+
     def test_nas_modern_git_hook_is_user_space_only(self):
         source = (ROOT / "run_onchange_05-install-nas-git.sh.tmpl").read_text()
         rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=source)

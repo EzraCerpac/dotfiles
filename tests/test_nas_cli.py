@@ -111,6 +111,18 @@ class SafetyTests(unittest.TestCase):
         command = nas_cli.remote_shell_command(["printf", "%s", "hello; touch /tmp/nope"])
         self.assertEqual(command, "printf %s 'hello; touch /tmp/nope'")
 
+    def test_github_repo_slug_accepts_https_and_ssh(self):
+        self.assertEqual(
+            nas_cli.github_slug("https://github.com/EzraCerpac/master-thesis.git"),
+            "EzraCerpac/master-thesis",
+        )
+        self.assertEqual(
+            nas_cli.github_slug("git@github.com:EzraCerpac/master-thesis.git"),
+            "EzraCerpac/master-thesis",
+        )
+        with self.assertRaisesRegex(nas_cli.NasError, "not supported"):
+            nas_cli.github_slug("https://gitlab.com/example/project.git")
+
     def test_rsync_is_non_deleting_and_dry_by_default(self):
         args = nas_cli.rsync_args(apply=False)
         self.assertIn("--dry-run", args)
@@ -167,6 +179,8 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(hidden.remote_args[-1], "--no-push")
         validate = parser.parse_args(["validate", "thesis", "selector-ui", "focus:selector", "--calibrate"])
         self.assertTrue(validate.calibrate)
+        artifact = parser.parse_args(["artifact", "plan", "thesis", "data", "--direction", "pull"])
+        self.assertEqual(artifact.direction, "pull")
 
     def test_config_update_uses_jj_and_never_integrates_with_git(self):
         source = SCRIPT.read_text()

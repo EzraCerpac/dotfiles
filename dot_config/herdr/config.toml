@@ -1,8 +1,22 @@
+onboarding = false
+
+[theme]
+name = "catppuccin"
+
+[keys]
+prefix = "ctrl+b"
+previous_workspace = "prefix+left"
+next_workspace = "prefix+right"
+switch_workspace = "prefix+shift+1..9"
+
 [ui.toast]
 delivery = "system"
 
 [ui]
 show_agent_labels_on_pane_borders = true
+
+[ui.sound]
+enabled = false
 
 [experimental]
 pane_history = true
@@ -18,6 +32,12 @@ key = "prefix+down"
 type = "plugin_action"
 command = "cloudmanic.herdr-plus.quick-actions"
 description = "herdr-plus: quick actions"
+
+[[keys.command]]
+key = "prefix+t"
+type = "plugin_action"
+command = "herdr-picker-plus.open"
+description = "search Herdr"
 
 [[keys.command]]
 key = "prefix+a"

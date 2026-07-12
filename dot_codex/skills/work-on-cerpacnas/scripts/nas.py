@@ -933,10 +933,46 @@ def artifact_transfer(
             raise NasError(f"local artifact missing: {local_path}")
         arguments.extend([f"{local_path}/", f"{manifest.host.ssh_alias}:{remote_path}/"])
     else:
-        local_path.mkdir(parents=True, exist_ok=True)
+        if apply:
+            local_path.mkdir(parents=True, exist_ok=True)
         arguments.extend([f"{manifest.host.ssh_alias}:{remote_path}/", f"{local_path}/"])
     print("apply" if apply else "dry-run", direction, f"{project.name}/{artifact_name}")
     run(arguments)
+
+
+def artifact_plan_path(project: ProjectConfig, artifact_name: str, direction: str) -> Path:
+    return Path.home() / STATE_RELATIVE / "artifact-plans" / project.name / f"{artifact_name}-{direction}.json"
+
+
+def record_artifact_plan(project: ProjectConfig, artifact_name: str, direction: str) -> None:
+    _write_json(
+        artifact_plan_path(project, artifact_name, direction),
+        {
+            "artifact": artifact_name,
+            "created_at": int(time.time()),
+            "direction": direction,
+            "project": project.name,
+        },
+    )
+
+
+def require_artifact_plan(project: ProjectConfig, artifact_name: str, direction: str) -> Path:
+    path = artifact_plan_path(project, artifact_name, direction)
+    payload = _read_json(path)
+    if time.time() - int(payload.get("created_at", 0)) > 3600:
+        raise NasError("artifact dry-run plan is older than one hour; plan again")
+    if payload.get("project") != project.name or payload.get("artifact") != artifact_name:
+        raise NasError("artifact dry-run receipt does not match this transfer")
+    if payload.get("direction") != direction:
+        raise NasError("artifact dry-run direction does not match this transfer")
+    return path
+
+
+def github_slug(repo: str) -> str:
+    match = re.fullmatch(r"(?:https://github\.com/|git@github\.com:)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?", repo)
+    if not match:
+        raise NasError(f"GitHub repository URL is not supported: {repo}")
+    return match.group(1)
 
 
 def doctor(manifest: Manifest, *, remote_side: bool) -> None:
@@ -951,6 +987,14 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
             raise NasError(f"remote home mismatch: expected {manifest.host.remote_home}, got {Path.home()}")
         run(["codex", "login", "status"])
         run(["gh", "auth", "status"])
+        headers = output(["gh", "api", "-i", "user"])
+        oauth_scopes = re.search(r"^x-oauth-scopes:\s*(.+)$", headers, flags=re.IGNORECASE | re.MULTILINE)
+        if oauth_scopes and oauth_scopes.group(1).strip():
+            raise NasError(
+                "GitHub credential uses legacy broad OAuth scopes; replace it with a fine-grained repo token"
+            )
+        for project in manifest.projects.values():
+            run(["gh", "api", f"repos/{github_slug(project.repo)}", "--jq", ".full_name"])
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -994,6 +1038,7 @@ def build_parser() -> argparse.ArgumentParser:
     artifact.add_argument("action", choices=("plan", "push", "pull"))
     artifact.add_argument("project")
     artifact.add_argument("artifact")
+    artifact.add_argument("--direction", choices=("push", "pull"), default="push")
     artifact.add_argument("--apply", action="store_true")
     hidden = sub.add_parser("_remote", help=argparse.SUPPRESS)
     hidden.add_argument("remote_args", nargs=argparse.REMAINDER)
@@ -1209,14 +1254,21 @@ def main(argv: list[str] | None = None) -> int:
             apply = options.apply and options.action in {"push", "pull"}
             if options.action in {"push", "pull"} and not options.apply:
                 raise NasError("artifact push/pull requires explicit --apply; use artifact plan first")
-            direction = "push" if options.action == "plan" else options.action
+            direction = options.direction if options.action == "plan" else options.action
+            project = project_by_name(manifest, options.project)
+            receipt = require_artifact_plan(project, options.artifact, direction) if apply else None
             artifact_transfer(
                 manifest,
-                project_by_name(manifest, options.project),
+                project,
                 options.artifact,
                 direction,
                 apply,
             )
+            if options.action == "plan":
+                record_artifact_plan(project, options.artifact, direction)
+                print("plan receipt valid for one hour")
+            elif receipt:
+                receipt.unlink()
         return 0
     except NasError as error:
         print(f"nas: {error}", file=sys.stderr)

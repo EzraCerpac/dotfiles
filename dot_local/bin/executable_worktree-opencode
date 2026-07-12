@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+require_command() {
+    local command_name="${1:?command name required}"
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
+        printf 'worktree-opencode: required command not found: %s\n' "${command_name}" >&2
+        exit 127
+    fi
+}
+
+if [[ $# -eq 0 || -z "$1" ]]; then
+    printf 'usage: worktree-opencode <branch> [prompt...]\n' >&2
+    exit 1
+fi
+
+require_command wt
+require_command opencode
+
+branch="$1"
+shift
+
+if [[ $# -gt 0 ]]; then
+    exec wt switch --create "${branch}" --execute opencode -- "$@"
+fi
+
+exec wt switch --create "${branch}" --execute opencode

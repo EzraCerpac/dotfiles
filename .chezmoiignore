@@ -6,6 +6,7 @@ tests/
 
 backups/
 backups/**
+tests/
 *bak
 **/*bak
 **/*.bak
@@ -25,6 +26,7 @@ dot_DELFTBLUE.md.tmpl
 
 {{- if eq .chezmoi.os "linux" }}
 # macOS-only apps (source paths)
+dot_local/bin/executable_brew-adopt
 dot_config/aerospace/
 dot_config/sketchybar/
 dot_config/private_karabiner/
@@ -33,6 +35,7 @@ dot_config/raycast/
 dot_config/svim/
 dot_wezterm.lua
 # macOS-only apps (target paths)
+.local/bin/brew-adopt
 .config/aerospace/
 .config/sketchybar/
 .config/karabiner/
@@ -105,6 +108,9 @@ dot_julia/
 dot_zprofile
 dot_zshenv
 dot_zshrc
+.wakatime.cfg
+.cli-proxy-api/
+.ssh/config
 run_after_25-configure-gitlogue-screensaver.sh.tmpl
 run_after_26-sync-jj-waltz-skill.sh.tmpl
 {{- else }}

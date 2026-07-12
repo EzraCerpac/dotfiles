@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+{{- if eq .profile "nas" }}
+echo "CerpacNAS profile detected; skipping workstation keyboard cleanup."
+exit 0
+{{- else }}
+
 rm -f \
     "${HOME}/.local/bin/kbd-build" \
     "${HOME}/.local/bin/kbd-build-all" \
@@ -13,3 +18,4 @@ rm -f \
     "${HOME}/.local/bin/kbd-open-artifacts" \
     "${HOME}/.local/bin/kbd-setup" \
     "${HOME}/.local/bin/kbd-sync"
+{{- end }}
