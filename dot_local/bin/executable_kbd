@@ -374,6 +374,7 @@ cmd_provision() {
         return 1
     fi
 
+    qmk_env_path
     cmd_provision_prerequisites
     cmd_provision_qmk
     sudo -v
