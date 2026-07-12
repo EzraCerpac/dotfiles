@@ -10,9 +10,7 @@ uv = "latest"
 neovim = "nightly"
 
 [tools.julia]
-# Thesis pin: keep the global default Julia on 1.11.6 until the thesis work is done.
-# Revert this to the newer default after the thesis.
-version = "1.11.6"
+version = "nightly"
 version_list_url = "https://julialang-s3.julialang.org/bin/versions.json"
 
 [tools.julia.platforms.linux-arm64]
