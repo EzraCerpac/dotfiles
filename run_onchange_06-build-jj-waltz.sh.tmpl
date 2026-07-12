@@ -11,6 +11,30 @@ exit 0
 
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
+{{- if eq .profile "nas" }}
+VERSION="{{ .nas.jj_waltz_version }}"
+EXPECTED_SHA256="{{ .nas.jj_waltz_sha256 }}"
+ASSET="jj-waltz-x86_64-unknown-linux-musl.tar.gz"
+BASE_URL="https://github.com/EzraCerpac/jj-waltz/releases/download/v${VERSION}"
+TEMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TEMP_DIR}"' EXIT
+
+echo "Installing static jj-waltz v${VERSION} for CerpacNAS..."
+if [[ ! "${EXPECTED_SHA256}" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Skipping jj-waltz v${VERSION}: publish it, then pin nas.jj_waltz_sha256 in .chezmoi.toml.tmpl" >&2
+    exit 0
+fi
+curl -fsSL "${BASE_URL}/${ASSET}" -o "${TEMP_DIR}/${ASSET}"
+(
+    cd "${TEMP_DIR}"
+    printf '%s  %s\n' "${EXPECTED_SHA256}" "${ASSET}" | sha256sum -c -
+    tar -xzf "${ASSET}"
+)
+install -Dm755 "${TEMP_DIR}/jj-waltz-x86_64-unknown-linux-musl/jw" "$HOME/.local/bin/jw"
+"$HOME/.local/bin/jw" --version
+exit 0
+{{- end }}
+
 JJ_WALTZ_DIR="$HOME/Projects/jj-waltz"
 if [[ ! -f "$JJ_WALTZ_DIR/Cargo.toml" ]]; then
     echo "Skipping local jj-waltz build: $JJ_WALTZ_DIR/Cargo.toml not found"

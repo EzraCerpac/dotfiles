@@ -1,0 +1,30 @@
+version = 1
+
+[host]
+ssh_alias = "{{ .nas.host_alias }}"
+remote_home = "/root"
+remote_project_root = "/root/Projects"
+dotfiles_branch = "{{ .nas.dotfiles_branch }}"
+explore_model = "gpt-5.3-codex-spark"
+work_model = "gpt-5.6-sol"
+
+[projects.thesis]
+repo = "https://github.com/EzraCerpac/master-thesis.git"
+{{- if eq .profile "nas" }}
+local_path = "/root/Projects/Thesis/ezra-cerpac"
+{{- else }}
+local_path = "{{ .chezmoi.homeDir }}/Projects/Thesis/ezra-cerpac"
+{{- end }}
+remote_path = "/root/Projects/Thesis/ezra-cerpac"
+remote_name = "github"
+{{- if eq .profile "nas" }}
+rules_file = "/root/.config/cerpacnas/project-rules/thesis.AGENTS.md"
+{{- else }}
+rules_file = "{{ .chezmoi.homeDir }}/.config/cerpacnas/project-rules/thesis.AGENTS.md"
+{{- end }}
+
+[projects.thesis.artifacts.data]
+path = "data"
+
+[projects.thesis.artifacts.output]
+path = "code/out"

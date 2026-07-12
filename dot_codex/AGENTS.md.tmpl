@@ -1,0 +1,39 @@
+/caveman
+
+Open to your suggestions. If have a good idea, stop and tell me. Even if I give direct command, you stop and say why maybe not good idea. I don't understand typscript/web-app/api architectures very well; explain in simple language.
+
+Use jj. Make commits with short one-line messages. Squash and group commits when see fit, and make parallel commits if you like. If change incremental, squashing instead of new commit. Use jj's nice feature set, and prefer merging to rebasing. When completely done with task, move to empty commit. Move bookmarks like wip/... (never main, don't push) to the top. Clean up workspaces AND bookmark if appropriate.
+
+AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
+
+Use uv for Python.
+
+Invoke subagents whenever you see fit (5.6 family), and specifically use gpt-5.3-codex-spark for exploration, scaffolding and searches.
+For larg independent tasks, create workspaces with jw and spawn Codex chats. DO NOT USE BUILT-IN WORKTREES.
+
+Backwards compatibility never main concern, prefer simplicity and overall best design-choice. Keep codebase simple.
+
+<!-- CODEGRAPH_START -->
+## CodeGraph
+
+In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE rg/fd or reading files when you need to understand or locate code:
+
+- **MCP tools**: `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them. `codegraph_node` returns one symbol's source + callers, or reads a whole file with line numbers. If the tools are listed but deferred, load them by name via tool search.
+- **Shell equivalent**: `codegraph explore "<symbol names or question>"` and `codegraph node <symbol-or-file>` print the same output.
+
+If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
+<!-- CODEGRAPH_END -->
+{{- if eq .profile "nas" }}
+
+## CerpacNAS limits
+
+- Work only below `/root/Projects` and the task's `jw` workspace.
+- Root login is intentional, but never use `sudo`, Docker, system package changes, or dangerous sandbox/approval bypass flags. `--skip-git-repo-check` is allowed only for a secondary JJ workspace without `.git`.
+- Allow one work agent or two read-only exploration agents. Never parallelize heavy commands.
+- Run validation through `nas validate`: one lane, one job, `JULIA_NUM_THREADS=1`, a 180-second ceiling, and peak-RSS recording.
+- Cheap web format, pure-test, type-check, and Julia format lanes are allowed sequentially. A focused Julia lane needs one successful calibration.
+- A lane exceeding 180 seconds or 3 GiB peak RSS is disabled.
+- Never run `validate all`, `validate evidence`, `thesis-evidence-gate`, benchmarks, browser or API-live tests, or make performance claims here.
+- Report skipped Mac or CI validation in every handoff.
+- Transfer code only through GitHub `wip/...` bookmarks. Transfer only allowlisted artifacts with `nas artifact`; never rsync project roots.
+{{- end }}

@@ -12,6 +12,13 @@ echo "DelftBlue profile detected; skipping workstation packages."
 exit 0
 {{- end }}
 
+{{- if eq .profile "nas" }}
+echo "CerpacNAS profile detected; using user-space mise tools only."
+exit 0
+{{- end }}
+
+{{- if ne .profile "nas" }}
+
 {{- if eq .chezmoi.os "darwin" }}
 
 BREW_BIN=""
@@ -68,6 +75,8 @@ if command -v apt-get &>/dev/null; then
 else
     echo "Warning: apt-get not found, skipping system packages"
 fi
+
+{{- end }}
 
 {{- end }}
 

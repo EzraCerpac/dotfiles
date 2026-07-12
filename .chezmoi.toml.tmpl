@@ -16,7 +16,13 @@ autoPush = false
 [data]
 name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
-profile = "workstation"
+profile = "{{ if contains "cerpacnas" (lower .chezmoi.hostname) }}nas{{ else }}workstation{{ end }}"
+
+[data.nas]
+host_alias = "nas"
+dotfiles_branch = "dev"
+jj_waltz_version = "0.3.1"
+jj_waltz_sha256 = ""
 
 [data.delftblue]
 netid = "ecerpac"

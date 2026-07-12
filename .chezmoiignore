@@ -1,4 +1,5 @@
 AGENTS.md
+tests/
 */*.org#
 **/.DS_Store
 **/__pycache__/
@@ -62,4 +63,52 @@ dot_zshenv
 dot_zshrc
 run_after_25-configure-gitlogue-screensaver.sh.tmpl
 run_after_26-sync-jj-waltz-skill.sh.tmpl
+{{- end }}
+
+{{- if eq .profile "nas" }}
+# Keep CerpacNAS small and headless. Codex, mise, Git, and NAS helpers stay included.
+dot_config/atuin/
+.config/atuin/
+dot_config/fish/
+.config/fish/
+dot_config/gh-dash/
+.config/gh-dash/
+dot_config/gitui/
+.config/gitui/
+dot_config/goose/
+.config/goose/
+dot_config/nvim/
+.config/nvim/
+dot_config/opencode/
+.config/opencode/
+dot_config/private_himalaya/
+.config/himalaya/
+dot_config/private_jj/
+.config/jj/
+dot_config/starship-jj/
+.config/starship-jj/
+dot_config/television/
+.config/television/
+dot_config/worktrunk/
+.config/worktrunk/
+dot_config/xonsh/
+.config/xonsh/
+dot_config/delftblue/
+.config/delftblue/
+dot_DELFTBLUE.md.tmpl
+.DELFTBLUE.md
+dot_local/bin/*db*
+.local/bin/db*
+dot_julia/
+.julia/
+.julia/**
+dot_zprofile
+dot_zshenv
+dot_zshrc
+run_after_25-configure-gitlogue-screensaver.sh.tmpl
+run_after_26-sync-jj-waltz-skill.sh.tmpl
+{{- else }}
+# Local Codex config is app-managed. Only NAS receives the minimal managed file.
+dot_codex/config.toml.tmpl
+.codex/config.toml
 {{- end }}

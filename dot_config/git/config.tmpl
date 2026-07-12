@@ -103,7 +103,11 @@
 	sort = -taggerdate
 [color "branch"]
 	current = magenta
+{{- if eq .profile "nas" }}
+	local = blue
+{{- else }}
 	local = default
+{{- end }}
 	remote = yellow
 	upstream = green
 	plain = blue

@@ -1,0 +1,73 @@
+# AGENTS.md
+
+- Active implementation work now lives in `./code/`, the `AdaptiveSolverSelection` Julia package.
+- Deprecated codebases live in `./code/reference/`. Treat them as source references for porting ideas, not maintained runnable packages.
+- Make sure to always keep docs and web-app experiment views up to date.
+- Validate changes in proportion to their risk. For narrow or mechanical changes that are clearly safe, prefer targeted checks and do not run the full test suite or prototype benchmark by default. Run broader tests and the relevant benchmark when changing math, solvers, methodology, runtime behavior, or when confidence is lower.
+- Limit the amount and detail of tests. They should purely test functionality, not configuration.
+- Keep the codebase as lean as possible; it should be easy to change and adapt. Take effort in reducing technical debt.
+
+## Command Conventions
+
+- Prefer `mise run <task>` when a matching task exists in `.mise.toml`.
+- For active code, run commands from `code/` unless a task says otherwise.
+
+## Long Runs
+
+- For long scripts, benchmarks, or experiments, poll at longer intervals to avoid wasting conversation tokens; do not emit repetitive status checks more often than needed.
+- Before or while a long run executes, give a rough runtime estimate. Base it on the dominant parameters and update the estimate as observed runtime accumulates.
+- Add a lightweight progress meter or periodic progress log when practical, especially for scripts that otherwise stay silent for minutes.
+- Put a short runtime guide near the top of long-running scripts when representative timings exist.
+
+## Julia Style
+
+- In Julia math-heavy code, prefer Unicode and LaTeX-like identifiers when they improve readability.
+- Use Unicode operators when they make intent clearer, for example `a ⋅ b` instead of `dot(a, b)`.
+- Keep public schemas, exported column names, and cross-language interfaces ASCII unless there is a strong reason not to.
+- Leave references to entries in `./literature/library.bib` in comments throughout the codebase; everything must be traceable to literature.
+- When changing math, solver, benchmarking, regime, or selector methodology, update nearby `Sources:` comments, `./code/docs/scientific-source-map.md`, and `./literature/library.bib` together.
+
+## Web-App Notes
+
+- The web app is desktop-first and should not be optimized for mobile.
+- It should be featureful but look minimal, showing information adaptively and using tooltips.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues on `EzraCerpac/master-thesis`; external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default Matt Pocock triage labels are used unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a multi-context repo: read `CONTEXT-MAP.md` first, then the relevant context file and ADRs. See `docs/agents/domain.md`.
+
+### CodeGraph
+
+- This repo is CodeGraph-indexed, including Julia and TypeScript. Use CodeGraph before `rg` or file reads for active code in `code/` and `code/web/`.
+- Treat CodeGraph call paths as navigation aid. For math or solver changes, still verify with tests, benchmarks, docs, `Sources:` comments, `code/docs/scientific-source-map.md`, and `literature/library.bib`.
+
+## Repository Notes
+
+- Meeting notes and thesis planning artifacts are in top-level thesis folders.
+- `./presentations/seminar_presentation/` is the main working surface for the seminar presentation; adapt and improve its presentation template freely.
+- For active AdaptiveSolverSelection terminology, read `CONTEXT-MAP.md` and `code/CONTEXT.md` before changing docs or web-app experiment views.
+- For historical SolverTests terminology, read `code/reference/solver_tests/CONTEXT.md`.
+{{- if eq .profile "nas" }}
+
+## CerpacNAS validation policy
+
+- Root login is intentional, but work only in the assigned `jw` workspace below `/root/Projects`.
+- Never use `sudo`, Docker, package-manager mutation, or dangerous sandbox/approval bypass flags.
+- Set `JULIA_NUM_THREADS=1`; run one lane at a time through `nas validate`, which enforces a 180-second limit and records peak RSS.
+- Allowed by default: web format, pure tests, type-check, and Julia format check.
+- A focused Julia lane must first pass `nas validate thesis <task> focus:<seam> --calibrate`.
+- A lane that exceeds 180 seconds or 3 GiB peak RSS is disabled on this NAS.
+- Never run `validate all`, `validate evidence`, the thesis evidence gate, benchmarks, browser tests, or API-live tests.
+- Leave performance conclusions and final acceptance for Mac or CI; list skipped checks in the handoff report.
+- Never push unless `nas handoff ... --push` explicitly authorizes the selected `wip/...` bookmark. Never move `main`.
+{{- end }}

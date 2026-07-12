@@ -1,0 +1,4 @@
+interface:
+  display_name: "Work on CerpacNAS"
+  short_description: "Handoff work and run safe remote Codex agents"
+  default_prompt: "Use $work-on-cerpacnas to inspect, hand off, run, or retrieve project work on CerpacNAS through the managed nas command."

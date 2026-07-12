@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if ne .profile "nas" }}
+exit 0
+{{- end }}
+
+MICROMAMBA_VERSION="2.8.1-0"
+MICROMAMBA_SHA256="9689782d863c05a1bf5d2d371ba527104e7a4eb4310c1637d8653b751aed9c82"
+MICROMAMBA_URL="https://github.com/mamba-org/micromamba-releases/releases/download/${MICROMAMBA_VERSION}/micromamba-linux-64"
+GIT_PREFIX="$HOME/.local/share/git-modern"
+TEMP_FILE="$(mktemp)"
+trap 'rm -f "${TEMP_FILE}"' EXIT
+
+mkdir -p "$HOME/.local/bin"
+curl -fsSL "${MICROMAMBA_URL}" -o "${TEMP_FILE}"
+printf '%s  %s\n' "${MICROMAMBA_SHA256}" "${TEMP_FILE}" | sha256sum -c -
+install -m755 "${TEMP_FILE}" "$HOME/.local/bin/micromamba"
+
+if [[ -x "${GIT_PREFIX}/bin/git" ]]; then
+    "$HOME/.local/bin/micromamba" install -y -p "${GIT_PREFIX}" -c conda-forge "git>=2.41"
+else
+    "$HOME/.local/bin/micromamba" create -y -p "${GIT_PREFIX}" -c conda-forge "git>=2.41"
+fi
+ln -sfn "${GIT_PREFIX}/bin/git" "$HOME/.local/bin/git"
+"$HOME/.local/bin/git" --version

@@ -21,6 +21,12 @@ EOF
 exit 0
 {{- end }}
 
+{{- if eq .profile "nas" }}
+echo "CerpacNAS profile detected; leaving the root login shell unchanged."
+echo "Shell setup complete"
+exit 0
+{{- end }}
+
 CURRENT_USER_SHELL=""
 if [[ "${OSTYPE}" == darwin* ]]; then
     CURRENT_USER_SHELL="$(dscl . -read "/Users/${USER}" UserShell 2>/dev/null | awk '{print $2}' || true)"

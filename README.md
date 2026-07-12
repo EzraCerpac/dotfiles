@@ -49,7 +49,7 @@ Review defaults:
 ```
 dot_config/                          → ~/.config/
   fish/config.fish.tmpl              → fish shell (cross-platform template)
-  mise/config.toml                   → versioned runtimes and pinned tools
+  mise/config.toml.tmpl              → profile-aware versioned runtimes and pinned tools
   nvim/                              → neovim config
   git/, jj/, starship.toml, ...     → other tool configs
 run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
@@ -139,6 +139,30 @@ and stops for manual `chezmoi merge` if any other destination drift is present.
 - Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
 - On Linux, system packages install via `apt-get`; on macOS, via `brew`
 - `mise` is used only for version-sensitive runtimes and pinned tools, not as the universal installer
+
+## CerpacNAS Remote Codex
+
+The `nas` chezmoi profile keeps CerpacNAS headless and small. It installs a minimal user-space toolset, shared Codex rules, the `work-on-cerpacnas` skill, a project manifest, and the `nas` command. It also installs modern Git in a small micromamba prefix because Debian 10's Git is too old for current JJ credential operations. Existing `nas`/`cerpacnas` SSH aliases continue to use root; agent commands stay sandboxed below `/root/Projects` and never use `sudo`, Docker, or dangerous sandbox/approval bypass flags. Codex receives `--skip-git-repo-check` only because secondary JJ workspaces intentionally have no `.git` directory.
+
+Use GitHub/JJ for code, chezmoi `dev` for configuration, and allowlisted rsync only for artifacts:
+
+```bash
+nas doctor
+nas projects status thesis
+nas projects sync thesis
+nas handoff thesis my-task --to nas --push
+nas agent start thesis my-task --mode explore -- "Inspect the requested seam"
+nas agent status
+nas validate thesis my-task web-type
+nas validate thesis my-task focus:selector --calibrate
+nas handoff thesis my-task --to mac --push
+nas artifact plan thesis data
+nas artifact push thesis data --apply
+```
+
+`nas projects sync --all` reconciles only projects declared in `~/.config/cerpacnas/projects.toml`. It clones or fetches; it never merges, rebases, pushes, deletes, or mirrors live project directories. Artifact commands exclude repository metadata, dependencies, caches, and credentials and never use `rsync --delete`.
+
+The NAS profile auto-selects on the CerpacNAS hostname. It follows the dotfiles `dev` branch, leaves `main` untouched, and installs the static x86_64-musl `jw` release pinned in chezmoi data.
 
 ## DelftBlue Profile
 

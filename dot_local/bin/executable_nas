@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT="${HOME}/.codex/skills/work-on-cerpacnas/scripts/nas.py"
+if [[ ! -f "${SCRIPT}" ]]; then
+    echo "CerpacNAS skill script not found: ${SCRIPT}" >&2
+    exit 1
+fi
+
+exec uv run --python 3.12 --directory "${HOME}" python "${SCRIPT}" "$@"
