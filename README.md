@@ -43,6 +43,8 @@ Review defaults:
 - `jj-waltz` skill content is sourced from `~/Projects/jj-waltz/skills/jj-waltz` and auto-synced on `chezmoi apply` to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
 - `prdiff [pr]` opens `gh pr diff` output in `diffnav`
+- `glf [git-log-args...]` selects a commit and replays it in `gitlogue`
+- `gitlogue-menu` selects a Gitlogue mode, author, date range, commit, or theme
 
 ## Repository Structure
 

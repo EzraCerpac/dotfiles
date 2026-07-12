@@ -157,23 +157,11 @@ if test -x $HOME/.local/bin/jw
 end
 
 function wto --description "Create or switch a worktree and launch OpenCode"
-    if test (count $argv) -eq 0
-        echo "usage: wto <branch> [prompt...]" >&2
-        return 1
-    end
-
-    set -l branch $argv[1]
-    set -e argv[1]
-
-    if test (count $argv) -gt 0
-        wt switch -c $branch -x opencode -- $argv
-    else
-        wt switch -c -x opencode $branch
-    end
+    worktree-opencode $argv
 end
 
 function prdiff --description "Review a pull request diff in diffnav"
-    gh pr diff $argv | diffnav --side-by-side
+    prdiff-review $argv
 end
 
 {{- if eq .chezmoi.os "darwin" }}
@@ -201,36 +189,12 @@ alias lss='julia -e "import LiveServer as LS; LS.serve(launch_browser=true)"'
 # ---------- Gitlogue ----------
 # Browse commits and launch gitlogue on selection
 function glf
-    set -l commit (git log --oneline --color=always $argv | \
-        fzf --ansi \
-            --no-sort \
-            --preview 'git show --stat --color=always {1}' \
-            --preview-window=right:60% | \
-        awk '{print $1}')
-    test -n "$commit"; and gitlogue --commit "$commit"
+    gitlogue-select browse $argv
 end
 
 # Interactive gitlogue menu
 function gitlogue-menu
-    set -l choice (printf '%s\n' "Random commits" "Specific commit" "By author" "By date range" "Theme selection" | \
-        fzf --prompt="gitlogue> " --height=40% --reverse)
-
-    switch $choice
-        case "Random commits"
-            gitlogue
-        case "Specific commit"
-            set -l commit (git log --oneline | fzf --prompt="Select commit> " | awk '{print $1}')
-            test -n "$commit"; and gitlogue --commit "$commit"
-        case "By author"
-            set -l author (git log --format='%an' | sort -u | fzf --prompt="Select author> ")
-            test -n "$author"; and gitlogue --author "$author"
-        case "By date range"
-            set -l after (printf '%s\n' "1 day ago" "1 week ago" "2 weeks ago" "1 month ago" | fzf --prompt="After> ")
-            test -n "$after"; and gitlogue --after "$after"
-        case "Theme selection"
-            set -l theme (gitlogue theme list | tail -n +2 | sed 's/^  - //' | fzf --prompt="Select theme> ")
-            test -n "$theme"; and gitlogue --theme "$theme"
-    end
+    gitlogue-select menu $argv
 end
 
 {{- if eq .chezmoi.os "darwin" }}
