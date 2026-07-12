@@ -13,7 +13,7 @@ OVERRIDE = json.dumps(
             "host_alias": "nas",
             "dotfiles_branch": "dev",
             "jj_waltz_version": "0.3.1",
-            "jj_waltz_sha256": "",
+            "jj_waltz_sha256": "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8",
         },
     }
 )
@@ -84,6 +84,31 @@ class TemplateTests(unittest.TestCase):
         self.assertIn(".cli-proxy-api", ignored)
         self.assertIn(".ssh/config", ignored)
 
+    def test_nas_managed_set_excludes_workstation_surfaces(self):
+        managed = chezmoi("managed", nas=True).splitlines()
+        for forbidden in (
+            ".bashrc",
+            ".config/herdr/config.toml",
+            ".config/keyboard/corne-qmk/USAGE",
+            ".hammerspoon/init.lua",
+            ".local/bin/brew-promote",
+            ".local/bin/jw",
+            ".zshrc",
+            "27-install-herdr-plugins.sh",
+        ):
+            self.assertNotIn(forbidden, managed)
+        for required in (
+            ".codex/AGENTS.md",
+            ".codex/skills/work-on-cerpacnas/SKILL.md",
+            ".config/cerpacnas/projects.toml",
+            ".config/git/config",
+            ".config/jj-waltz/config.toml",
+            ".config/mise/config.toml",
+            ".local/bin/nas",
+            "06-build-jj-waltz.sh",
+        ):
+            self.assertIn(required, managed)
+
     def test_nas_modern_git_hook_is_user_space_only(self):
         source = (ROOT / "run_onchange_05-install-nas-git.sh.tmpl").read_text()
         rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=source)
@@ -96,6 +121,7 @@ class TemplateTests(unittest.TestCase):
         source = (ROOT / "run_onchange_06-build-jj-waltz.sh.tmpl").read_text()
         rendered = chezmoi("execute-template", "--init=false", nas=True, input_text=source)
         self.assertIn("EXPECTED_SHA256", rendered)
+        self.assertIn("d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8", rendered)
         self.assertIn("pin nas.jj_waltz_sha256", rendered)
         self.assertNotIn("${ASSET}.sha256", rendered)
 
