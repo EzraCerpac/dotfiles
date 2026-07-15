@@ -38,7 +38,7 @@
     <a href="#mental-model">Mental model</a><a href="#daily">Daily routine</a><a href="#herdr">Herdr</a>
     <a href="#projects">Projects and actions</a><a href="#remote">Remote terminals</a><a href="#codex-control">Codex and Herdr</a>
     <a href="#nas">CerpacNAS agents</a><a href="#tools">Tools and Homebrew</a><a href="#shell">Shell helpers</a>
-    <a href="#omlx">Local OMLX model</a><a href="#keyboard">Keyboard</a><a href="#delftblue">DelftBlue</a><a href="#recovery">Checks and recovery</a>
+    <a href="#omlx">Local OMLX model</a><a href="#aerospace">AeroSpace</a><a href="#keyboard">Keyboard</a><a href="#delftblue">DelftBlue</a><a href="#recovery">Checks and recovery</a>
   </nav>
   <main>
     <p class="muted">Integrated chezmoi workflow · July 2026</p>
@@ -166,6 +166,11 @@ nas artifact push thesis data --apply</code></pre><p>Apply consumes one-hour rec
       <pre><code>omlx-launch
 omlx-launch "Summarize this repository"
 omlx-launch "Review current JJ changes"</code></pre><p>Quote prompt so it remains one argument.</p>
+    </section>
+
+    <section id="aerospace"><h2>AeroSpace shortcuts</h2>
+      <p><kbd>Cmd-Ctrl-Alt-9</kbd> ensures one dedicated raw WezTerm window is running <code>btop</code>, moves it to AeroSpace workspace 9, and switches there. It reuses the existing window instead of opening duplicates.</p>
+      <p>AeroSpace also creates the btop window at startup without stealing focus. Ordinary new WezTerm windows still launch or attach Herdr.</p>
     </section>
 
     <section id="keyboard"><h2>Keyboard workflow</h2><p><code>kbd provision</code> is sole lifecycle entrypoint. It checks prerequisites, prepares QMK, activates VirtualHID, and installs Kanata. Follow exact System Settings instruction when permission is missing, then rerun.</p>

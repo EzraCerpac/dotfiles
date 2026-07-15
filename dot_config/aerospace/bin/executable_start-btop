@@ -1,38 +1,62 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AEROSPACE=/opt/homebrew/bin/aerospace
-BTOP=/opt/homebrew/bin/btop
-WEZTERM_APP=/Applications/WezTerm.app
+AEROSPACE=${AEROSPACE:-/opt/homebrew/bin/aerospace}
+BTOP=${BTOP:-/opt/homebrew/bin/btop}
+OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
+WEZTERM_APP=${WEZTERM_APP:-/Applications/WezTerm.app}
+LOCKF=${LOCKF:-/usr/bin/lockf}
+LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
+
+focus_workspace=false
+case "${1:-}" in
+    "") ;;
+    --focus) focus_workspace=true ;;
+    *)
+        echo "usage: start-btop [--focus]" >&2
+        exit 2
+        ;;
+esac
+
+if [[ ${START_BTOP_LOCKED:-0} != 1 ]]; then
+    exec "$LOCKF" -k "$LOCK_PATH" /usr/bin/env START_BTOP_LOCKED=1 /bin/bash "$0" "$@"
+fi
 
 find_btop_window() {
-  "$AEROSPACE" list-windows --all \
-    --format $'%{window-id}\t%{app-name}\t%{window-title}%{newline}' \
-    | awk -F $'\t' 'tolower($2) ~ /wezterm/ && tolower($3) ~ /^btop([[:space:]]|$)/ { print $1; exit }'
+    "$AEROSPACE" list-windows --all \
+        --format $'%{window-id}\t%{app-name}\t%{window-title}%{newline}' \
+        | awk -F $'\t' 'tolower($2) ~ /wezterm/ && tolower($3) ~ /^btop([[:space:]]|$)/ && !found { print $1; found = 1 }'
 }
 
 existing_window=$(find_btop_window)
 
 if [[ -n "$existing_window" ]]; then
-  "$AEROSPACE" move-node-to-workspace 9 --window-id "$existing_window"
-  exit 0
+    "$AEROSPACE" move-node-to-workspace 9 --window-id "$existing_window"
+    if $focus_workspace; then
+        "$AEROSPACE" workspace 9
+    fi
+    exit 0
 fi
 
 focused_workspace=$("$AEROSPACE" list-workspaces --focused)
-/usr/bin/open -na "$WEZTERM_APP" --args start -- "$BTOP"
+"$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
 
 # ponytail: poll after launch; AeroSpace callback can run before WezTerm publishes its title.
 window_id=
 for _ in {1..200}; do
-  window_id=$(find_btop_window)
-  [[ -n "$window_id" ]] && break
-  sleep 0.1
+    window_id=$(find_btop_window)
+    [[ -n "$window_id" ]] && break
+    sleep 0.1
 done
 
 if [[ -z "$window_id" ]]; then
-  echo "start-btop: WezTerm window not detected" >&2
-  exit 1
+    echo "start-btop: WezTerm window not detected" >&2
+    exit 1
 fi
 
 "$AEROSPACE" move-node-to-workspace 9 --window-id "$window_id"
-"$AEROSPACE" workspace "$focused_workspace"
+if $focus_workspace; then
+    "$AEROSPACE" workspace 9
+else
+    "$AEROSPACE" workspace "$focused_workspace"
+fi
