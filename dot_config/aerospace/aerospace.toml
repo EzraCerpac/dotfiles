@@ -1,3 +1,5 @@
+config-version = 2
+
 # 'start-at-login' needs to be 'true' for 'after-login-command' to work
 # Available commands: https://nikitabobko.github.io/AeroSpace/commands
 after-login-command = []
@@ -22,6 +24,9 @@ exec-on-workspace-change = [
 
 # Start AeroSpace at login
 start-at-login = true
+
+# Keep the shortcut workspaces available even while they are empty.
+persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "B", "E", "M", "T"]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 # enable-normalization-flatten-containers = false
