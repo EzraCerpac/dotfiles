@@ -129,7 +129,7 @@ if [[ ! -s $SKETCHYBAR_LOG ]]; then
 fi
 
 : > "$AEROSPACE_LOG"
-SENDER=mouse.clicked BUTTON=left MODIFIER= NAME=space.M /bin/bash "$CLICK_ADAPTER"
+SENDER=mouse.clicked BUTTON=left MODIFIER=none NAME=space.M /bin/bash "$CLICK_ADAPTER"
 SENDER=mouse.clicked BUTTON=left MODIFIER=shift NAME=space.1 /bin/bash "$CLICK_ADAPTER"
 SENDER=mouse.clicked BUTTON=right MODIFIER= NAME=space.2 /bin/bash "$CLICK_ADAPTER"
 
