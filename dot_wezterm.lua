@@ -10,7 +10,14 @@ local config = (wezterm.config_builder and wezterm.config_builder()) or {}
 -- Appearance
 config.color_scheme = "Catppuccin Mocha"
 config.font_size = 14.0
-config.default_prog = { wezterm.home_dir .. "/.local/bin/herdr" }
+-- GUI launchers can inherit NO_COLOR from automation processes. Keep that
+-- process-local setting from disabling colors in Herdr panes.
+config.default_prog = {
+  "/usr/bin/env",
+  "-u",
+  "NO_COLOR",
+  wezterm.home_dir .. "/.local/bin/herdr",
+}
 config.disable_default_key_bindings = true
 config.enable_tab_bar = false
 config.window_decorations = "RESIZE"

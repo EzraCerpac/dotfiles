@@ -23,8 +23,8 @@ return {
     },
     dependencies = { "folke/snacks.nvim" },
     opts = {
-      -- Ensure jjui is on PATH
-      executable = "jjui",
+      -- Keep inherited automation settings from disabling jjui colors.
+      executable = "/usr/bin/env -u NO_COLOR jjui",
       -- Faster startup by skipping shell profiles
       fast_shell = true,
       -- Editor used by jj for interactive commands
