@@ -1,3 +1,5 @@
+local typst_root_markers = { "typst.toml", ".jj", ".git" }
+
 return {
   {
     "folke/lazydev.nvim",
@@ -20,6 +22,7 @@ return {
       opts.servers.pyright = { enabled = false } -- using ty instead
       local tinymist = opts.servers.tinymist or {}
       opts.servers.tinymist = vim.tbl_deep_extend("force", tinymist, {
+        root_markers = typst_root_markers,
         settings = vim.tbl_deep_extend("force", tinymist.settings or {}, {
           compileStatus = "enable",
         }),
@@ -58,18 +61,12 @@ return {
       opts = opts or {}
       opts.get_root = function(path_of_main_file)
         local env_root = os.getenv("TYPST_ROOT")
-        if env_root then
+        if env_root and env_root ~= "" then
           return env_root
         end
 
-        local main_dir = vim.fs.dirname(vim.fn.fnamemodify(path_of_main_file, ":p"))
-        local git = vim.fs.find(".git", { path = main_dir, upward = true, type = "directory" })[1]
-        if git then
-          return vim.fs.dirname(git)
-        end
-
-        local typst_toml = vim.fs.find("typst.toml", { path = main_dir, upward = true, type = "file" })[1]
-        return typst_toml and vim.fs.dirname(typst_toml) or main_dir
+        local absolute_path = vim.fn.fnamemodify(path_of_main_file, ":p")
+        return vim.fs.root(absolute_path, typst_root_markers) or vim.fs.dirname(absolute_path)
       end
       return opts
     end,
