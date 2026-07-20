@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -34,6 +35,23 @@ def chezmoi(*args: str, input_text: str | None = None, nas: bool = False) -> str
 
 
 class TemplateTests(unittest.TestCase):
+    def test_pycharm_merge_writes_result_to_chezmoi_source(self):
+        template = (ROOT / ".chezmoi.toml.tmpl").read_text()
+        rendered = chezmoi("execute-template", "--init=false", input_text=template)
+        merge = tomllib.loads(rendered)["merge"]
+
+        self.assertEqual(merge["command"], "bash")
+        self.assertEqual(
+            merge["args"][2:],
+            [
+                "chezmoi-pycharm-merge",
+                "{{ .Destination }}",
+                "{{ .Source }}",
+                "{{ .Target }}",
+            ],
+        )
+        self.assertIn('pycharm-merge "$1" "$3" "$base" "$2"', merge["args"][1])
+
     def test_workstation_keeps_live_codex_config_unmanaged(self):
         self.assertIn(".codex/config.toml", chezmoi("ignored").splitlines())
 

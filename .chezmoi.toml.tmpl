@@ -41,10 +41,12 @@ exclude = ["scripts"]
 [status]
 exclude = ["scripts"]
 
-[merge]  # NOTE: may need to use custom pycharm-merge tool instead (untested)
-command = "pycharm"
+[merge]
+command = "bash"
 args = [
-  "merge",
+  "-c",
+  "set -euo pipefail; base=\"$(mktemp)\"; trap 'rm -f -- \"$base\"' EXIT; cp -- \"$3\" \"$base\"; pycharm-merge \"$1\" \"$3\" \"$base\" \"$2\"",
+  "chezmoi-pycharm-merge",
   {{ printf "%q" "{{ .Destination }}" }},
   {{ printf "%q" "{{ .Source }}" }},
   {{ printf "%q" "{{ .Target }}" }}
