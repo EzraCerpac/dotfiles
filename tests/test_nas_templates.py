@@ -59,9 +59,14 @@ class TemplateTests(unittest.TestCase):
         rendered = chezmoi("cat", str(Path.home() / ".config/mise/config.toml"), nas=True)
         self.assertIn('codex = "latest"', rendered)
         self.assertIn('jj = "latest"', rendered)
+        self.assertNotIn('go = "latest"', rendered)
         self.assertNotIn('rust = "latest"', rendered)
         self.assertNotIn("neovim", rendered)
         self.assertNotIn("[tools.julia]", rendered)
+
+    def test_workstation_mise_includes_herdr_build_runtime(self):
+        rendered = chezmoi("cat", str(Path.home() / ".config/mise/config.toml"))
+        self.assertIn('go = "latest"', rendered)
 
     def test_nas_manifest_uses_root_paths(self):
         rendered = chezmoi("cat", str(Path.home() / ".config/cerpacnas/projects.toml"), nas=True)

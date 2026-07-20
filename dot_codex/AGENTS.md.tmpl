@@ -26,3 +26,17 @@ In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the re
 
 If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->
+{{- if eq .profile "nas" }}
+
+## CerpacNAS limits
+
+- Work only below `/root/Projects` and the task's `jw` workspace.
+- Root login is intentional, but never use `sudo`, Docker, system package changes, or dangerous sandbox/approval bypass flags. `--skip-git-repo-check` is allowed only for a secondary JJ workspace without `.git`.
+- Allow one work agent or two read-only exploration agents. Never parallelize heavy commands.
+- Run validation through `nas validate`: one lane, one job, `JULIA_NUM_THREADS=1`, a 180-second ceiling, and peak-RSS recording.
+- Cheap web format, pure-test, type-check, and Julia format lanes are allowed sequentially. A focused Julia lane needs one successful calibration.
+- A lane exceeding 180 seconds or 3 GiB peak RSS is disabled.
+- Never run `validate all`, `validate evidence`, `thesis-evidence-gate`, benchmarks, browser or API-live tests, or make performance claims here.
+- Report skipped Mac or CI validation in every handoff.
+- Transfer code only through GitHub `wip/...` bookmarks. Transfer only allowlisted artifacts with `nas artifact`; never rsync project roots.
+{{- end }}
