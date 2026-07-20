@@ -32,7 +32,15 @@ for _backtab_sequence in ("\x1b[Z", "\x1b\t", "\x1b[9;2u", "\x1b[27;2;9~"):
     ANSI_SEQUENCES[_backtab_sequence] = Keys.BackTab
 _IS_PREFIX_OF_LONGER_MATCH_CACHE.clear()
 
-if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
+interactive_color_terminal = env.get("XONSH_INTERACTIVE") and (
+    env.get("__CFBundleIdentifier") == "com.openai.codex"
+    or env.get("TERM_PROGRAM") == "WezTerm"
+    or env.get("HERDR_ENV") == "1"
+)
+
+if interactive_color_terminal:
+    env.pop("NO_COLOR", None)
+elif env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
     env["COLOR_INPUT"] = False
     env["COLOR_RESULTS"] = False
     env["XONSH_COLOR_STYLE"] = "default"

@@ -1,3 +1,13 @@
+if [[ -o interactive \
+    && ( "${__CFBundleIdentifier:-}" == "com.openai.codex" \
+        || "${TERM_PROGRAM:-}" == "WezTerm" \
+        || "${HERDR_ENV:-}" == "1" ) ]]; then
+    unset NO_COLOR
+    if [[ "${TERM:-}" == "dumb" ]]; then
+        export TERM="xterm-256color"
+    fi
+fi
+
 export PATH="$HOME/.local/bin:$PATH"
 
 # opencode
