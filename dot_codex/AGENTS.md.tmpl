@@ -12,9 +12,7 @@ Use uv for Python.
 
 Prefer opening the built-in browser.
 
-## GitHub CLI on macOS
-
-Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`. Never work around this by exporting `GH_TOKEN` or using `--insecure-storage`; reauthenticate only if the escalated host check also fails.
+Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
 
 Tests are good! Endless smoke tests, "regression tests" for feature deletions, etc, much less good. Tests should be focused, not slop.
 
