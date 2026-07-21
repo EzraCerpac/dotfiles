@@ -8,63 +8,12 @@ if status is-interactive
         end
     end
 end
-
-{{- if eq .profile "delftblue" }}
-fish_add_path -m -p $HOME/.local/bin
-
-set -gx EDITOR vim
-set -gx VISUAL $EDITOR
-set -gx GIT_EDITOR $EDITOR
-set -gx DB_MODULE_STACK "{{ .delftblue.module_stack }}"
-set -gx DB_SLURM_ACCOUNT "{{ .delftblue.slurm_account }}"
-set -gx DB_CPU_PARTITION "{{ .delftblue.default_cpu_partition }}"
-set -gx DB_GPU_PARTITION "{{ .delftblue.default_gpu_partition }}"
-set -gx DB_PROJECT_STORAGE_ROOT "{{ .delftblue.project_storage_root }}"
-set -gx DB_SPACK_ROOT "$HOME/spack"
-
-function fish_greeting
-end
-
-function dbmod-julia
-    module load $DB_MODULE_STACK julia
-end
-
-function dbmod-julia-mpi
-    module load $DB_MODULE_STACK openmpi julia
-end
-
-function dbspack
-    echo "Use bash for dbspack/dbdev on DelftBlue; the Spack helper is bash-oriented." >&2
-    return 1
-end
-
-function dbdev
-    echo "Use bash for dbspack/dbdev on DelftBlue; the Spack helper is bash-oriented." >&2
-    return 1
-end
-{{- else }}
-{{- if eq .chezmoi.os "darwin" }}
 # Homebrew (Apple Silicon only)
 fish_add_path /opt/homebrew/bin /opt/homebrew/sbin
-{{- end }}
-
-{{- if eq .chezmoi.os "linux" }}
-# Linuxbrew (if installed)
-if test -d /home/linuxbrew/.linuxbrew/bin
-    fish_add_path /home/linuxbrew/.linuxbrew/bin
-end
-{{- end }}
 
 fish_add_path -m -p $HOME/.local/bin
 fish_add_path $HOME/bin
 fish_add_path ~/.cargo/bin
-
-{{- if eq .chezmoi.os "linux" }}
-# Activate mise (brew auto-activates on macOS; Linux needs explicit activation)
-if test -x ~/.local/bin/mise
-    ~/.local/bin/mise activate fish | source
-end
-{{- end }}
 
 # Enable vi key bindings
 fish_vi_key_bindings
@@ -94,11 +43,8 @@ end
 if command -q starship
     starship init fish | source
 end
-
-{{- if eq .chezmoi.os "darwin" }}
 # Add uutils-coreutils to PATH (unprefixed commands)
 fish_add_path /opt/homebrew/opt/uutils-coreutils/libexec/uubin
-{{- end }}
 
 # ---------- Default editor ----------
 set -gx EDITOR nvim
@@ -174,11 +120,8 @@ end
 function prdiff --description "Review a pull request diff in diffnav"
     prdiff-review $argv
 end
-
-{{- if eq .chezmoi.os "darwin" }}
 # ---------- Tailscale ----------
 alias tailscale='/Applications/Tailscale.app/Contents/MacOS/Tailscale'
-{{- end }}
 
 # ---------- Completions ----------
 if command -q carapace
@@ -207,8 +150,6 @@ end
 function gitlogue-menu
     gitlogue-select menu $argv
 end
-
-{{- if eq .chezmoi.os "darwin" }}
 # ---------- Homebrew ----------
 if test -x /opt/homebrew/bin/brew
     eval (/opt/homebrew/bin/brew shellenv | string collect)
@@ -228,5 +169,3 @@ function __openclaw_lazy_load --on-event fish_preexec
     and openclaw completion --shell fish 2>/dev/null | source
     and functions --erase __openclaw_lazy_load
 end
-{{- end }}
-{{- end }}
