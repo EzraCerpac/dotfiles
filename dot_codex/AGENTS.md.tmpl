@@ -12,6 +12,8 @@ Use uv for Python.
 
 Prefer opening the built-in browser.
 
+At task end, close only task-started resources, including simulators, apps, servers, and browser tabs/windows. Preserve pre-existing resources: if a requested browser check was already open, leave it open. Verify ownership first.
+
 Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
 
 Tests are good! Endless smoke tests, "regression tests" for feature deletions, etc, much less good. Tests should be focused, not slop.
