@@ -12,6 +12,8 @@ Use uv for Python.
 
 Prefer opening the built-in browser.
 
+For local web and documentation servers, use the globally linked Portless fork and its `portless` skill. The link to `/Users/ezracerpac/Projects/portless` is intentional; do not replace it with the npm registry package. Let Portless derive JJ workspace prefixes, use `portless get <name>` instead of guessing ports, and use `--no-worktree` only when an unprefixed route is explicitly required. Do not wrap native Xcode, simulator, or desktop-app processes in Portless.
+
 At task end, close only task-started resources, including simulators, apps, servers, and browser tabs/windows. Preserve pre-existing resources: if a requested browser check was already open, leave it open. Verify ownership first.
 
 Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
