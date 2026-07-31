@@ -1,6 +1,7 @@
 from xonsh.built_ins import XSH
 
 env = XSH.env
+env["HOMEBREW_NO_ENV_HINTS"] = "1"
 
 if env.get("CODEX_CI") == "1" or env.get("__CFBundleIdentifier") == "com.openai.codex":
     env["COLOR_INPUT"] = False
