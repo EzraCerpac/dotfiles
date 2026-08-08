@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Typst Grammarly Bridge</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="workspace">
+      <header class="topbar">
+        <div class="identity">
+          <span class="typst-mark" aria-hidden="true">#</span>
+          <div>
+            <h1>Grammarly bridge</h1>
+            <p id="status" role="status">Loading current Neovim buffer…</p>
+          </div>
+        </div>
+        <p class="storage"><span class="status-dot"></span>Local draft · not saved</p>
+      </header>
+
+      <section class="editor" aria-label="Typst editor">
+        <div class="editor-bar">
+          <span>Current Typst buffer</span>
+          <span>GhostText <kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></span>
+        </div>
+        <textarea
+          id="draft"
+          aria-label="Typst draft for Grammarly"
+          autocomplete="off"
+          autocapitalize="sentences"
+          spellcheck="true"
+          disabled
+        ></textarea>
+      </section>
+
+      <footer>
+        <span>Review <code>:GrammarlyReview</code></span>
+        <span>Apply <code>:GrammarlyApply</code></span>
+        <span class="privacy">Grammarly cloud processing enabled · no local storage</span>
+      </footer>
+    </main>
+  </body>
+</html>

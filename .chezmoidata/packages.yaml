@@ -17,6 +17,7 @@ packages:
       - cliproxyapi
       - curl
       - delta
+      - deno
       - eza
       - fd
       - fish

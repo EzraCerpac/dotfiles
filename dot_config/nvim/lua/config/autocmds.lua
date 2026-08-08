@@ -59,6 +59,7 @@ vim.api.nvim_create_autocmd("FileType", {
 
 -- Load root override functionality
 require("config.root-overide")
+require("custom.grammarly_bridge").setup()
 
 -- vim.api.nvim_create_autocmd("LspAttach", {
 --   callback = function()
