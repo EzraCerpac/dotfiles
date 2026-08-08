@@ -1,0 +1,884 @@
+#!/usr/bin/env -S uv run --python 3.12 --script
+# /// script
+# requires-python = ">=3.12,<3.13"
+# dependencies = [
+#   "pypdf==6.10.0",
+#   "sentencepiece==0.2.2",
+#   "torch==2.13.0",
+#   "transformers==4.48.2",
+# ]
+# ///
+"""Run Desklib's AI text detector locally against PDF or UTF-8 text."""
+
+from __future__ import annotations
+
+import argparse
+import gc
+import hashlib
+import json
+import math
+import platform
+import statistics
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+from collections import Counter
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import pypdf
+import torch
+import torch.nn as nn
+import transformers
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import Highlight, Text
+from pypdf.constants import AnnotationFlag
+from pypdf.generic import (
+    ArrayObject,
+    DecodedStreamObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    TextStringObject,
+)
+from transformers import AutoConfig, AutoModel, AutoTokenizer, PreTrainedModel
+
+
+MODEL_ID = "desklib/ai-text-detector-v1.01"
+MODEL_REVISION = "5fdea974cd4287c61674951ec78803aa274e2fb7"
+DISCLAIMER = (
+    "Scores are outputs from one statistical detector. They are not proof of authorship, "
+    "plagiarism, academic misconduct, or absence of AI assistance."
+)
+
+
+class DesklibAIDetectionModel(PreTrainedModel):
+    config_class = AutoConfig
+
+    def __init__(self, config: Any) -> None:
+        super().__init__(config)
+        self.model = AutoModel.from_config(config)
+        self.classifier = nn.Linear(config.hidden_size, 1)
+        self.init_weights()
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
+        outputs = self.model(input_ids, attention_mask=attention_mask)
+        last_hidden_state = outputs[0]
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        expanded_mask = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
+        pooled = torch.sum(last_hidden_state * expanded_mask, dim=1)
+        pooled /= torch.clamp(expanded_mask.sum(dim=1), min=1e-9)
+        logits = self.classifier(pooled)
+        result = {"logits": logits}
+        if labels is not None:
+            result["loss"] = nn.BCEWithLogitsLoss()(logits.view(-1), labels.float())
+        return result
+
+
+@dataclass(frozen=True)
+class WordBox:
+    line: int
+    text: str
+    char_start: int
+    char_end: int
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+
+
+@dataclass(frozen=True)
+class ExtractedPage:
+    number: int
+    width: float | None
+    height: float | None
+    text: str
+    words: tuple[WordBox, ...]
+
+
+@dataclass(frozen=True)
+class Chunk:
+    index: int
+    page_start: int
+    page_end: int
+    page_chunk: int
+    source_token_count: int
+    model_token_count: int
+    input_ids: list[int]
+    excerpt: str
+    char_start: int
+    char_end: int
+    highlighted_word_count: int
+    highlighted_line_count: int
+    line_rects: tuple[tuple[float, float, float, float], ...]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run pinned Desklib AI-text detection locally on PDF or UTF-8 text."
+    )
+    parser.add_argument("input", type=Path, help="PDF or UTF-8 text file")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Write reports here; PDF input also writes annotated.pdf",
+    )
+    parser.add_argument(
+        "--no-annotate-pdf",
+        action="store_true",
+        help="Skip automatic annotated PDF when --output-dir is used",
+    )
+    parser.add_argument(
+        "--device",
+        choices=("auto", "mps", "cpu"),
+        default="auto",
+        help="Inference device; auto tries Apple MPS then falls back to CPU",
+    )
+    parser.add_argument("--threshold", type=float, default=0.5, help="AI label threshold (default: 0.5)")
+    parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=768,
+        help="Maximum model tokens per non-overlapping chunk (default: 768)",
+    )
+    args = parser.parse_args()
+    if not 0.0 <= args.threshold <= 1.0:
+        parser.error("--threshold must be between 0 and 1")
+    if not 8 <= args.max_tokens <= 768:
+        parser.error("--max-tokens must be between 8 and 768")
+    return args
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def child_elements(element: ET.Element, name: str) -> list[ET.Element]:
+    return [child for child in element if local_name(child.tag) == name]
+
+
+def bbox_pages(xml_text: str) -> list[ExtractedPage]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError as error:
+        raise SystemExit(f"Poppler bounding-box output is invalid XML: {error}") from error
+
+    pages: list[ExtractedPage] = []
+    for page_element in (item for item in root.iter() if local_name(item.tag) == "page"):
+        parts: list[str] = []
+        words: list[WordBox] = []
+        line_number = 0
+        for flow in child_elements(page_element, "flow"):
+            for block in child_elements(flow, "block"):
+                block_had_line = False
+                for line in child_elements(block, "line"):
+                    line_words = child_elements(line, "word")
+                    if not line_words:
+                        continue
+                    if parts and not parts[-1].endswith("\n"):
+                        parts.append("\n")
+                    line_number += 1
+                    block_had_line = True
+                    for word_number, word_element in enumerate(line_words):
+                        if word_number:
+                            parts.append(" ")
+                        text = "".join(word_element.itertext())
+                        start = sum(len(part) for part in parts)
+                        parts.append(text)
+                        end = start + len(text)
+                        words.append(
+                            WordBox(
+                                line=line_number,
+                                text=text,
+                                char_start=start,
+                                char_end=end,
+                                x_min=float(word_element.attrib["xMin"]),
+                                y_min=float(word_element.attrib["yMin"]),
+                                x_max=float(word_element.attrib["xMax"]),
+                                y_max=float(word_element.attrib["yMax"]),
+                            )
+                        )
+                    parts.append("\n")
+                if block_had_line and (not parts or parts[-1] != "\n\n"):
+                    parts.append("\n")
+        pages.append(
+            ExtractedPage(
+                number=len(pages) + 1,
+                width=float(page_element.attrib["width"]),
+                height=float(page_element.attrib["height"]),
+                text="".join(parts),
+                words=tuple(words),
+            )
+        )
+    if not pages:
+        raise SystemExit("Poppler returned no PDF pages")
+    return pages
+
+
+def extract_pages(path: Path) -> tuple[list[ExtractedPage], str]:
+    if path.suffix.lower() == ".pdf":
+        try:
+            completed = subprocess.run(
+                ["pdftotext", "-bbox-layout", str(path), "-"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as error:
+            raise SystemExit("pdftotext is required for PDF input; install Poppler first") from error
+        except subprocess.CalledProcessError as error:
+            message = error.stderr.strip() or "unknown pdftotext error"
+            raise SystemExit(f"PDF text extraction failed: {message}") from error
+        return bbox_pages(completed.stdout), "poppler pdftotext -bbox-layout"
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise SystemExit("Non-PDF input must be UTF-8 text") from error
+    return [
+        ExtractedPage(number=index, width=None, height=None, text=page, words=())
+        for index, page in enumerate(text.split("\f"), start=1)
+    ], "UTF-8 text"
+
+
+def clean_excerpt(text: str, limit: int = 180) -> str:
+    compact = " ".join(text.split())
+    return compact if len(compact) <= limit else compact[: limit - 1].rstrip() + "…"
+
+
+def rects_for_span(
+    page: ExtractedPage,
+    char_start: int,
+    char_end: int,
+) -> tuple[tuple[tuple[float, float, float, float], ...], int]:
+    selected = [
+        word
+        for word in page.words
+        if word.char_start < char_end and word.char_end > char_start
+    ]
+    lines: dict[int, list[WordBox]] = {}
+    for word in selected:
+        lines.setdefault(word.line, []).append(word)
+    rects = tuple(
+        (
+            min(word.x_min for word in words),
+            min(word.y_min for word in words),
+            max(word.x_max for word in words),
+            max(word.y_max for word in words),
+        )
+        for words in lines.values()
+    )
+    return rects, len(selected)
+
+
+def make_chunks(
+    pages: list[ExtractedPage],
+    tokenizer: Any,
+    max_tokens: int,
+) -> tuple[list[Chunk], int]:
+    if not tokenizer.is_fast:
+        raise SystemExit("Coordinate-aware chunking requires a fast tokenizer")
+    special_tokens = tokenizer.num_special_tokens_to_add(pair=False)
+    payload_limit = max_tokens - special_tokens
+    if payload_limit < 1:
+        raise SystemExit("--max-tokens leaves no room after required special tokens")
+
+    chunks: list[Chunk] = []
+    source_tokens = 0
+    for page in pages:
+        encoded = tokenizer(page.text, add_special_tokens=False, return_offsets_mapping=True)
+        token_ids = encoded["input_ids"]
+        offsets = encoded["offset_mapping"]
+        if len(token_ids) != len(offsets):
+            raise RuntimeError(f"token/offset mismatch on page {page.number}")
+        source_tokens += len(token_ids)
+        for page_chunk, start in enumerate(range(0, len(token_ids), payload_limit), start=1):
+            payload = token_ids[start : start + payload_limit]
+            payload_offsets = [pair for pair in offsets[start : start + payload_limit] if pair != (0, 0)]
+            if not payload_offsets:
+                raise RuntimeError(f"chunk has no text offsets on page {page.number}")
+            char_start = min(pair[0] for pair in payload_offsets)
+            char_end = max(pair[1] for pair in payload_offsets)
+            line_rects, highlighted_words = rects_for_span(page, char_start, char_end)
+            if page.words and not line_rects:
+                raise RuntimeError(
+                    f"chunk {len(chunks) + 1} on page {page.number} maps to no PDF words"
+                )
+            prepared = tokenizer.build_inputs_with_special_tokens(payload)
+            chunks.append(
+                Chunk(
+                    index=len(chunks) + 1,
+                    page_start=page.number,
+                    page_end=page.number,
+                    page_chunk=page_chunk,
+                    source_token_count=len(payload),
+                    model_token_count=len(prepared),
+                    input_ids=prepared,
+                    excerpt=clean_excerpt(page.text[char_start:char_end]),
+                    char_start=char_start,
+                    char_end=char_end,
+                    highlighted_word_count=highlighted_words,
+                    highlighted_line_count=len(line_rects),
+                    line_rects=line_rects,
+                )
+            )
+
+    covered_tokens = sum(chunk.source_token_count for chunk in chunks)
+    if source_tokens != covered_tokens:
+        raise RuntimeError(f"token coverage mismatch: source={source_tokens}, chunks={covered_tokens}")
+    if not chunks:
+        raise SystemExit("Input contains no detectable text")
+    return chunks, source_tokens
+
+
+def load_model() -> tuple[DesklibAIDetectionModel, Any]:
+    print(f"Loading {MODEL_ID}@{MODEL_REVISION}…", file=sys.stderr)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    model = DesklibAIDetectionModel.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    model.eval()
+    return model, tokenizer
+
+
+def tensor_for(chunk: Chunk, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
+    input_ids = torch.tensor([chunk.input_ids], dtype=torch.long, device=device)
+    attention_mask = torch.ones_like(input_ids)
+    return input_ids, attention_mask
+
+
+def score_one(model: DesklibAIDetectionModel, chunk: Chunk, device: torch.device) -> float:
+    input_ids, attention_mask = tensor_for(chunk, device)
+    with torch.inference_mode():
+        output = model(input_ids=input_ids, attention_mask=attention_mask)
+        return float(torch.sigmoid(output["logits"]).item())
+
+
+def select_device(
+    requested: str,
+    model: DesklibAIDetectionModel,
+    smoke_chunk: Chunk,
+) -> tuple[DesklibAIDetectionModel, torch.device, str | None]:
+    if requested == "cpu":
+        device = torch.device("cpu")
+        model.to(device)
+        score_one(model, smoke_chunk, device)
+        return model, device, None
+
+    if not torch.backends.mps.is_available():
+        if requested == "mps":
+            raise SystemExit("MPS requested but unavailable")
+        device = torch.device("cpu")
+        model.to(device)
+        score_one(model, smoke_chunk, device)
+        return model, device, "MPS unavailable"
+
+    device = torch.device("mps")
+    try:
+        model.to(device)
+        score_one(model, smoke_chunk, device)
+        return model, device, None
+    except (RuntimeError, NotImplementedError) as error:
+        if requested == "mps":
+            raise SystemExit(f"MPS inference failed: {error}") from error
+        reason = f"MPS smoke failed: {type(error).__name__}: {error}"
+        print(f"{reason}; falling back to CPU", file=sys.stderr)
+        del model
+        if hasattr(torch.mps, "empty_cache"):
+            torch.mps.empty_cache()
+        gc.collect()
+        cpu_model, _ = load_model()
+        cpu_device = torch.device("cpu")
+        cpu_model.to(cpu_device)
+        score_one(cpu_model, smoke_chunk, cpu_device)
+        return cpu_model, cpu_device, reason
+
+
+def score_chunks(
+    model: DesklibAIDetectionModel,
+    chunks: list[Chunk],
+    device: torch.device,
+    threshold: float,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    total = len(chunks)
+    for position, chunk in enumerate(chunks, start=1):
+        print(f"Scoring chunk {position}/{total}…", file=sys.stderr)
+        probability = score_one(model, chunk, device)
+        if not math.isfinite(probability):
+            raise RuntimeError(f"non-finite probability for chunk {chunk.index}")
+        row = asdict(chunk)
+        row.pop("input_ids")
+        row.pop("line_rects")
+        row["ai_probability"] = probability
+        row["label"] = "AI Generated" if probability >= threshold else "Not AI Generated"
+        results.append(row)
+    return results
+
+
+def score_bins(probabilities: list[float]) -> list[dict[str, Any]]:
+    bounds = [(0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
+    rows = []
+    for lower, upper in bounds:
+        count = sum(
+            1
+            for value in probabilities
+            if lower <= value < upper or (upper == 1.0 and value == upper)
+        )
+        rows.append({"lower": lower, "upper": upper, "count": count})
+    return rows
+
+
+def summarize(results: list[dict[str, Any]], threshold: float) -> dict[str, Any]:
+    probabilities = [float(row["ai_probability"]) for row in results]
+    token_total = sum(int(row["source_token_count"]) for row in results)
+    weighted_mean = sum(
+        float(row["ai_probability"]) * int(row["source_token_count"]) for row in results
+    ) / token_total
+    return {
+        "chunk_count": len(results),
+        "threshold": threshold,
+        "chunks_at_or_above_threshold": sum(value >= threshold for value in probabilities),
+        "median_ai_probability": statistics.median(probabilities),
+        "token_weighted_mean_ai_probability": weighted_mean,
+        "minimum_ai_probability": min(probabilities),
+        "maximum_ai_probability": max(probabilities),
+        "distribution": score_bins(probabilities),
+    }
+
+
+def annotation_counts(reader: PdfReader) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for page in reader.pages:
+        for reference in page.get("/Annots", []):
+            subtype = str(reference.get_object().get("/Subtype", "/Unknown")).removeprefix("/")
+            counts[subtype] += 1
+    return dict(sorted(counts.items()))
+
+
+def has_signature(reader: PdfReader) -> bool:
+    return any(str(field.get("/FT")) == "/Sig" for field in (reader.get_fields() or {}).values())
+
+
+def validate_pdf_annotation_safety(path: Path) -> PdfReader:
+    reader = PdfReader(path)
+    if reader.is_encrypted:
+        raise SystemExit("Refusing to annotate encrypted PDF; use --no-annotate-pdf")
+    if has_signature(reader):
+        raise SystemExit("Refusing to invalidate signed PDF; use --no-annotate-pdf")
+    rotated = [index for index, page in enumerate(reader.pages, start=1) if page.rotation != 0]
+    if rotated:
+        shown = ", ".join(str(number) for number in rotated[:8])
+        raise SystemExit(f"Refusing coordinate annotations on rotated PDF page(s): {shown}")
+    return reader
+
+
+def validate_annotatable_pdf(path: Path, pages: list[ExtractedPage]) -> PdfReader:
+    reader = validate_pdf_annotation_safety(path)
+    if len(reader.pages) != len(pages):
+        raise RuntimeError(f"PDF page mismatch: reader={len(reader.pages)}, extracted={len(pages)}")
+    for extracted, page in zip(pages, reader.pages, strict=True):
+        if extracted.width is None or extracted.height is None:
+            raise RuntimeError(f"missing extracted page geometry for page {extracted.number}")
+        if (
+            abs(float(page.cropbox.width) - extracted.width) > 0.1
+            or abs(float(page.cropbox.height) - extracted.height) > 0.1
+        ):
+            raise SystemExit(f"PDF crop geometry differs from Poppler output on page {extracted.number}")
+    return reader
+
+
+def pdf_rect(
+    rect: tuple[float, float, float, float],
+    extracted: ExtractedPage,
+    page: Any,
+) -> tuple[float, float, float, float]:
+    if extracted.height is None:
+        raise RuntimeError("PDF rectangle requires page height")
+    x_min, y_min, x_max, y_max = rect
+    left = float(page.cropbox.left) + x_min
+    right = float(page.cropbox.left) + x_max
+    bottom = float(page.cropbox.bottom) + extracted.height - y_max
+    top = float(page.cropbox.bottom) + extracted.height - y_min
+    converted = (left, bottom, right, top)
+    if not (
+        float(page.cropbox.left) <= left < right <= float(page.cropbox.right)
+        and float(page.cropbox.bottom) <= bottom < top <= float(page.cropbox.top)
+    ):
+        raise RuntimeError(f"highlight rectangle escapes page {extracted.number}: {converted}")
+    return converted
+
+
+def highlight_comment(row: dict[str, Any], threshold: float) -> str:
+    return "\n".join(
+        [
+            f"Desklib AI score: {row['ai_probability']:.4f}",
+            f"Threshold: {threshold:.4f}",
+            f"Chunk: {row['index']} (page {row['page_start']}, {row['source_token_count']} tokens)",
+            f"Excerpt: {row['excerpt']}",
+            "",
+            DISCLAIMER,
+            "Highlight covers whole PDF words intersecting the scored token chunk.",
+        ]
+    )
+
+
+def prepend_chunk_markers(
+    writer: PdfWriter,
+    page_index: int,
+    markers: list[tuple[tuple[float, float, float], tuple[float, float, float, float]]],
+) -> None:
+    if not markers:
+        return
+    commands = ["q"]
+    current_color: tuple[float, float, float] | None = None
+    for color, (left, bottom, right, top) in markers:
+        if color != current_color:
+            commands.append(" ".join(f"{value:.6f}" for value in color) + " rg")
+            current_color = color
+        commands.append(
+            f"{left:.6f} {bottom:.6f} {right - left:.6f} {top - bottom:.6f} re f"
+        )
+    commands.append("Q")
+
+    stream = DecodedStreamObject()
+    stream.set_data(("\n".join(commands) + "\n").encode("ascii"))
+    stream_reference = writer._add_object(stream)
+    page = writer.pages[page_index]
+    if "/Contents" not in page:
+        page[NameObject("/Contents")] = stream_reference
+        return
+    raw_contents = page.raw_get("/Contents")
+    resolved_contents = raw_contents.get_object()
+    if isinstance(resolved_contents, ArrayObject):
+        page[NameObject("/Contents")] = ArrayObject([stream_reference, *resolved_contents])
+    else:
+        page[NameObject("/Contents")] = ArrayObject([stream_reference, raw_contents])
+
+
+def add_empty_annotation_appearance(
+    writer: PdfWriter,
+    annotation: DictionaryObject,
+    enclosing: tuple[float, float, float, float],
+) -> None:
+    left, bottom, right, top = enclosing
+    appearance = DecodedStreamObject()
+    appearance.set_data(b"")
+    appearance.update(
+        {
+            NameObject("/Type"): NameObject("/XObject"),
+            NameObject("/Subtype"): NameObject("/Form"),
+            NameObject("/BBox"): ArrayObject(
+                [
+                    FloatObject(0),
+                    FloatObject(0),
+                    FloatObject(right - left),
+                    FloatObject(top - bottom),
+                ]
+            ),
+            NameObject("/Resources"): DictionaryObject(),
+        }
+    )
+    annotation[NameObject("/AP")] = DictionaryObject(
+        {NameObject("/N"): writer._add_object(appearance)}
+    )
+
+
+def annotate_pdf(
+    input_path: Path,
+    output_path: Path,
+    pages: list[ExtractedPage],
+    chunks: list[Chunk],
+    results: list[dict[str, Any]],
+    summary: dict[str, Any],
+    threshold: float,
+) -> dict[str, Any]:
+    reader = validate_annotatable_pdf(input_path, pages)
+    source_counts = annotation_counts(reader)
+    writer = PdfWriter(clone_from=input_path)
+    chunks_by_index = {chunk.index: chunk for chunk in chunks}
+    added_highlights = 0
+    page_markers: dict[
+        int,
+        list[tuple[tuple[float, float, float], tuple[float, float, float, float]]],
+    ] = {}
+    page_marker_counts: Counter[int] = Counter()
+
+    for row in results:
+        if float(row["ai_probability"]) < threshold:
+            continue
+        chunk = chunks_by_index[int(row["index"])]
+        if not chunk.line_rects:
+            raise RuntimeError(f"flagged chunk {chunk.index} has no highlight rectangles")
+        page_index = chunk.page_start - 1
+        pdf_page = writer.pages[page_index]
+        extracted = pages[page_index]
+        rects = [pdf_rect(rect, extracted, pdf_page) for rect in chunk.line_rects]
+        quad_points = ArrayObject(
+            [
+                FloatObject(value)
+                for left, bottom, right, top in rects
+                for value in (left, bottom, right, bottom, left, top, right, top)
+            ]
+        )
+        enclosing = (
+            min(rect[0] for rect in rects),
+            min(rect[1] for rect in rects),
+            max(rect[2] for rect in rects),
+            max(rect[3] for rect in rects),
+        )
+        high_score = float(row["ai_probability"]) >= 0.8
+        color = "ff5c5c" if high_score else "ffc857"
+        marker_color = (0.89, 0.18, 0.18) if high_score else (0.95, 0.60, 0.06)
+        marker_rank = page_marker_counts[page_index]
+        page_marker_counts[page_index] += 1
+        rail_right = max(
+            float(pdf_page.cropbox.left) + 4.0,
+            min(rect[0] for rect in rects) - 5.0 - marker_rank * 3.5,
+        )
+        rail_left = rail_right - 2.0
+        rail_bottom = min(rect[1] for rect in rects)
+        rail_top = max(rect[3] for rect in rects)
+        cap_right = rail_right + 3.0
+        page_markers.setdefault(page_index, []).extend(
+            [
+                (marker_color, (rail_left, rail_bottom, rail_right, rail_top)),
+                (marker_color, (rail_left, rail_top - 2.0, cap_right, rail_top)),
+                (marker_color, (rail_left, rail_bottom, cap_right, rail_bottom + 2.0)),
+            ]
+        )
+        annotation = Highlight(
+            rect=enclosing,
+            quad_points=quad_points,
+            highlight_color=color,
+            printing=True,
+            title_bar="AI Text Detector",
+        )
+        annotation[NameObject("/Contents")] = TextStringObject(highlight_comment(row, threshold))
+        annotation[NameObject("/CA")] = FloatObject(0)
+        inserted = writer.add_annotation(page_number=page_index, annotation=annotation)
+        add_empty_annotation_appearance(writer, inserted, enclosing)
+        added_highlights += 1
+
+    for page_index, markers in page_markers.items():
+        prepend_chunk_markers(writer, page_index, markers)
+
+    first_page = writer.pages[0]
+    right = float(first_page.cropbox.right)
+    top = float(first_page.cropbox.top)
+    summary_text = "\n".join(
+        [
+            "AI Text Detector summary",
+            f"Chunks: {summary['chunk_count']}",
+            f"At or above {threshold:.2f}: {summary['chunks_at_or_above_threshold']}",
+            f"Median score: {summary['median_ai_probability']:.4f}",
+            f"Token-weighted mean: {summary['token_weighted_mean_ai_probability']:.4f}",
+            "",
+            DISCLAIMER,
+        ]
+    )
+    summary_note = Text(
+        rect=(right - 32, top - 32, right - 16, top - 16),
+        text=summary_text,
+        open=False,
+        flags=AnnotationFlag.PRINT,
+        title_bar="AI Text Detector",
+    )
+    summary_note[NameObject("/Name")] = NameObject("/Comment")
+    writer.add_annotation(page_number=0, annotation=summary_note)
+
+    temporary = output_path.with_name(f".{output_path.name}.tmp")
+    try:
+        with temporary.open("wb") as stream:
+            writer.write(stream)
+        temporary.replace(output_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+    written = PdfReader(output_path)
+    output_counts = annotation_counts(written)
+    if len(written.pages) != len(reader.pages):
+        raise RuntimeError("annotated PDF page count changed")
+    if output_counts.get("Link", 0) != source_counts.get("Link", 0):
+        raise RuntimeError("annotated PDF did not preserve source links")
+    if output_counts.get("Highlight", 0) - source_counts.get("Highlight", 0) != added_highlights:
+        raise RuntimeError("annotated PDF highlight count mismatch")
+    if output_counts.get("Text", 0) - source_counts.get("Text", 0) != 1:
+        raise RuntimeError("annotated PDF summary-note count mismatch")
+    return {
+        "enabled": True,
+        "path": str(output_path),
+        "sha256": file_sha256(output_path),
+        "mapping": "Poppler word boxes intersecting fast-tokenizer character offsets",
+        "highlight_boundary": "whole words intersecting each scored token chunk",
+        "highlight_rendering": "colored margin rail spanning the scored chunk",
+        "annotation_appearance": "empty text-free appearance; comment remains clickable",
+        "source_annotation_counts": source_counts,
+        "output_annotation_counts": output_counts,
+        "added_highlight_annotations": added_highlights,
+        "added_summary_comments": 1,
+    }
+
+
+def markdown_report(report: dict[str, Any]) -> str:
+    summary = report["summary"]
+    chunks = report["chunks"]
+    lines = [
+        "# AI text detector report",
+        "",
+        f"> {DISCLAIMER}",
+        "",
+        "## Summary",
+        "",
+        f"- Input: `{report['input']['path']}`",
+        f"- SHA-256: `{report['input']['sha256']}`",
+        f"- Model: `{report['model']['id']}@{report['model']['revision']}`",
+        f"- Device: `{report['runtime']['device_used']}`",
+        f"- Pages: {report['input']['pages']}",
+        f"- Source tokens: {report['input']['source_tokens']}",
+        f"- Chunks: {summary['chunk_count']}",
+        f"- Chunks at or above {summary['threshold']:.2f}: {summary['chunks_at_or_above_threshold']}",
+        f"- Median AI score: {summary['median_ai_probability']:.4f}",
+        f"- Token-weighted mean AI score: {summary['token_weighted_mean_ai_probability']:.4f}",
+        f"- Range: {summary['minimum_ai_probability']:.4f}–{summary['maximum_ai_probability']:.4f}",
+    ]
+    if report["annotation"]["enabled"]:
+        lines.append(f"- Annotated PDF: `{report['annotation']['path']}`")
+    lines.extend(["", "## Distribution", ""])
+    maximum_bin = max(row["count"] for row in summary["distribution"]) or 1
+    for row in summary["distribution"]:
+        width = round(24 * row["count"] / maximum_bin)
+        lines.append(
+            f"- {row['lower']:.1f}–{row['upper']:.1f}: {'█' * width} {row['count']}"
+        )
+
+    lines.extend(["", "## Highest-scoring chunks", ""])
+    for row in sorted(chunks, key=lambda item: item["ai_probability"], reverse=True)[:10]:
+        lines.extend(
+            [
+                f"### Chunk {row['index']} · page {row['page_start']} · {row['ai_probability']:.4f}",
+                "",
+                f"> {row['excerpt']}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## All chunks",
+            "",
+            "| Chunk | Page | Tokens | AI score | Label |",
+            "| ---: | ---: | ---: | ---: | :--- |",
+        ]
+    )
+    for row in chunks:
+        lines.append(
+            f"| {row['index']} | {row['page_start']} | {row['source_token_count']} | "
+            f"{row['ai_probability']:.4f} | {row['label']} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> int:
+    args = parse_args()
+    input_path = args.input.expanduser().resolve()
+    if not input_path.is_file():
+        raise SystemExit(f"Input file not found: {input_path}")
+    output_dir = args.output_dir.expanduser().resolve() if args.output_dir else None
+    wants_annotation = (
+        input_path.suffix.lower() == ".pdf" and output_dir is not None and not args.no_annotate_pdf
+    )
+    if wants_annotation:
+        validate_pdf_annotation_safety(input_path)
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    pages, extraction = extract_pages(input_path)
+    model, tokenizer = load_model()
+    chunks, source_tokens = make_chunks(pages, tokenizer, args.max_tokens)
+    model, device, fallback_reason = select_device(args.device, model, chunks[0])
+    results = score_chunks(model, chunks, device, args.threshold)
+    summary = summarize(results, args.threshold)
+    annotation: dict[str, Any] = {
+        "enabled": False,
+        "reason": "annotation requires PDF input with --output-dir",
+    }
+    if input_path.suffix.lower() == ".pdf" and output_dir and not args.no_annotate_pdf:
+        annotation = annotate_pdf(
+            input_path=input_path,
+            output_path=output_dir / "annotated.pdf",
+            pages=pages,
+            chunks=chunks,
+            results=results,
+            summary=summary,
+            threshold=args.threshold,
+        )
+    elif input_path.suffix.lower() == ".pdf" and args.no_annotate_pdf:
+        annotation["reason"] = "disabled by --no-annotate-pdf"
+    report = {
+        "schema": "ai-text-detector-report",
+        "version": 2,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "disclaimer": DISCLAIMER,
+        "input": {
+            "path": str(input_path),
+            "sha256": file_sha256(input_path),
+            "bytes": input_path.stat().st_size,
+            "pages": len(pages),
+            "extracted_characters": sum(len(page.text) for page in pages),
+            "source_tokens": source_tokens,
+            "extraction": extraction,
+        },
+        "model": {
+            "id": MODEL_ID,
+            "revision": MODEL_REVISION,
+            "threshold": args.threshold,
+            "max_tokens": args.max_tokens,
+            "chunk_overlap_tokens": 0,
+        },
+        "runtime": {
+            "python": platform.python_version(),
+            "pypdf": pypdf.__version__,
+            "torch": torch.__version__,
+            "transformers": transformers.__version__,
+            "device_requested": args.device,
+            "device_used": str(device),
+            "fallback_reason": fallback_reason,
+        },
+        "summary": summary,
+        "annotation": annotation,
+        "chunks": results,
+    }
+    markdown = markdown_report(report)
+
+    if output_dir:
+        json_path = output_dir / "report.json"
+        markdown_path = output_dir / "report.md"
+        json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        markdown_path.write_text(markdown, encoding="utf-8")
+        print(markdown.split("## Distribution", 1)[0].rstrip())
+        print(f"\nReports: {markdown_path} and {json_path}")
+        if annotation["enabled"]:
+            print(f"Annotated PDF: {annotation['path']}")
+    else:
+        print(markdown)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
