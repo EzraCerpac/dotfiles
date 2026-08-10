@@ -110,8 +110,8 @@ if command -q wt
     wt config shell init fish | source
 end
 
-if test -x $HOME/.local/bin/jw
-    $HOME/.local/bin/jw shell init fish | source
+if command -q jw
+    command jw shell init fish | source
 end
 
 function wto --description "Create or switch a worktree and launch OpenCode"

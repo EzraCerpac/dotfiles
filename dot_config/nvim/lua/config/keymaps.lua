@@ -103,6 +103,9 @@ vim.keymap.set("v", "<localleader>tl", ":LatexToTypst<CR>", { desc = "Convert La
 vim.keymap.set("n", "<localleader>tl", ":LatexToTypstPaste<CR>", { desc = "Paste Typst from clipboard LaTeX" })
 
 vim.keymap.set({ "n", "v" }, "<localleader>tt", ":TypstPreview<CR>", { desc = "Open Typst preview" })
+vim.keymap.set("n", "<localleader>tg", ":GrammarlyBridge<CR>", { desc = "Open Grammarly bridge" })
+vim.keymap.set("n", "<localleader>tr", ":GrammarlyReview<CR>", { desc = "Review Grammarly proposal" })
+vim.keymap.set("n", "<localleader>ta", ":GrammarlyApply<CR>", { desc = "Apply Grammarly proposal" })
 
 -- RTF Syntax Highlighting (direct pygmentize)
 vim.api.nvim_create_user_command("RTFHighlight", function()
