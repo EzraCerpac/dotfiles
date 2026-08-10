@@ -26,6 +26,7 @@ packages:
       - gitlogue
       - gnupg
       - gum
+      - harper
       - htop
       - jj
       - jjui

@@ -1,4 +1,5 @@
 local typst_root_markers = { "typst.toml", ".jj", ".git" }
+local harper_root_markers = { ".harper-dictionary.txt", "typst.toml", ".jj", ".git" }
 
 return {
   {
@@ -25,6 +26,48 @@ return {
         root_markers = typst_root_markers,
         settings = vim.tbl_deep_extend("force", tinymist.settings or {}, {
           compileStatus = "enable",
+        }),
+      })
+      local harper = opts.servers.harper_ls or {}
+      opts.servers.harper_ls = vim.tbl_deep_extend("force", harper, {
+        enabled = vim.fn.executable("harper-ls") == 1,
+        mason = false,
+        filetypes = { "markdown", "text", "typst" },
+        root_markers = harper_root_markers,
+        settings = vim.tbl_deep_extend("force", harper.settings or {}, {
+          ["harper-ls"] = {
+            dialect = "American",
+            diagnosticSeverity = "hint",
+            isolateEnglish = false,
+            maxFileLength = 120000,
+            excludePatterns = { "**/abstract-de.typ" },
+            linters = {
+              SpellCheck = true,
+              SpelledNumbers = true,
+              AnA = true,
+              SentenceCapitalization = false,
+              UnclosedQuotes = true,
+              WrongQuotes = false,
+              LongSentences = true,
+              RepeatedWords = true,
+              Spaces = true,
+              Matcher = true,
+              CorrectNumberSuffix = true,
+              SplitWords = false,
+              EllipsisLength = false,
+              CapitalizePersonalPronouns = false,
+              PhrasalVerbAsCompoundNoun = false,
+              ExpandMinimum = false,
+              ToDoHyphen = false,
+              OrthographicConsistency = false,
+            },
+            codeActions = {
+              ForceStable = false,
+            },
+            markdown = {
+              IgnoreLinkTitle = false,
+            },
+          },
         }),
       })
       opts.setup = opts.setup or {}
