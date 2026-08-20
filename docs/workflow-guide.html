@@ -169,8 +169,8 @@ omlx-launch "Review current JJ changes"</code></pre><p>Quote prompt so it remain
     </section>
 
     <section id="aerospace"><h2>AeroSpace shortcuts</h2>
-      <p><kbd>Cmd-Ctrl-Alt-9</kbd> ensures one dedicated raw WezTerm window is running <code>btop</code>, moves it to AeroSpace workspace 9 on the monitor AeroSpace identifies as <code>secondary</code>, and switches there. It reuses the existing window instead of opening duplicates.</p>
-      <p>AeroSpace also creates the btop window at startup without stealing focus. Ordinary new WezTerm windows still launch or attach Herdr.</p>
+      <p><kbd>Cmd-Ctrl-Alt-9</kbd> opens or focuses one dedicated raw WezTerm window running <code>btop</code>, moves it to AeroSpace workspace 9 on the monitor AeroSpace identifies as <code>secondary</code>, and switches there.</p>
+      <p>The window closes after one minute. Pressing the shortcut again resets that minute. AeroSpace does not create it at startup. Ordinary new WezTerm windows still launch or attach Herdr.</p>
     </section>
 
     <section id="keyboard"><h2>Keyboard workflow</h2><p><code>kbd provision</code> is sole lifecycle entrypoint. It checks prerequisites, prepares QMK, activates VirtualHID, and installs Kanata. Follow exact System Settings instruction when permission is missing, then rerun.</p>

@@ -26,6 +26,18 @@ config.macos_window_background_blur = 20
 config.audible_bell = "Disabled"
 config.scrollback_lines = 10000
 config.hide_mouse_cursor_when_typing = true
+config.skip_close_confirmation_for_processes_named = {
+  "bash",
+  "sh",
+  "zsh",
+  "fish",
+  "tmux",
+  "nu",
+  "cmd.exe",
+  "pwsh.exe",
+  "powershell.exe",
+  "btop",
+}
 
 -- Make Option behave like Alt/Meta (compose off) — similar to Ghostty
 config.send_composed_key_when_left_alt_is_pressed = false
