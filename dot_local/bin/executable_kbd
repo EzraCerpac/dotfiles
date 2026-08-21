@@ -209,6 +209,11 @@ readonly KARABINER_LEGACY_PLIST="${KBD_KARABINER_LEGACY_PLIST:-/Library/LaunchDa
 readonly KARABINER_CORE_LEGACY_PLIST="${KBD_KARABINER_CORE_LEGACY_PLIST:-/Library/LaunchDaemons/${KARABINER_CORE_LABEL}.plist}"
 readonly KANATA_CONFIG="${KBD_KANATA_CONFIG:-${HOME}/.config/kanata/config.kbd}"
 readonly KANATA_PLIST="${KBD_KANATA_PLIST:-/Library/LaunchDaemons/com.kanata.daemon.plist}"
+readonly KANATA_WRAPPER="${KBD_KANATA_WRAPPER:-/usr/local/libexec/kanata-daemon}"
+readonly KANATA_PID_FILE="${KBD_KANATA_PID_FILE:-/var/run/kanata.pid}"
+readonly KANATA_NEWSYSLOG_CONFIG="${KBD_KANATA_NEWSYSLOG_CONFIG:-/etc/newsyslog.d/kanata.conf}"
+readonly KANATA_LOG="${KBD_KANATA_LOG:-/var/log/kanata.log}"
+readonly KANATA_ERR_LOG="${KBD_KANATA_ERR_LOG:-/var/log/kanata.err.log}"
 readonly KANATA_LABEL="com.kanata.daemon"
 readonly KANATA_LEGACY_AGENT="${KBD_KANATA_LEGACY_AGENT:-${HOME}/Library/LaunchAgents/com.kanata.agent.plist}"
 readonly TCC_DB="${KBD_TCC_DB:-/Library/Application Support/com.apple.TCC/TCC.db}"
@@ -255,14 +260,45 @@ cmd_provision_virtualhid() {
     fi
 }
 
+render_kanata_wrapper() {
+    local output="${1:?output path required}"
+    local quoted_pid_file
+
+    printf -v quoted_pid_file '%q' "${KANATA_PID_FILE}"
+
+    cat >"${output}" <<EOF
+#!/bin/sh
+set -eu
+
+[ "\$#" -gt 0 ] || exit 64
+printf '%s\\n' "\$\$" >${quoted_pid_file}
+exec "\$@"
+EOF
+}
+
+render_kanata_newsyslog_config() {
+    local output="${1:?output path required}"
+
+    cat >"${output}" <<EOF
+# logfilename owner:group mode count size when flags pid_file signal
+${KANATA_LOG} root:wheel 644 3 10240 * J ${KANATA_PID_FILE} 15
+EOF
+}
+
 render_kanata_plist() {
     local kanata_bin="${1:?kanata binary required}"
     local output="${2:?output path required}"
+    local escaped_wrapper
     local escaped_bin
     local escaped_config
+    local escaped_log
+    local escaped_err_log
 
+    escaped_wrapper="$(printf '%s' "${KANATA_WRAPPER}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
     escaped_bin="$(printf '%s' "${kanata_bin}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
     escaped_config="$(printf '%s' "${KANATA_CONFIG}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+    escaped_log="$(printf '%s' "${KANATA_LOG}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
+    escaped_err_log="$(printf '%s' "${KANATA_ERR_LOG}" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')"
 
     cat >"${output}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -273,6 +309,7 @@ render_kanata_plist() {
     <string>${KANATA_LABEL}</string>
     <key>ProgramArguments</key>
     <array>
+        <string>${escaped_wrapper}</string>
         <string>${escaped_bin}</string>
         <string>--cfg</string>
         <string>${escaped_config}</string>
@@ -283,9 +320,9 @@ render_kanata_plist() {
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/var/log/kanata.log</string>
+    <string>${escaped_log}</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/kanata.err.log</string>
+    <string>${escaped_err_log}</string>
     <key>ProcessType</key>
     <string>Interactive</string>
 </dict>
@@ -310,13 +347,31 @@ cmd_provision_kanata() {
     fi
 
     (
-        local tmp_file
-        tmp_file="$(mktemp)"
-        trap 'rm -f "${tmp_file}"' EXIT
-        render_kanata_plist "${kanata_bin}" "${tmp_file}"
+        local tmp_dir
+        local wrapper_changed=0
+        local plist_changed=0
+        tmp_dir="$(mktemp -d)"
+        trap 'rm -rf "${tmp_dir}"' EXIT
 
-        if [[ ! -f "${KANATA_PLIST}" ]] || ! cmp -s "${tmp_file}" "${KANATA_PLIST}"; then
-            sudo install -o root -g wheel -m 644 "${tmp_file}" "${KANATA_PLIST}"
+        render_kanata_wrapper "${tmp_dir}/kanata-daemon"
+        render_kanata_newsyslog_config "${tmp_dir}/kanata.conf"
+        render_kanata_plist "${kanata_bin}" "${tmp_dir}/com.kanata.daemon.plist"
+
+        if [[ ! -f "${KANATA_WRAPPER}" ]] || ! cmp -s "${tmp_dir}/kanata-daemon" "${KANATA_WRAPPER}"; then
+            sudo install -d -o root -g wheel -m 755 "$(dirname "${KANATA_WRAPPER}")"
+            sudo install -o root -g wheel -m 755 "${tmp_dir}/kanata-daemon" "${KANATA_WRAPPER}"
+            wrapper_changed=1
+        fi
+        if [[ ! -f "${KANATA_NEWSYSLOG_CONFIG}" ]] || ! cmp -s "${tmp_dir}/kanata.conf" "${KANATA_NEWSYSLOG_CONFIG}"; then
+            sudo install -d -o root -g wheel -m 755 "$(dirname "${KANATA_NEWSYSLOG_CONFIG}")"
+            sudo install -o root -g wheel -m 644 "${tmp_dir}/kanata.conf" "${KANATA_NEWSYSLOG_CONFIG}"
+        fi
+        if [[ ! -f "${KANATA_PLIST}" ]] || ! cmp -s "${tmp_dir}/com.kanata.daemon.plist" "${KANATA_PLIST}"; then
+            sudo install -o root -g wheel -m 644 "${tmp_dir}/com.kanata.daemon.plist" "${KANATA_PLIST}"
+            plist_changed=1
+        fi
+
+        if [[ "${wrapper_changed}" == "1" || "${plist_changed}" == "1" ]]; then
             if sudo launchctl print "system/${KANATA_LABEL}" >/dev/null 2>&1; then
                 sudo launchctl bootout "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
             fi
@@ -331,6 +386,22 @@ cmd_provision_kanata() {
     if ! sudo launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1; then
         echo "Kanata daemon did not start. Inspect: sudo tail -n 50 /var/log/kanata.err.log" >&2
         return 1
+    fi
+
+    if [[ -f "${KANATA_LOG}" ]] && (( $(wc -c <"${KANATA_LOG}") >= 10485760 )); then
+        local attempts=0
+        while (( attempts < 20 )); do
+            if [[ -s "${KANATA_PID_FILE}" ]] && sudo kill -0 "$(<"${KANATA_PID_FILE}")" 2>/dev/null; then
+                break
+            fi
+            sleep 0.1
+            attempts=$((attempts + 1))
+        done
+        if (( attempts == 20 )); then
+            echo "Kanata PID file was not refreshed; skipping log rotation: ${KANATA_PID_FILE}" >&2
+            return 1
+        fi
+        sudo newsyslog -f "${KANATA_NEWSYSLOG_CONFIG}" "${KANATA_LOG}"
     fi
 }
 

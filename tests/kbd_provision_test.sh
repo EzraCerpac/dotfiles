@@ -12,6 +12,11 @@ export KBD_KARABINER_LEGACY_PLIST="${TMP_ROOT}/legacy-virtualhid.plist"
 export KBD_KARABINER_CORE_LEGACY_PLIST="${TMP_ROOT}/legacy-core.plist"
 export KBD_KANATA_CONFIG="${TMP_ROOT}/a&b/config.kbd"
 export KBD_KANATA_PLIST="${TMP_ROOT}/com.kanata.daemon.plist"
+export KBD_KANATA_WRAPPER="${TMP_ROOT}/libexec/kanata-daemon"
+export KBD_KANATA_PID_FILE="${TMP_ROOT}/run/kanata.pid"
+export KBD_KANATA_NEWSYSLOG_CONFIG="${TMP_ROOT}/newsyslog.d/kanata.conf"
+export KBD_KANATA_LOG="${TMP_ROOT}/log/kanata.log"
+export KBD_KANATA_ERR_LOG="${TMP_ROOT}/log/kanata.err.log"
 export KBD_KANATA_LEGACY_AGENT="${TMP_ROOT}/com.kanata.agent.plist"
 export KBD_TCC_DB="${TMP_ROOT}/TCC.db"
 
@@ -44,6 +49,13 @@ assert_not_contains() {
         exit 1
     }
     pass
+}
+
+seed_kanata_runtime_files() {
+    mkdir -p "$(dirname "${KBD_KANATA_WRAPPER}")" "$(dirname "${KBD_KANATA_NEWSYSLOG_CONFIG}")" "$(dirname "${KBD_KANATA_PLIST}")"
+    render_kanata_wrapper "${KBD_KANATA_WRAPPER}"
+    render_kanata_newsyslog_config "${KBD_KANATA_NEWSYSLOG_CONFIG}"
+    render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
 }
 
 test_missing_prerequisite() {
@@ -97,11 +109,37 @@ test_tcc_gate() {
     assert_contains "${output}" "Privacy & Security > Accessibility"
 }
 
-test_render_escapes_xml() {
-    local output="${TMP_ROOT}/kanata.plist"
-    render_kanata_plist "/tmp/a&b/kanata" "${output}"
-    assert_contains "$(<"${output}")" "/tmp/a&amp;b/kanata"
-    assert_contains "$(<"${output}")" "a&amp;b/config.kbd"
+test_render_runtime_files() {
+    local wrapper="${TMP_ROOT}/rendered-wrapper"
+    local plist="${TMP_ROOT}/rendered.plist"
+    local newsyslog="${TMP_ROOT}/rendered-newsyslog.conf"
+    local fake_command="${TMP_ROOT}/fake-command"
+    local wrapper_status
+
+    render_kanata_wrapper "${wrapper}"
+    render_kanata_plist "/tmp/a&b/kanata" "${plist}"
+    render_kanata_newsyslog_config "${newsyslog}"
+
+    assert_contains "$(<"${wrapper}")" "printf '%s\\n' \"\$\$\""
+    assert_contains "$(<"${wrapper}")" 'exec "$@"'
+    assert_not_contains "$(<"${wrapper}")" "release-grab-on-lock"
+    assert_contains "$(<"${plist}")" "${KBD_KANATA_WRAPPER}"
+    assert_contains "$(<"${plist}")" "/tmp/a&amp;b/kanata"
+    assert_contains "$(<"${plist}")" "a&amp;b/config.kbd"
+    assert_contains "$(<"${plist}")" "--cfg"
+    assert_contains "$(<"${newsyslog}")" "${KBD_KANATA_LOG} root:wheel 644 3 10240 * J ${KBD_KANATA_PID_FILE} 15"
+
+    mkdir -p "$(dirname "${KBD_KANATA_PID_FILE}")"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$$" >"%s"\nprintf "%%s\\n" "$@" >"%s"\n' "${TMP_ROOT}/exec.pid" "${TMP_ROOT}/exec.args" >"${fake_command}"
+    chmod +x "${wrapper}" "${fake_command}"
+    "${wrapper}" "${fake_command}" 'one two' three
+    [[ "$(<"${KBD_KANATA_PID_FILE}")" == "$(<"${TMP_ROOT}/exec.pid")" ]] || exit 1
+    pass
+    assert_contains "$(<"${TMP_ROOT}/exec.args")" $'one two\nthree'
+    wrapper_status=0
+    "${wrapper}" >/dev/null 2>&1 || wrapper_status=$?
+    [[ "${wrapper_status}" == "64" ]] || exit 1
+    pass
 }
 
 test_unchanged_unloaded_daemon_bootstraps() {
@@ -111,7 +149,7 @@ test_unchanged_unloaded_daemon_bootstraps() {
     printf '(defcfg)\n' >"${KBD_KANATA_CONFIG}"
     chmod +x "${FAKE_KANATA}"
     resolve_kanata_bin() { printf '%s\n' "${FAKE_KANATA}"; }
-    render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
+    seed_kanata_runtime_files
     sudo() {
         if [[ "$1" == "launchctl" ]]; then
             shift
@@ -129,6 +167,7 @@ test_unchanged_unloaded_daemon_bootstraps() {
 
 test_changed_plist_reloads_daemon() {
     local calls="${TMP_ROOT}/changed.calls"
+    seed_kanata_runtime_files
     printf 'stale\n' >"${KBD_KANATA_PLIST}"
     sudo() {
         if [[ "$1" == "install" ]]; then
@@ -157,7 +196,7 @@ test_legacy_agent_is_removed() {
     local calls="${TMP_ROOT}/legacy-agent.calls"
     mkdir -p "$(dirname "${KBD_KANATA_LEGACY_AGENT}")"
     printf 'legacy\n' >"${KBD_KANATA_LEGACY_AGENT}"
-    render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
+    seed_kanata_runtime_files
     launchctl() {
         printf '%s\n' "$*" >>"${calls}"
         return 0
@@ -172,7 +211,7 @@ test_legacy_agent_is_removed() {
 
 test_unchanged_loaded_daemon_skips_bootstrap() {
     local calls="${TMP_ROOT}/loaded.calls"
-    render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
+    seed_kanata_runtime_files
     sudo() {
         if [[ "$1" == "launchctl" ]]; then
             shift
@@ -185,6 +224,69 @@ test_unchanged_loaded_daemon_skips_bootstrap() {
     cmd_provision_kanata "${FAKE_KANATA}"
     assert_not_contains "$(<"${calls}")" "bootstrap"
     assert_contains "$(<"${calls}")" "kickstart -k system/com.kanata.daemon"
+}
+
+test_missing_runtime_files_install_once() {
+    local calls="${TMP_ROOT}/runtime-install.calls"
+    rm -f "${KBD_KANATA_WRAPPER}" "${KBD_KANATA_NEWSYSLOG_CONFIG}" "${KBD_KANATA_PLIST}"
+    sudo() {
+        if [[ "$1" == "install" && "$2" == "-d" ]]; then
+            mkdir -p "${@: -1}"
+            return 0
+        fi
+        if [[ "$1" == "install" ]]; then
+            mkdir -p "$(dirname "${@: -1}")"
+            cp "${@: -2:1}" "${@: -1}"
+            printf 'install %s\n' "${@: -1}" >>"${calls}"
+            return 0
+        fi
+        if [[ "$1" == "launchctl" ]]; then
+            shift
+            printf '%s\n' "$*" >>"${calls}"
+            if [[ "$1" == "print" ]] && ! grep -q '^bootstrap ' "${calls}"; then
+                return 1
+            fi
+            return 0
+        fi
+        "$@"
+    }
+
+    cmd_provision_kanata "${FAKE_KANATA}"
+    cmd_provision_kanata "${FAKE_KANATA}"
+
+    [[ "$(grep -c "^install ${KBD_KANATA_WRAPPER}$" "${calls}")" == "1" ]] || exit 1
+    pass
+    [[ "$(grep -c "^install ${KBD_KANATA_NEWSYSLOG_CONFIG}$" "${calls}")" == "1" ]] || exit 1
+    pass
+    [[ "$(grep -c "^install ${KBD_KANATA_PLIST}$" "${calls}")" == "1" ]] || exit 1
+    pass
+}
+
+test_large_log_rotates() {
+    local calls="${TMP_ROOT}/rotation.calls"
+    seed_kanata_runtime_files
+    mkdir -p "$(dirname "${KBD_KANATA_LOG}")"
+    mkdir -p "$(dirname "${KBD_KANATA_PID_FILE}")"
+    truncate -s 10485760 "${KBD_KANATA_LOG}"
+    printf '%s\n' "$$" >"${KBD_KANATA_PID_FILE}"
+    sudo() {
+        if [[ "$1" == "newsyslog" ]]; then
+            printf '%s\n' "$*" >>"${calls}"
+            return 0
+        fi
+        if [[ "$1" == "launchctl" ]]; then
+            return 0
+        fi
+        if [[ "$1" == "kill" ]]; then
+            shift
+            kill "$@"
+            return
+        fi
+        "$@"
+    }
+
+    cmd_provision_kanata "${FAKE_KANATA}"
+    assert_contains "$(<"${calls}")" "newsyslog -f ${KBD_KANATA_NEWSYSLOG_CONFIG} ${KBD_KANATA_LOG}"
 }
 
 test_stopped_daemon_fails() {
@@ -259,11 +361,13 @@ test_missing_prerequisite
 test_missing_virtualhid
 test_driverkit_gate
 test_tcc_gate
-test_render_escapes_xml
+test_render_runtime_files
 test_unchanged_unloaded_daemon_bootstraps
 test_changed_plist_reloads_daemon
 test_legacy_agent_is_removed
 test_unchanged_loaded_daemon_skips_bootstrap
+test_missing_runtime_files_install_once
+test_large_log_rotates
 test_stopped_daemon_fails
 test_missing_config_fails
 test_qmk_config_failure_propagates
