@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+agenda_bin="$HOME/.local/libexec/agenda/agenda"
+
+if [[ ! -x "$agenda_bin" ]]; then
+    echo "agenda is not installed at $agenda_bin" >&2
+    exit 1
+fi
+
+exec "$agenda_bin" "$@"
