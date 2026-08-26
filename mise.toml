@@ -1,6 +1,3 @@
-[settings]
-experimental = true
-
 [tasks.kbd_provision]
 description = "Provision Corne QMK and macOS keyboard runtime"
 run = "./dot_local/bin/executable_kbd provision"

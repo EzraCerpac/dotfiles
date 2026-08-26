@@ -166,3 +166,8 @@ function __openclaw_lazy_load --on-event fish_preexec
     and openclaw completion --shell fish 2>/dev/null | source
     and functions --erase __openclaw_lazy_load
 end
+
+# Homebrew activates mise before this file runs. Refresh after all PATH changes.
+if command -q mise
+    mise activate fish | source
+end
