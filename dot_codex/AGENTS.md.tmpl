@@ -1,48 +1,23 @@
-/caveman
+Caveman, and use plain language. Use /visualize a lot to show information in a nice way.
 
-Use /visualize a lot to show information in a nice way to me.
+Offer useful suggestions. If have a good idea, stop and tell Ezra. Even if he gives direct command, you stop and say why maybe not good idea.
 
-Open to your suggestions. If have a good idea, stop and tell me. Even if I give direct command, you stop and say why maybe not good idea. I don't understand typscript/web-app/api architectures very well; explain in simple language.
+Before saying done, run the smallest check that matches the task's risk and the user's actual success criterion. Normal tests or direct inspection are enough unless the task changes a browser UI, physical device, deployed service, performance claim, or other boundary the user will rely on. Do not add evidence packages, provenance tracking, receipts, digests, independent review, fresh replications, or extra acceptance gates unless the user requests them or they are necessary for publication, deployment, security, destructive work, or scientific claims being promoted as final evidence. Report material checks that remain open.
 
-Use jj. Make commits with short one-line messages. Squash and group commits when see fit, and make parallel commits if you like. If change incremental, squashing instead of new commit. Use jj's nice feature set, and prefer merging to rebasing. When completely done with task, move to empty commit. Move bookmarks like wip/... (never main, don't push) to the top. Clean up workspaces AND bookmark if appropriate. NOTE: take care with parallel commands and creating divergent commits; fix those immediately. And creating child commits on top of commits with no description is not allowed.
+Use jj. Make commits with short one-line messages. Squash and group commits when see fit, and make parallel commits if you like. If change incremental, squashing instead of new commit. Use jj's nice feature set, and prefer merging to rebasing. When completely done with task, move to empty commit. Move bookmarks like dev, wip/... (never main) to the top (situation specific, only push to github). Clean up workspaces AND bookmark if appropriate. NOTE: take care with simultaneous commands and creating divergent commits; fix those immediately. And creating child commits on top of commits with no description is not allowed. Also, GitHub now supports stacked commits with `gh stack`; use it.
+
+Use subagents for well-scoped work that can be parallelized. Keep planning, architectural decisions, integration, and final review in the main thread. Prefer several narrowly scoped Luna agents over doing straightforward implementation or exploration yourself. Run independent tasks in parallel where possible. Luna is extremely cheap and should be used aggressively as "leaf" agents. For more complex tasks, Terra can be used. Instruct it to use it's own Luna leaf agents in that scenario. Tell subagents to report back concisely, caveman-mode. For big standalone tasks, spawn a new thread with Sol (always: `"environment": { "type": "local" }`). Also use Sol for academic writing or do it yourself.
 
 AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
-Use uv for Python.
+Use uv for Python. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill.
 
-Prefer opening the built-in browser.
-
-For local web and documentation servers, use the globally linked Portless fork and its `portless` skill. The link to `/Users/ezracerpac/Projects/portless` is intentional; do not replace it with the npm registry package. Let Portless derive JJ workspace prefixes, use `portless get <name>` instead of guessing ports, and use `--no-worktree` only when an unprefixed route is explicitly required. Do not wrap native Xcode, simulator, or desktop-app processes in Portless.
-
-At task end, close only task-started resources, including simulators, apps, servers, and browser tabs/windows. Preserve pre-existing resources: if a requested browser check was already open, leave it open. Verify ownership first.
+At task end, close only task-started resources, including simulators, apps, servers, and browser tabs/windows. Preserve pre-existing resources: if a requested browser check was already open or useful to show Ezra, leave it open. Verify ownership first.
 
 Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
 
-Tests are good! Endless smoke tests, "regression tests" for feature deletions, etc, much less good. Tests should be focused, not slop.
+Exploration may finish with a useful partial result and clear caveats. Do not turn exploratory work into publication-grade validation. Run focused tests for changed behavior and likely regressions. Do not add tests or smoke checks only as a completion ritual.
 
 Backwards compatibility never main concern, prefer simplicity and overall best design-choice. Keep codebase simple. Less is more. Again: always evaluate if less code can do the job.
 
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE rg/fd or reading files when you need to understand or locate code:
-
-- **MCP tools**: `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them. `codegraph_node` returns one symbol's source + callers, or reads a whole file with line numbers. If the tools are listed but deferred, load them by name via tool search.
-- **Shell equivalent**: `codegraph explore "<symbol names or question>"` and `codegraph node <symbol-or-file>` print the same output.
-
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
-<!-- CODEGRAPH_END -->
-{{- if eq .profile "nas" }}
-
-## CerpacNAS limits
-
-- Work only below `/root/Projects` and the task's `jw` workspace.
-- Root login is intentional, but never use `sudo`, Docker, system package changes, or dangerous sandbox/approval bypass flags. `--skip-git-repo-check` is allowed only for a secondary JJ workspace without `.git`.
-- Allow one work agent or two read-only exploration agents. Never parallelize heavy commands.
-- Run validation through `nas validate`: one lane, one job, `JULIA_NUM_THREADS=1`, a 180-second ceiling, and peak-RSS recording.
-- Cheap web format, pure-test, type-check, and Julia format lanes are allowed sequentially. A focused Julia lane needs one successful calibration.
-- A lane exceeding 180 seconds or 3 GiB peak RSS is disabled.
-- Never run `validate all`, `validate evidence`, `thesis-evidence-gate`, benchmarks, browser or API-live tests, or make performance claims here.
-- Report skipped Mac or CI validation in every handoff.
-- Transfer code only through GitHub `wip/...` bookmarks. Transfer only allowlisted artifacts with `nas artifact`; never rsync project roots.
-{{- end }}
+If .codegraph/ exists and code navigation is needed, use CodeGraph before text search. If not, feel free to set it up if you think it will aid in your task.
