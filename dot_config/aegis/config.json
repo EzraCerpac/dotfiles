@@ -13,7 +13,7 @@
   "appSwitcherShowHidden" : false,
   "appSwitcherShowMinimized" : true,
   "appSwitcherShowPreviews" : true,
-  "appTheme" : "liquidGlass",
+  "appTheme" : "custom",
   "autoExpandFocusedWindow" : true,
   "autoScrollDuration" : 0.3,
   "batteryCriticalThreshold" : 0.1,
@@ -61,8 +61,8 @@
   "enableLayoutActionHaptics" : true,
   "enableWallpaperBlur" : false,
   "excludedApps" : [
-    "Aegis",
-    "Finder"
+    "Finder",
+    "Aegis"
   ],
   "excludedBluetoothDevices" : [
     "watch"
@@ -97,6 +97,7 @@
   "maxAppIconsPerSpace" : 3,
   "maxExpandedWidth" : 100,
   "mediaHUDEnableMarquee" : true,
+  "mediaHUDTrackInfoMaxWidth" : 200,
   "menuBarEdgePadding" : 15,
   "menuBarHeight" : 48,
   "minimalHUDVerticalPadding" : 12,

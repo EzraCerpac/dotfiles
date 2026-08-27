@@ -1,0 +1,6 @@
+# Rift is the authorized local window manager.
+prefix_rule(
+    pattern = ["rift-cli"],
+    decision = "allow",
+    justification = "Inspect and control the authorized local Rift window manager.",
+)

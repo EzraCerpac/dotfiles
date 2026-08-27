@@ -33,6 +33,12 @@ Thesis has no automatic app rule. Move only thesis-related windows there. Atlas 
 
 Hyper+0 through Hyper+7 moves the focused window and follows it. Hyper+E, Hyper+B, Hyper+T, and Hyper+9 are aliases for Comms, Browser Hub, Terminal Hub, and Ops. Hyper+M opens Music, so use Hyper+4 to move a window to Media.
 
+## Transient windows
+
+Rift floats dialogs, system dialogs, sheets, and floating utility windows. They stay usable without taking a column from the scrolling layout. Rift ignores Raycast's launcher windows and Orion's exact `Orion Preview` helper. Normal Orion browser windows remain managed and stay wherever they were placed.
+
+The transient rules come before workspace routes because Rift uses the earlier rule when two matches have equal specificity. If Raycast returns as a blank item in native Mission Control, quit and reopen Raycast. Restart Dock once only if Mission Control kept a stale item after that restart.
+
 ## Window controls
 
 Meh means Cmd+Ctrl+Alt. Hyper adds Shift.
@@ -57,7 +63,7 @@ Meh means Cmd+Ctrl+Alt. Hyper adds Shift.
 
 The S, C, E, and T keys also have tap-hold behavior in the keyboard configuration. Tap them promptly when they are part of a global shortcut. On the internal keyboard, the bottom-left Option key remains the ordinary @meh modifier; the Corne no longer translates Tab into private function-key signals. Rift handles Meh+Tab directly as `switch_to_last_workspace` and Hyper+Tab directly as moving the focused window to the display on the right. Aegis captures bare Cmd+Tab and Cmd+Shift+Tab while modified Cmd+Tab combinations containing Option or Control pass through to Rift.
 
-Hyper+A, Hyper+F, Hyper+W, Hyper+Y, and Hyper+M open Atlas, Finder, WhatsApp, System Settings, and Music. Hyper+Enter opens a raw fish login shell in a new WezTerm window. Ordinary WezTerm launches still enter Herdr.
+Hyper+A, Hyper+F, Hyper+W, Hyper+Y, and Hyper+M open Activity Monitor, Finder, WhatsApp, System Settings, and Music. Hyper+Enter opens a raw fish login shell in a new WezTerm window. Ordinary WezTerm launches still enter Herdr.
 
 ## Layout profiles
 

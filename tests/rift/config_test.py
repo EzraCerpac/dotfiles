@@ -67,6 +67,15 @@ class RiftConfigTest(unittest.TestCase):
         rules = self.config["virtual_workspaces"]["app_rules"]
         by_app = {(rule.get("app_id"), rule.get("title_regex")): rule for rule in rules}
 
+        orion_preview = by_app[("com.kagi.kagimacOS", "^Orion Preview$")]
+        raycast = by_app[("com.raycast.macos", None)]
+        self.assertFalse(orion_preview["manage"])
+        self.assertFalse(raycast["manage"])
+        self.assertEqual(
+            [rule for rule in rules if rule.get("app_id") == "com.kagi.kagimacOS"],
+            [orion_preview],
+        )
+
         self.assertEqual(by_app[("com.openai.codex", None)]["workspace"], 2)
         self.assertEqual(by_app[("com.apple.mail", None)]["workspace"], 3)
         self.assertEqual(by_app[("net.whatsapp.WhatsApp", None)]["workspace"], 3)
@@ -75,9 +84,29 @@ class RiftConfigTest(unittest.TestCase):
         self.assertEqual(by_app[("com.github.wez.wezterm", "(?i)^btop([[:space:]]|$)")]["workspace"], 5)
         self.assertNotIn(("com.google.Chrome", None), by_app)
         self.assertNotIn(("com.apple.Safari", None), by_app)
-        self.assertTrue(all(rule.get("app_id") for rule in rules))
 
-        floating = {rule["app_id"] for rule in rules if rule.get("floating")}
+        transient_rules = rules[:7]
+        self.assertEqual(transient_rules[0], orion_preview)
+        self.assertEqual(transient_rules[1], raycast)
+        self.assertEqual(
+            transient_rules[2:],
+            [
+                {"ax_subrole": "AXDialog", "floating": True},
+                {"ax_subrole": "AXSystemDialog", "floating": True},
+                {"ax_role": "AXSheet", "floating": True},
+                {"ax_subrole": "AXFloatingWindow", "floating": True},
+                {"ax_subrole": "AXSystemFloatingWindow", "floating": True},
+            ],
+        )
+        self.assertTrue(all(rule.get("floating") for rule in transient_rules[2:]))
+        self.assertTrue(all(rule.get("manage", True) for rule in transient_rules[2:]))
+        self.assertTrue(all(rule.get("app_id") for rule in rules[7:]))
+
+        floating = {
+            rule["app_id"]
+            for rule in rules
+            if rule.get("floating") and rule.get("app_id")
+        }
         self.assertEqual(
             floating,
             {"com.chabomakers.Antinote", "com.apple.weather", "com.apple.AddressBook"},
@@ -130,6 +159,10 @@ class RiftConfigTest(unittest.TestCase):
         self.assertEqual(
             keys["Hyper + Enter"]["exec"],
             ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"],
+        )
+        self.assertEqual(
+            keys["Hyper + A"]["exec"],
+            ["/usr/bin/open", "-a", "Activity Monitor"],
         )
         self.assertIn("Meh + [", keys)
         self.assertIn("Hyper + Dot", keys)

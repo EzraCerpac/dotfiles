@@ -42,10 +42,10 @@ vertical = 10.0
 enabled = false
 
 [settings.ui.stack_line]
-enabled = false
+enabled = true
 
 [settings.ui.mission_control]
-enabled = false
+enabled = true
 
 [settings.gestures]
 # Four-finger horizontal swipes switch directly between non-empty workspaces.
@@ -81,6 +81,15 @@ workspace_names = [
 workspace_rules = []
 
 app_rules = [
+  # Keep transient helpers out of the workspace model. Order matters for ties.
+  { app_id = "com.kagi.kagimacOS", title_regex = '^Orion Preview$', manage = false },
+  { app_id = "com.raycast.macos", manage = false },
+  { ax_subrole = "AXDialog", floating = true },
+  { ax_subrole = "AXSystemDialog", floating = true },
+  { ax_role = "AXSheet", floating = true },
+  { ax_subrole = "AXFloatingWindow", floating = true },
+  { ax_subrole = "AXSystemFloatingWindow", floating = true },
+
   { app_id = "com.openai.codex", workspace = 2 },
   { app_id = "com.apple.mail", workspace = 3 },
   { app_id = "net.whatsapp.WhatsApp", workspace = 3 },
@@ -167,7 +176,7 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Hyper + Equal" = { resize_window_grow = "vertical" }
 
 # Hyper app launchers.
-"Hyper + A" = { exec = ["/usr/bin/open", "-a", "ChatGPT Atlas"] }
+"Hyper + A" = { exec = ["/usr/bin/open", "-a", "Activity Monitor"] }
 "Hyper + F" = { exec = ["/usr/bin/open", "-a", "Finder"] }
 "Hyper + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
 "Hyper + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
