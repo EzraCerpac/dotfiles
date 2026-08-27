@@ -7,6 +7,10 @@ state_file() {
 }
 
 case "${1:-}" in
+  list-modes)
+    [[ ${2:-} == --current ]]
+    cat "$(state_file mode)"
+    ;;
   list-monitors)
     cat "$(state_file monitors)"
     ;;

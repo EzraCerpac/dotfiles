@@ -24,8 +24,35 @@ exec-on-workspace-change = [
 # Start AeroSpace at login
 start-at-login = true
 
+# Reload this config automatically after saving it.
+auto-reload-config = true
+
+# Keep SketchyBar's mode indicator in sync with AeroSpace binding modes.
+on-mode-changed = [
+  'exec-and-forget sketchybar --trigger aerospace_mode_change MODE=$(aerospace list-modes --current)',
+]
+
 # Keep the shortcut workspaces available even while they are empty.
 persistent-workspaces = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "B", "E", "M", "T"]
+
+on-window-detected = [
+  {
+    if = 'test %{app-bundle-id} = com.apple.mail || test %{app-bundle-id} = net.whatsapp.WhatsApp',
+    run = 'move-node-to-workspace E',
+  },
+  {
+    if = 'test %{app-bundle-id} = com.openai.atlas || test %{app-bundle-id} = com.google.Chrome || test %{app-bundle-id} = net.imput.helium || test %{app-bundle-id} = com.kagi.kagimacOS || test %{app-bundle-id} = com.apple.Safari',
+    run = 'move-node-to-workspace B',
+  },
+  {
+    if = 'test %{app-bundle-id} = com.apple.Music',
+    run = 'move-node-to-workspace M',
+  },
+  {
+    if = 'test %{app-bundle-id} = com.chabomakers.Antinote || test %{app-bundle-id} = com.apple.weather || test %{app-bundle-id} = com.apple.AddressBook',
+    run = 'layout floating',
+  },
+]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 # enable-normalization-flatten-containers = false
@@ -82,14 +109,14 @@ cmd-ctrl-alt-up = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus up'
 cmd-ctrl-alt-right = 'exec-and-forget ~/.config/aerospace/bin/aerospace-focus right'
 
 # Move
-cmd-ctrl-alt-shift-h = "move left"
-cmd-ctrl-alt-shift-j = "move down"
-cmd-ctrl-alt-shift-k = "move up"
-cmd-ctrl-alt-shift-l = "move right"
-cmd-ctrl-alt-shift-left = "move left"
-cmd-ctrl-alt-shift-down = "move down"
-cmd-ctrl-alt-shift-up = "move up"
-cmd-ctrl-alt-shift-right = "move right"
+cmd-ctrl-alt-shift-h = "move --boundaries all-monitors-outer-frame left"
+cmd-ctrl-alt-shift-j = "move --boundaries all-monitors-outer-frame down"
+cmd-ctrl-alt-shift-k = "move --boundaries all-monitors-outer-frame up"
+cmd-ctrl-alt-shift-l = "move --boundaries all-monitors-outer-frame right"
+cmd-ctrl-alt-shift-left = "move --boundaries all-monitors-outer-frame left"
+cmd-ctrl-alt-shift-down = "move --boundaries all-monitors-outer-frame down"
+cmd-ctrl-alt-shift-up = "move --boundaries all-monitors-outer-frame up"
+cmd-ctrl-alt-shift-right = "move --boundaries all-monitors-outer-frame right"
 
 # Resize
 cmd-ctrl-alt-shift-minus = "resize smart -50"
@@ -169,6 +196,8 @@ cmd-ctrl-alt-comma = "layout accordion horizontal vertical"
 cmd-ctrl-alt-slash = "layout tiles horizontal vertical"
 
 cmd-ctrl-alt-tab = "workspace-back-and-forth"
+cmd-ctrl-alt-leftSquareBracket = 'list-workspaces --monitor focused --empty no | workspace --stdin prev'
+cmd-ctrl-alt-rightSquareBracket = 'list-workspaces --monitor focused --empty no | workspace --stdin next'
 # alt-tab = "workspace-back-and-forth"
 cmd-ctrl-alt-shift-tab = [
   "move-workspace-to-monitor --wrap-around next",
@@ -200,52 +229,18 @@ left = ["join-with left", "mode main"]
 down = ["join-with down", "mode main"]
 up = ["join-with up", "mode main"]
 right = ["join-with right", "mode main"]
+shift-h = ["swap left", "mode main"]
+shift-j = ["swap down", "mode main"]
+shift-k = ["swap up", "mode main"]
+shift-l = ["swap right", "mode main"]
+shift-left = ["swap left", "mode main"]
+shift-down = ["swap down", "mode main"]
+shift-up = ["swap up", "mode main"]
+shift-right = ["swap right", "mode main"]
 backspace = ["close-all-windows-but-current", "mode main"]
 f = ["layout floating tiling", "mode main"]
 r = ["flatten-workspace-tree", "mode main"] # reset layout
 p = [
-  'exec-and-forget ~/.config/aerospace/bin/aerospace-cleanup',
   'exec-and-forget /opt/homebrew/bin/sketchybar --reload',
   "mode main"
 ]
-shift-p = [
-  'exec-and-forget ~/.config/aerospace/bin/prune-windows',
-  "mode main"
-]
-cmd-ctrl-alt-shift-r = ['exec-and-forget /opt/homebrew/bin/sketchybar --reload']
-
-# [[on-window-detected]]
-# run = "move-node-to-workspace 1"
-#
-# [on-window-detected.if]
-# app-name-regex-substring = "finder"
-
-[[on-window-detected]]
-run = "move-node-to-workspace E"
-[on-window-detected.if]
-app-name-regex-substring = "mail|spark|outlook|superhuman|hey|thunderbird|canary|mimestream|whatsapp"
-
-# [[on-window-detected]]
-# run = "move-node-to-workspace T"
-# [on-window-detected.if]
-# app-name-regex-substring = "wezterm|kitty|ghostty"
-
-[[on-window-detected]]
-run = "move-node-to-workspace B"
-[on-window-detected.if]
-app-name-regex-substring = "zen|arc|safari|brave|orion|comet|atlas|firefox|chrome|chromium|vivaldi|edge|helium"
-
-[[on-window-detected]]
-run = "move-node-to-workspace M"
-[on-window-detected.if]
-app-name-regex-substring = "spotify|music"
-
-[[on-window-detected]]
-run = ["layout floating"]
-[on-window-detected.if]
-app-name-regex-substring = "antinote"
-
-[[on-window-detected]]
-run = ["layout floating"]
-[on-window-detected.if]
-app-name-regex-substring = "weather|contacts"
