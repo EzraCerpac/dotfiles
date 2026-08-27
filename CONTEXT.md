@@ -61,7 +61,7 @@ Hyper+A, Hyper+F, Hyper+W, Hyper+Y, and Hyper+M open Atlas, Finder, WhatsApp, Sy
 
 ## Layout profiles
 
-Laptop Scrolling is the tracked default. It uses 70 percent columns, 180 ms animations, mouse hover focus, and a three-finger horizontal gesture. Scrolling past the end of a strip switches virtual workspace. All outer gaps are 10 px; macOS already removes the menu-bar area before Rift lays out windows.
+Laptop Scrolling is the tracked default. It uses 70 percent columns, 180 ms animations, and mouse hover focus. Four-finger horizontal swipes switch directly between non-empty workspaces and give one haptic when the switch commits. Trackpad swipes do not scroll the column strip; use the focus keys, mouse, and strip commands for columns. All outer gaps are 10 px; macOS already removes the menu-bar area before Rift lays out windows.
 
 Rift 0.5.3 does not natively expand a workspace's sole column. Use Meh+F when one window should fill the tiling area inside the gaps; automatic expansion would require a background window-event subscriber.
 
@@ -98,7 +98,7 @@ With `contextButtonMenuOnly` enabled, the far-left `≡` button opens the full m
 
 Rift and Aegis both need Accessibility access. Aegis and BoringNotch also need login-item approval. Aegis's master HUD path stays enabled only because its notification service closes the native banner before drawing its replacement; disabling the notification HUD would make banners invisible. Its music, media, volume/brightness, device, focus, and virtual-notch HUDs stay off so BoringNotch is their sole owner. Test a harmless notification after each macOS or Aegis update.
 
-Dragging a window to the top edge does not enter Mission Control. Ordinary Mission Control shortcuts, trackpad gestures, and Hot Corners remain available. This avoids accidental Mission Control activation while dragging Aegis items.
+Dragging a window to the top edge does not enter Mission Control. Rift consumes four-finger horizontal swipes, while vertical Mission Control gestures, shortcuts, and Hot Corners remain available. This avoids accidental Mission Control activation while dragging Aegis items.
 
 Rift 0.5.3 is ad-hoc signed, and macOS 27 beta has turned its Accessibility grant off after a reboot. The repository therefore replaces Rift's stock `KeepAlive` service with a one-shot login agent. If permission is missing, Rift prompts once and exits instead of restarting every 30 seconds. Turn its switch back on, then run the activation apply again. Do not reinstall the stock Rift service.
 

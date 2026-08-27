@@ -29,10 +29,21 @@ class RiftConfigTest(unittest.TestCase):
         self.assertEqual(scrolling["min_column_width_ratio"], 0.3)
         self.assertEqual(scrolling["max_column_width_ratio"], 0.9)
         self.assertEqual(scrolling["focus_navigation_style"], "niri")
-        self.assertEqual(scrolling["gestures"]["fingers"], 3)
-        self.assertTrue(scrolling["gestures"]["enabled"])
-        self.assertTrue(scrolling["gestures"]["propagate_to_workspace_swipe"])
-        self.assertFalse(settings["gestures"]["enabled"])
+        self.assertEqual(scrolling["gestures"], {"enabled": False})
+        self.assertEqual(
+            settings["gestures"],
+            {
+                "enabled": True,
+                "consume_dock_swipe": True,
+                "invert_horizontal_swipe": False,
+                "swipe_vertical_tolerance": 0.4,
+                "skip_empty": True,
+                "fingers": 4,
+                "distance_pct": 0.08,
+                "haptics_enabled": True,
+                "haptic_pattern": "level_change",
+            },
+        )
         self.assertEqual(virtual["default_workspace_count"], 8)
         self.assertEqual(
             virtual["workspace_names"],

@@ -26,12 +26,7 @@ alignment = "center"
 focus_navigation_style = "niri"
 
 [settings.layout.scrolling.gestures]
-enabled = true
-invert_horizontal = false
-fingers = 3
-distance_pct = 0.08
-propagate_to_workspace_swipe = true
-workspace_switch_threshold = 0.625
+enabled = false
 
 [settings.layout.gaps.outer]
 top = 10.0
@@ -53,9 +48,16 @@ enabled = false
 enabled = false
 
 [settings.gestures]
-# Direct workspace swipes are off. The scrolling-layout gesture above owns
-# horizontal input and switches workspace only after strip overscroll.
-enabled = false
+# Four-finger horizontal swipes switch directly between non-empty workspaces.
+enabled = true
+consume_dock_swipe = true
+invert_horizontal_swipe = false
+swipe_vertical_tolerance = 0.4
+skip_empty = true
+fingers = 4
+distance_pct = 0.08
+haptics_enabled = true
+haptic_pattern = "level_change"
 
 [virtual_workspaces]
 enabled = true
