@@ -4,15 +4,17 @@ packages:
       - qmk/qmk
       - osx-cross/arm
       - osx-cross/avr
-      - nikitabobko/tap
       - felixkratz/formulae
+      - acsandmann/tap
     trusted_taps:
       - qmk/qmk
       - osx-cross/arm
       - osx-cross/avr
+      - acsandmann/tap
     brews:
       - atuin
       - bat
+      - btop
       - carapace
       - cliproxyapi
       - curl
@@ -53,18 +55,16 @@ packages:
       - osx-cross/arm/arm-none-eabi-gcc@9
       - worktrunk
       - usage
-      - felixkratz/formulae/sketchybar
+      - acsandmann/tap/rift
+      - felixkratz/formulae/borders
     casks:
       - font-sf-pro
       - font-hack-nerd-font
-      - font-sketchybar-app-font
       - font-symbols-only-nerd-font
       - wezterm
       - raycast
-      - alt-tab
       - hammerspoon
       - karabiner-elements
-      - nikitabobko/tap/aerospace
       - tailscale-app
       - zoom
       - codexbar
@@ -72,6 +72,12 @@ packages:
       - jabref
       - mattermost
       - warp
+    managed_apps:
+      aegis:
+        version: 1.1.0
+        bundle_id: Aegis.Aegis
+        url: https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip
+        sha256: 89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59
   linux:
     apt:
       - bat

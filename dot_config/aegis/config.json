@@ -1,0 +1,70 @@
+{
+  "appTheme": "dark",
+  "windowManagerType": "rift",
+  "launchAtLogin": true,
+  "menuBarHeight": 48.0,
+
+  "showSpaceIndicators": true,
+  "showAppLauncher": true,
+  "showContextButton": true,
+  "showSystemStatus": true,
+  "showFocusName": true,
+  "systemStatusOrder": ["focus", "cpu", "ram", "wifi", "clock", "date", "battery"],
+  "showCPUMonitor": true,
+  "showRAMMonitor": true,
+  "cpuUpdateInterval": 2.0,
+  "cpuSampleCount": 20,
+  "monitorDisplayStyle": "graph",
+
+  "appSwitcherEnabled": true,
+  "appSwitcherShowMinimized": true,
+  "appSwitcherShowHidden": false,
+  "appSwitcherCmdScrollEnabled": false,
+  "appSwitcherShowPreviews": true,
+
+  "showNotchHUD": true,
+  "showVirtualNotch": false,
+  "showOverlayHUD": true,
+  "showMusicHUD": true,
+  "showMediaHUD": true,
+  "musicHUDRightPanelMode": "visualizer",
+  "musicHUDAutoHide": true,
+  "musicHUDAutoHideDelay": 5.0,
+  "mediaHUDEnableMarquee": true,
+  "showDeviceHUD": true,
+  "showFocusHUD": true,
+
+  "showNotificationHUD": true,
+  "notificationHUDAutoHide": true,
+  "notificationHUDAutoHideDelay": 8.0,
+  "notificationExcludedApps": [],
+
+  "useSwipeToDestroySpace": false,
+
+  "customCommands": [
+    {
+      "label": "Laptop Scrolling",
+      "command": "~/.local/bin/rift-layout-profile scrolling",
+      "icon": "rectangle.split.3x1",
+      "description": "Use Rift's scrolling layout on every workspace"
+    },
+    {
+      "label": "Docked Traditional",
+      "command": "~/.local/bin/rift-layout-profile traditional",
+      "icon": "rectangle.split.3x1",
+      "description": "Use Rift's traditional layout on every workspace"
+    },
+    {
+      "label": "Reload Rift",
+      "command": "rift-cli execute config reload",
+      "icon": "arrow.clockwise",
+      "description": "Reload the tracked Rift configuration"
+    },
+    {
+      "label": "Restart Rift",
+      "command": "/bin/launchctl kickstart -k gui/$(id -u)/git.acsandmann.rift",
+      "icon": "power",
+      "description": "Restart Rift and return to the tracked layout"
+    }
+  ]
+}

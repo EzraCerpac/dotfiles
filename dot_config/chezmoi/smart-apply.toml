@@ -4,6 +4,7 @@ allowlist = [
     "~/.config/gitlogue-saver/config.toml",
     "~/.config/atuin/config.toml",
     "~/.config/xonsh/rc.xsh",
+    "~/.config/aegis/config.json",
 ]
 
 overwrite_allowlist = [

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RIFT_CLI=${RIFT_CLI:-/opt/homebrew/bin/rift-cli}
+JQ=${JQ:-jq}
+
+case "${1:-}" in
+    scrolling|traditional) mode=$1 ;;
+    *)
+        echo "usage: rift-layout-profile <scrolling|traditional>" >&2
+        exit 2
+        ;;
+esac
+
+displays=$("$RIFT_CLI" query displays)
+original_uuid=$(
+    "$JQ" -er '
+        [ .[] | select(.is_active_context == true) | .uuid ]
+        | if length == 1 then .[0] else error("active Rift display is ambiguous") end
+    ' <<<"$displays"
+)
+
+restore_display() {
+    "$RIFT_CLI" execute display focus --uuid "$original_uuid" >/dev/null 2>&1 || true
+}
+trap restore_display EXIT
+
+# Keep the runtime default aligned for workspaces created after this command.
+# `config set` does not write the tracked TOML unless `config save` is invoked.
+"$RIFT_CLI" execute config set settings.layout.mode "$mode" >/dev/null
+
+display_count=0
+while IFS= read -r display_uuid; do
+    [[ -n "$display_uuid" ]] || continue
+    display_count=$((display_count + 1))
+    "$RIFT_CLI" execute display focus --uuid "$display_uuid" >/dev/null
+    for workspace_id in 0 1 2 3 4 5 6 7; do
+        "$RIFT_CLI" execute workspace set-layout --workspace-id "$workspace_id" "$mode" >/dev/null
+    done
+done < <("$JQ" -r '.[] | select(.space != null) | .uuid' <<<"$displays")
+
+if [[ "$display_count" -eq 0 ]]; then
+    echo "rift-layout-profile: no managed Rift displays" >&2
+    exit 1
+fi
+
+restore_display
+trap - EXIT

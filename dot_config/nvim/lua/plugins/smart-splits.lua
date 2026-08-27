@@ -13,11 +13,11 @@ return {
   end,
   config = function(_, opts)
     local smart_splits = require("smart-splits")
-    local aerospace_focus_script = vim.fn.expand("~/.config/aerospace/bin/aerospace-focus")
+    local wm_focus_script = vim.fn.expand("~/.local/bin/wm-focus")
 
     local function resolve_focus_command(direction)
-      if vim.fn.executable(aerospace_focus_script) == 1 then
-        return { aerospace_focus_script, "--from-nvim", direction }, "navigation"
+      if vim.fn.executable(wm_focus_script) == 1 then
+        return { wm_focus_script, "--from-nvim", direction }, "wm-focus"
       end
     end
 

@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RIFT_CLI=${RIFT_CLI:-/opt/homebrew/bin/rift-cli}
+BTOP=${BTOP:-/opt/homebrew/bin/btop}
+OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
+WEZTERM_APP=${WEZTERM_APP:-/Applications/WezTerm.app}
+JQ=${JQ:-jq}
+LOCKF=${LOCKF:-/usr/bin/lockf}
+LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
+TIMER_STATE=${START_BTOP_TIMER_STATE:-${TMPDIR:-/tmp}/start-btop.timer}
+CLOSE_AFTER=${START_BTOP_CLOSE_AFTER:-60}
+OPS_WORKSPACE=${START_BTOP_WORKSPACE:-5}
+
+focus_workspace=false
+case "${1:-}" in
+    "") ;;
+    --focus) focus_workspace=true ;;
+    --expire)
+        [[ $# -eq 5 ]] || exit 2
+        ;;
+    *)
+        echo "usage: start-btop [--focus]" >&2
+        exit 2
+        ;;
+esac
+
+if [[ ${START_BTOP_LOCKED:-0} != 1 ]]; then
+    exec "$LOCKF" -k "$LOCK_PATH" /usr/bin/env \
+        START_BTOP_LOCKED=1 \
+        RIFT_CLI="$RIFT_CLI" \
+        START_BTOP_LOCK_PATH="$LOCK_PATH" \
+        START_BTOP_TIMER_STATE="$TIMER_STATE" \
+        START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
+        START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
+        /bin/bash "$0" "$@"
+fi
+
+active_space_id() {
+    "$RIFT_CLI" query displays \
+        | "$JQ" -er '
+            [ .[] | select(.is_active_context == true and .space != null) | .space ]
+            | if length == 1 then .[0] else error("active Rift display space is ambiguous") end
+        '
+}
+
+active_workspace_index() {
+    local space_id=$1
+    "$RIFT_CLI" query workspaces --space-id "$space_id" \
+        | "$JQ" -er '
+            [ .[] | select(.is_active == true) | .index ]
+            | if length == 1 then .[0] else error("active Rift workspace is ambiguous") end
+        '
+}
+
+find_btop_window() {
+    local space_id=$1
+    "$RIFT_CLI" query workspaces --space-id "$space_id" \
+        | "$JQ" -r '
+            .[] | .windows[]?
+            | select(.bundle_id == "com.github.wez.wezterm")
+            | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
+            | select(.id.pid != null and .id.idx != null and .window_server_id != null)
+            | [ .id.pid, .id.idx, .window_server_id ] | @tsv
+        ' | /usr/bin/head -n 1
+}
+
+window_json() {
+    printf '{"pid":%s,"idx":%s}' "$1" "$2"
+}
+
+is_btop_window() {
+    local expected_pid=$1
+    local expected_idx=$2
+    local expected_window_server_id=$3
+    local json
+    json=$(window_json "$expected_pid" "$expected_idx")
+
+    "$RIFT_CLI" query window "$json" \
+        | "$JQ" -e \
+            --argjson expected_pid "$expected_pid" \
+            --argjson expected_idx "$expected_idx" \
+            --argjson expected_window_server_id "$expected_window_server_id" '
+                .id.pid == $expected_pid
+                and .id.idx == $expected_idx
+                and .window_server_id == $expected_window_server_id
+                and .bundle_id == "com.github.wez.wezterm"
+                and ((.title // "") | test("^btop([[:space:]]|$)"; "i"))
+            ' >/dev/null
+}
+
+expire_btop_window() {
+    local expected_pid=$1
+    local expected_idx=$2
+    local expected_window_server_id=$3
+    local expected_generation=$4
+    local scheduled_pid=
+    local scheduled_idx=
+    local scheduled_window_server_id=
+    local scheduled_generation=
+
+    [[ -f "$TIMER_STATE" ]] || exit 0
+    IFS=$'\t' read -r scheduled_pid scheduled_idx scheduled_window_server_id scheduled_generation < "$TIMER_STATE" || exit 0
+    [[ $scheduled_pid == "$expected_pid" \
+        && $scheduled_idx == "$expected_idx" \
+        && $scheduled_window_server_id == "$expected_window_server_id" \
+        && $scheduled_generation == "$expected_generation" ]] || exit 0
+
+    # A missing/restarted Rift instance, changed title, or changed identity is
+    # deliberately a no-op. Never fall back to closing the focused window.
+    if is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
+        "$RIFT_CLI" execute window close --window-server-id "$expected_window_server_id"
+    fi
+    rm -f "$TIMER_STATE"
+}
+
+schedule_close() {
+    local pid=$1
+    local idx=$2
+    local window_server_id=$3
+    local generation
+    generation="$(/bin/date +%s%N)-$$-$RANDOM-$RANDOM"
+
+    umask 077
+    printf '%s\t%s\t%s\t%s\n' "$pid" "$idx" "$window_server_id" "$generation" > "$TIMER_STATE"
+    (
+        sleep "$CLOSE_AFTER"
+        /usr/bin/env START_BTOP_LOCKED=0 \
+            RIFT_CLI="$RIFT_CLI" \
+            START_BTOP_LOCK_PATH="$LOCK_PATH" \
+            START_BTOP_TIMER_STATE="$TIMER_STATE" \
+            START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
+            START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
+            /bin/bash "$0" --expire "$pid" "$idx" "$window_server_id" "$generation"
+    ) </dev/null >/dev/null 2>&1 &
+}
+
+if [[ ${1:-} == --expire ]]; then
+    expire_btop_window "$2" "$3" "$4" "$5"
+    exit 0
+fi
+
+space_id=$(active_space_id)
+focused_workspace=$(active_workspace_index "$space_id")
+
+existing_window=$(find_btop_window "$space_id") || existing_window=
+
+if [[ -n "$existing_window" ]]; then
+    IFS=$'\t' read -r btop_pid btop_idx btop_window_server_id <<< "$existing_window"
+    if $focus_workspace; then
+        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
+    else
+        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
+    fi
+    schedule_close "$btop_pid" "$btop_idx" "$btop_window_server_id"
+    exit 0
+fi
+
+"$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
+
+# WezTerm publishes its title after launch; poll Rift until the managed window
+# appears in the current native space.
+window_record=
+for _ in {1..200}; do
+    if window_record=$(find_btop_window "$space_id") && [[ -n "$window_record" ]]; then
+        break
+    fi
+    window_record=
+    sleep 0.1
+done
+
+if [[ -z "$window_record" ]]; then
+    echo "start-btop: Rift WezTerm window not detected" >&2
+    exit 1
+fi
+
+IFS=$'\t' read -r btop_pid btop_idx btop_window_server_id <<< "$window_record"
+if $focus_workspace; then
+    "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
+else
+    "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
+    "$RIFT_CLI" execute workspace switch "$focused_workspace"
+fi
+schedule_close "$btop_pid" "$btop_idx" "$btop_window_server_id"

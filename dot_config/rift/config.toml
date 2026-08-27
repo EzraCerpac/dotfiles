@@ -1,0 +1,168 @@
+# Rift v0.5.3 trial configuration.
+# Meh = Meta + Ctrl + Alt; Hyper adds Shift.
+
+[settings]
+animate = true
+animation_duration = 0.18
+animation_fps = 120.0
+default_disable = false
+focus_follows_mouse = true
+mouse_follows_focus = false
+mouse_hides_on_focus = false
+auto_focus_blacklist = []
+run_on_start = [
+  "/opt/homebrew/bin/borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0",
+]
+hot_reload = true
+
+[settings.layout]
+mode = "scrolling"
+
+[settings.layout.scrolling]
+column_width_ratio = 0.7
+min_column_width_ratio = 0.3
+max_column_width_ratio = 0.9
+alignment = "center"
+focus_navigation_style = "niri"
+
+[settings.layout.scrolling.gestures]
+enabled = true
+invert_horizontal = false
+fingers = 3
+distance_pct = 0.08
+propagate_to_workspace_swipe = true
+workspace_switch_threshold = 0.625
+
+[settings.layout.gaps.outer]
+top = 10.0
+left = 10.0
+bottom = 10.0
+right = 10.0
+
+[settings.layout.gaps.inner]
+horizontal = 10.0
+vertical = 10.0
+
+[settings.ui.menu_bar]
+enabled = false
+
+[settings.ui.stack_line]
+enabled = false
+
+[settings.ui.mission_control]
+enabled = false
+
+[settings.gestures]
+# Column scrolling owns three-finger horizontal gestures in this trial.
+enabled = false
+
+[virtual_workspaces]
+enabled = true
+default_workspace_count = 8
+auto_assign_windows = true
+preserve_focus_per_workspace = true
+workspace_auto_back_and_forth = false
+prevent_wrapping = false
+default_workspace = 0
+reapply_app_rules_on_title_change = true
+workspace_names = [
+  "Flow",
+  "Thesis",
+  "ChatGPT",
+  "Comms",
+  "Media",
+  "Ops",
+  "Browser Hub",
+  "Terminal Hub",
+]
+workspace_rules = []
+
+app_rules = [
+  { app_id = "com.openai.codex", workspace = 2 },
+  { app_id = "com.apple.mail", workspace = 3 },
+  { app_id = "net.whatsapp.WhatsApp", workspace = 3 },
+  { app_id = "com.apple.Music", workspace = 4 },
+  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 7 },
+  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^btop([[:space:]]|$)", workspace = 5 },
+  { app_id = "com.chabomakers.Antinote", floating = true },
+  { app_id = "com.apple.weather", floating = true },
+  { app_id = "com.apple.AddressBook", floating = true },
+]
+
+[keys]
+# Meh focus: Neovim and Herdr get first chance; Rift is the fallback.
+"Meta + Ctrl + Alt + H" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
+"Meta + Ctrl + Alt + J" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
+"Meta + Ctrl + Alt + K" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
+"Meta + Ctrl + Alt + L" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
+"Meta + Ctrl + Alt + Left" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
+"Meta + Ctrl + Alt + Down" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
+"Meta + Ctrl + Alt + Up" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
+"Meta + Ctrl + Alt + Right" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
+
+# Hyper move.
+"Meta + Ctrl + Alt + Shift + H" = { move_node = "left" }
+"Meta + Ctrl + Alt + Shift + J" = { move_node = "down" }
+"Meta + Ctrl + Alt + Shift + K" = { move_node = "up" }
+"Meta + Ctrl + Alt + Shift + L" = { move_node = "right" }
+"Meta + Ctrl + Alt + Shift + Left" = { move_node = "left" }
+"Meta + Ctrl + Alt + Shift + Down" = { move_node = "down" }
+"Meta + Ctrl + Alt + Shift + Up" = { move_node = "up" }
+"Meta + Ctrl + Alt + Shift + Right" = { move_node = "right" }
+
+# Workspace selection.
+"Meta + Ctrl + Alt + 0" = { switch_to_workspace = 0 }
+"Meta + Ctrl + Alt + 1" = { switch_to_workspace = 1 }
+"Meta + Ctrl + Alt + 2" = { switch_to_workspace = 2 }
+"Meta + Ctrl + Alt + 3" = { switch_to_workspace = 3 }
+"Meta + Ctrl + Alt + 4" = { switch_to_workspace = 4 }
+"Meta + Ctrl + Alt + 5" = { switch_to_workspace = 5 }
+"Meta + Ctrl + Alt + 6" = { switch_to_workspace = 6 }
+"Meta + Ctrl + Alt + 7" = { switch_to_workspace = 7 }
+"Meta + Ctrl + Alt + E" = { switch_to_workspace = 3 }
+"Meta + Ctrl + Alt + B" = { switch_to_workspace = 6 }
+"Meta + Ctrl + Alt + M" = { switch_to_workspace = 4 }
+"Meta + Ctrl + Alt + T" = { switch_to_workspace = 7 }
+"Meta + Ctrl + Alt + Tab" = "switch_to_last_workspace"
+"Meta + Ctrl + Alt + [" = { prev_workspace = true }
+"Meta + Ctrl + Alt + ]" = { next_workspace = true }
+
+# Move and follow.
+"Meta + Ctrl + Alt + Shift + 0" = { move_window_to_workspace = { workspace = 0, follow = true } }
+"Meta + Ctrl + Alt + Shift + 1" = { move_window_to_workspace = { workspace = 1, follow = true } }
+"Meta + Ctrl + Alt + Shift + 2" = { move_window_to_workspace = { workspace = 2, follow = true } }
+"Meta + Ctrl + Alt + Shift + 3" = { move_window_to_workspace = { workspace = 3, follow = true } }
+"Meta + Ctrl + Alt + Shift + 4" = { move_window_to_workspace = { workspace = 4, follow = true } }
+"Meta + Ctrl + Alt + Shift + 5" = { move_window_to_workspace = { workspace = 5, follow = true } }
+"Meta + Ctrl + Alt + Shift + 6" = { move_window_to_workspace = { workspace = 6, follow = true } }
+"Meta + Ctrl + Alt + Shift + 7" = { move_window_to_workspace = { workspace = 7, follow = true } }
+"Meta + Ctrl + Alt + Shift + E" = { move_window_to_workspace = { workspace = 3, follow = true } }
+"Meta + Ctrl + Alt + Shift + B" = { move_window_to_workspace = { workspace = 6, follow = true } }
+"Meta + Ctrl + Alt + Shift + T" = { move_window_to_workspace = { workspace = 7, follow = true } }
+"Meta + Ctrl + Alt + Shift + 9" = { move_window_to_workspace = { workspace = 5, follow = true } }
+
+# Ops launcher: the helper creates/reuses the temporary btop window.
+"Meta + Ctrl + Alt + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"] }
+
+# Scrolling layout and stacking.
+"Meta + Ctrl + Alt + F" = "toggle_fullscreen_within_gaps"
+"Meta + Ctrl + Alt + C" = "center_selection"
+"Meta + Ctrl + Alt + S" = "snap_strip"
+"Meta + Ctrl + Alt + Slash" = "unjoin_windows"
+"Meta + Ctrl + Alt + Comma" = "toggle_stack"
+"Meta + Ctrl + Alt + Shift + Comma" = { consume_or_expel_window = "left" }
+"Meta + Ctrl + Alt + Shift + Dot" = { consume_or_expel_window = "right" }
+"Meta + Ctrl + Alt + Shift + Space" = "toggle_window_floating"
+"Meta + Ctrl + Alt + Shift + Tab" = { move_window_to_display = { selector = "right" } }
+"Meta + Ctrl + Alt + Minus" = { resize_window_shrink = "horizontal" }
+"Meta + Ctrl + Alt + Equal" = { resize_window_grow = "horizontal" }
+"Meta + Ctrl + Alt + Shift + Minus" = { resize_window_shrink = "vertical" }
+"Meta + Ctrl + Alt + Shift + Equal" = { resize_window_grow = "vertical" }
+
+# Hyper app launchers.
+"Meta + Ctrl + Alt + Shift + A" = { exec = ["/usr/bin/open", "-a", "ChatGPT Atlas"] }
+"Meta + Ctrl + Alt + Shift + F" = { exec = ["/usr/bin/open", "-a", "Finder"] }
+"Meta + Ctrl + Alt + Shift + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
+"Meta + Ctrl + Alt + Shift + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
+"Meta + Ctrl + Alt + Shift + M" = { exec = ["/usr/bin/open", "-a", "Music"] }
+"Meta + Ctrl + Alt + Shift + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/bin/zsh", "-l"] }

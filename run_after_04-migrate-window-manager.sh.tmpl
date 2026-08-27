@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+{{- if and (eq .chezmoi.os "darwin") (ne .profile "nas") (ne .profile "delftblue") }}
+
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/chezmoi"
+readonly MARKER="${STATE_DIR}/rift-aegis-window-manager-migration-v1"
+readonly APPLICATIONS_DIR="${WINDOW_MANAGER_APPLICATIONS_DIR:-/Applications}"
+readonly AEGIS_APP="${APPLICATIONS_DIR}/Aegis.app"
+readonly BORING_NOTCH_APP="${APPLICATIONS_DIR}/boringNotch.app"
+readonly AEGIS_VERSION="{{ .packages.darwin.managed_apps.aegis.version }}"
+readonly AEGIS_BUNDLE_ID="{{ .packages.darwin.managed_apps.aegis.bundle_id }}"
+readonly RIFT_LAUNCH_AGENT_LABEL="git.acsandmann.rift"
+
+find_brew() {
+    if [[ -n "${WINDOW_MANAGER_BREW_BIN:-}" ]]; then
+        printf '%s\n' "$WINDOW_MANAGER_BREW_BIN"
+    elif [[ -x /opt/homebrew/bin/brew ]]; then
+        printf '%s\n' /opt/homebrew/bin/brew
+    elif [[ -x /usr/local/bin/brew ]]; then
+        printf '%s\n' /usr/local/bin/brew
+    elif command -v brew >/dev/null 2>&1; then
+        command -v brew
+    fi
+}
+
+quit_application() {
+    local name="${1:?application name required}"
+    local osascript_bin="${WINDOW_MANAGER_OSASCRIPT_BIN:-/usr/bin/osascript}"
+    "$osascript_bin" -e "tell application \"${name}\" to quit" >/dev/null 2>&1 || true
+}
+
+aegis_is_valid() {
+    local plist="${AEGIS_APP}/Contents/Info.plist"
+    local plist_buddy_bin="${WINDOW_MANAGER_PLIST_BUDDY_BIN:-/usr/libexec/PlistBuddy}"
+    local codesign_bin="${WINDOW_MANAGER_CODESIGN_BIN:-/usr/bin/codesign}"
+    local ditto_bin="${WINDOW_MANAGER_DITTO_BIN:-/usr/bin/ditto}"
+    local verification_dir=""
+    local clean_copy=""
+
+    [[ -d "$AEGIS_APP" && ! -L "$AEGIS_APP" && -f "$plist" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleIdentifier' "$plist" 2>/dev/null)" == "$AEGIS_BUNDLE_ID" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleShortVersionString' "$plist" 2>/dev/null)" == "$AEGIS_VERSION" ]] || return 1
+    if "$codesign_bin" --verify --deep --strict --verbose=2 "$AEGIS_APP" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    verification_dir="$(mktemp -d "${TMPDIR:-/tmp}/aegis-signature.XXXXXX")" || return 1
+    clean_copy="${verification_dir}/Aegis.app"
+    if ! "$ditto_bin" --noextattr --noqtn "$AEGIS_APP" "$clean_copy" || \
+        ! "$codesign_bin" --verify --deep --strict --verbose=2 "$clean_copy" >/dev/null 2>&1; then
+        rm -rf "$verification_dir"
+        return 1
+    fi
+    rm -rf "$verification_dir"
+}
+
+aegis_is_running() {
+    local pgrep_bin="${WINDOW_MANAGER_PGREP_BIN:-/usr/bin/pgrep}"
+    "$pgrep_bin" -x Aegis >/dev/null 2>&1
+}
+
+rift_service_is_running() {
+    local launchctl_bin="${WINDOW_MANAGER_LAUNCHCTL_BIN:-/bin/launchctl}"
+    "$launchctl_bin" print "gui/$(id -u)/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1
+}
+
+uninstall_cask_if_present() {
+    local brew_bin="${1:?brew required}"
+    local cask="${2:?cask required}"
+
+    "$brew_bin" list --cask "$cask" >/dev/null 2>&1 || return 0
+    "$brew_bin" uninstall --cask "$cask"
+}
+
+uninstall_formula_if_present() {
+    local brew_bin="${1:?brew required}"
+    local formula="${2:?formula required}"
+
+    "$brew_bin" list --formula "$formula" >/dev/null 2>&1 || return 0
+    "$brew_bin" services stop "$formula" >/dev/null 2>&1 || true
+    "$brew_bin" uninstall "$formula"
+}
+
+move_boring_notch_to_trash() {
+    local trash_dir="$HOME/.Trash"
+    local destination="${trash_dir}/boringNotch.app"
+
+    [[ -e "$BORING_NOTCH_APP" ]] || return 0
+    if [[ ! -d "$BORING_NOTCH_APP" || -L "$BORING_NOTCH_APP" ]]; then
+        echo "Warning: refusing to move unexpected BoringNotch target: $BORING_NOTCH_APP" >&2
+        return 1
+    fi
+    if [[ -e "$destination" ]]; then
+        echo "Warning: BoringNotch is already in Trash; leaving $BORING_NOTCH_APP in place." >&2
+        return 1
+    fi
+
+    mkdir -p "$trash_dir"
+    quit_application "boringNotch"
+    mv "$BORING_NOTCH_APP" "$destination"
+}
+
+remove_legacy_config_dir() {
+    local target="${1:?target required}"
+
+    case "$target" in
+        "$HOME/.config/aerospace"|"$HOME/.config/sketchybar"|"$HOME/.config/svim") ;;
+        *)
+            echo "Warning: refusing to remove unexpected legacy config target: $target" >&2
+            return 1
+            ;;
+    esac
+
+    [[ -e "$target" || -L "$target" ]] || return 0
+    if [[ -L "$target" || ! -d "$target" ]]; then
+        echo "Warning: refusing to remove unexpected legacy config target: $target" >&2
+        return 1
+    fi
+    rm -rf -- "$target"
+}
+
+if [[ -f "$MARKER" ]]; then
+    exit 0
+fi
+
+if [[ "${WINDOW_MANAGER_MIGRATION_APPROVED:-0}" != "1" ]]; then
+    echo "Window-manager migration is staged. Set WINDOW_MANAGER_MIGRATION_APPROVED=1 after live Rift and Aegis checks." >&2
+    exit 0
+fi
+
+if ! command -v rift >/dev/null 2>&1 || ! aegis_is_valid || ! aegis_is_running || ! rift_service_is_running; then
+    echo "Window-manager migration is waiting for Rift and Aegis." >&2
+    exit 1
+fi
+
+mkdir -p "$STATE_DIR"
+
+quit_application "AeroSpace"
+quit_application "AltTab"
+quit_application "SketchyBar"
+
+if ! brew_bin="$(find_brew)" || [[ -z "$brew_bin" ]]; then
+    echo "Window-manager migration requires Homebrew to remove the legacy stack." >&2
+    exit 1
+fi
+if [[ ! -x "$brew_bin" ]] || ! "$brew_bin" --version >/dev/null 2>&1; then
+    echo "Window-manager migration requires a working Homebrew executable." >&2
+    exit 1
+fi
+
+uninstall_cask_if_present "$brew_bin" aerospace
+uninstall_cask_if_present "$brew_bin" alt-tab
+uninstall_formula_if_present "$brew_bin" sketchybar
+uninstall_cask_if_present "$brew_bin" font-sketchybar-app-font
+"$brew_bin" untap nikitabobko/tap >/dev/null 2>&1 || true
+
+move_boring_notch_to_trash
+remove_legacy_config_dir "$HOME/.config/aerospace"
+remove_legacy_config_dir "$HOME/.config/sketchybar"
+remove_legacy_config_dir "$HOME/.config/svim"
+printf '%s\n' 'Legacy window-manager stack removed. TCC permissions were left intact for rollback.' >"$MARKER"
+{{- else }}
+echo "Window-manager migration is not applicable on this host."
+{{- end }}

@@ -1,4 +1,5 @@
 AGENTS.md
+CONTEXT.md
 tests/
 docs/
 */*.org#
@@ -28,20 +29,24 @@ dot_DELFTBLUE.md.tmpl
 {{- if eq .chezmoi.os "linux" }}
 # macOS-only apps (source paths)
 dot_local/bin/executable_brew-adopt
-dot_config/aerospace/
-dot_config/sketchybar/
+dot_local/bin/executable_start-btop
+dot_local/bin/executable_rift-layout-profile
+dot_local/bin/executable_wm-focus
+dot_config/aegis/
+dot_config/rift/
 dot_config/private_karabiner/
 dot_config/private_raycast/
 dot_config/raycast/
-dot_config/svim/
 dot_wezterm.lua
 # macOS-only apps (target paths)
 .local/bin/brew-adopt
-.config/aerospace/
-.config/sketchybar/
+.local/bin/start-btop
+.local/bin/rift-layout-profile
+.local/bin/wm-focus
+.config/aegis/
+.config/rift/
 .config/karabiner/
 .config/raycast/
-.config/svim/
 .wezterm.lua
 {{- end }}
 
@@ -83,7 +88,6 @@ run_after_26-sync-jj-waltz-skill.sh.tmpl
 README.md
 cerpacnas
 rc.xsh
-.config/aerospace/bin/wezterm-smart-focus
 .config/bat/
 .config/chezmoi/
 .config/diffnav/
@@ -109,6 +113,9 @@ rc.xsh
 .local/bin/brew-adopt
 .local/bin/brew-pending
 .local/bin/brew-promote
+.local/bin/start-btop
+.local/bin/rift-layout-profile
+.local/bin/wm-focus
 .local/bin/chezmoi-smart-apply
 .local/bin/codex-sync-jj-waltz
 .local/bin/gitlogue-screensaver
@@ -158,6 +165,9 @@ dot_config/delftblue/
 dot_DELFTBLUE.md.tmpl
 .DELFTBLUE.md
 dot_local/bin/*db*
+dot_local/bin/executable_start-btop
+dot_local/bin/executable_rift-layout-profile
+dot_local/bin/executable_wm-focus
 .local/bin/db*
 dot_julia/
 .julia/

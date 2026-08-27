@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "usage: wm-focus [--from-nvim] <left|right|up|down>" >&2
+    exit 2
+}
+
+from_nvim=false
+if [[ "${1:-}" == "--from-nvim" ]]; then
+    from_nvim=true
+    shift
+fi
+
+if [[ $# -ne 1 ]]; then
+    usage
+fi
+
+direction=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+case "$direction" in
+    left|right|up|down) ;;
+    *)
+        echo "wm-focus: unsupported direction '$1'" >&2
+        usage
+        ;;
+esac
+
+resolve_cli() {
+    local candidate
+
+    if [[ -n "${RIFT_CLI:-}" ]]; then
+        candidate=${RIFT_CLI}
+        if command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+        if [[ -x "$candidate" ]]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    fi
+
+    for candidate in rift-cli /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+        if [[ -x "$candidate" ]]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+if ! rift_cli=$(resolve_cli); then
+    echo "wm-focus: could not locate Rift CLI (rift-cli)" >&2
+    exit 1
+fi
+
+herdr_cli="${HERDR_BIN_PATH:-${HOME}/.local/bin/herdr}"
+jq_cli=$(command -v jq 2>/dev/null || true)
+
+is_herdr_window() {
+    [[ -x "${herdr_cli}" && -n "${jq_cli}" ]] || return 1
+
+    local windows
+    windows=$("${rift_cli}" query windows 2>/dev/null) || return 1
+
+    # Herdr is the only WezTerm outer window that should consume this focus
+    # request. Raw shells, btop, and Gitlogue are deliberately left to Rift.
+    "${jq_cli}" -e '
+        any(.[]?;
+            (.is_focused == true)
+            and (
+                (.bundle_id == "com.github.wez.wezterm")
+                # Rift reports null for windows owned by a WezTerm GUI that
+                # predates Rift. Only our Herdr-only title marker may bridge
+                # that one transition case.
+                or (.bundle_id == null)
+            )
+            and ((.title // "") | test("^herdr"; "i"))
+        )
+    ' <<<"${windows}" >/dev/null
+}
+
+is_nvim() {
+    "${herdr_cli}" pane process-info --current 2>/dev/null \
+        | "${jq_cli}" -e '
+            .result.process_info.foreground_processes[]?.name
+            | ascii_downcase
+            | test("^g?(view|l?n?vim?x?)(diff)?$")
+        ' >/dev/null
+}
+
+focus_herdr_neighbor() {
+    local neighbor_id
+    neighbor_id=$(
+        "${herdr_cli}" pane neighbor --direction "${direction}" --current 2>/dev/null \
+            | "${jq_cli}" -r '.result.neighbor.neighbor_pane_id // empty'
+    ) || return 1
+    [[ -n "${neighbor_id}" ]] || return 1
+
+    "${herdr_cli}" pane focus --direction "${direction}" --current >/dev/null
+}
+
+if is_herdr_window; then
+    if [[ "${from_nvim}" == false ]] && is_nvim; then
+        if "${herdr_cli}" plugin action invoke "vim-herdr-navigation.${direction}" >/dev/null; then
+            exit 0
+        fi
+    elif focus_herdr_neighbor; then
+        exit 0
+    fi
+fi
+
+if ! "${rift_cli}" execute window focus "${direction}" >/dev/null; then
+    echo "wm-focus: Rift focus command failed for direction '${direction}'" >&2
+    exit 1
+fi

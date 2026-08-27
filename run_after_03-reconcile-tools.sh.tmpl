@@ -22,6 +22,13 @@ readonly MISE_FINGERPRINT="{{ include "dot_config/mise/config.toml.tmpl" | sha25
 readonly HERDR_FINGERPRINT="herdr:https://herdr.dev/install.sh:v1"
 readonly KEYMAP_DRAWER_FINGERPRINT="uv-tool:keymap-drawer:latest"
 readonly CODEX_ACP_FINGERPRINT="npm:@zed-industries/codex-acp:latest"
+{{- if eq .chezmoi.os "darwin" }}
+readonly AEGIS_VERSION="{{ .packages.darwin.managed_apps.aegis.version }}"
+readonly AEGIS_BUNDLE_ID="{{ .packages.darwin.managed_apps.aegis.bundle_id }}"
+readonly AEGIS_URL="{{ .packages.darwin.managed_apps.aegis.url }}"
+readonly AEGIS_SHA256="{{ .packages.darwin.managed_apps.aegis.sha256 }}"
+readonly RIFT_LAUNCH_AGENT_LABEL="git.acsandmann.rift"
+{{- end }}
 
 marker_matches() {
     local name="${1:?adapter name required}"
@@ -107,9 +114,6 @@ BREWFILE
     fi
     rm -f "$brewfile"
 
-    if "$brew_bin" list felixkratz/formulae/sketchybar >/dev/null 2>&1; then
-        "$brew_bin" services restart sketchybar >/dev/null 2>&1 || true
-    fi
 {{- else if eq .chezmoi.os "linux" }}
     local package
     local missing=0
@@ -207,18 +211,164 @@ reconcile_codex_acp() {
     write_marker codex-acp "$CODEX_ACP_FINGERPRINT"
 }
 
-echo "Reconciling managed tools..."
+{{- if eq .chezmoi.os "darwin" }}
+aegis_app_is_valid() {
+    local app_path="${1:?app path required}"
+    local plist="${app_path}/Contents/Info.plist"
+    local plist_buddy_bin="${AEGIS_PLIST_BUDDY_BIN:-/usr/libexec/PlistBuddy}"
+    local codesign_bin="${AEGIS_CODESIGN_BIN:-/usr/bin/codesign}"
+    local ditto_bin="${AEGIS_DITTO_BIN:-/usr/bin/ditto}"
+    local verification_dir=""
+    local clean_copy=""
 
-failed=0
-reconcile_packages || failed=1
-reconcile_mise || failed=1
-reconcile_herdr || failed=1
-reconcile_keymap_drawer || failed=1
-reconcile_codex_acp || failed=1
+    [[ -d "$app_path" && ! -L "$app_path" && -f "$plist" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleIdentifier' "$plist" 2>/dev/null)" == "$AEGIS_BUNDLE_ID" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleShortVersionString' "$plist" 2>/dev/null)" == "$AEGIS_VERSION" ]] || return 1
+    if "$codesign_bin" --verify --deep --strict --verbose=2 "$app_path" >/dev/null 2>&1; then
+        return 0
+    fi
 
-if [[ "$failed" -ne 0 ]]; then
-    echo "Warning: some tool adapters failed; they will retry next apply." >&2
-else
-    echo "Managed tool reconciliation complete"
+    # macOS can attach provenance metadata after moving an app into
+    # /Applications. Verify the sealed bundle again on a metadata-free copy;
+    # the installed app itself is not modified or exempted from Gatekeeper.
+    verification_dir="$(mktemp -d "${TMPDIR:-/tmp}/aegis-signature.XXXXXX")" || return 1
+    clean_copy="${verification_dir}/Aegis.app"
+    if ! "$ditto_bin" --noextattr --noqtn "$app_path" "$clean_copy" || \
+        ! "$codesign_bin" --verify --deep --strict --verbose=2 "$clean_copy" >/dev/null 2>&1; then
+        rm -rf "$verification_dir"
+        return 1
+    fi
+    rm -rf "$verification_dir"
+}
+
+reconcile_aegis() {
+    local applications_dir="${AEGIS_APPLICATIONS_DIR:-/Applications}"
+    local target="${applications_dir}/Aegis.app"
+    local temporary_dir=""
+    local archive=""
+    local candidate=""
+    local previous=""
+    local curl_bin="${AEGIS_CURL_BIN:-curl}"
+    local shasum_bin="${AEGIS_SHASUM_BIN:-shasum}"
+    local unzip_bin="${AEGIS_UNZIP_BIN:-unzip}"
+
+    if aegis_app_is_valid "$target"; then
+        return 0
+    fi
+
+    for command_name in "$curl_bin" "$shasum_bin" "$unzip_bin"; do
+        if ! command -v "$command_name" >/dev/null 2>&1; then
+            echo "Warning: ${command_name} not found; Aegis reconciliation will retry next apply." >&2
+            return 1
+        fi
+    done
+
+    temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/aegis.XXXXXX")" || return 1
+    archive="${temporary_dir}/Aegis.app.zip"
+    candidate="${temporary_dir}/Aegis.app"
+    previous="${temporary_dir}/previous-Aegis.app"
+
+    if ! "$curl_bin" --fail --location --retry 3 --output "$archive" "$AEGIS_URL" || \
+        ! printf '%s  %s\n' "$AEGIS_SHA256" "$archive" | "$shasum_bin" -a 256 -c - || \
+        ! "$unzip_bin" -q "$archive" -d "$temporary_dir" || \
+        ! aegis_app_is_valid "$candidate"; then
+        rm -rf "$temporary_dir"
+        return 1
+    fi
+
+    if [[ -e "$target" && ( ! -d "$target" || -L "$target" ) ]]; then
+        echo "Warning: refusing to replace unexpected Aegis target: $target" >&2
+        rm -rf "$temporary_dir"
+        return 1
+    fi
+
+    if ! mkdir -p "$applications_dir"; then
+        echo "Warning: cannot create Aegis application directory: $applications_dir" >&2
+        rm -rf "$temporary_dir"
+        return 1
+    fi
+
+    if [[ -d "$target" ]] && ! mv "$target" "$previous"; then
+        echo "Warning: cannot stage existing Aegis app for replacement." >&2
+        rm -rf "$temporary_dir"
+        return 1
+    fi
+
+    if ! mv "$candidate" "$target" || ! aegis_app_is_valid "$target"; then
+        rm -rf "$target"
+        [[ -d "$previous" ]] && mv "$previous" "$target" || true
+        rm -rf "$temporary_dir"
+        return 1
+    fi
+
+    rm -rf "$temporary_dir"
+}
+
+rift_service_is_running() {
+    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
+    "$launchctl_bin" print "gui/$(id -u)/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1
+}
+
+reconcile_rift_service() {
+    local rift_bin="${RIFT_BIN:-rift}"
+    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
+    local plist="$HOME/Library/LaunchAgents/${RIFT_LAUNCH_AGENT_LABEL}.plist"
+    local domain="gui/$(id -u)"
+
+    if ! command -v "$rift_bin" >/dev/null 2>&1; then
+        echo "Warning: Rift not found; service reconciliation will retry next apply." >&2
+        return 1
+    fi
+
+    if rift_service_is_running; then
+        return 0
+    fi
+
+    if [[ "${RIFT_SERVICE_ACTIVATE:-0}" != "1" ]]; then
+        echo "Rift is installed but its login service is staged. Set RIFT_SERVICE_ACTIVATE=1 for the live cutover."
+        return 0
+    fi
+
+    if [[ ! -f "$plist" ]]; then
+        echo "Warning: managed Rift launch agent is missing; run chezmoi apply again." >&2
+        return 1
+    fi
+
+    # Rift's stock service uses KeepAlive. A denied Accessibility check then
+    # becomes an endless prompt/restart loop. Our launch agent starts once at
+    # login and stays stopped after a failed permission check.
+    "$launchctl_bin" enable "${domain}/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
+    "$launchctl_bin" bootout "${domain}/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
+    if ! "$launchctl_bin" bootstrap "$domain" "$plist"; then
+        echo "Warning: Rift service did not start. Check Accessibility, then run chezmoi apply again." >&2
+        return 1
+    fi
+
+    if ! rift_service_is_running; then
+        echo "Warning: Rift exited during startup. Check Accessibility, then run chezmoi apply again." >&2
+        return 1
+    fi
+}
+{{- end }}
+
+if [[ "${TOOL_RECONCILE_LIB_ONLY:-0}" != "1" ]]; then
+    echo "Reconciling managed tools..."
+
+    failed=0
+    reconcile_packages || failed=1
+    reconcile_mise || failed=1
+    reconcile_herdr || failed=1
+    reconcile_keymap_drawer || failed=1
+    reconcile_codex_acp || failed=1
+{{- if eq .chezmoi.os "darwin" }}
+    reconcile_aegis || failed=1
+    reconcile_rift_service || failed=1
+{{- end }}
+
+    if [[ "$failed" -ne 0 ]]; then
+        echo "Warning: some tool adapters failed; they will retry next apply." >&2
+    else
+        echo "Managed tool reconciliation complete"
+    fi
 fi
 {{- end }}

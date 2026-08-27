@@ -8,16 +8,16 @@ background-opacity = 0.7
 background-blur-radius = 20
 shell-integration = fish
 
-## AeroSpace-like native pane bindings (focus/resize/split) — 2025-08-28
+## Window-manager-style native pane bindings for focus, resize, and split.
 ## Actions verified via `ghostty +list-actions` and defaults via `ghostty +list-keybinds --default`.
 #
-## Create splits (Option A) — remapped to ctrl+alt to avoid AeroSpace conflicts:
+## Create splits with Ctrl+Alt to avoid global window-manager shortcuts.
 ##   ctrl+alt+minus      → split horizontally (top/bottom)
 ##   ctrl+alt+backslash  → split vertically (left/right)
 #keybind = global:ctrl+alt+minus=new_split:down
 #keybind = global:ctrl+alt+backslash=new_split:right
 #
-## Focus panes (match AeroSpace directions, but use ctrl+alt)
+## Focus panes with the same directions as the global window manager.
 #keybind = global:ctrl+alt+h=goto_split:left
 #keybind = global:ctrl+alt+j=goto_split:down
 #keybind = global:ctrl+alt+k=goto_split:up

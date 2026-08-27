@@ -39,7 +39,6 @@ printf '%s %s\n' "$name" "$*" >>"${CALL_LOG:?}"
 case "$name:$*" in
     "brew:shellenv") echo ':' ;;
     "brew:bundle check"*) exit "${BREW_CHECK_CODE:-0}" ;;
-    "brew:list felixkratz/formulae/sketchybar") exit 1 ;;
     "mise:install --dry-run-code") exit "${MISE_DRY_RUN_CODE:-0}" ;;
     "mise:exec uv -- uv tool install --upgrade keymap-drawer")
         ln -sf "$0" "${STUB_BIN:?}/keymap"
@@ -49,12 +48,53 @@ case "$name:$*" in
         ln -sf "$0" "${STUB_BIN:?}/codex-acp"
         ;;
 esac
+
+case "$name" in
+    curl)
+        output=""
+        while [[ $# -gt 0 ]]; do
+            if [[ "$1" == --output ]]; then
+                output="$2"
+                break
+            fi
+            shift
+        done
+        [[ -n "$output" ]] && : >"$output"
+        ;;
+    shasum)
+        cat >/dev/null
+        ;;
+    unzip)
+        target="${@: -1}"
+        mkdir -p "$target/Aegis.app/Contents"
+        : >"$target/Aegis.app/Contents/Info.plist"
+        ;;
+    plistbuddy)
+        case "$2" in
+            *CFBundleIdentifier*) printf '%s\n' Aegis.Aegis ;;
+            *CFBundleShortVersionString*) printf '%s\n' 1.1.0 ;;
+        esac
+        ;;
+    rift)
+        case "$*" in
+            'service install') mkdir -p "$HOME/Library/LaunchAgents"; : >"$HOME/Library/LaunchAgents/git.acsandmann.rift.plist" ;;
+            'service start') : >"$HOME/.rift-running" ;;
+        esac
+        ;;
+    launchctl)
+        [[ "$1" == print && -f "$HOME/.rift-running" ]]
+        ;;
+esac
 STUB
     chmod +x "$bin/stub"
     local command_name
-    for command_name in brew mise herdr keymap codex-acp curl npm; do
+    for command_name in brew mise herdr keymap codex-acp curl npm shasum unzip plistbuddy codesign rift launchctl; do
         ln -s stub "$bin/$command_name"
     done
+    export AEGIS_PLIST_BUDDY_BIN="$bin/plistbuddy"
+    export AEGIS_CODESIGN_BIN="$bin/codesign"
+    export AEGIS_APPLICATIONS_DIR="${bin%/bin}/Applications"
+    export RIFT_LAUNCHCTL_BIN="$bin/launchctl"
 }
 
 seed_markers() {

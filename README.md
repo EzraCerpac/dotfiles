@@ -10,7 +10,7 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
 
 This installs chezmoi, clones the repo, bootstraps package managers, installs core tools with `brew` or `apt`, installs versioned runtimes with `mise`, and applies all configs.
 
-See the standalone [workflow guide](docs/workflow-guide.html) for exact daily commands, Herdr concepts and shortcuts, remote workflows, and recovery steps.
+See the standalone [workflow guide](docs/workflow-guide.html) for exact daily commands, Herdr concepts and shortcuts, remote workflows, and recovery steps. The current macOS window workflow is documented in [CONTEXT.md](CONTEXT.md).
 
 ## What's Included
 
@@ -20,7 +20,7 @@ See the standalone [workflow guide](docs/workflow-guide.html) for exact daily co
 
 **Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
-**macOS**: aerospace (WM), alt-tab, sketchybar, karabiner, raycast, wezterm, ghostty
+**macOS**: Rift window manager, Aegis bar and switcher, JankyBorders, Karabiner, Raycast, WezTerm, Ghostty
 
 ## Tool Management
 
@@ -138,7 +138,7 @@ and stops for manual `chezmoi merge` if any other destination drift is present.
 ## Cross-Platform Notes
 
 - Intel macOS is not supported; Homebrew paths and bootstrap scripts assume Apple Silicon macOS when `chezmoi.os == "darwin"`
-- macOS-only configs (aerospace, alt-tab, sketchybar, karabiner, raycast, wezterm) are ignored on Linux via `.chezmoiignore`
+- macOS-only configs (Rift, Aegis, JankyBorders, Karabiner, Raycast, WezTerm) are ignored on Linux via `.chezmoiignore`
 - Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
 - On Linux, system packages install via `apt-get`; on macOS, via `brew`
 - `mise` is used only for version-sensitive runtimes and pinned tools, not as the universal installer
@@ -243,7 +243,7 @@ WezTerm is the terminal window; Herdr owns terminal organization and persistence
 - a **workspace** is one project row in Herdr's left sidebar
 - a **tab** is one activity inside a workspace
 - a **pane** is a visible terminal split inside a tab
-- an AeroSpace workspace is a separate macOS desktop and is unrelated to a Herdr workspace
+- a Rift workspace is a macOS window-management space and is unrelated to a Herdr workspace
 
 Closing WezTerm or pressing `Ctrl-B`, then `q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
 

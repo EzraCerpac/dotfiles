@@ -1,0 +1,72 @@
+import json
+import tomllib
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class AegisConfigTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.config = json.loads((ROOT / "dot_config/aegis/config.json").read_text())
+
+    def test_json_is_valid_and_selects_rift(self) -> None:
+        self.assertEqual(self.config["windowManagerType"], "rift")
+        self.assertTrue(self.config["launchAtLogin"])
+        self.assertEqual(self.config["menuBarHeight"], 48.0)
+
+    def test_bar_status_switcher_and_huds_are_enabled(self) -> None:
+        for key in (
+            "showSpaceIndicators",
+            "showAppLauncher",
+            "showContextButton",
+            "showSystemStatus",
+            "showCPUMonitor",
+            "showRAMMonitor",
+            "appSwitcherEnabled",
+            "appSwitcherShowPreviews",
+            "showNotchHUD",
+            "showMediaHUD",
+            "showDeviceHUD",
+            "showFocusHUD",
+            "showNotificationHUD",
+        ):
+            with self.subTest(key=key):
+                self.assertTrue(self.config[key])
+        self.assertEqual(self.config["monitorDisplayStyle"], "graph")
+        self.assertEqual(self.config["systemStatusOrder"], ["focus", "cpu", "ram", "wifi", "clock", "date", "battery"])
+
+    def test_trial_safety_and_custom_commands(self) -> None:
+        self.assertFalse(self.config["showVirtualNotch"])
+        self.assertFalse(self.config["useSwipeToDestroySpace"])
+        self.assertEqual(self.config["notificationHUDAutoHideDelay"], 8.0)
+        self.assertEqual(self.config["notificationExcludedApps"], [])
+
+        commands = self.config["customCommands"]
+        self.assertEqual(
+            [command["label"] for command in commands],
+            ["Laptop Scrolling", "Docked Traditional", "Reload Rift", "Restart Rift"],
+        )
+        self.assertEqual(
+            commands[0]["command"],
+            "~/.local/bin/rift-layout-profile scrolling",
+        )
+        self.assertEqual(
+            commands[1]["command"],
+            "~/.local/bin/rift-layout-profile traditional",
+        )
+        self.assertEqual(commands[2]["command"], "rift-cli execute config reload")
+        self.assertEqual(
+            commands[3]["command"],
+            "/bin/launchctl kickstart -k gui/$(id -u)/git.acsandmann.rift",
+        )
+
+    def test_smart_apply_readds_aegis_drift(self) -> None:
+        smart_apply = tomllib.loads((ROOT / "dot_config/chezmoi/smart-apply.toml").read_text())
+        self.assertIn("~/.config/aegis/config.json", smart_apply["allowlist"])
+
+
+if __name__ == "__main__":
+    unittest.main()

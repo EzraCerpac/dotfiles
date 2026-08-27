@@ -56,10 +56,6 @@ cask "{{ . }}"
 {{- end }}
 BREWFILE
 
-if "${BREW_BIN}" list felixkratz/formulae/sketchybar >/dev/null 2>&1; then
-    "${BREW_BIN}" services restart sketchybar >/dev/null 2>&1 || true
-fi
-
 {{- end }}
 
 {{- if eq .chezmoi.os "linux" }}
