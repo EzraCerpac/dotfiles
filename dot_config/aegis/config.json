@@ -200,6 +200,14 @@
   "windowIconExpansionAutoCollapseDelay" : 2,
   "windowIconFrameHeight" : 22,
   "windowIconFrameWidth" : 22,
+  "workspaceLabelOverrides" : {
+    "3" : "E",
+    "4" : "M",
+    "5" : "9",
+    "6" : "B",
+    "7" : "T"
+  },
+  "workspaceLabelStyle" : "index",
   "windowManagerType" : "rift",
   "windowTitleFontSize" : 11,
   "windowUpdateDuration" : 0.2

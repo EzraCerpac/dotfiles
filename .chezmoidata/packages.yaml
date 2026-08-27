@@ -76,7 +76,7 @@ packages:
       aegis:
         version: 1.1.0
         bundle_id: Aegis.Aegis
-        local_revision: 6b7c31fb79904493dd0a1fcbada8269f2ad9811a
+        local_revision: 2c6e917d31bc29dcc7b2b2d3f7b31a262b14b753
         url: https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip
         sha256: 89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59
   linux:

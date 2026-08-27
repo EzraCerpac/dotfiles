@@ -51,6 +51,26 @@ class AegisConfigTest(unittest.TestCase):
         self.assertTrue(self.config["contextButtonMenuOnly"])
         self.assertFalse(self.config["expandContextButtonOnScroll"])
 
+    def test_workspace_bar_uses_shortcut_labels(self) -> None:
+        self.assertEqual(self.config["workspaceLabelStyle"], "index")
+        overrides = {"3": "E", "4": "M", "5": "9", "6": "B", "7": "T"}
+        self.assertEqual(self.config["workspaceLabelOverrides"], overrides)
+
+        rift = tomllib.loads((ROOT / "dot_config/rift/config.toml").read_text())
+        keys = rift["keys"]
+        for workspace, shortcut in {3: "E", 4: "M", 6: "B", 7: "T"}.items():
+            with self.subTest(workspace=workspace, shortcut=shortcut):
+                self.assertEqual(keys[f"Meh + {shortcut}"]["switch_to_workspace"], workspace)
+
+        self.assertEqual(
+            keys["Hyper + 9"]["move_window_to_workspace"],
+            {"workspace": 5, "follow": True},
+        )
+        self.assertEqual(
+            keys["Meh + 9"]["exec"],
+            ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"],
+        )
+
     def test_trial_safety_and_custom_commands(self) -> None:
         self.assertFalse(self.config["useSwipeToDestroySpace"])
         self.assertEqual(self.config["notificationHUDAutoHideDelay"], 8.0)
