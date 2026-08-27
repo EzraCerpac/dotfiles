@@ -17,10 +17,17 @@ cat >"$RIFT_CLI" <<'EOF'
 set -euo pipefail
 printf 'rift-cli' >>"$CALLS"; printf ' <%s>' "$@" >>"$CALLS"; printf '\n' >>"$CALLS"
 state_json() {
-  IFS=$'\t' read -r pid idx wsid workspace bundle title <"$WINDOW_STATE"
-  jq -n --argjson pid "$pid" --argjson idx "$idx" --argjson wsid "$wsid" --argjson workspace "$workspace" \
-    --arg bundle "$bundle" --arg title "$title" \
-    '{id:{pid:$pid,idx:$idx},title:$title,bundle_id:$bundle,window_server_id:$wsid,workspace:$workspace}'
+  IFS=$'\t' read -r pid idx wsid workspace bundle app_name title <"$WINDOW_STATE"
+  jq -n --argjson pid "$pid" --argjson idx "$idx" --arg wsid "$wsid" --argjson workspace "$workspace" \
+    --arg bundle "$bundle" --arg app_name "$app_name" --arg title "$title" '
+      {
+        id:{pid:$pid,idx:$idx},
+        title:$title,
+        bundle_id:(if $bundle == "null" then null else $bundle end),
+        app_name:$app_name,
+        window_server_id:(if $wsid == "null" then null else ($wsid | tonumber) end),
+        workspace:$workspace
+      }'
 }
 case "$1:$2" in
   query:displays) jq -n '[{space:42,is_active_context:true}]' ;;
@@ -45,8 +52,8 @@ case "$1:$2" in
       move-window)
         target=$4; follow=false; shift 4
         while test "$#" -gt 0; do test "$1" = --follow && follow=true; shift; done
-        IFS=$'\t' read -r pid old_idx wsid old_ws bundle title <"$WINDOW_STATE"
-        printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$old_idx" "$wsid" "$target" "$bundle" "$title" >"$WINDOW_STATE"
+        IFS=$'\t' read -r pid old_idx wsid old_ws bundle app_name title <"$WINDOW_STATE"
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$old_idx" "$wsid" "$target" "$bundle" "$app_name" "$title" >"$WINDOW_STATE"
         if test "$follow" = true; then echo "$target" >"$ACTIVE_WORKSPACE"; fi
         ;;
       switch) echo "$4" >"$ACTIVE_WORKSPACE" ;;
@@ -54,7 +61,7 @@ case "$1:$2" in
     esac ;;
   execute:window)
     test "$3" = close && test "$4" = --window-server-id
-    IFS=$'\t' read -r pid idx wsid ws bundle title <"$WINDOW_STATE"; test "$wsid" = "$5"
+    IFS=$'\t' read -r pid idx wsid ws bundle app_name title <"$WINDOW_STATE"; test "$wsid" = "$5"
     rm -f "$WINDOW_STATE" ;;
   *) exit 2 ;;
 esac
@@ -64,8 +71,8 @@ cat >"$OPEN_BIN" <<'EOF'
 set -euo pipefail
 printf 'open' >>"$CALLS"; printf ' <%s>' "$@" >>"$CALLS"; printf '\n' >>"$CALLS"
 /bin/sleep 0
-printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$OPEN_PID" "$OPEN_IDX" "$OPEN_WINDOW_SERVER_ID" \
-  "$(<"$ACTIVE_WORKSPACE")" com.github.wez.wezterm btop >"$WINDOW_STATE"
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$OPEN_PID" "$OPEN_IDX" "$OPEN_WINDOW_SERVER_ID" \
+  "$(<"$ACTIVE_WORKSPACE")" com.github.wez.wezterm WezTerm btop >"$WINDOW_STATE"
 EOF
 cat >"$TEST_TMP/sleep" <<'EOF'
 #!/usr/bin/env bash
@@ -139,9 +146,29 @@ grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2705>' "$CALL
 test "$(grep -c 'rift-cli <execute> <window> <close>' "$CALLS")" = 1 || fail 'reset timer closed more than once'
 stop_timers
 
-: >"$CALLS"; printf '704\t1704\t2704\t5\tcom.github.wez.wezterm\tbtop\n' >"$WINDOW_STATE"
+: >"$CALLS"; printf '704\t1704\t2704\t5\tcom.github.wez.wezterm\tWezTerm\tbtop\n' >"$WINDOW_STATE"
 export TIMER_MODE=ignore OPEN_PID=704 OPEN_IDX=1704 OPEN_WINDOW_SERVER_ID=2704
 bash "$HELPER" --focus; generation=$(cut -f4 "$START_BTOP_TIMER_STATE")
 RIFT_RESTARTED=1 bash "$HELPER" --expire 704 1704 2704 "$generation"
 if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'restart caused unsafe close'; fi
+
+stop_timers
+: >"$CALLS"; printf '706\t1706\t2706\t5\tnull\tWezTerm\tbtop\n' >"$WINDOW_STATE"
+bash "$HELPER" --focus
+if grep -q '^open ' "$CALLS"; then fail 'missing bundle ID opened duplicate btop'; fi
+grep -q 'rift-cli <execute> <workspace> <move-window> <5> <--follow> <1706>' "$CALLS" || fail 'missing bundle ID was not reused'
+test -e "$START_BTOP_TIMER_STATE" || fail 'safe fallback identity did not schedule close'
+
+stop_timers
+: >"$CALLS"; printf '707\t1707\tnull\t5\tnull\tWezTerm\tbtop\n' >"$WINDOW_STATE"
+bash "$HELPER" --focus
+if grep -q '^open ' "$CALLS"; then fail 'missing WindowServer ID opened duplicate btop'; fi
+grep -q 'rift-cli <execute> <workspace> <move-window> <5> <--follow> <1707>' "$CALLS" || fail 'missing WindowServer ID was not focused'
+test ! -e "$START_BTOP_TIMER_STATE" || fail 'missing WindowServer ID scheduled unsafe close'
+
+stop_timers
+: >"$CALLS"; printf '708\t1708\t2708\t5\tnull\tNotWezTerm\tbtop\n' >"$WINDOW_STATE"
+export OPEN_PID=709 OPEN_IDX=1709 OPEN_WINDOW_SERVER_ID=2709
+bash "$HELPER" --focus
+grep -q '^open ' "$CALLS" || fail 'impostor btop window was reused'
 printf 'start-btop Rift tests passed\n'

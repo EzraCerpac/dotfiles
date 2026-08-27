@@ -17,7 +17,7 @@ class AegisConfigTest(unittest.TestCase):
         self.assertTrue(self.config["launchAtLogin"])
         self.assertEqual(self.config["menuBarHeight"], 48.0)
 
-    def test_bar_status_switcher_and_huds_are_enabled(self) -> None:
+    def test_bar_switcher_status_and_notifications_stay_enabled(self) -> None:
         for key in (
             "showSpaceIndicators",
             "showAppLauncher",
@@ -28,18 +28,25 @@ class AegisConfigTest(unittest.TestCase):
             "appSwitcherEnabled",
             "appSwitcherShowPreviews",
             "showNotchHUD",
-            "showMediaHUD",
-            "showDeviceHUD",
-            "showFocusHUD",
             "showNotificationHUD",
         ):
             with self.subTest(key=key):
                 self.assertTrue(self.config[key])
         self.assertEqual(self.config["monitorDisplayStyle"], "graph")
-        self.assertEqual(self.config["systemStatusOrder"], ["focus", "cpu", "ram", "wifi", "clock", "date", "battery"])
+        self.assertEqual(self.config["systemStatusOrder"], ["focus", "cpu", "ram", "wifi", "battery", "clock", "date"])
+
+    def test_boring_notch_owns_media_and_device_huds(self) -> None:
+        for key in (
+            "showVirtualNotch",
+            "showOverlayHUD",
+            "showMusicHUD",
+            "showDeviceHUD",
+            "showFocusHUD",
+        ):
+            with self.subTest(key=key):
+                self.assertFalse(self.config[key])
 
     def test_trial_safety_and_custom_commands(self) -> None:
-        self.assertFalse(self.config["showVirtualNotch"])
         self.assertFalse(self.config["useSwipeToDestroySpace"])
         self.assertEqual(self.config["notificationHUDAutoHideDelay"], 8.0)
         self.assertEqual(self.config["notificationExcludedApps"], [])

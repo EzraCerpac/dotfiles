@@ -123,7 +123,7 @@ app_rules = [
 "Meta + Ctrl + Alt + B" = { switch_to_workspace = 6 }
 "Meta + Ctrl + Alt + M" = { switch_to_workspace = 4 }
 "Meta + Ctrl + Alt + T" = { switch_to_workspace = 7 }
-"Meta + Ctrl + Alt + Tab" = "switch_to_last_workspace"
+"F20" = "switch_to_last_workspace"
 "Meta + Ctrl + Alt + [" = { prev_workspace = true }
 "Meta + Ctrl + Alt + ]" = { next_workspace = true }
 
@@ -153,7 +153,7 @@ app_rules = [
 "Meta + Ctrl + Alt + Shift + Comma" = { consume_or_expel_window = "left" }
 "Meta + Ctrl + Alt + Shift + Dot" = { consume_or_expel_window = "right" }
 "Meta + Ctrl + Alt + Shift + Space" = "toggle_window_floating"
-"Meta + Ctrl + Alt + Shift + Tab" = { move_window_to_display = { selector = "right" } }
+"F16" = { move_window_to_display = { selector = "right" } }
 "Meta + Ctrl + Alt + Minus" = { resize_window_shrink = "horizontal" }
 "Meta + Ctrl + Alt + Equal" = { resize_window_grow = "horizontal" }
 "Meta + Ctrl + Alt + Shift + Minus" = { resize_window_shrink = "vertical" }
@@ -165,4 +165,4 @@ app_rules = [
 "Meta + Ctrl + Alt + Shift + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
 "Meta + Ctrl + Alt + Shift + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
 "Meta + Ctrl + Alt + Shift + M" = { exec = ["/usr/bin/open", "-a", "Music"] }
-"Meta + Ctrl + Alt + Shift + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/bin/zsh", "-l"] }
+"Meta + Ctrl + Alt + Shift + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"] }

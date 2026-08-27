@@ -20,12 +20,6 @@ local signal_to_layer = {
     ["f18"] = 1,
     ["f19"] = 2,
     ["f23"] = 3,
-    ["f20"] = 0,
-    ["f21"] = 1,
-    ["f22"] = 2,
-    ["f14"] = 0,
-    ["f15"] = 1,
-    ["f16"] = 2,
 }
 
 local current_layer = 0
@@ -321,7 +315,7 @@ if enable_gitlogue_idle then
 end
 
 local registered = {}
-for _, key in ipairs({"f17", "f18", "f19", "f23", "f20", "f21", "f22", "f14", "f15", "f16"}) do
+for _, key in ipairs({"f17", "f18", "f19", "f23"}) do
     if hs.keycodes.map[key] ~= nil then
         table.insert(registered, key)
     end
@@ -329,5 +323,5 @@ end
 
 hs.notify.new({
     title = "Corne HUD",
-    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Layers: Base/NumSym/NavFn/Game. Signals: F17/F18/F19/F23 (compat F20/F21/F22 + F14/F15/F16). Registered: " .. table.concat(registered, ", "),
+    informativeText = "Loaded. Toggle Cmd+Ctrl+O. Layers: Base/NumSym/NavFn/Game. Signals: F17/F18/F19/F23. Registered: " .. table.concat(registered, ", "),
 }):send()

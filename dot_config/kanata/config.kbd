@@ -86,6 +86,12 @@
   (lmet rmet) C-S-A-M-r 250 first-release (gaming)
 )
 
+;; Keep Aegis on bare Cmd+Tab without letting it swallow Rift's Meh/Hyper+Tab.
+(defoverridesv2
+  (lmet lctrl lalt tab) (f20) (lsft rsft rmet rctl ralt) ()
+  (lmet lctrl lalt lsft tab) (f16) (rsft rmet rctl ralt) ()
+)
+
 (deflayer base
   esc    brdn brup _ _ _ _ prev pp next mute vold volu
   z      1    2    3 4 5 6 7 8 9 0 - = bspc

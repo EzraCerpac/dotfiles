@@ -56,12 +56,15 @@ active_workspace_index() {
 find_btop_window() {
     local space_id=$1
     "$RIFT_CLI" query workspaces --space-id "$space_id" \
-        | "$JQ" -r '
+        | "$JQ" -c '
             .[] | .windows[]?
-            | select(.bundle_id == "com.github.wez.wezterm")
+            | select(
+                .bundle_id == "com.github.wez.wezterm"
+                or (.bundle_id == null and .app_name == "WezTerm")
+            )
             | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
-            | select(.id.pid != null and .id.idx != null and .window_server_id != null)
-            | [ .id.pid, .id.idx, .window_server_id ] | @tsv
+            | select(.id.pid != null and .id.idx != null)
+            | { pid: .id.pid, idx: .id.idx }
         ' | /usr/bin/head -n 1
 }
 
@@ -84,9 +87,51 @@ is_btop_window() {
                 .id.pid == $expected_pid
                 and .id.idx == $expected_idx
                 and .window_server_id == $expected_window_server_id
-                and .bundle_id == "com.github.wez.wezterm"
+                and (
+                    .bundle_id == "com.github.wez.wezterm"
+                    or (.bundle_id == null and .app_name == "WezTerm")
+                )
                 and ((.title // "") | test("^btop([[:space:]]|$)"; "i"))
             ' >/dev/null
+}
+
+fresh_btop_window_server_id() {
+    local expected_pid=$1
+    local expected_idx=$2
+    local json
+    json=$(window_json "$expected_pid" "$expected_idx")
+
+    "$RIFT_CLI" query window "$json" \
+        | "$JQ" -er \
+            --argjson expected_pid "$expected_pid" \
+            --argjson expected_idx "$expected_idx" '
+                select(
+                    .id.pid == $expected_pid
+                    and .id.idx == $expected_idx
+                    and .window_server_id != null
+                    and (
+                        .bundle_id == "com.github.wez.wezterm"
+                        or (.bundle_id == null and .app_name == "WezTerm")
+                    )
+                    and ((.title // "") | test("^btop([[:space:]]|$)"; "i"))
+                )
+                | .window_server_id
+            '
+}
+
+schedule_close_if_safe() {
+    local pid=$1
+    local idx=$2
+    local window_server_id=
+
+    # Reusing and focusing only needs Rift's stable {pid, idx}. Closing is more
+    # dangerous, so require a freshly queried WindowServer identity.
+    window_server_id=$(fresh_btop_window_server_id "$pid" "$idx") || window_server_id=
+    if [[ -n "$window_server_id" ]]; then
+        schedule_close "$pid" "$idx" "$window_server_id"
+    else
+        rm -f "$TIMER_STATE"
+    fi
 }
 
 expire_btop_window() {
@@ -146,13 +191,14 @@ focused_workspace=$(active_workspace_index "$space_id")
 existing_window=$(find_btop_window "$space_id") || existing_window=
 
 if [[ -n "$existing_window" ]]; then
-    IFS=$'\t' read -r btop_pid btop_idx btop_window_server_id <<< "$existing_window"
+    btop_pid=$("$JQ" -er '.pid' <<< "$existing_window")
+    btop_idx=$("$JQ" -er '.idx' <<< "$existing_window")
     if $focus_workspace; then
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
     else
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
     fi
-    schedule_close "$btop_pid" "$btop_idx" "$btop_window_server_id"
+    schedule_close_if_safe "$btop_pid" "$btop_idx"
     exit 0
 fi
 
@@ -174,11 +220,12 @@ if [[ -z "$window_record" ]]; then
     exit 1
 fi
 
-IFS=$'\t' read -r btop_pid btop_idx btop_window_server_id <<< "$window_record"
+btop_pid=$("$JQ" -er '.pid' <<< "$window_record")
+btop_idx=$("$JQ" -er '.idx' <<< "$window_record")
 if $focus_workspace; then
     "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
 else
     "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
     "$RIFT_CLI" execute workspace switch "$focused_workspace"
 fi
-schedule_close "$btop_pid" "$btop_idx" "$btop_window_server_id"
+schedule_close_if_safe "$btop_pid" "$btop_idx"

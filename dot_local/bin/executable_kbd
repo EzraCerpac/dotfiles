@@ -897,6 +897,7 @@ cmd_flash() {
     require_qmk_checkout
 
     local -a flash_args=(flash)
+    local hand_label=""
     if [[ "${dry_run}" == "1" ]]; then
         flash_args+=(-n)
     fi
@@ -906,7 +907,8 @@ cmd_flash() {
     if [[ "${dry_run}" == "1" ]]; then
         QMK_HOME="${QMK_DIR}" run_qmk "${flash_args[@]}"
     else
-        echo "Put ${hand^^} half in bootloader now (RPI-RP2 mounted), then flashing..."
+        hand_label=$(printf '%s' "$hand" | tr '[:lower:]' '[:upper:]')
+        echo "Put ${hand_label} half in bootloader now (RPI-RP2 mounted), then flashing..."
         QMK_HOME="${QMK_DIR}" run_qmk "${flash_args[@]}"
     fi
 }

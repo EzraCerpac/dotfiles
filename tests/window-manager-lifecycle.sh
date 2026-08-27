@@ -218,8 +218,8 @@ EOF
         bash "$script"
 
     [[ -f "$tmp/home/.local/state/chezmoi/rift-aegis-window-manager-migration-v1" ]] || fail "migration marker missing"
-    [[ -d "$tmp/home/.Trash/boringNotch.app" ]] || fail "BoringNotch was not moved to Trash"
-    [[ ! -e "$tmp/Applications/boringNotch.app" ]] || fail "BoringNotch remains in Applications"
+    [[ -d "$tmp/Applications/boringNotch.app" ]] || fail "BoringNotch was removed during migration"
+    [[ ! -e "$tmp/home/.Trash/boringNotch.app" ]] || fail "migration moved BoringNotch to Trash"
     [[ ! -e "$tmp/home/.config/aerospace" ]] || fail "AeroSpace target config remains"
     [[ ! -e "$tmp/home/.config/sketchybar" ]] || fail "SketchyBar target config remains"
     [[ ! -e "$tmp/home/.config/svim" ]] || fail "SVIM target config remains"

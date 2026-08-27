@@ -1,8 +1,8 @@
 # Window manager context
 
-This repository installs a Rift and Aegis trial on macOS. Rift manages windows and virtual workspaces. Aegis draws the workspace bar, replaces Cmd+Tab, and owns the notch and notification HUDs.
+This repository installs a Rift, Aegis, and BoringNotch trial on macOS. Rift manages windows and virtual workspaces. Aegis draws the workspace bar, replaces Cmd+Tab, shows status widgets, and owns notification banners. BoringNotch owns media, volume, brightness, and device HUDs.
 
-The trial uses Rift 0.5.3-beta and Aegis 1.1.0. It does not run AeroSpace, SketchyBar, AltTab, SVIM, or BoringNotch alongside them.
+The trial uses Rift 0.5.3-beta, Aegis 1.1.0, and BoringNotch 2.7.3. It does not run AeroSpace, SketchyBar, AltTab, or SVIM alongside them.
 
 ## Vocabulary
 
@@ -55,13 +55,15 @@ Meh means Cmd+Ctrl+Alt. Hyper adds Shift.
 | Meh+- or Meh+= | Shrink or grow horizontally |
 | Hyper+- or Hyper+= | Shrink or grow vertically |
 
-The S, C, E, and T keys also have tap-hold behavior in the keyboard configuration. Tap them promptly when they are part of a global shortcut.
+The S, C, E, and T keys also have tap-hold behavior in the keyboard configuration. Tap them promptly when they are part of a global shortcut. The internal keyboard and Corne translate exact Meh+Tab and Hyper+Tab chords into the private F20 and F16 signals before Aegis can capture them. Bare Cmd+Tab still opens Aegis. Rift 0.5.3 accepts function keys only through F20, so F16 protects Hyper+Tab instead of the originally planned F21.
 
-Hyper+A, Hyper+F, Hyper+W, Hyper+Y, and Hyper+M open Atlas, Finder, WhatsApp, System Settings, and Music. Hyper+Enter opens a raw login shell in a new WezTerm window. It does not attach to Herdr.
+Hyper+A, Hyper+F, Hyper+W, Hyper+Y, and Hyper+M open Atlas, Finder, WhatsApp, System Settings, and Music. Hyper+Enter opens a raw fish login shell in a new WezTerm window. Ordinary WezTerm launches still enter Herdr.
 
 ## Layout profiles
 
 Laptop Scrolling is the tracked default. It uses 70 percent columns, 180 ms animations, mouse hover focus, and a three-finger horizontal gesture. Scrolling past the end of a strip switches virtual workspace. All outer gaps are 10 px; macOS already removes the menu-bar area before Rift lays out windows.
+
+Rift 0.5.3 does not natively expand a workspace's sole column. Use Meh+F when one window should fill the tiling area inside the gaps; automatic expansion would require a background window-event subscriber.
 
 Rift 0.5.3 can leak scrolling windows across side-by-side displays. Before using that arrangement, open Aegis's Cmd+Tab command palette and run `Docked Traditional`. Run `Laptop Scrolling` after returning to the laptop display. Restarting Rift restores Laptop Scrolling.
 
@@ -81,9 +83,11 @@ Only after Rift and Aegis are live and verified, perform the one-time cutover:
 RIFT_SERVICE_ACTIVATE=1 WINDOW_MANAGER_MIGRATION_APPROVED=1 chezmoi apply
 ```
 
-That second gate removes the old Brew-managed stack and moves `boringNotch.app` to Trash. Aegis writes UI changes back to `~/.config/aegis/config.json`. The `ca` command re-adds that allowlisted file before applying, so intentional Aegis changes enter the JJ working copy.
+That second gate removes the old Brew-managed stack but preserves BoringNotch. Aegis writes UI changes back to `~/.config/aegis/config.json`. The `ca` command re-adds that allowlisted file before applying, so intentional Aegis changes enter the JJ working copy.
 
-Rift and Aegis both need Accessibility access. Aegis also needs login-item approval. Its notification HUD watches Notification Center, closes the native banner, and draws its own. Test a harmless notification after each macOS or Aegis update.
+Rift and Aegis both need Accessibility access. Aegis and BoringNotch also need login-item approval. Aegis's master HUD path stays enabled only because its notification service closes the native banner before drawing its replacement; disabling the notification HUD would make banners invisible. Its music, media, volume/brightness, device, focus, and virtual-notch HUDs stay off so BoringNotch is their sole owner. Test a harmless notification after each macOS or Aegis update.
+
+Dragging a window to the top edge does not enter Mission Control. Ordinary Mission Control shortcuts, trackpad gestures, and Hot Corners remain available. This avoids accidental Mission Control activation while dragging Aegis items.
 
 Rift 0.5.3 is ad-hoc signed, and macOS 27 beta has turned its Accessibility grant off after a reboot. The repository therefore replaces Rift's stock `KeepAlive` service with a one-shot login agent. If permission is missing, Rift prompts once and exits instead of restarting every 30 seconds. Turn its switch back on, then run the activation apply again. Do not reinstall the stock Rift service.
 
@@ -101,7 +105,7 @@ Rift has no pure config lint command. `rift-cli execute config reload` validates
 
 ## btop
 
-Meh+9 opens or reuses a raw WezTerm btop window in Ops on the invoking display. Each press resets its one-minute deadline. The helper records Rift's window identity, the WindowServer ID, and a generation. It closes the window only if every value still matches. A Rift restart or identity mismatch leaves the window alone.
+Meh+9 opens or reuses a raw WezTerm btop window in Ops on the invoking display. Each press resets its one-minute deadline. Reuse needs Rift's `{pid, idx}` identity, including the brief post-restart state where WezTerm's bundle ID or WindowServer ID can be absent. Closing is stricter: the helper schedules it only after obtaining a fresh WindowServer ID, and closes only if every identity value and timer generation still match. A Rift restart or mismatch leaves the window open.
 
 ## Stop and rollback
 
@@ -110,6 +114,7 @@ To stop the trial without changing repository history:
 ```sh
 /bin/launchctl bootout "gui/$(id -u)/git.acsandmann.rift"
 osascript -e 'tell application id "Aegis.Aegis" to quit'
+osascript -e 'tell application id "theboringteam.boringnotch" to quit'
 ```
 
 Disable Aegis Launch at Login before removing the app. Then create a new JJ working commit from the migration commit's parent and apply that older Chezmoi state:
@@ -123,4 +128,4 @@ open -a AeroSpace
 open -a AltTab
 ```
 
-Restore `boringNotch.app` from Trash or reinstall version 2.7.3. Its settings remain in the application container. The rollback keeps the migration commit intact, so a new working commit from that change ID restores the trial.
+BoringNotch can remain installed but inactive during rollback. Its settings remain in the application container. The rollback keeps the migration commit intact, so a new working commit from that change ID restores the trial.
