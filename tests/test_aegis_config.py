@@ -46,6 +46,11 @@ class AegisConfigTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertFalse(self.config[key])
 
+    def test_context_button_is_menu_only(self) -> None:
+        self.assertTrue(self.config["showContextButton"])
+        self.assertTrue(self.config["contextButtonMenuOnly"])
+        self.assertFalse(self.config["expandContextButtonOnScroll"])
+
     def test_trial_safety_and_custom_commands(self) -> None:
         self.assertFalse(self.config["useSwipeToDestroySpace"])
         self.assertEqual(self.config["notificationHUDAutoHideDelay"], 8.0)

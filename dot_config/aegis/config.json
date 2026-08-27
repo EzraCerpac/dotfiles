@@ -24,6 +24,7 @@
   "buttonLabelExpandedWidth" : 95,
   "collapseAnimationDamping" : 0.8,
   "collapseAnimationResponse" : 0.25,
+  "contextButtonMenuOnly" : true,
   "cpuSampleCount" : 20,
   "cpuUpdateInterval" : 3,
   "customCommands" : [
@@ -66,7 +67,7 @@
   "excludedBluetoothDevices" : [
     "watch"
   ],
-  "expandContextButtonOnScroll" : true,
+  "expandContextButtonOnScroll" : false,
   "expansionAnimationDamping" : 0.75,
   "expansionAnimationResponse" : 0.35,
   "fadeMaskDuration" : 0.2,
