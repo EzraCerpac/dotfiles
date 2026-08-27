@@ -32,6 +32,7 @@ class RiftConfigTest(unittest.TestCase):
         self.assertEqual(scrolling["gestures"]["fingers"], 3)
         self.assertTrue(scrolling["gestures"]["enabled"])
         self.assertTrue(scrolling["gestures"]["propagate_to_workspace_swipe"])
+        self.assertFalse(settings["gestures"]["enabled"])
         self.assertEqual(virtual["default_workspace_count"], 8)
         self.assertEqual(
             virtual["workspace_names"],
@@ -74,6 +75,13 @@ class RiftConfigTest(unittest.TestCase):
     def test_keys_use_supported_v05_commands(self) -> None:
         keys = self.config["keys"]
         self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(
+            self.config["modifier_combinations"],
+            {
+                "Meh": "Meta + Ctrl + Alt",
+                "Hyper": "Meta + Ctrl + Alt + Shift",
+            },
+        )
 
         supported = {
             "move_focus",
@@ -99,20 +107,21 @@ class RiftConfigTest(unittest.TestCase):
             command = binding if isinstance(binding, str) else next(iter(binding))
             self.assertIn(command, supported, binding)
 
-        self.assertTrue(all(key.startswith("Meta + Ctrl + Alt + ") for key in keys))
-        self.assertIn("wm-focus left", keys["Meta + Ctrl + Alt + H"]["exec"][-1])
-        self.assertEqual(keys["Meta + Ctrl + Alt + 9"]["exec"][0:2], ["/bin/sh", "-lc"])
-        self.assertEqual(keys["Meta + Ctrl + Alt + Tab"], "switch_to_last_workspace")
+        self.assertTrue(all(key.startswith(("Meh + ", "Hyper + ")) for key in keys))
+        self.assertTrue(all("Meta + Ctrl + Alt" not in key for key in keys))
+        self.assertIn("wm-focus left", keys["Meh + H"]["exec"][-1])
+        self.assertEqual(keys["Meh + 9"]["exec"][0:2], ["/bin/sh", "-lc"])
+        self.assertEqual(keys["Meh + Tab"], "switch_to_last_workspace")
         self.assertEqual(
-            keys["Meta + Ctrl + Alt + Shift + Tab"]["move_window_to_display"]["selector"],
+            keys["Hyper + Tab"]["move_window_to_display"]["selector"],
             "right",
         )
         self.assertEqual(
-            keys["Meta + Ctrl + Alt + Shift + Enter"]["exec"],
+            keys["Hyper + Enter"]["exec"],
             ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"],
         )
-        self.assertIn("Meta + Ctrl + Alt + [", keys)
-        self.assertIn("Meta + Ctrl + Alt + Shift + Dot", keys)
+        self.assertIn("Meh + [", keys)
+        self.assertIn("Hyper + Dot", keys)
         self.assertNotIn("mode service", keys.values())
 
     def test_wezterm_marks_only_herdr_window_titles(self) -> None:

@@ -53,7 +53,8 @@ enabled = false
 enabled = false
 
 [settings.gestures]
-# Column scrolling owns three-finger horizontal gestures in this trial.
+# Direct workspace swipes are off. The scrolling-layout gesture above owns
+# horizontal input and switches workspace only after strip overscroll.
 enabled = false
 
 [virtual_workspaces]
@@ -89,80 +90,84 @@ app_rules = [
   { app_id = "com.apple.AddressBook", floating = true },
 ]
 
+[modifier_combinations]
+Meh = "Meta + Ctrl + Alt"
+Hyper = "Meta + Ctrl + Alt + Shift"
+
 [keys]
 # Meh focus: Neovim and Herdr get first chance; Rift is the fallback.
-"Meta + Ctrl + Alt + H" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
-"Meta + Ctrl + Alt + J" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
-"Meta + Ctrl + Alt + K" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
-"Meta + Ctrl + Alt + L" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
-"Meta + Ctrl + Alt + Left" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
-"Meta + Ctrl + Alt + Down" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
-"Meta + Ctrl + Alt + Up" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
-"Meta + Ctrl + Alt + Right" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
+"Meh + H" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
+"Meh + J" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
+"Meh + K" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
+"Meh + L" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
+"Meh + Left" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
+"Meh + Down" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
+"Meh + Up" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }
+"Meh + Right" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus right"] }
 
 # Hyper move.
-"Meta + Ctrl + Alt + Shift + H" = { move_node = "left" }
-"Meta + Ctrl + Alt + Shift + J" = { move_node = "down" }
-"Meta + Ctrl + Alt + Shift + K" = { move_node = "up" }
-"Meta + Ctrl + Alt + Shift + L" = { move_node = "right" }
-"Meta + Ctrl + Alt + Shift + Left" = { move_node = "left" }
-"Meta + Ctrl + Alt + Shift + Down" = { move_node = "down" }
-"Meta + Ctrl + Alt + Shift + Up" = { move_node = "up" }
-"Meta + Ctrl + Alt + Shift + Right" = { move_node = "right" }
+"Hyper + H" = { move_node = "left" }
+"Hyper + J" = { move_node = "down" }
+"Hyper + K" = { move_node = "up" }
+"Hyper + L" = { move_node = "right" }
+"Hyper + Left" = { move_node = "left" }
+"Hyper + Down" = { move_node = "down" }
+"Hyper + Up" = { move_node = "up" }
+"Hyper + Right" = { move_node = "right" }
 
 # Workspace selection.
-"Meta + Ctrl + Alt + 0" = { switch_to_workspace = 0 }
-"Meta + Ctrl + Alt + 1" = { switch_to_workspace = 1 }
-"Meta + Ctrl + Alt + 2" = { switch_to_workspace = 2 }
-"Meta + Ctrl + Alt + 3" = { switch_to_workspace = 3 }
-"Meta + Ctrl + Alt + 4" = { switch_to_workspace = 4 }
-"Meta + Ctrl + Alt + 5" = { switch_to_workspace = 5 }
-"Meta + Ctrl + Alt + 6" = { switch_to_workspace = 6 }
-"Meta + Ctrl + Alt + 7" = { switch_to_workspace = 7 }
-"Meta + Ctrl + Alt + E" = { switch_to_workspace = 3 }
-"Meta + Ctrl + Alt + B" = { switch_to_workspace = 6 }
-"Meta + Ctrl + Alt + M" = { switch_to_workspace = 4 }
-"Meta + Ctrl + Alt + T" = { switch_to_workspace = 7 }
-"Meta + Ctrl + Alt + Tab" = "switch_to_last_workspace"
-"Meta + Ctrl + Alt + Shift + Tab" = { move_window_to_display = { selector = "right" } }
-"Meta + Ctrl + Alt + [" = { prev_workspace = true }
-"Meta + Ctrl + Alt + ]" = { next_workspace = true }
+"Meh + 0" = { switch_to_workspace = 0 }
+"Meh + 1" = { switch_to_workspace = 1 }
+"Meh + 2" = { switch_to_workspace = 2 }
+"Meh + 3" = { switch_to_workspace = 3 }
+"Meh + 4" = { switch_to_workspace = 4 }
+"Meh + 5" = { switch_to_workspace = 5 }
+"Meh + 6" = { switch_to_workspace = 6 }
+"Meh + 7" = { switch_to_workspace = 7 }
+"Meh + E" = { switch_to_workspace = 3 }
+"Meh + B" = { switch_to_workspace = 6 }
+"Meh + M" = { switch_to_workspace = 4 }
+"Meh + T" = { switch_to_workspace = 7 }
+"Meh + Tab" = "switch_to_last_workspace"
+"Hyper + Tab" = { move_window_to_display = { selector = "right" } }
+"Meh + [" = { prev_workspace = true }
+"Meh + ]" = { next_workspace = true }
 
 # Move and follow.
-"Meta + Ctrl + Alt + Shift + 0" = { move_window_to_workspace = { workspace = 0, follow = true } }
-"Meta + Ctrl + Alt + Shift + 1" = { move_window_to_workspace = { workspace = 1, follow = true } }
-"Meta + Ctrl + Alt + Shift + 2" = { move_window_to_workspace = { workspace = 2, follow = true } }
-"Meta + Ctrl + Alt + Shift + 3" = { move_window_to_workspace = { workspace = 3, follow = true } }
-"Meta + Ctrl + Alt + Shift + 4" = { move_window_to_workspace = { workspace = 4, follow = true } }
-"Meta + Ctrl + Alt + Shift + 5" = { move_window_to_workspace = { workspace = 5, follow = true } }
-"Meta + Ctrl + Alt + Shift + 6" = { move_window_to_workspace = { workspace = 6, follow = true } }
-"Meta + Ctrl + Alt + Shift + 7" = { move_window_to_workspace = { workspace = 7, follow = true } }
-"Meta + Ctrl + Alt + Shift + E" = { move_window_to_workspace = { workspace = 3, follow = true } }
-"Meta + Ctrl + Alt + Shift + B" = { move_window_to_workspace = { workspace = 6, follow = true } }
-"Meta + Ctrl + Alt + Shift + T" = { move_window_to_workspace = { workspace = 7, follow = true } }
-"Meta + Ctrl + Alt + Shift + 9" = { move_window_to_workspace = { workspace = 5, follow = true } }
+"Hyper + 0" = { move_window_to_workspace = { workspace = 0, follow = true } }
+"Hyper + 1" = { move_window_to_workspace = { workspace = 1, follow = true } }
+"Hyper + 2" = { move_window_to_workspace = { workspace = 2, follow = true } }
+"Hyper + 3" = { move_window_to_workspace = { workspace = 3, follow = true } }
+"Hyper + 4" = { move_window_to_workspace = { workspace = 4, follow = true } }
+"Hyper + 5" = { move_window_to_workspace = { workspace = 5, follow = true } }
+"Hyper + 6" = { move_window_to_workspace = { workspace = 6, follow = true } }
+"Hyper + 7" = { move_window_to_workspace = { workspace = 7, follow = true } }
+"Hyper + E" = { move_window_to_workspace = { workspace = 3, follow = true } }
+"Hyper + B" = { move_window_to_workspace = { workspace = 6, follow = true } }
+"Hyper + T" = { move_window_to_workspace = { workspace = 7, follow = true } }
+"Hyper + 9" = { move_window_to_workspace = { workspace = 5, follow = true } }
 
 # Ops launcher: the helper creates/reuses the temporary btop window.
-"Meta + Ctrl + Alt + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"] }
+"Meh + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"] }
 
 # Scrolling layout and stacking.
-"Meta + Ctrl + Alt + F" = "toggle_fullscreen_within_gaps"
-"Meta + Ctrl + Alt + C" = "center_selection"
-"Meta + Ctrl + Alt + S" = "snap_strip"
-"Meta + Ctrl + Alt + Slash" = "unjoin_windows"
-"Meta + Ctrl + Alt + Comma" = "toggle_stack"
-"Meta + Ctrl + Alt + Shift + Comma" = { consume_or_expel_window = "left" }
-"Meta + Ctrl + Alt + Shift + Dot" = { consume_or_expel_window = "right" }
-"Meta + Ctrl + Alt + Shift + Space" = "toggle_window_floating"
-"Meta + Ctrl + Alt + Minus" = { resize_window_shrink = "horizontal" }
-"Meta + Ctrl + Alt + Equal" = { resize_window_grow = "horizontal" }
-"Meta + Ctrl + Alt + Shift + Minus" = { resize_window_shrink = "vertical" }
-"Meta + Ctrl + Alt + Shift + Equal" = { resize_window_grow = "vertical" }
+"Meh + F" = "toggle_fullscreen_within_gaps"
+"Meh + C" = "center_selection"
+"Meh + S" = "snap_strip"
+"Meh + Slash" = "unjoin_windows"
+"Meh + Comma" = "toggle_stack"
+"Hyper + Comma" = { consume_or_expel_window = "left" }
+"Hyper + Dot" = { consume_or_expel_window = "right" }
+"Hyper + Space" = "toggle_window_floating"
+"Meh + Minus" = { resize_window_shrink = "horizontal" }
+"Meh + Equal" = { resize_window_grow = "horizontal" }
+"Hyper + Minus" = { resize_window_shrink = "vertical" }
+"Hyper + Equal" = { resize_window_grow = "vertical" }
 
 # Hyper app launchers.
-"Meta + Ctrl + Alt + Shift + A" = { exec = ["/usr/bin/open", "-a", "ChatGPT Atlas"] }
-"Meta + Ctrl + Alt + Shift + F" = { exec = ["/usr/bin/open", "-a", "Finder"] }
-"Meta + Ctrl + Alt + Shift + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
-"Meta + Ctrl + Alt + Shift + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
-"Meta + Ctrl + Alt + Shift + M" = { exec = ["/usr/bin/open", "-a", "Music"] }
-"Meta + Ctrl + Alt + Shift + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"] }
+"Hyper + A" = { exec = ["/usr/bin/open", "-a", "ChatGPT Atlas"] }
+"Hyper + F" = { exec = ["/usr/bin/open", "-a", "Finder"] }
+"Hyper + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
+"Hyper + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
+"Hyper + M" = { exec = ["/usr/bin/open", "-a", "Music"] }
+"Hyper + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"] }
