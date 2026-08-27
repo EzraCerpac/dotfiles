@@ -32,6 +32,7 @@ dot_local/bin/executable_brew-adopt
 dot_local/bin/executable_start-btop
 dot_local/bin/executable_rift-layout-profile
 dot_local/bin/executable_wm-focus
+dot_local/bin/executable_aegis-local-install.tmpl
 dot_config/aegis/
 dot_config/rift/
 dot_config/private_karabiner/
@@ -43,6 +44,7 @@ dot_wezterm.lua
 .local/bin/start-btop
 .local/bin/rift-layout-profile
 .local/bin/wm-focus
+.local/bin/aegis-local-install
 .config/aegis/
 .config/rift/
 .config/karabiner/

@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly AEGIS_SOURCE_DIR="${AEGIS_SOURCE_DIR:-${HOME}/Projects/Tools/Aegis}"
+readonly AEGIS_EXPECTED_REVISION="{{ .packages.darwin.managed_apps.aegis.local_revision }}"
+readonly AEGIS_EXPECTED_VERSION="{{ .packages.darwin.managed_apps.aegis.version }}"
+readonly AEGIS_EXPECTED_BUNDLE_ID="{{ .packages.darwin.managed_apps.aegis.bundle_id }}"
+readonly AEGIS_APPLICATIONS_DIR="${AEGIS_APPLICATIONS_DIR:-/Applications}"
+readonly AEGIS_STATE_DIR="${AEGIS_STATE_DIR:-${XDG_STATE_HOME:-${HOME}/.local/state}/aegis-local-install}"
+
+die() {
+    echo "aegis-local-install: $*" >&2
+    exit 1
+}
+
+require_command() {
+    local command_name="${1:?command required}"
+    command -v "$command_name" >/dev/null 2>&1 || die "required command not found: $command_name"
+}
+
+require_clean_source() {
+    local actual_revision=""
+    local status=""
+    local git_bin="${AEGIS_GIT_BIN:-git}"
+    local jj_bin="${AEGIS_JJ_BIN:-jj}"
+
+    [[ -d "$AEGIS_SOURCE_DIR" ]] || die "source checkout is missing: $AEGIS_SOURCE_DIR"
+    [[ -d "$AEGIS_SOURCE_DIR/.jj" ]] || die "source is not a JJ checkout: $AEGIS_SOURCE_DIR"
+    require_command "$git_bin"
+    require_command "$jj_bin"
+
+    "$jj_bin" --no-pager -R "$AEGIS_SOURCE_DIR" status >/dev/null 2>&1 || \
+        die "could not inspect JJ checkout: $AEGIS_SOURCE_DIR"
+    status="$("$git_bin" -C "$AEGIS_SOURCE_DIR" status --porcelain --untracked-files=all)"
+    [[ -z "$status" ]] || die "source checkout is dirty: $AEGIS_SOURCE_DIR"
+
+    actual_revision="$("$git_bin" -C "$AEGIS_SOURCE_DIR" rev-parse HEAD)"
+    [[ "$actual_revision" == "$AEGIS_EXPECTED_REVISION" ]] || \
+        die "source revision is $actual_revision, expected $AEGIS_EXPECTED_REVISION"
+    AEGIS_INSTALLED_REVISION="$actual_revision"
+}
+
+aegis_app_is_valid() {
+    local app_path="${1:?app path required}"
+    local plist="${app_path}/Contents/Info.plist"
+    local plist_buddy_bin="${AEGIS_PLIST_BUDDY_BIN:-/usr/libexec/PlistBuddy}"
+    local codesign_bin="${AEGIS_CODESIGN_BIN:-/usr/bin/codesign}"
+
+    [[ -d "$app_path" && ! -L "$app_path" && -f "$plist" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleIdentifier' "$plist" 2>/dev/null)" == "$AEGIS_EXPECTED_BUNDLE_ID" ]] || return 1
+    [[ "$("$plist_buddy_bin" -c 'Print :CFBundleShortVersionString' "$plist" 2>/dev/null)" == "$AEGIS_EXPECTED_VERSION" ]] || return 1
+    "$codesign_bin" --verify --deep --strict --verbose=2 "$app_path" >/dev/null 2>&1
+}
+
+build_aegis() {
+    local staging_dir="${1:?staging directory required}"
+    local codesign_bin="${AEGIS_CODESIGN_BIN:-/usr/bin/codesign}"
+    local xcodebuild_bin="${AEGIS_XCODEBUILD_BIN:-xcodebuild}"
+    local project="${AEGIS_SOURCE_DIR}/Aegis.xcodeproj"
+    local products_dir="${staging_dir}/Products/Release"
+
+    [[ -d "$project" ]] || die "Aegis Xcode project is missing: $project"
+    require_command "$codesign_bin"
+    require_command "$xcodebuild_bin"
+    mkdir -p "$products_dir"
+    "$xcodebuild_bin" \
+        -project "$project" \
+        -scheme Aegis \
+        -configuration Release \
+        -derivedDataPath "${staging_dir}/DerivedData" \
+        "CONFIGURATION_BUILD_DIR=${products_dir}" \
+        CODE_SIGN_IDENTITY=- \
+        CODE_SIGNING_REQUIRED=YES \
+        CODE_SIGNING_ALLOWED=YES \
+        build >/dev/null
+    "$codesign_bin" --force --deep --sign - --timestamp=none "${products_dir}/Aegis.app" >/dev/null
+    printf '%s\n' "${products_dir}/Aegis.app"
+}
+
+install_aegis() {
+    local candidate="${1:?candidate app required}"
+    local target="${AEGIS_APPLICATIONS_DIR}/Aegis.app"
+    local previous="${AEGIS_STAGING_DIR}/previous-Aegis.app"
+    local mv_bin="${AEGIS_MV_BIN:-/bin/mv}"
+    local old_staged=0
+    local target_installed=0
+
+    rollback() {
+        if [[ "$target_installed" -eq 0 && "$old_staged" -eq 1 && ! -e "$target" && -e "$previous" ]]; then
+            "$mv_bin" "$previous" "$target" || true
+        fi
+    }
+
+    if [[ -e "$target" ]]; then
+        [[ -d "$target" && ! -L "$target" ]] || die "refusing to replace unexpected target: $target"
+        if ! "$mv_bin" "$target" "$previous"; then
+            die "could not stage the existing Aegis app"
+        fi
+        old_staged=1
+    fi
+
+    if ! "$mv_bin" "$candidate" "$target"; then
+        rollback
+        die "could not install the built Aegis app"
+    fi
+    target_installed=1
+    if ! aegis_app_is_valid "$target"; then
+        target_installed=0
+        "$mv_bin" "$target" "${AEGIS_STAGING_DIR}/invalid-Aegis.app" || true
+        [[ ! -e "$target" ]] || rm -rf "$target"
+        rollback
+        die "installed Aegis bundle failed verification"
+    fi
+
+    if [[ "$old_staged" -eq 1 ]]; then
+        rm -rf "$previous"
+    fi
+}
+
+write_receipt() {
+    local receipt="${AEGIS_STATE_DIR}/receipt"
+    local temporary=""
+
+    mkdir -p "$AEGIS_STATE_DIR"
+    temporary="$(mktemp "${AEGIS_STATE_DIR}/.receipt.XXXXXX")"
+    {
+        printf 'revision=%s\n' "$AEGIS_INSTALLED_REVISION"
+        printf 'version=%s\n' "$AEGIS_EXPECTED_VERSION"
+        printf 'bundle_id=%s\n' "$AEGIS_EXPECTED_BUNDLE_ID"
+        printf 'installed_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    } >"$temporary"
+    mv "$temporary" "$receipt"
+}
+
+main() {
+    local staging_dir=""
+    local candidate=""
+    local defaults_bin="${AEGIS_DEFAULTS_BIN:-defaults}"
+    local osascript_bin="${AEGIS_OSASCRIPT_BIN:-osascript}"
+    local open_bin="${AEGIS_OPEN_BIN:-open}"
+    AEGIS_INSTALLED_REVISION=""
+    AEGIS_STAGING_DIR=""
+
+    require_clean_source
+    require_command "$defaults_bin"
+    require_command "$osascript_bin"
+    require_command "$open_bin"
+    mkdir -p "$AEGIS_APPLICATIONS_DIR"
+    staging_dir="$(mktemp -d "${AEGIS_APPLICATIONS_DIR}/.aegis-local-install.XXXXXX")"
+    AEGIS_STAGING_DIR="$staging_dir"
+    trap 'rm -rf "$AEGIS_STAGING_DIR"' EXIT
+
+    candidate="$(build_aegis "$staging_dir")"
+    aegis_app_is_valid "$candidate" || die "built Aegis bundle failed verification"
+    "$osascript_bin" -e 'tell application id "Aegis.Aegis" to quit' >/dev/null 2>&1 || true
+    install_aegis "$candidate"
+
+    "$defaults_bin" write "$AEGIS_EXPECTED_BUNDLE_ID" SUEnableAutomaticChecks -bool false
+    "$defaults_bin" write "$AEGIS_EXPECTED_BUNDLE_ID" SUAutomaticallyUpdate -bool false
+    write_receipt
+    "$open_bin" "${AEGIS_APPLICATIONS_DIR}/Aegis.app"
+    echo "Installed Aegis ${AEGIS_EXPECTED_VERSION} at ${AEGIS_INSTALLED_REVISION}"
+}
+
+main "$@"

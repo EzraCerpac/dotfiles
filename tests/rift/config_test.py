@@ -99,18 +99,14 @@ class RiftConfigTest(unittest.TestCase):
             command = binding if isinstance(binding, str) else next(iter(binding))
             self.assertIn(command, supported, binding)
 
-        self.assertTrue(
-            all(
-                key.startswith("Meta + Ctrl + Alt + ") or key in {"F20", "F16"}
-                for key in keys
-            )
-        )
+        self.assertTrue(all(key.startswith("Meta + Ctrl + Alt + ") for key in keys))
         self.assertIn("wm-focus left", keys["Meta + Ctrl + Alt + H"]["exec"][-1])
         self.assertEqual(keys["Meta + Ctrl + Alt + 9"]["exec"][0:2], ["/bin/sh", "-lc"])
-        self.assertEqual(keys["F20"], "switch_to_last_workspace")
-        self.assertEqual(keys["F16"]["move_window_to_display"]["selector"], "right")
-        self.assertNotIn("Meta + Ctrl + Alt + Tab", keys)
-        self.assertNotIn("Meta + Ctrl + Alt + Shift + Tab", keys)
+        self.assertEqual(keys["Meta + Ctrl + Alt + Tab"], "switch_to_last_workspace")
+        self.assertEqual(
+            keys["Meta + Ctrl + Alt + Shift + Tab"]["move_window_to_display"]["selector"],
+            "right",
+        )
         self.assertEqual(
             keys["Meta + Ctrl + Alt + Shift + Enter"]["exec"],
             ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"],
@@ -125,18 +121,23 @@ class RiftConfigTest(unittest.TestCase):
         self.assertIn('process_basename(pane.foreground_process_name or "") == "herdr"', wezterm)
         self.assertIn('return "Herdr — " .. title', wezterm)
 
-    def test_keyboard_bridges_reserve_f20_and_f16_for_rift(self) -> None:
+    def test_modified_tab_has_no_f20_or_f16_bridge(self) -> None:
         kanata = (ROOT / "dot_config/kanata/config.kbd").read_text(encoding="utf-8")
         qmk = (
             ROOT / "dot_config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c"
         ).read_text(encoding="utf-8")
         hammerspoon = (ROOT / "dot_hammerspoon/init.lua").read_text(encoding="utf-8")
 
-        self.assertIn("(defoverridesv2", kanata)
-        self.assertIn("(lmet lctrl lalt tab) (f20)", kanata)
-        self.assertIn("(lmet lctrl lalt lsft tab) (f16)", kanata)
-        self.assertIn("KC_F20", qmk)
-        self.assertIn("KC_F16", qmk)
+        rift = (ROOT / "dot_config/rift/config.toml").read_text(encoding="utf-8")
+
+        self.assertNotIn("defoverridesv2", kanata)
+        self.assertNotIn("f20", kanata.lower())
+        self.assertNotIn("f16", kanata.lower())
+        self.assertNotIn("KC_F20", qmk)
+        self.assertNotIn("KC_F16", qmk)
+        self.assertNotIn("bridged_tab", qmk)
+        self.assertNotIn('"F20"', rift)
+        self.assertNotIn('"F16"', rift)
         self.assertNotIn('["f20"]', hammerspoon)
         self.assertNotIn('["f16"]', hammerspoon)
 

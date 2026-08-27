@@ -126,7 +126,6 @@ static uint8_t nav_hold_refs = 0;
 static uint8_t num_hold_refs = 0;
 static bool num_locked = false;
 static uint8_t previous_hud_layer = _BASE;
-static bool bridged_tab_active = false;
 
 static void activate_hud_hold(void) {
     if (!hud_hold) {
@@ -465,35 +464,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     if (record->event.pressed) {
         activate_pending_holds(keycode);
-    }
-
-    if (keycode == KC_TAB) {
-        if (!record->event.pressed && bridged_tab_active) {
-            bridged_tab_active = false;
-            return false;
-        }
-
-        if (record->event.pressed && current_base_layer(default_layer_state) == _BASE) {
-            const uint8_t held_mods = get_mods();
-            const uint8_t relevant_mods = held_mods & (MOD_MASK_CTRL | MOD_MASK_ALT | MOD_MASK_GUI | MOD_MASK_SHIFT);
-            uint16_t bridge_keycode = KC_NO;
-
-            if (relevant_mods == MEH_MASK) {
-                bridge_keycode = KC_F20;
-            } else if (relevant_mods == (MEH_MASK | MOD_BIT(KC_LSFT))) {
-                bridge_keycode = KC_F16;
-            }
-
-            if (bridge_keycode != KC_NO) {
-                bridged_tab_active = true;
-                unregister_mods(relevant_mods);
-                send_keyboard_report();
-                tap_code(bridge_keycode);
-                register_mods(relevant_mods);
-                send_keyboard_report();
-                return false;
-            }
-        }
     }
 
     if (!record->event.pressed) {
