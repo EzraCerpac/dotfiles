@@ -76,7 +76,7 @@ packages:
       aegis:
         version: 1.1.0
         bundle_id: Aegis.Aegis
-        local_revision: 8415600350632adafbe246fe2b95273d9fa5a824
+        local_revision: 7bb650069363b0c12fa0d4ece19c8b84e93fc8fc
         signing_identity: Aegis Local Code Signing
         url: https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip
         sha256: 89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59
