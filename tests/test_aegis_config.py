@@ -52,6 +52,7 @@ class AegisConfigTest(unittest.TestCase):
         self.assertFalse(self.config["expandContextButtonOnScroll"])
 
     def test_workspace_bar_uses_shortcut_labels(self) -> None:
+        self.assertTrue(self.config["hideEmptyWorkspaces"])
         self.assertEqual(self.config["workspaceLabelStyle"], "index")
         overrides = {"3": "E", "4": "M", "5": "9", "6": "B", "7": "T"}
         self.assertEqual(self.config["workspaceLabelOverrides"], overrides)

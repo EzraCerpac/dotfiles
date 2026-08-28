@@ -73,6 +73,7 @@
   "fadeMaskDuration" : 0.2,
   "focusDotSize" : 3,
   "focusHUDAutoHideDelay" : 2,
+  "hideEmptyWorkspaces" : true,
   "hoverAnimationDamping" : 0.7,
   "hoverAnimationResponse" : 0.3,
   "hoverEffectDuration" : 0.2,
