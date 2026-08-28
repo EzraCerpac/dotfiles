@@ -65,15 +65,24 @@ case "$1:$2" in
         IFS=$'\t' read -r pid old_idx wsid old_space old_ws bundle app_name title <"$WINDOW_STATE"
         target_space=$(space_for_display "$(<"$ACTIVE_DISPLAY")")
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$old_idx" "$wsid" "$target_space" "$target" "$bundle" "$app_name" "$title" >"$WINDOW_STATE"
-        if test "$follow" = true; then echo "$target" >"$ACTIVE_WORKSPACE"; fi
+        if test "$follow" = true && test "$old_ws" != "$target"; then echo "$target" >"$ACTIVE_WORKSPACE"; fi
         ;;
       switch) echo "$4" >"$ACTIVE_WORKSPACE" ;;
       *) exit 2 ;;
     esac ;;
   execute:window)
-    test "$3" = close && test "$4" = --window-server-id
-    IFS=$'\t' read -r pid idx wsid space ws bundle app_name title <"$WINDOW_STATE"; test "$wsid" = "$5"
-    rm -f "$WINDOW_STATE" ;;
+    case "$3" in
+      close)
+        test "$4" = --window-server-id
+        IFS=$'\t' read -r pid idx wsid space ws bundle app_name title <"$WINDOW_STATE"; test "$wsid" = "$5"
+        rm -f "$WINDOW_STATE" ;;
+      focus)
+        test "$4" = --window-id
+        requested_pid=$(jq -r .pid <<<"$5"); requested_idx=$(jq -r .idx <<<"$5")
+        IFS=$'\t' read -r pid idx wsid space ws bundle app_name title <"$WINDOW_STATE"
+        test "$pid" = "$requested_pid" && test "$idx" = "$requested_idx" ;;
+      *) exit 2 ;;
+    esac ;;
   execute:display)
     case "$3" in
       focus)
@@ -168,7 +177,11 @@ test ! -e "$WINDOW_STATE" || fail 'close did not remove btop'; stop_timers
 : >"$CALLS"; export TIMER_MODE=hold OPEN_PID=705 OPEN_IDX=1705 OPEN_WINDOW_SERVER_ID=2705
 rm -f "$WINDOW_STATE"; bash "$HELPER" --focus; wait_for_timer
 first_marker=$(find "$TIMER_DIR" -name '*.started' -type f -print -quit)
+echo 10 >"$ACTIVE_WORKSPACE"
 bash "$HELPER" --focus; wait_for_timer_count 2
+test "$(<"$ACTIVE_WORKSPACE")" = 9 || fail 'existing btop did not switch to Ops'
+grep -Fq 'rift-cli <execute> <window> <focus> <--window-id> <{"pid":705,"idx":1705}>' "$CALLS" \
+  || fail 'existing btop was not focused by stable Rift identity'
 second_marker=$(find "$TIMER_DIR" -name '*.started' -type f ! -path "$first_marker" -print -quit)
 touch "$(dirname "$first_marker")/$(basename "$first_marker" .started).release"
 /bin/sleep 0.1
@@ -190,7 +203,9 @@ stop_timers
 bash "$HELPER" --focus
 if grep -q '^open ' "$CALLS"; then fail 'missing bundle ID opened duplicate btop'; fi
 grep -q 'rift-cli <query> <workspaces> <--space-id> <44>' "$CALLS" || fail 'did not scan the external native space'
-grep -q 'rift-cli <execute> <workspace> <move-window> <9> <--follow> <1706>' "$CALLS" || fail 'missing bundle ID was not reused'
+grep -q 'rift-cli <execute> <workspace> <move-window> <9> <1706>' "$CALLS" || fail 'missing bundle ID was not reused'
+grep -Fq 'rift-cli <execute> <window> <focus> <--window-id> <{"pid":706,"idx":1706}>' "$CALLS" \
+  || fail 'missing bundle ID was not focused'
 test -e "$START_BTOP_TIMER_STATE" || fail 'safe fallback identity did not schedule close'
 
 stop_timers
@@ -199,14 +214,18 @@ echo built-in >"$ACTIVE_DISPLAY"
 bash "$HELPER" --focus
 grep -q 'rift-cli <execute> <display> <move-window> <--uuid> <external-right> <--window-id> <1711>' "$CALLS" \
   || fail 'existing btop was not moved to the preferred display'
-grep -q 'rift-cli <execute> <workspace> <move-window> <9> <--follow> <1711>' "$CALLS" \
-  || fail 'cross-display btop was not followed into Ops'
+grep -q 'rift-cli <execute> <workspace> <move-window> <9> <1711>' "$CALLS" \
+  || fail 'cross-display btop was not moved into Ops'
+grep -Fq 'rift-cli <execute> <window> <focus> <--window-id> <{"pid":711,"idx":1711}>' "$CALLS" \
+  || fail 'cross-display btop was not focused'
 
 stop_timers
 : >"$CALLS"; printf '707\t1707\tnull\t44\t5\tnull\tWezTerm\tbtop\n' >"$WINDOW_STATE"
 bash "$HELPER" --focus
 if grep -q '^open ' "$CALLS"; then fail 'missing WindowServer ID opened duplicate btop'; fi
-grep -q 'rift-cli <execute> <workspace> <move-window> <9> <--follow> <1707>' "$CALLS" || fail 'missing WindowServer ID was not focused'
+grep -q 'rift-cli <execute> <workspace> <move-window> <9> <1707>' "$CALLS" || fail 'missing WindowServer ID was not reused'
+grep -Fq 'rift-cli <execute> <window> <focus> <--window-id> <{"pid":707,"idx":1707}>' "$CALLS" \
+  || fail 'missing WindowServer ID was not focused'
 test ! -e "$START_BTOP_TIMER_STATE" || fail 'missing WindowServer ID scheduled unsafe close'
 
 stop_timers

@@ -263,7 +263,9 @@ if [[ -n "$existing_window" ]]; then
         if [[ "$target_display" != "$active_display" ]]; then
             focus_display "$target_display"
         fi
-        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
+        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
+        "$RIFT_CLI" execute workspace switch "$OPS_WORKSPACE"
+        "$RIFT_CLI" execute window focus --window-id "$(window_json "$btop_pid" "$btop_idx")"
     else
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
     fi
