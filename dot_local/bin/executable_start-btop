@@ -192,6 +192,48 @@ schedule_close_if_safe() {
     fi
 }
 
+btop_workspace_activity() {
+    local expected_pid=$1
+    local expected_idx=$2
+    local expected_window_server_id=$3
+    local display_uuid
+    local space_id
+    local activity=
+    local matches=0
+    local workspace_activity
+
+    load_displays || return 1
+    while IFS=$'\t' read -r display_uuid space_id; do
+        [[ -n "$display_uuid" && -n "$space_id" ]] || continue
+        workspace_activity=$(
+            "$RIFT_CLI" query workspaces --space-id "$space_id" \
+                | "$JQ" -r \
+                    --argjson expected_pid "$expected_pid" \
+                    --argjson expected_idx "$expected_idx" \
+                    --argjson expected_window_server_id "$expected_window_server_id" \
+                    --argjson ops_workspace "$OPS_WORKSPACE" '
+                        .[]
+                        | select(.index == $ops_workspace)
+                        | select(any(.windows[]?;
+                            .id.pid == $expected_pid
+                            and .id.idx == $expected_idx
+                            and .window_server_id == $expected_window_server_id
+                        ))
+                        | if .is_active == true then "active" else "inactive" end
+                    '
+        ) || return 1
+        if [[ -n "$workspace_activity" ]]; then
+            activity=$workspace_activity
+            matches=$((matches + 1))
+        fi
+    done < <(
+        "$JQ" -r '.[] | select(.space != null and .uuid != null) | [.uuid, (.space | tostring)] | @tsv' <<<"$displays_json"
+    )
+
+    [[ $matches -eq 1 ]] || return 1
+    printf '%s\n' "$activity"
+}
+
 expire_btop_window() {
     local expected_pid=$1
     local expected_idx=$2
@@ -201,6 +243,7 @@ expire_btop_window() {
     local scheduled_idx=
     local scheduled_window_server_id=
     local scheduled_generation=
+    local workspace_activity=
 
     [[ -f "$TIMER_STATE" ]] || exit 0
     IFS=$'\t' read -r scheduled_pid scheduled_idx scheduled_window_server_id scheduled_generation < "$TIMER_STATE" || exit 0
@@ -209,9 +252,21 @@ expire_btop_window() {
         && $scheduled_window_server_id == "$expected_window_server_id" \
         && $scheduled_generation == "$expected_generation" ]] || exit 0
 
-    # A missing/restarted Rift instance, changed title, or changed identity is
-    # deliberately a no-op. Never fall back to closing the focused window.
-    if is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
+    # A missing/restarted Rift instance, changed title, ambiguous workspace, or
+    # changed identity is deliberately a no-op. Never close an uncertain window.
+    if ! is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
+        rm -f "$TIMER_STATE"
+        return
+    fi
+    workspace_activity=$(
+        btop_workspace_activity "$expected_pid" "$expected_idx" "$expected_window_server_id"
+    ) || workspace_activity=
+    if [[ $workspace_activity == active ]]; then
+        schedule_close "$expected_pid" "$expected_idx" "$expected_window_server_id"
+        return
+    fi
+    if [[ $workspace_activity == inactive ]] \
+        && is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
         "$RIFT_CLI" execute window close --window-server-id "$expected_window_server_id"
     fi
     rm -f "$TIMER_STATE"

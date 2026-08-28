@@ -41,6 +41,7 @@ space_for_display() {
 case "$1:$2" in
   query:displays) display_json ;;
   query:workspaces)
+    if test "${RIFT_WORKSPACE_QUERY_FAIL:-0}" = 1; then exit 1; fi
     requested_space=$4
     active=$(<"$ACTIVE_WORKSPACE")
     if test -e "$WINDOW_STATE" && test "$(cut -f4 "$WINDOW_STATE")" = "$requested_space"; then window=$(state_json); else window=null; fi
@@ -166,13 +167,37 @@ stop_timers
 
 : >"$CALLS"; export TIMER_MODE=hold OPEN_PID=703 OPEN_IDX=1703 OPEN_WINDOW_SERVER_ID=2703
 rm -f "$WINDOW_STATE"; bash "$HELPER" --focus; wait_for_timer
-marker=$(find "$TIMER_DIR" -name '*.started' -type f -print -quit); touch "$(dirname "$marker")/$(basename "$marker" .started).release"
+marker=$(find "$TIMER_DIR" -name '*.started' -type f -print -quit)
+echo 10 >"$ACTIVE_WORKSPACE"
+touch "$(dirname "$marker")/$(basename "$marker" .started).release"
 for i in $(seq 1 100); do
   grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2703>' "$CALLS" && break
   /bin/sleep 0.01
 done
 grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2703>' "$CALLS" || fail 'timer did not close btop'
 test ! -e "$WINDOW_STATE" || fail 'close did not remove btop'; stop_timers
+
+: >"$CALLS"; export TIMER_MODE=hold OPEN_PID=712 OPEN_IDX=1712 OPEN_WINDOW_SERVER_ID=2712
+echo 3 >"$ACTIVE_WORKSPACE"; rm -f "$WINDOW_STATE"; bash "$HELPER" --focus; wait_for_timer
+first_marker=$(find "$TIMER_DIR" -name '*.started' -type f -print -quit)
+first_generation=$(cut -f4 "$START_BTOP_TIMER_STATE")
+touch "$(dirname "$first_marker")/$(basename "$first_marker" .started).release"
+wait_for_timer_count 2
+if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'active Ops closed btop'; fi
+second_generation=$(cut -f4 "$START_BTOP_TIMER_STATE")
+test "$second_generation" != "$first_generation" || fail 'active Ops did not replace timer generation'
+bash "$HELPER" --expire 712 1712 2712 "$first_generation"
+if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'old timer generation closed btop'; fi
+second_marker=$(find "$TIMER_DIR" -name '*.started' -type f ! -path "$first_marker" -print -quit)
+touch "$(dirname "$second_marker")/$(basename "$second_marker" .started).release"
+wait_for_timer_count 3
+if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'repeated active check closed btop'; fi
+third_marker=$(find "$TIMER_DIR" -name '*.started' -type f ! -path "$first_marker" ! -path "$second_marker" -print -quit)
+echo 10 >"$ACTIVE_WORKSPACE"
+touch "$(dirname "$third_marker")/$(basename "$third_marker" .started).release"
+for i in $(seq 1 100); do grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2712>' "$CALLS" && break; /bin/sleep 0.01; done
+grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2712>' "$CALLS" || fail 'inactive Ops did not close deferred btop'
+test ! -e "$WINDOW_STATE" || fail 'deferred close did not remove btop'; stop_timers
 
 : >"$CALLS"; export TIMER_MODE=hold OPEN_PID=705 OPEN_IDX=1705 OPEN_WINDOW_SERVER_ID=2705
 rm -f "$WINDOW_STATE"; bash "$HELPER" --focus; wait_for_timer
@@ -186,6 +211,7 @@ second_marker=$(find "$TIMER_DIR" -name '*.started' -type f ! -path "$first_mark
 touch "$(dirname "$first_marker")/$(basename "$first_marker" .started).release"
 /bin/sleep 0.1
 if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'reset timer closed btop too early'; fi
+echo 10 >"$ACTIVE_WORKSPACE"
 touch "$(dirname "$second_marker")/$(basename "$second_marker" .started).release"
 for i in $(seq 1 100); do grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2705>' "$CALLS" && break; /bin/sleep 0.01; done
 grep -q 'rift-cli <execute> <window> <close> <--window-server-id> <2705>' "$CALLS" || fail 'reset timer did not close btop'
@@ -197,6 +223,14 @@ export TIMER_MODE=ignore OPEN_PID=704 OPEN_IDX=1704 OPEN_WINDOW_SERVER_ID=2704
 bash "$HELPER" --focus; generation=$(cut -f4 "$START_BTOP_TIMER_STATE")
 RIFT_RESTARTED=1 bash "$HELPER" --expire 704 1704 2704 "$generation"
 if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'restart caused unsafe close'; fi
+test ! -e "$START_BTOP_TIMER_STATE" || fail 'restart left stale timer state'
+
+stop_timers
+: >"$CALLS"; printf '713\t1713\t2713\t44\t9\tcom.github.wez.wezterm\tWezTerm\tbtop\n' >"$WINDOW_STATE"
+printf '713\t1713\t2713\tquery-failure\n' >"$START_BTOP_TIMER_STATE"
+RIFT_WORKSPACE_QUERY_FAIL=1 bash "$HELPER" --expire 713 1713 2713 query-failure
+if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then fail 'workspace query failure closed btop'; fi
+test ! -e "$START_BTOP_TIMER_STATE" || fail 'workspace query failure left stale timer state'
 
 stop_timers
 : >"$CALLS"; printf '706\t1706\t2706\t44\t5\tnull\tWezTerm\tbtop\n' >"$WINDOW_STATE"
