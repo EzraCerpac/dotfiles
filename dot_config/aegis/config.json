@@ -13,7 +13,7 @@
   "appSwitcherShowHidden" : false,
   "appSwitcherShowMinimized" : true,
   "appSwitcherShowPreviews" : true,
-  "appTheme" : "custom",
+  "appTheme" : "liquidGlass",
   "autoExpandFocusedWindow" : true,
   "autoScrollDuration" : 0.3,
   "batteryCriticalThreshold" : 0.1,

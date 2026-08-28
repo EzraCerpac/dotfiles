@@ -123,7 +123,7 @@ EOF
 
 run_helper() {
     local tmp="${1:?temporary directory required}"
-    local revision="${AEGIS_RUN_REVISION:-a96f61f4164d88a37cd3f57e9da9da141e073493}"
+    local revision="${AEGIS_RUN_REVISION:-836ff1f4b9b324dd9a51ab585eb87e0e00eb02b1}"
     local dirty="${AEGIS_RUN_DIRTY:-0}"
     shift
     env \
@@ -260,7 +260,7 @@ test_successful_install() (
         fail "nested Aegis code was not re-signed with the configured signing identity"
     grep -Fq 'osascript ' "$tmp/calls" || fail "Aegis was not quit before replacement"
     grep -Fq 'open ' "$tmp/calls" || fail "Aegis was not relaunched"
-    grep -Fqx 'revision=a96f61f4164d88a37cd3f57e9da9da141e073493' "$tmp/state/receipt" || \
+    grep -Fqx 'revision=836ff1f4b9b324dd9a51ab585eb87e0e00eb02b1' "$tmp/state/receipt" || \
         fail "installed revision receipt is wrong"
     [[ -d "$tmp/Applications/Aegis.app" ]] || fail "Aegis app was not installed"
     grep -Fqx 'signing_identity=Aegis Local Code Signing' "$tmp/state/receipt" || \
