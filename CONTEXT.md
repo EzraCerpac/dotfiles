@@ -91,18 +91,20 @@ RIFT_SERVICE_ACTIVATE=1 WINDOW_MANAGER_MIGRATION_APPROVED=1 chezmoi apply
 
 That second gate removes the old Brew-managed stack but preserves BoringNotch. Aegis writes UI changes back to `~/.config/aegis/config.json`. The `ca` command re-adds that allowlisted file before applying, so intentional Aegis changes enter the JJ working copy.
 
-The normal Chezmoi adapter installs the official Aegis 1.1.0 bundle. This machine can instead build five stacked changes from the exact pinned revision of `~/Projects/Tools/Aegis`: modified Cmd+Tab handling, a menu-only context button, configurable workspace labels, native-fullscreen bar hiding, and empty-workspace filtering.
+The normal Chezmoi adapter installs the official Aegis 1.1.0 bundle. This machine can instead build six stacked changes from the exact pinned revision of `~/Projects/Tools/Aegis`: modified Cmd+Tab handling, a menu-only context button, configurable workspace labels, native-fullscreen bar hiding, empty-workspace filtering, and readable system-native settings.
 
 ```sh
 chezmoi apply ~/.local/bin/aegis-local-install
 aegis-local-install
 ```
 
-The helper refuses a dirty checkout or a different revision. It builds a Release app, ad-hoc signs the app and its nested frameworks as one bundle, verifies it before and after an atomic replacement, disables automatic Sparkle updates, and records the installed revision under `~/.local/state/aegis-local-install/`. A manual Aegis "Check for Updates" can still replace the local build. `wip/aegis-cmd-tab-modifiers` keeps the first upstream-ready commit; `wip/aegis-context-button-menu` adds the second; `wip/aegis-workspace-name-labels` adds the third; `wip/aegis-native-fullscreen-bar` adds the fourth; `wip/aegis-hide-empty-workspaces` adds the fifth. The app binary is not stored in Chezmoi or GitHub.
+The helper refuses a dirty checkout or a different revision. It builds a Release app, ad-hoc signs the app and its nested frameworks as one bundle, verifies it before and after an atomic replacement, disables automatic Sparkle updates, and records the installed revision under `~/.local/state/aegis-local-install/`. A manual Aegis "Check for Updates" can still replace the local build. `wip/aegis-cmd-tab-modifiers` keeps the first upstream-ready commit; `wip/aegis-context-button-menu` adds the second; `wip/aegis-workspace-name-labels` adds the third; `wip/aegis-native-fullscreen-bar` adds the fourth; `wip/aegis-hide-empty-workspaces` adds the fifth; `wip/aegis-settings-system-appearance` adds the sixth. The app binary is not stored in Chezmoi or GitHub.
 
 With `contextButtonMenuOnly` enabled, the far-left `≡` button opens the full menu on either primary or secondary click. Scrolling over it does nothing. Layout and workspace actions remain available inside the menu.
 
 The tracked Aegis config uses numeric workspace labels with shortcut overrides, so the bar shows `0 1 2 E M 9 B T`. Overrides change only the bar text; Rift, menus, and Cmd+Tab keep the original `0–7` labels. Aegis also retains the `nameInitial` style, which produces `F Th Ch Co M O B Te` when no overrides are present.
+
+The Aegis settings window follows macOS light or dark appearance independently of the configured bar theme. It uses an opaque native window background and semantic system colors, so desktop content cannot bleed through and controls remain readable. The tracked `custom` bar theme remains unchanged.
 
 Empty inactive workspaces are hidden from the Aegis bar. The focused workspace stays visible even when it has no windows. Occupancy comes from managed windows, so minimized, hidden, Finder, and icon-excluded windows still keep their workspace visible. The filter changes only the bar: every workspace remains available through shortcuts, Cmd+Tab, context menus, window moves, and app routing. Labels are resolved before filtering, so abbreviations and shortcut overrides do not change as workspaces appear or disappear.
 
