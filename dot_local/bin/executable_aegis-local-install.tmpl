@@ -56,6 +56,7 @@ verify_code_signature() {
     requirement="$(read_designated_requirement "$code_path" "$codesign_bin")" || return 1
     [[ -n "$requirement" ]] || return 1
     [[ "$(printf '%s' "$requirement" | tr '[:upper:]' '[:lower:]')" != *cdhash* ]] || return 1
+    verify_trusted_designated_requirement "$code_path" "$codesign_bin" || return 1
 }
 
 read_designated_requirement() {
@@ -68,6 +69,32 @@ read_designated_requirement() {
     requirement="$(printf '%s\n' "$output" | sed -n 's/^[[:space:]]*designated =>/designated =>/p' | head -n 1)"
     [[ -n "$requirement" ]] || return 1
     printf '%s\n' "$requirement"
+}
+
+normalized_designated_requirement() {
+    local code_path="${1:?code path required}"
+    local codesign_bin="${2:?codesign path required}"
+    local requirement=""
+
+    requirement="$(read_designated_requirement "$code_path" "$codesign_bin")" || return 1
+    printf '%s\n' "$requirement" |
+        sed -E 's/^[[:space:]]*designated =>[[:space:]]*//; s/[[:space:]]+$//'
+}
+
+verify_trusted_designated_requirement() {
+    local code_path="${1:?code path required}"
+    local codesign_bin="${2:?codesign path required}"
+    local requirement=""
+    local output=""
+
+    requirement="$(normalized_designated_requirement "$code_path" "$codesign_bin")" || return 1
+    [[ -n "$requirement" ]] || return 1
+    [[ "$(printf '%s' "$requirement" | tr '[:upper:]' '[:lower:]')" != *cdhash* ]] || return 1
+    if ! output="$("$codesign_bin" -v "-R=$requirement" "$code_path" 2>&1)"; then
+        echo "aegis-local-install: signing identity is not trusted for the designated requirement" >&2
+        [[ -n "$output" ]] && echo "$output" >&2
+        return 1
+    fi
 }
 
 resolve_signing_identity() {

@@ -188,6 +188,7 @@ TOTAL_STAGES=2
 
 readonly IDENTITY_NAME="${AEGIS_SIGNING_IDENTITY_NAME:-Aegis Local Code Signing}"
 readonly SECURITY_BIN="${AEGIS_SECURITY_BIN:-/usr/bin/security}"
+readonly CODESIGN_BIN="${AEGIS_CODESIGN_BIN:-/usr/bin/codesign}"
 
 find_matching_identities() {
   "$SECURITY_BIN" find-identity -v -p codesigning 2>/dev/null |
@@ -209,6 +210,7 @@ step "Enable 'Let me override defaults', then continue."
 step "Set serial number 1 and validity period 3650 days."
 step "Use RSA with a 2048-bit key. Accept the remaining defaults."
 step "Save the certificate in the login keychain."
+step "In Keychain Access, open the certificate's Get Info → Trust section and set Code Signing (or the certificate) to Always Trust. Close the window and authenticate if asked."
 pause "Finish the assistant, then press Enter to validate."
 
 stage "Validate the identity"
@@ -230,5 +232,30 @@ fi
 }
 say "Validated $IDENTITY_NAME (${matches[0]})."
 note "The installer uses this identity by hash and never falls back to ad-hoc signing."
+
+probe="$(mktemp "${TMPDIR:-/tmp}/aegis-signing-probe.XXXXXX")"
+cleanup_probe() { rm -f "$probe"; }
+trap cleanup_probe EXIT
+if ! cp /usr/bin/true "$probe" ||
+    ! "$CODESIGN_BIN" --force --sign "${matches[0]}" --timestamp=none "$probe" >/dev/null 2>&1; then
+  warn "could not sign the temporary trust probe."
+  exit 1
+fi
+requirement="$("$CODESIGN_BIN" -d -r- "$probe" 2>&1 |
+  sed -n 's/^[[:space:]]*designated =>/designated =>/p' | head -n 1)" || true
+requirement="$(printf '%s\n' "$requirement" |
+  sed -E 's/^[[:space:]]*designated =>[[:space:]]*//; s/[[:space:]]+$//')"
+if [[ -z "$requirement" ]] ||
+   [[ "$(printf '%s' "$requirement" | tr '[:upper:]' '[:lower:]')" == *cdhash* ]]; then
+  warn "the temporary probe has no usable certificate-based designated requirement."
+  exit 1
+fi
+if ! trust_output="$("$CODESIGN_BIN" -v "-R=$requirement" "$probe" 2>&1)"; then
+  warn "the certificate is not trusted for code signing."
+  [[ -n "$trust_output" ]] && note "$trust_output"
+  note "Set the certificate to Always Trust (or Code Signing trust), then re-run this wizard."
+  exit 1
+fi
+say "Certificate trust validated with a temporary signed probe."
 
 finish

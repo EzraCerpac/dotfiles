@@ -85,6 +85,10 @@ printf 'codesign %s\n' "$*" >>"${AEGIS_TEST_CALLS:?}"
 if [[ "${AEGIS_TEST_SIGNATURE_FAIL:-0}" == 1 ]]; then
     exit 1
 fi
+if [[ "$*" == *"-R="* ]] && [[ "${AEGIS_TEST_TRUST_FAIL:-0}" == 1 ]]; then
+    printf 'errSecInternalComponent: CSSMERR_TP_NOT_TRUSTED\n' >&2
+    exit 1
+fi
 case "$*" in
     *"--display"*) printf 'Authority=Aegis Local Code Signing\n' ;;
     *"-d -r-"*)
@@ -123,7 +127,7 @@ EOF
 
 run_helper() {
     local tmp="${1:?temporary directory required}"
-    local revision="${AEGIS_RUN_REVISION:-836ff1f4b9b324dd9a51ab585eb87e0e00eb02b1}"
+    local revision="${AEGIS_RUN_REVISION:-08e1bcf116532113a3baadb2e665f54278d32916}"
     local dirty="${AEGIS_RUN_DIRTY:-0}"
     shift
     env \
@@ -226,6 +230,22 @@ test_cdhash_requirement() (
     pass "CDHash-only designated requirement rejected"
 )
 
+test_untrusted_requirement() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    printf 'old app\n' >"$tmp/Applications/Aegis.app/old-marker"
+    : >"$tmp/calls"
+    if AEGIS_TEST_TRUST_FAIL=1 run_helper "$tmp" "$tmp/helper" >"$tmp/output" 2>&1; then
+        fail "untrusted designated requirement was accepted"
+    fi
+    grep -Fq 'not trusted' "$tmp/output" || fail "untrusted requirement failure was not explained"
+    [[ -f "$tmp/Applications/Aegis.app/old-marker" ]] || fail "old app was moved before trust validation"
+    ! grep -Fq 'osascript ' "$tmp/calls" || fail "Aegis was quit before trust validation"
+    pass "untrusted designated requirement rejected before replacement"
+)
+
 test_failed_replacement_rolls_back() (
     local tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
@@ -258,9 +278,11 @@ test_successful_install() (
         fail "Sparkle automatic updates were not disabled"
     grep -Fq 'codesign --force --deep --sign 0123456789012345678901234567890123456789 --timestamp=none' "$tmp/calls" || \
         fail "nested Aegis code was not re-signed with the configured signing identity"
+    grep -Fq 'codesign -v -R=anchor trusted' "$tmp/calls" || \
+        fail "certificate designated requirement was not evaluated for trust"
     grep -Fq 'osascript ' "$tmp/calls" || fail "Aegis was not quit before replacement"
     grep -Fq 'open ' "$tmp/calls" || fail "Aegis was not relaunched"
-    grep -Fqx 'revision=836ff1f4b9b324dd9a51ab585eb87e0e00eb02b1' "$tmp/state/receipt" || \
+    grep -Fqx 'revision=08e1bcf116532113a3baadb2e665f54278d32916' "$tmp/state/receipt" || \
         fail "installed revision receipt is wrong"
     [[ -d "$tmp/Applications/Aegis.app" ]] || fail "Aegis app was not installed"
     grep -Fqx 'signing_identity=Aegis Local Code Signing' "$tmp/state/receipt" || \
@@ -279,6 +301,7 @@ test_missing_identity
 test_duplicate_identity
 test_invalid_bundle
 test_cdhash_requirement
+test_untrusted_requirement
 test_failed_replacement_rolls_back
 test_successful_install
 
