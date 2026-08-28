@@ -120,6 +120,8 @@ The Cmd+Tab surface follows the selected Aegis theme. Dark, light, system, and c
 
 Empty inactive workspaces are hidden from the Aegis bar. The focused workspace stays visible even when it has no windows. Occupancy comes from managed windows, so minimized, hidden, Finder, and icon-excluded windows still keep their workspace visible. The filter changes only the bar: every workspace remains available through shortcuts, Cmd+Tab, context menus, window moves, and app routing. Labels are resolved before filtering, so abbreviations and shortcut overrides do not change as workspaces appear or disappear.
 
+Transient utility panels stay outside Rift. This includes ChatGPT's Cmd+P popup, every Antinote window, Raycast, and Orion's hidden preview helper. Their apps keep control of placement and overlay level. The ordinary ChatGPT window remains managed in workspace 2.
+
 Aegis hides its bar on the display showing a native macOS fullscreen or another Rift-unmanaged Space, then restores it after returning to a managed Space. Other displays keep their bars. Meh+F fullscreen-within-gaps remains managed by Rift and deliberately keeps the bar visible.
 
 Rift and Aegis both need Accessibility access. Aegis and BoringNotch also need login-item approval. Aegis's master HUD path stays enabled only because its notification service closes the native banner before drawing its replacement; disabling the notification HUD would make banners invisible. Its music, media, volume/brightness, device, focus, and virtual-notch HUDs stay off so BoringNotch is their sole owner. Test a harmless notification after each macOS or Aegis update.

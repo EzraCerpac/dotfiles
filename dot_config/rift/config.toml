@@ -90,6 +90,8 @@ app_rules = [
   # Keep transient helpers out of the workspace model. Order matters for ties.
   { app_id = "com.kagi.kagimacOS", title_regex = '^Orion Preview$', manage = false },
   { app_id = "com.raycast.macos", manage = false },
+  { app_id = "com.openai.codex", title_regex = '^ChatGPT$', manage = false },
+  { app_id = "com.chabomakers.Antinote", manage = false },
   { ax_subrole = "AXDialog", floating = true },
   { ax_subrole = "AXSystemDialog", floating = true },
   { ax_role = "AXSheet", floating = true },
@@ -102,7 +104,6 @@ app_rules = [
   { app_id = "com.apple.Music", workspace = 13 },
   { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 11 },
   { app_id = "com.github.wez.wezterm", title_regex = "(?i)^btop([[:space:]]|$)", workspace = 9 },
-  { app_id = "com.chabomakers.Antinote", floating = true },
   { app_id = "com.apple.weather", floating = true },
   { app_id = "com.apple.AddressBook", floating = true },
 ]
