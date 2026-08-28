@@ -4,12 +4,12 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 HELPER="$ROOT/dot_local/bin/executable_start-btop"
 TEST_TMP=$(mktemp -d)
 export CALLS="$TEST_TMP/calls" WINDOW_STATE="$TEST_TMP/window" ACTIVE_WORKSPACE="$TEST_TMP/active"
-export ACTIVE_DISPLAY="$TEST_TMP/active-display" DISPLAY_FIXTURE="$TEST_TMP/displays"
+export ACTIVE_DISPLAY="$TEST_TMP/active-display" DISPLAY_FIXTURE="$TEST_TMP/displays" FULLSCREEN_STATE="$TEST_TMP/fullscreen"
 export RIFT_CLI="$TEST_TMP/rift-cli" OPEN_BIN="$TEST_TMP/open" BTOP="$TEST_TMP/btop"
 export WEZTERM_APP="$TEST_TMP/WezTerm.app" JQ=jq LOCKF=/usr/bin/lockf
 export START_BTOP_LOCK_PATH="$TEST_TMP/lock" START_BTOP_TIMER_STATE="$TEST_TMP/timer"
 export START_BTOP_CLOSE_AFTER=60 TIMER_DIR="$TEST_TMP/timers" TIMER_MODE=ignore
-mkdir -p "$TIMER_DIR"; : >"$CALLS"; echo 3 >"$ACTIVE_WORKSPACE"; echo built-in >"$ACTIVE_DISPLAY"
+mkdir -p "$TIMER_DIR"; : >"$CALLS"; echo 3 >"$ACTIVE_WORKSPACE"; echo built-in >"$ACTIVE_DISPLAY"; echo 0 >"$FULLSCREEN_STATE"
 cleanup() { touch "$TIMER_DIR/stop"; /bin/sleep 0.1; rm -rf "$TEST_TMP"; }
 trap cleanup EXIT
 
@@ -20,6 +20,7 @@ printf 'rift-cli' >>"$CALLS"; printf ' <%s>' "$@" >>"$CALLS"; printf '\n' >>"$CA
 state_json() {
   IFS=$'\t' read -r pid idx wsid space workspace bundle app_name title <"$WINDOW_STATE"
   jq -n --argjson pid "$pid" --argjson idx "$idx" --arg wsid "$wsid" --argjson space "$space" --argjson workspace "$workspace" \
+    --argjson fullscreen "$(<"$FULLSCREEN_STATE")" \
     --arg bundle "$bundle" --arg app_name "$app_name" --arg title "$title" '
       {
         id:{pid:$pid,idx:$idx},
@@ -28,7 +29,8 @@ state_json() {
         app_name:$app_name,
         window_server_id:(if $wsid == "null" then null else ($wsid | tonumber) end),
         space:$space,
-        workspace:$workspace
+        workspace:$workspace,
+        frame:{origin:{x:0,y:0},size:{width:(if $fullscreen == 1 then 980 else 700 end),height:980}}
       }'
 }
 display_json() {
@@ -82,6 +84,8 @@ case "$1:$2" in
         requested_pid=$(jq -r .pid <<<"$5"); requested_idx=$(jq -r .idx <<<"$5")
         IFS=$'\t' read -r pid idx wsid space ws bundle app_name title <"$WINDOW_STATE"
         test "$pid" = "$requested_pid" && test "$idx" = "$requested_idx" ;;
+      toggle-fullscreen-within-gaps)
+        if test "$(<"$FULLSCREEN_STATE")" = 1; then echo 0 >"$FULLSCREEN_STATE"; else echo 1 >"$FULLSCREEN_STATE"; fi ;;
       *) exit 2 ;;
     esac ;;
   execute:display)
@@ -108,6 +112,7 @@ printf 'open' >>"$CALLS"; printf ' <%s>' "$@" >>"$CALLS"; printf '\n' >>"$CALLS"
 space=$(jq -er --arg uuid "$(<"$ACTIVE_DISPLAY")" '.[] | select(.uuid==$uuid) | .space' "$DISPLAY_FIXTURE")
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$OPEN_PID" "$OPEN_IDX" "$OPEN_WINDOW_SERVER_ID" \
   "$space" "$(<"$ACTIVE_WORKSPACE")" com.github.wez.wezterm WezTerm btop >"$WINDOW_STATE"
+echo 0 >"$FULLSCREEN_STATE"
 EOF
 cat >"$TEST_TMP/sleep" <<'EOF'
 #!/usr/bin/env bash
@@ -126,9 +131,9 @@ EOF
 chmod +x "$RIFT_CLI" "$OPEN_BIN" "$TEST_TMP/sleep"; export PATH="$TEST_TMP:$PATH"
 cat >"$DISPLAY_FIXTURE" <<'EOF'
 [
-  {"uuid":"built-in","space":42,"is_builtin":true,"frame":{"origin":{"x":0,"y":0}}},
-  {"uuid":"external-left","space":43,"is_builtin":false,"frame":{"origin":{"x":-1600,"y":100}}},
-  {"uuid":"external-right","space":44,"is_builtin":false,"frame":{"origin":{"x":1920,"y":180}}}
+  {"uuid":"built-in","space":42,"is_builtin":true,"frame":{"origin":{"x":0,"y":0},"size":{"width":1000,"height":1000}}},
+  {"uuid":"external-left","space":43,"is_builtin":false,"frame":{"origin":{"x":-1600,"y":100},"size":{"width":1000,"height":1000}}},
+  {"uuid":"external-right","space":44,"is_builtin":false,"frame":{"origin":{"x":1920,"y":180},"size":{"width":1000,"height":1000}}}
 ]
 EOF
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
@@ -162,6 +167,8 @@ stop_timers
 echo 3 >"$ACTIVE_WORKSPACE"; rm -f "$WINDOW_STATE"; bash "$HELPER" --focus
 grep -q 'rift-cli <execute> <display> <focus> <--uuid> <external-right>' "$CALLS" || fail 'focus did not choose rightmost external display'
 grep -q 'rift-cli <execute> <workspace> <move-window> <9> <--follow> <1702>' "$CALLS" || fail 'focus did not follow'
+grep -q 'rift-cli <execute> <window> <toggle-fullscreen-within-gaps>' "$CALLS" || fail 'new btop did not enter fullscreen within gaps'
+test "$(<"$FULLSCREEN_STATE")" = 1 || fail 'new btop fullscreen state was not retained'
 if grep -q 'rift-cli <execute> <workspace> <switch>' "$CALLS"; then fail 'focus switched back'; fi
 stop_timers
 
@@ -207,6 +214,8 @@ bash "$HELPER" --focus; wait_for_timer_count 2
 test "$(<"$ACTIVE_WORKSPACE")" = 9 || fail 'existing btop did not switch to Ops'
 grep -Fq 'rift-cli <execute> <window> <focus> <--window-id> <{"pid":705,"idx":1705}>' "$CALLS" \
   || fail 'existing btop was not focused by stable Rift identity'
+test "$(grep -c 'rift-cli <execute> <window> <toggle-fullscreen-within-gaps>' "$CALLS")" = 1 \
+  || fail 'reused fullscreen btop was toggled again'
 second_marker=$(find "$TIMER_DIR" -name '*.started' -type f ! -path "$first_marker" -print -quit)
 touch "$(dirname "$first_marker")/$(basename "$first_marker" .started).release"
 /bin/sleep 0.1

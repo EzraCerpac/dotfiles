@@ -144,7 +144,7 @@ Rift has no pure config lint command. `rift-cli execute config reload` validates
 
 ## btop
 
-Meh+9 opens or reuses a raw WezTerm btop window in Ops on the preferred external display. With no external display, it uses the invoking display. Each press resets its one-minute check. When the check fires while Ops is active on btop's display, the helper keeps btop open and checks again after another minute. After leaving Ops, btop closes at the next check. Reuse needs Rift's `{pid, idx}` identity, including the brief post-restart state where WezTerm's bundle ID or WindowServer ID can be absent. Closing is stricter: the helper schedules it only after obtaining a fresh WindowServer ID, and closes only if every identity value and timer generation still match. A Rift restart, failed query, or mismatch leaves the window open and clears the timer.
+Meh+9 opens or reuses a raw WezTerm btop window in Ops on the preferred external display. With no external display, it uses the invoking display. The helper focuses that exact window and makes it fullscreen within Rift's gaps; later presses keep fullscreen on instead of toggling it off. Each press resets its one-minute check. When the check fires while Ops is active on btop's display, the helper keeps btop open and checks again after another minute. After leaving Ops, btop closes at the next check. Reuse needs Rift's `{pid, idx}` identity, including the brief post-restart state where WezTerm's bundle ID or WindowServer ID can be absent. Closing is stricter: the helper schedules it only after obtaining a fresh WindowServer ID, and closes only if every identity value and timer generation still match. A Rift restart, failed query, or mismatch leaves the window open and clears the timer.
 
 ## Stop and rollback
 

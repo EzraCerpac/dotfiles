@@ -130,6 +130,55 @@ window_json() {
     printf '{"pid":%s,"idx":%s}' "$1" "$2"
 }
 
+btop_fill_state() {
+    local expected_pid=$1
+    local expected_idx=$2
+    local display_uuid=$3
+    local json
+    local window
+    json=$(window_json "$expected_pid" "$expected_idx")
+    window=$("$RIFT_CLI" query window "$json") || return 1
+
+    "$JQ" -er \
+        --arg display_uuid "$display_uuid" \
+        --argjson expected_pid "$expected_pid" \
+        --argjson expected_idx "$expected_idx" \
+        --argjson window "$window" '
+            [ .[] | select(.uuid == $display_uuid and .frame.size != null) ]
+            | if length == 1 then .[0].frame.size else error("target display is ambiguous") end
+            | . as $display
+            | select(
+                $window.id.pid == $expected_pid
+                and $window.id.idx == $expected_idx
+                and $window.frame.size != null
+                and (
+                    $window.bundle_id == "com.github.wez.wezterm"
+                    or ($window.bundle_id == null and $window.app_name == "WezTerm")
+                )
+                and (($window.title // "") | test("^btop([[:space:]]|$)"; "i"))
+            )
+            | if (
+                $window.frame.size.width >= ($display.width * 0.95)
+                and $window.frame.size.height >= ($display.height * 0.95)
+              ) then "full" else "narrow" end
+        ' <<<"$displays_json"
+}
+
+ensure_btop_fullscreen() {
+    local pid=$1
+    local idx=$2
+    local display_uuid=$3
+    local fill_state=
+    local json
+    json=$(window_json "$pid" "$idx")
+
+    "$RIFT_CLI" execute window focus --window-id "$json"
+    fill_state=$(btop_fill_state "$pid" "$idx" "$display_uuid") || fill_state=
+    if [[ $fill_state == narrow ]]; then
+        "$RIFT_CLI" execute window toggle-fullscreen-within-gaps
+    fi
+}
+
 is_btop_window() {
     local expected_pid=$1
     local expected_idx=$2
@@ -320,7 +369,7 @@ if [[ -n "$existing_window" ]]; then
         fi
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
         "$RIFT_CLI" execute workspace switch "$OPS_WORKSPACE"
-        "$RIFT_CLI" execute window focus --window-id "$(window_json "$btop_pid" "$btop_idx")"
+        ensure_btop_fullscreen "$btop_pid" "$btop_idx" "$target_display"
     else
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
     fi
@@ -353,6 +402,7 @@ btop_pid=$("$JQ" -er '.pid' <<< "$window_record")
 btop_idx=$("$JQ" -er '.idx' <<< "$window_record")
 if $focus_workspace; then
     "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
+    ensure_btop_fullscreen "$btop_pid" "$btop_idx" "$target_display"
 else
     "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
     "$RIFT_CLI" execute workspace switch "$focused_workspace"
