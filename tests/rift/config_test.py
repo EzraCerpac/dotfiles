@@ -44,10 +44,25 @@ class RiftConfigTest(unittest.TestCase):
                 "haptic_pattern": "level_change",
             },
         )
-        self.assertEqual(virtual["default_workspace_count"], 8)
+        self.assertEqual(virtual["default_workspace_count"], 14)
         self.assertEqual(
             virtual["workspace_names"],
-            ["Flow", "Thesis", "ChatGPT", "Comms", "Media", "Ops", "Browser Hub", "Terminal Hub"],
+            [
+                "Flow",
+                "Thesis",
+                "ChatGPT",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "Ops",
+                "Browser Hub",
+                "Terminal Hub",
+                "Comms",
+                "Media",
+            ],
         )
         self.assertTrue(virtual["preserve_focus_per_workspace"])
         self.assertFalse(virtual["workspace_auto_back_and_forth"])
@@ -77,11 +92,11 @@ class RiftConfigTest(unittest.TestCase):
         )
 
         self.assertEqual(by_app[("com.openai.codex", None)]["workspace"], 2)
-        self.assertEqual(by_app[("com.apple.mail", None)]["workspace"], 3)
-        self.assertEqual(by_app[("net.whatsapp.WhatsApp", None)]["workspace"], 3)
-        self.assertEqual(by_app[("com.apple.Music", None)]["workspace"], 4)
-        self.assertEqual(by_app[("com.github.wez.wezterm", "(?i)^herdr([[:space:]]|$)")]["workspace"], 7)
-        self.assertEqual(by_app[("com.github.wez.wezterm", "(?i)^btop([[:space:]]|$)")]["workspace"], 5)
+        self.assertEqual(by_app[("com.apple.mail", None)]["workspace"], 12)
+        self.assertEqual(by_app[("net.whatsapp.WhatsApp", None)]["workspace"], 12)
+        self.assertEqual(by_app[("com.apple.Music", None)]["workspace"], 13)
+        self.assertEqual(by_app[("com.github.wez.wezterm", "(?i)^herdr([[:space:]]|$)")]["workspace"], 11)
+        self.assertEqual(by_app[("com.github.wez.wezterm", "(?i)^btop([[:space:]]|$)")]["workspace"], 9)
         self.assertNotIn(("com.google.Chrome", None), by_app)
         self.assertNotIn(("com.apple.Safari", None), by_app)
 
@@ -151,6 +166,39 @@ class RiftConfigTest(unittest.TestCase):
         self.assertTrue(all("Meta + Ctrl + Alt" not in key for key in keys))
         self.assertIn("wm-focus left", keys["Meh + H"]["exec"][-1])
         self.assertEqual(keys["Meh + 9"]["exec"][0:2], ["/bin/sh", "-lc"])
+        for workspace in range(9):
+            with self.subTest(workspace=workspace):
+                self.assertEqual(
+                    keys[f"Meh + {workspace}"],
+                    {"switch_to_workspace": workspace},
+                )
+                self.assertEqual(
+                    keys[f"Hyper + {workspace}"],
+                    {"move_window_to_workspace": {"workspace": workspace, "follow": True}},
+                )
+        for shortcut, workspace in {"B": 10, "T": 11, "E": 12}.items():
+            with self.subTest(shortcut=shortcut):
+                self.assertEqual(keys[f"Meh + {shortcut}"], {"switch_to_workspace": workspace})
+                self.assertEqual(
+                    keys[f"Hyper + {shortcut}"],
+                    {"move_window_to_workspace": {"workspace": workspace, "follow": True}},
+                )
+        self.assertEqual(
+            keys["Meh + M"]["exec"],
+            ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace switch 13"],
+        )
+        self.assertEqual(
+            keys["Hyper + 9"]["exec"],
+            ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace move 9"],
+        )
+        self.assertEqual(
+            keys["Hyper + M"]["exec"],
+            [
+                "/bin/sh",
+                "-lc",
+                "~/.local/bin/rift-preferred-workspace launch 13 com.apple.Music Music",
+            ],
+        )
         self.assertEqual(keys["Meh + Tab"], "switch_to_last_workspace")
         self.assertEqual(
             keys["Hyper + Tab"]["move_window_to_display"]["selector"],

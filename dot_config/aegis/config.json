@@ -61,8 +61,8 @@
   "enableLayoutActionHaptics" : true,
   "enableWallpaperBlur" : false,
   "excludedApps" : [
-    "Finder",
-    "Aegis"
+    "Aegis",
+    "Finder"
   ],
   "excludedBluetoothDevices" : [
     "watch"
@@ -138,7 +138,7 @@
   "scrollActionThreshold" : 3,
   "scrollNotchedBehavior" : true,
   "secondaryTextOpacity" : 0.9,
-  "showAppLauncher" : true,
+  "showAppLauncher" : false,
   "showAppNameInExpansion" : false,
   "showCPUMonitor" : true,
   "showContextButton" : true,
@@ -147,7 +147,7 @@
   "showFocusName" : true,
   "showMusicHUD" : false,
   "showNotchHUD" : true,
-  "showNotificationHUD" : true,
+  "showNotificationHUD" : false,
   "showOverlayHUD" : false,
   "showRAMMonitor" : true,
   "showSpaceIndicators" : true,
@@ -203,11 +203,10 @@
   "windowIconFrameHeight" : 22,
   "windowIconFrameWidth" : 22,
   "workspaceLabelOverrides" : {
-    "3" : "E",
-    "4" : "M",
-    "5" : "9",
-    "6" : "B",
-    "7" : "T"
+    "10" : "B",
+    "11" : "T",
+    "12" : "E",
+    "13" : "M"
   },
   "workspaceLabelStyle" : "index",
   "windowManagerType" : "rift",

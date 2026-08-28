@@ -61,7 +61,7 @@ haptic_pattern = "level_change"
 
 [virtual_workspaces]
 enabled = true
-default_workspace_count = 8
+default_workspace_count = 14
 auto_assign_windows = true
 preserve_focus_per_workspace = true
 workspace_auto_back_and_forth = false
@@ -72,11 +72,17 @@ workspace_names = [
   "Flow",
   "Thesis",
   "ChatGPT",
-  "Comms",
-  "Media",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
   "Ops",
   "Browser Hub",
   "Terminal Hub",
+  "Comms",
+  "Media",
 ]
 workspace_rules = []
 
@@ -91,11 +97,11 @@ app_rules = [
   { ax_subrole = "AXSystemFloatingWindow", floating = true },
 
   { app_id = "com.openai.codex", workspace = 2 },
-  { app_id = "com.apple.mail", workspace = 3 },
-  { app_id = "net.whatsapp.WhatsApp", workspace = 3 },
-  { app_id = "com.apple.Music", workspace = 4 },
-  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 7 },
-  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^btop([[:space:]]|$)", workspace = 5 },
+  { app_id = "com.apple.mail", workspace = 12 },
+  { app_id = "net.whatsapp.WhatsApp", workspace = 12 },
+  { app_id = "com.apple.Music", workspace = 13 },
+  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 11 },
+  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^btop([[:space:]]|$)", workspace = 9 },
   { app_id = "com.chabomakers.Antinote", floating = true },
   { app_id = "com.apple.weather", floating = true },
   { app_id = "com.apple.AddressBook", floating = true },
@@ -135,10 +141,11 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Meh + 5" = { switch_to_workspace = 5 }
 "Meh + 6" = { switch_to_workspace = 6 }
 "Meh + 7" = { switch_to_workspace = 7 }
-"Meh + E" = { switch_to_workspace = 3 }
-"Meh + B" = { switch_to_workspace = 6 }
-"Meh + M" = { switch_to_workspace = 4 }
-"Meh + T" = { switch_to_workspace = 7 }
+"Meh + 8" = { switch_to_workspace = 8 }
+"Meh + B" = { switch_to_workspace = 10 }
+"Meh + T" = { switch_to_workspace = 11 }
+"Meh + E" = { switch_to_workspace = 12 }
+"Meh + M" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace switch 13"] }
 "Meh + Tab" = "switch_to_last_workspace"
 "Hyper + Tab" = { move_window_to_display = { selector = "right" } }
 "Meh + [" = { prev_workspace = true }
@@ -153,10 +160,12 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Hyper + 5" = { move_window_to_workspace = { workspace = 5, follow = true } }
 "Hyper + 6" = { move_window_to_workspace = { workspace = 6, follow = true } }
 "Hyper + 7" = { move_window_to_workspace = { workspace = 7, follow = true } }
-"Hyper + E" = { move_window_to_workspace = { workspace = 3, follow = true } }
-"Hyper + B" = { move_window_to_workspace = { workspace = 6, follow = true } }
-"Hyper + T" = { move_window_to_workspace = { workspace = 7, follow = true } }
-"Hyper + 9" = { move_window_to_workspace = { workspace = 5, follow = true } }
+"Hyper + 8" = { move_window_to_workspace = { workspace = 8, follow = true } }
+"Hyper + B" = { move_window_to_workspace = { workspace = 10, follow = true } }
+"Hyper + T" = { move_window_to_workspace = { workspace = 11, follow = true } }
+"Hyper + E" = { move_window_to_workspace = { workspace = 12, follow = true } }
+"Hyper + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace move 9"] }
+"Hyper + M" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace launch 13 com.apple.Music Music"] }
 
 # Ops launcher: the helper creates/reuses the temporary btop window.
 "Meh + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"] }
@@ -180,5 +189,4 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Hyper + F" = { exec = ["/usr/bin/open", "-a", "Finder"] }
 "Hyper + W" = { exec = ["/usr/bin/open", "-a", "WhatsApp"] }
 "Hyper + Y" = { exec = ["/usr/bin/open", "-a", "System Settings"] }
-"Hyper + M" = { exec = ["/usr/bin/open", "-a", "Music"] }
 "Hyper + Enter" = { exec = ["/opt/homebrew/bin/wezterm", "start", "--", "/opt/homebrew/bin/fish", "-l"] }

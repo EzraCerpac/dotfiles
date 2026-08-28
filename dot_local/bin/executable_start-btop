@@ -10,7 +10,7 @@ LOCKF=${LOCKF:-/usr/bin/lockf}
 LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
 TIMER_STATE=${START_BTOP_TIMER_STATE:-${TMPDIR:-/tmp}/start-btop.timer}
 CLOSE_AFTER=${START_BTOP_CLOSE_AFTER:-60}
-OPS_WORKSPACE=${START_BTOP_WORKSPACE:-5}
+OPS_WORKSPACE=${START_BTOP_WORKSPACE:-9}
 
 focus_workspace=false
 case "${1:-}" in
@@ -36,12 +36,58 @@ if [[ ${START_BTOP_LOCKED:-0} != 1 ]]; then
         /bin/bash "$0" "$@"
 fi
 
+displays_json=
+
+load_displays() {
+    displays_json=$("$RIFT_CLI" query displays)
+}
+
+active_display_uuid() {
+    "$JQ" -er '
+        [ .[] | select(.is_active_context == true and .space != null) | .uuid ]
+        | if length == 1 then .[0] else error("active Rift display is ambiguous") end
+    ' <<<"$displays_json"
+}
+
 active_space_id() {
-    "$RIFT_CLI" query displays \
-        | "$JQ" -er '
-            [ .[] | select(.is_active_context == true and .space != null) | .space ]
-            | if length == 1 then .[0] else error("active Rift display space is ambiguous") end
-        '
+    "$JQ" -er '
+        [ .[] | select(.is_active_context == true and .space != null) | .space ]
+        | if length == 1 then .[0] else error("active Rift display space is ambiguous") end
+    ' <<<"$displays_json"
+}
+
+preferred_display_uuid() {
+    "$JQ" -er '
+        def is_external:
+            if has("is_builtin") then
+                .is_builtin == false
+            elif ((.name // "") | test("built-in"; "i")) then
+                false
+            else
+                (.screen_id // 1) != 1
+            end;
+        [ .[]
+          | select(.space != null and is_external)
+          | {uuid, x: (.frame.origin.x // 0), y: (.frame.origin.y // 0)}
+        ]
+        | if length == 0 then empty
+          else sort_by([.x, .y]) | last.uuid
+          end
+    ' <<<"$displays_json"
+}
+
+target_display_uuid() {
+    local active_uuid=$1
+    if $focus_workspace; then
+        preferred_display_uuid || printf '%s\n' "$active_uuid"
+    else
+        printf '%s\n' "$active_uuid"
+    fi
+}
+
+focus_display() {
+    local display_uuid=$1
+    "$RIFT_CLI" execute display focus --uuid "$display_uuid" >/dev/null
 }
 
 active_workspace_index() {
@@ -54,18 +100,30 @@ active_workspace_index() {
 }
 
 find_btop_window() {
-    local space_id=$1
-    "$RIFT_CLI" query workspaces --space-id "$space_id" \
-        | "$JQ" -c '
-            .[] | .windows[]?
-            | select(
-                .bundle_id == "com.github.wez.wezterm"
-                or (.bundle_id == null and .app_name == "WezTerm")
-            )
-            | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
-            | select(.id.pid != null and .id.idx != null)
-            | { pid: .id.pid, idx: .id.idx }
-        ' | /usr/bin/head -n 1
+    local display_uuid
+    local space_id
+    local records
+    while IFS=$'\t' read -r display_uuid space_id; do
+        [[ -n "$display_uuid" && -n "$space_id" ]] || continue
+        records=$("$RIFT_CLI" query workspaces --space-id "$space_id" \
+            | "$JQ" -c --arg display_uuid "$display_uuid" '
+                .[] | .windows[]?
+                | select(
+                    .bundle_id == "com.github.wez.wezterm"
+                    or (.bundle_id == null and .app_name == "WezTerm")
+                )
+                | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
+                | select(.id.pid != null and .id.idx != null)
+                | { pid: .id.pid, idx: .id.idx, display_uuid: $display_uuid }
+            ') || return 1
+        if [[ -n "$records" ]]; then
+            printf '%s\n' "${records%%$'\n'*}"
+            return 0
+        fi
+    done < <(
+        "$JQ" -r '.[] | select(.space != null and .uuid != null) | [.uuid, (.space | tostring)] | @tsv' <<<"$displays_json"
+    )
+    return 1
 }
 
 window_json() {
@@ -185,15 +243,26 @@ if [[ ${1:-} == --expire ]]; then
     exit 0
 fi
 
+load_displays
+active_display=$(active_display_uuid)
 space_id=$(active_space_id)
 focused_workspace=$(active_workspace_index "$space_id")
+target_display=$(target_display_uuid "$active_display")
 
-existing_window=$(find_btop_window "$space_id") || existing_window=
+existing_window=$(find_btop_window) || existing_window=
 
 if [[ -n "$existing_window" ]]; then
     btop_pid=$("$JQ" -er '.pid' <<< "$existing_window")
     btop_idx=$("$JQ" -er '.idx' <<< "$existing_window")
+    btop_display=$("$JQ" -er '.display_uuid' <<< "$existing_window")
+    if [[ "$btop_display" != "$target_display" ]]; then
+        "$RIFT_CLI" execute display move-window \
+            --uuid "$target_display" --window-id "$btop_idx"
+    fi
     if $focus_workspace; then
+        if [[ "$target_display" != "$active_display" ]]; then
+            focus_display "$target_display"
+        fi
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
     else
         "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
@@ -202,13 +271,16 @@ if [[ -n "$existing_window" ]]; then
     exit 0
 fi
 
+if $focus_workspace && [[ "$target_display" != "$active_display" ]]; then
+    focus_display "$target_display"
+fi
 "$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
 
 # WezTerm publishes its title after launch; poll Rift until the managed window
-# appears in the current native space.
+# appears in one of the managed native spaces.
 window_record=
 for _ in {1..200}; do
-    if window_record=$(find_btop_window "$space_id") && [[ -n "$window_record" ]]; then
+    if window_record=$(find_btop_window) && [[ -n "$window_record" ]]; then
         break
     fi
     window_record=

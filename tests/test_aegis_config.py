@@ -54,18 +54,30 @@ class AegisConfigTest(unittest.TestCase):
     def test_workspace_bar_uses_shortcut_labels(self) -> None:
         self.assertTrue(self.config["hideEmptyWorkspaces"])
         self.assertEqual(self.config["workspaceLabelStyle"], "index")
-        overrides = {"3": "E", "4": "M", "5": "9", "6": "B", "7": "T"}
+        overrides = {"10": "B", "11": "T", "12": "E", "13": "M"}
         self.assertEqual(self.config["workspaceLabelOverrides"], overrides)
 
         rift = tomllib.loads((ROOT / "dot_config/rift/config.toml").read_text())
         keys = rift["keys"]
-        for workspace, shortcut in {3: "E", 4: "M", 6: "B", 7: "T"}.items():
+        for workspace, shortcut in {10: "B", 11: "T", 12: "E"}.items():
             with self.subTest(workspace=workspace, shortcut=shortcut):
                 self.assertEqual(keys[f"Meh + {shortcut}"]["switch_to_workspace"], workspace)
 
         self.assertEqual(
-            keys["Hyper + 9"]["move_window_to_workspace"],
-            {"workspace": 5, "follow": True},
+            keys["Meh + M"]["exec"],
+            ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace switch 13"],
+        )
+        self.assertEqual(
+            keys["Hyper + 9"]["exec"],
+            ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace move 9"],
+        )
+        self.assertEqual(
+            keys["Hyper + M"]["exec"],
+            [
+                "/bin/sh",
+                "-lc",
+                "~/.local/bin/rift-preferred-workspace launch 13 com.apple.Music Music",
+            ],
         )
         self.assertEqual(
             keys["Meh + 9"]["exec"],

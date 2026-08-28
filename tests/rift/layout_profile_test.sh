@@ -27,7 +27,7 @@ CALL_LOG="$tmp/calls" RIFT_CLI="$tmp/rift-cli" JQ=jq bash "$HELPER" traditional
 
 grep -Fqx 'execute config set settings.layout.mode traditional' "$tmp/calls" \
     || fail "runtime default was not changed"
-[[ "$(grep -c 'execute workspace set-layout .* traditional' "$tmp/calls")" -eq 16 ]] \
+[[ "$(grep -c 'execute workspace set-layout .* traditional' "$tmp/calls")" -eq 28 ]] \
     || fail "not every workspace on both displays was updated"
 [[ "$(grep -c 'execute display focus --uuid built-in' "$tmp/calls")" -eq 2 ]] \
     || fail "original display was not restored"

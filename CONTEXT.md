@@ -10,28 +10,32 @@ The trial uses Rift 0.5.3-beta, Aegis 1.1.0, and BoringNotch 2.7.3. It does not 
 - A virtual workspace is one of Rift's indexed window groups inside a macOS Space.
 - A scrolling workspace arranges windows as a horizontal strip of columns. A column can contain a vertical stack.
 - Flow is the mixed workspace for the current task.
+- A flexible numbered workspace is an unassigned workspace for temporary or manual work.
+- A special workspace is a shortcut-driven workspace with one focused job. Ops is special because Meh+9 creates or reuses temporary btop there.
 - A hub is a stable home for a workbench that already switches projects internally, such as a browser or Herdr.
 - An anchor is a dedicated destination for one application, such as ChatGPT.
-- Laptop Scrolling and Docked Traditional are runtime layout profiles. They update all eight workspaces on every connected display without rewriting the tracked Rift config.
+- The preferred external display is the rightmost managed external display. When there is no external display, the current display is used.
+- Laptop Scrolling and Docked Traditional are runtime layout profiles. They update all fourteen workspaces on every connected display without rewriting the tracked Rift config.
 
 ## Workspaces
 
-Aegis 1.1.0 shows the numeric index, not Rift's name.
+Aegis hides empty workspaces. It shows the indices 0 through 9 and the configured B, T, E, and M labels.
 
 | Index | Name | Select | Purpose |
 |---:|---|---|---|
 | 0 | Flow | Meh+0 | Mixed windows for the current task |
 | 1 | Thesis | Meh+1 | Thesis work only |
 | 2 | ChatGPT | Meh+2 | ChatGPT desktop app |
-| 3 | Comms | Meh+3 or Meh+E | Mail and WhatsApp |
-| 4 | Media | Meh+4 or Meh+M | Music |
-| 5 | Ops | Meh+5 or Meh+9 | Temporary btop and operations |
-| 6 | Browser Hub | Meh+6 or Meh+B | Manually anchored browser workbench |
-| 7 | Terminal Hub | Meh+7 or Meh+T | Persistent default Herdr session |
+| 3-8 | 3-8 | Meh+3 through Meh+8 | Flexible numbered workspaces |
+| 9 | Ops | Meh+9 | Temporary btop and operations |
+| 10 | Browser Hub | Meh+B | Manually anchored browser workbench |
+| 11 | Terminal Hub | Meh+T | Persistent default Herdr session |
+| 12 | Comms | Meh+E | Mail and WhatsApp |
+| 13 | Media | Meh+M | Music |
 
-Thesis has no automatic app rule. Move only thesis-related windows there. Atlas and other browsers stay in the workspace where they were opened. An ordinary Herdr-titled WezTerm window goes to Terminal Hub. A raw shell, btop, and the Gitlogue screensaver do not.
+Thesis and flexible numbered workspaces have no automatic app rule. Move only thesis-related windows to Thesis. Atlas and other browsers stay in the workspace where they were opened. An ordinary Herdr-titled WezTerm window goes to Terminal Hub. A raw shell, btop, and the Gitlogue screensaver do not.
 
-Hyper+0 through Hyper+7 moves the focused window and follows it. Hyper+E, Hyper+B, Hyper+T, and Hyper+9 are aliases for Comms, Browser Hub, Terminal Hub, and Ops. Hyper+M opens Music, so use Hyper+4 to move a window to Media.
+Hyper+0 through Hyper+8 moves the focused window and follows it. Hyper+B, Hyper+T, and Hyper+E move it to Browser Hub, Terminal Hub, and Comms. Hyper+9 moves it to Ops on the preferred external display when one exists. Meh+M selects Media there; Hyper+M opens or reuses Music there. On a laptop, both use the current display.
 
 ## Transient windows
 
@@ -73,7 +77,7 @@ Rift 0.5.3 does not natively expand a workspace's sole column. Use Meh+F when on
 
 Rift 0.5.3 can leak scrolling windows across side-by-side displays. Before using that arrangement, open Aegis's Cmd+Tab command palette and run `Docked Traditional`. Run `Laptop Scrolling` after returning to the laptop display. Restarting Rift restores Laptop Scrolling.
 
-The profile helper briefly focuses each connected display while it updates the workspaces, then restores the original display. The command palette also has `Reload Rift` and `Restart Rift`. Open it from Aegis's Cmd+Tab switcher by starting the search with `:`.
+The profile helper briefly focuses each connected display while it updates all fourteen workspaces, then restores the original display. The command palette also has `Reload Rift` and `Restart Rift`. Open it from Aegis's Cmd+Tab switcher by starting the search with `:`.
 
 ## Configuration lifecycle
 
@@ -102,7 +106,7 @@ The helper refuses a dirty checkout or a different revision. It builds a Release
 
 With `contextButtonMenuOnly` enabled, the far-left `≡` button opens the full menu on either primary or secondary click. Scrolling over it does nothing. Layout and workspace actions remain available inside the menu.
 
-The tracked Aegis config uses numeric workspace labels with shortcut overrides, so the bar shows `0 1 2 E M 9 B T`. Overrides change only the bar text; Rift, menus, and Cmd+Tab keep the original `0–7` labels. Aegis also retains the `nameInitial` style, which produces `F Th Ch Co M O B Te` when no overrides are present.
+The tracked Aegis config uses index labels with four overrides, so the bar shows `0 1 2 3 4 5 6 7 8 9 B T E M`. Overrides change only the bar text; Rift still uses indices 0 through 13. Aegis keeps `Auto` multi-monitor mode.
 
 The Aegis settings window follows macOS light or dark appearance independently of the configured bar theme. It uses an opaque native window background and semantic system colors, so desktop content cannot bleed through and controls remain readable. The tracked `custom` bar theme remains unchanged.
 
@@ -130,7 +134,7 @@ Rift has no pure config lint command. `rift-cli execute config reload` validates
 
 ## btop
 
-Meh+9 opens or reuses a raw WezTerm btop window in Ops on the invoking display. Each press resets its one-minute deadline. Reuse needs Rift's `{pid, idx}` identity, including the brief post-restart state where WezTerm's bundle ID or WindowServer ID can be absent. Closing is stricter: the helper schedules it only after obtaining a fresh WindowServer ID, and closes only if every identity value and timer generation still match. A Rift restart or mismatch leaves the window open.
+Meh+9 opens or reuses a raw WezTerm btop window in Ops on the preferred external display. With no external display, it uses the invoking display. Each press resets its one-minute deadline. Reuse needs Rift's `{pid, idx}` identity, including the brief post-restart state where WezTerm's bundle ID or WindowServer ID can be absent. Closing is stricter: the helper schedules it only after obtaining a fresh WindowServer ID, and closes only if every identity value and timer generation still match. A Rift restart or mismatch leaves the window open.
 
 ## Stop and rollback
 
