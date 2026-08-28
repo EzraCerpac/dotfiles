@@ -53,6 +53,8 @@ Meh means Cmd+Ctrl+Alt. Hyper adds Shift.
 | Hyper+H/J/K/L or arrows | Move the focused Rift node |
 | Meh+Tab | Return to the last virtual workspace |
 | Meh+[ or Meh+] | Previous or next non-empty workspace |
+| F3 or Meh+O | Show every non-empty Rift workspace |
+| Shift+F3 | Show windows in the current Rift workspace |
 | Meh+F | Fullscreen within gaps |
 | Cmd+Ctrl+F | Native macOS fullscreen |
 | Meh+C | Center the selected column |
@@ -64,6 +66,8 @@ Meh means Cmd+Ctrl+Alt. Hyper adds Shift.
 | Hyper+Tab | Move the window to the display on the right |
 | Meh+- or Meh+= | Shrink or grow horizontally |
 | Hyper+- or Hyper+= | Shrink or grow vertically |
+
+Rift's overview is the primary Mission Control interface. Use arrows or Tab to select, Enter or a click to activate, and Escape or a click outside to dismiss. Empty workspaces do not appear. Four-finger swipe up still opens native Mission Control as a fallback, where Raycast's blank helper tile may still appear.
 
 The S, C, E, and T keys also have tap-hold behavior in the keyboard configuration. Tap them promptly when they are part of a global shortcut. On the internal keyboard, the bottom-left Option key remains the ordinary @meh modifier; the Corne no longer translates Tab into private function-key signals. Rift handles Meh+Tab directly as `switch_to_last_workspace` and Hyper+Tab directly as moving the focused window to the display on the right. Aegis captures bare Cmd+Tab and Cmd+Shift+Tab while modified Cmd+Tab combinations containing Option or Control pass through to Rift.
 
@@ -77,7 +81,7 @@ Rift 0.5.3 does not natively expand a workspace's sole column. Use Meh+F when on
 
 Rift 0.5.3 can leak scrolling windows across side-by-side displays. Before using that arrangement, open Aegis's Cmd+Tab command palette and run `Docked Traditional`. Run `Laptop Scrolling` after returning to the laptop display. Restarting Rift restores Laptop Scrolling.
 
-The profile helper briefly focuses each connected display while it updates all fourteen workspaces, then restores the original display. The command palette also has `Reload Rift` and `Restart Rift`. Open it from Aegis's Cmd+Tab switcher by starting the search with `:`.
+The profile helper briefly focuses each connected display while it updates all fourteen workspaces, then restores the original display. The command palette also has `All Workspaces`, `Current Workspace`, `Reload Rift`, and `Restart Rift`. Open it from Aegis's Cmd+Tab switcher by starting the search with `:`.
 
 ## Configuration lifecycle
 

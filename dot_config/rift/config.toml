@@ -133,6 +133,9 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Hyper + Right" = { move_node = "right" }
 
 # Workspace selection.
+"F3" = "show_mission_control_all"
+"Shift + F3" = "show_mission_control_current"
+"Meh + O" = "show_mission_control_all"
 "Meh + 0" = { switch_to_workspace = 0 }
 "Meh + 1" = { switch_to_workspace = 1 }
 "Meh + 2" = { switch_to_workspace = 2 }

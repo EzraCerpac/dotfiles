@@ -157,13 +157,24 @@ class RiftConfigTest(unittest.TestCase):
             "move_window_to_display",
             "resize_window_shrink",
             "resize_window_grow",
+            "show_mission_control_all",
+            "show_mission_control_current",
         }
         for binding in keys.values():
             command = binding if isinstance(binding, str) else next(iter(binding))
             self.assertIn(command, supported, binding)
 
-        self.assertTrue(all(key.startswith(("Meh + ", "Hyper + ")) for key in keys))
+        self.assertTrue(
+            all(
+                key.startswith(("Meh + ", "Hyper + "))
+                or key in {"F3", "Shift + F3"}
+                for key in keys
+            )
+        )
         self.assertTrue(all("Meta + Ctrl + Alt" not in key for key in keys))
+        self.assertEqual(keys["F3"], "show_mission_control_all")
+        self.assertEqual(keys["Shift + F3"], "show_mission_control_current")
+        self.assertEqual(keys["Meh + O"], "show_mission_control_all")
         self.assertIn("wm-focus left", keys["Meh + H"]["exec"][-1])
         self.assertEqual(keys["Meh + 9"]["exec"][0:2], ["/bin/sh", "-lc"])
         for workspace in range(9):
