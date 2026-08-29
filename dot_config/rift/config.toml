@@ -97,6 +97,7 @@ app_rules = [
   { ax_subrole = "AXFloatingWindow", manage = false },
   { ax_subrole = "AXSystemFloatingWindow", manage = false },
 
+  { app_id = "com.kagi.kagimacOS", workspace = "Browser Hub" },
   { app_id = "com.openai.codex", workspace = 2 },
   { app_id = "com.apple.mail", workspace = 12 },
   { app_id = "net.whatsapp.WhatsApp", workspace = 12 },

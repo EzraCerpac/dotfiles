@@ -39,7 +39,7 @@ Hyper+0 through Hyper+8 moves the focused window and follows it. Hyper+B, Hyper+
 
 ## Transient windows
 
-Rift floats dialogs, system dialogs, sheets, and floating utility windows. They stay usable without taking a column from the scrolling layout. Rift ignores Raycast's launcher windows and Orion's exact `Orion Preview` helper. Normal Orion browser windows remain managed and stay wherever they were placed.
+Rift floats dialogs, system dialogs, sheets, and floating utility windows. They stay usable without taking a column from the scrolling layout. Rift ignores Raycast's launcher windows and Orion's exact `Orion Preview` helper. Normal Orion browser windows remain managed and are anchored in Browser Hub.
 
 The transient rules come before workspace routes because Rift uses the earlier rule when two matches have equal specificity. If Raycast returns as a blank item in native Mission Control, quit and reopen Raycast. Restart Dock once only if Mission Control kept a stale item after that restart.
 
@@ -120,7 +120,7 @@ The Cmd+Tab surface follows the selected Aegis theme. Dark, light, system, and c
 
 Empty inactive workspaces are hidden from the Aegis bar. The focused workspace stays visible even when it has no windows. Occupancy comes from managed windows, so minimized, hidden, Finder, and icon-excluded windows still keep their workspace visible. The filter changes only the bar: every workspace remains available through shortcuts, Cmd+Tab, context menus, window moves, and app routing. Labels are resolved before filtering, so abbreviations and shortcut overrides do not change as workspaces appear or disappear.
 
-Transient dialogs and floating utility panels stay outside Rift based on their accessibility roles. This covers ChatGPT's Cmd+P, update, Computer Use, and Browser Use panels without title-specific rules. Sheets remain managed but floating so they stay attached to their parent windows. Every Antinote window, Raycast, and Orion preview helpers also stay unmanaged. The ordinary ChatGPT window remains managed in workspace 2, and ordinary Orion browser windows remain managed where they were opened.
+Transient dialogs and floating utility panels stay outside Rift based on their accessibility roles. This covers ChatGPT's Cmd+P, update, Computer Use, and Browser Use panels without title-specific rules. Sheets remain managed but floating so they stay attached to their parent windows. Every Antinote window, Raycast, and Orion preview helpers also stay unmanaged. The ordinary ChatGPT window remains managed in workspace 2, and ordinary Orion browser windows are anchored in Browser Hub.
 
 JankyBorders shows only the focused window. Its active border stays white, while inactive borders are fully transparent. Ignored helper windows may still have internal border windows, but they are invisible.
 
