@@ -122,6 +122,8 @@ Empty inactive workspaces are hidden from the Aegis bar. The focused workspace s
 
 Transient dialogs and floating utility panels stay outside Rift based on their accessibility roles. This covers ChatGPT's Cmd+P, update, Computer Use, and Browser Use panels without title-specific rules. Sheets remain managed but floating so they stay attached to their parent windows. Every Antinote window, Raycast, and Orion preview helpers also stay unmanaged. The ordinary ChatGPT window remains managed in workspace 2, and ordinary Orion browser windows remain managed where they were opened.
 
+JankyBorders shows only the focused window. Its active border stays white, while inactive borders are fully transparent. Ignored helper windows may still have internal border windows, but they are invisible.
+
 Aegis treats every Rift workspace response as authoritative, including empty workspaces. This removes closed apps and newly ignored helpers from Cmd+Tab instead of retaining stale cached entries.
 
 Aegis hides its bar on the display showing a native macOS fullscreen or another Rift-unmanaged Space, then restores it after returning to a managed Space. Other displays keep their bars. Meh+F fullscreen-within-gaps remains managed by Rift and deliberately keeps the bar visible.

@@ -11,7 +11,7 @@ mouse_follows_focus = false
 mouse_hides_on_focus = false
 auto_focus_blacklist = []
 run_on_start = [
-  "/opt/homebrew/bin/borders active_color=0xffe1e3e4 inactive_color=0xff494d64 width=5.0",
+  "/opt/homebrew/bin/borders active_color=0xffe1e3e4 inactive_color=0x00000000 width=5.0",
 ]
 hot_reload = true
 
