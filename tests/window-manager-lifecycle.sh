@@ -100,12 +100,11 @@ EOF
         AEGIS_APPLICATIONS_DIR="$tmp/Applications" AEGIS_CURL_BIN=curl \
         AEGIS_SHASUM_BIN=shasum AEGIS_UNZIP_BIN=unzip \
         AEGIS_PLIST_BUDDY_BIN=plistbuddy AEGIS_CODESIGN_BIN=codesign \
-        RIFT_BIN=rift RIFT_LAUNCHCTL_BIN=launchctl RIFT_SERVICE_ACTIVATE=1 \
+        RIFT_BIN=rift RIFT_LAUNCHCTL_BIN=launchctl \
         bash -c 'source "$1"; reconcile_aegis; reconcile_rift_service' _ "$script"
 
     [[ -d "$tmp/Applications/Aegis.app" ]] || fail "Aegis app was not installed"
-    grep -Fq 'launchctl enable ' "$tmp/calls" || fail "Rift service was not enabled"
-    grep -Fq 'launchctl bootstrap ' "$tmp/calls" || fail "Rift service was not bootstrapped"
+    ! grep -Fq 'launchctl ' "$tmp/calls" || fail "ordinary reconcile mutated the Rift service"
     if grep -Fq '<key>KeepAlive</key>' "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist"; then
         fail "Rift launch agent still has KeepAlive"
     fi

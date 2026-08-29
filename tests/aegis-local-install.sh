@@ -3,6 +3,15 @@
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly EXPECTED_REVISION="$(
+    chezmoi execute-template --init=false --source "$ROOT" \
+        '{{ with (index .packages.darwin.managed_apps "aegis") }}{{ .local_revision }}{{ end }}'
+)"
+
+[[ "$EXPECTED_REVISION" =~ ^[[:xdigit:]]{40}$ ]] || {
+    echo "not ok - rendered Aegis revision pin is missing or invalid" >&2
+    exit 1
+}
 
 fail() {
     echo "not ok - $*" >&2
@@ -104,6 +113,9 @@ EOF
     cat >"$bin/defaults" <<'EOF'
 #!/usr/bin/env bash
 printf 'defaults %s\n' "$*" >>"${AEGIS_TEST_CALLS:?}"
+if [[ "${AEGIS_TEST_DEFAULTS_FAIL:-0}" == 1 ]]; then
+    exit 1
+fi
 EOF
     cat >"$bin/osascript" <<'EOF'
 #!/usr/bin/env bash
@@ -112,12 +124,18 @@ EOF
     cat >"$bin/open" <<'EOF'
 #!/usr/bin/env bash
 printf 'open %s\n' "$*" >>"${AEGIS_TEST_CALLS:?}"
+if [[ "${AEGIS_TEST_OPEN_FAIL:-0}" == 1 ]]; then
+    exit 1
+fi
 EOF
     cat >"$bin/mv" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'mv %s\n' "$*" >>"${AEGIS_TEST_CALLS:?}"
 if [[ "${AEGIS_TEST_REPLACE_FAIL:-0}" == 1 && "$1" == *Products/* ]]; then
+    exit 1
+fi
+if [[ "${AEGIS_TEST_RECEIPT_FAIL:-0}" == 1 && "$2" == *receipt ]]; then
     exit 1
 fi
 /bin/mv "$@"
@@ -127,7 +145,7 @@ EOF
 
 run_helper() {
     local tmp="${1:?temporary directory required}"
-    local revision="${AEGIS_RUN_REVISION:-0b17194887358c8c521dfb612219ac3d8ac4ebc4}"
+    local revision="${AEGIS_RUN_REVISION:-$EXPECTED_REVISION}"
     local dirty="${AEGIS_RUN_DIRTY:-0}"
     shift
     env \
@@ -138,6 +156,9 @@ run_helper() {
         AEGIS_STATE_DIR="$tmp/state" \
         AEGIS_TEST_REVISION="$revision" \
         AEGIS_TEST_DIRTY="$dirty" \
+        AEGIS_TEST_DEFAULTS_FAIL="${AEGIS_TEST_DEFAULTS_FAIL:-0}" \
+        AEGIS_TEST_RECEIPT_FAIL="${AEGIS_TEST_RECEIPT_FAIL:-0}" \
+        AEGIS_TEST_OPEN_FAIL="${AEGIS_TEST_OPEN_FAIL:-0}" \
         AEGIS_TEST_CALLS="$tmp/calls" \
         AEGIS_GIT_BIN="$tmp/bin/git" \
         AEGIS_JJ_BIN="$tmp/bin/jj" \
@@ -260,6 +281,48 @@ test_failed_replacement_rolls_back() (
     pass "failed replacement rolls back"
 )
 
+test_defaults_failure_rolls_back() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    printf 'old app\n' >"$tmp/Applications/Aegis.app/old-marker"
+    : >"$tmp/calls"
+    if AEGIS_TEST_DEFAULTS_FAIL=1 run_helper "$tmp" "$tmp/helper"; then
+        fail "defaults failure was accepted"
+    fi
+    grep -Fqx 'old app' "$tmp/Applications/Aegis.app/old-marker" || fail "old app was not restored after defaults failure"
+    pass "defaults failure rolls back"
+)
+
+test_receipt_failure_rolls_back() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    printf 'old app\n' >"$tmp/Applications/Aegis.app/old-marker"
+    : >"$tmp/calls"
+    if AEGIS_TEST_RECEIPT_FAIL=1 run_helper "$tmp" "$tmp/helper"; then
+        fail "receipt failure was accepted"
+    fi
+    grep -Fqx 'old app' "$tmp/Applications/Aegis.app/old-marker" || fail "old app was not restored after receipt failure"
+    pass "receipt failure rolls back"
+)
+
+test_relaunch_failure_rolls_back() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    printf 'old app\n' >"$tmp/Applications/Aegis.app/old-marker"
+    : >"$tmp/calls"
+    if AEGIS_TEST_OPEN_FAIL=1 run_helper "$tmp" "$tmp/helper"; then
+        fail "relaunch failure was accepted"
+    fi
+    grep -Fqx 'old app' "$tmp/Applications/Aegis.app/old-marker" || fail "old app was not restored after relaunch failure"
+    pass "relaunch failure rolls back"
+)
+
 test_successful_install() (
     local tmp="$(mktemp -d)"
     local expected_requirement_hash=""
@@ -282,7 +345,7 @@ test_successful_install() (
         fail "certificate designated requirement was not evaluated for trust"
     grep -Fq 'osascript ' "$tmp/calls" || fail "Aegis was not quit before replacement"
     grep -Fq 'open ' "$tmp/calls" || fail "Aegis was not relaunched"
-    grep -Fqx 'revision=0b17194887358c8c521dfb612219ac3d8ac4ebc4' "$tmp/state/receipt" || \
+    grep -Fqx "revision=$EXPECTED_REVISION" "$tmp/state/receipt" || \
         fail "installed revision receipt is wrong"
     [[ -d "$tmp/Applications/Aegis.app" ]] || fail "Aegis app was not installed"
     grep -Fqx 'signing_identity=Aegis Local Code Signing' "$tmp/state/receipt" || \
@@ -303,6 +366,9 @@ test_invalid_bundle
 test_cdhash_requirement
 test_untrusted_requirement
 test_failed_replacement_rolls_back
+test_defaults_failure_rolls_back
+test_receipt_failure_rolls_back
+test_relaunch_failure_rolls_back
 test_successful_install
 
 echo "Aegis local installer tests passed"

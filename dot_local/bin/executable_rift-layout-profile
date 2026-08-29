@@ -1,8 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RIFT_CLI=${RIFT_CLI:-/opt/homebrew/bin/rift-cli}
 JQ=${JQ:-jq}
+
+resolve_rift_cli() {
+    local candidate
+
+    if [[ -n "${RIFT_CLI:-}" ]]; then
+        if [[ "${RIFT_CLI}" == */* ]]; then
+            [[ -x "${RIFT_CLI}" ]] || return 1
+            printf '%s\n' "${RIFT_CLI}"
+            return 0
+        fi
+        command -v "${RIFT_CLI}" || return 1
+        return 0
+    fi
+
+    for candidate in "${HOME}/.local/bin/rift-cli" /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli; do
+        if [[ -x "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    command -v rift-cli
+}
+
+RIFT_CLI=$(resolve_rift_cli) || {
+    echo "rift-layout-profile: could not locate Rift CLI (rift-cli)" >&2
+    exit 1
+}
 
 case "${1:-}" in
     scrolling|traditional) mode=$1 ;;

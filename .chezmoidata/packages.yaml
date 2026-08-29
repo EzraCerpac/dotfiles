@@ -73,10 +73,13 @@ packages:
       - mattermost
       - warp
     managed_apps:
+      rift:
+        local_revision: 69c279d6f0d19739e995c269ea446e3049158828
+        signing_identity: Rift Local Code Signing
       aegis:
         version: 1.1.0
         bundle_id: Aegis.Aegis
-        local_revision: 0b17194887358c8c521dfb612219ac3d8ac4ebc4
+        local_revision: 4a4010fe719bdafd59ead3d25840927187f18b74
         signing_identity: Aegis Local Code Signing
         url: https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip
         sha256: 89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59

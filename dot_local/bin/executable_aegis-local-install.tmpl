@@ -97,6 +97,32 @@ verify_trusted_designated_requirement() {
     fi
 }
 
+rollback_install() {
+    local target="${AEGIS_TARGET_APP:-}"
+    local previous="${AEGIS_PREVIOUS_APP:-}"
+    local failed="${AEGIS_STAGING_DIR:-}/failed-Aegis.app"
+    local mv_bin="${AEGIS_MV_BIN:-/bin/mv}"
+
+    [[ "${AEGIS_INSTALL_ACTIVE:-0}" -eq 1 ]] || return 0
+    [[ "${AEGIS_INSTALL_COMMITTED:-0}" -eq 0 ]] || return 0
+    [[ "${AEGIS_ROLLBACK_IN_PROGRESS:-0}" -eq 0 ]] || return 0
+    AEGIS_ROLLBACK_IN_PROGRESS=1
+
+    if [[ -e "$target" ]]; then
+        "$mv_bin" "$target" "$failed" || {
+            echo "aegis-local-install: could not move failed Aegis app aside during rollback" >&2
+            return 1
+        }
+    fi
+    if [[ "${AEGIS_OLD_APP_STAGED:-0}" -eq 1 && -e "$previous" ]]; then
+        "$mv_bin" "$previous" "$target" || {
+            echo "aegis-local-install: could not restore the previous Aegis app" >&2
+            return 1
+        }
+    fi
+    AEGIS_INSTALL_ACTIVE=0
+}
+
 resolve_signing_identity() {
     local security_bin="${AEGIS_SECURITY_BIN:-security}"
     local output=""
@@ -176,39 +202,35 @@ install_aegis() {
     local target="${AEGIS_APPLICATIONS_DIR}/Aegis.app"
     local previous="${AEGIS_STAGING_DIR}/previous-Aegis.app"
     local mv_bin="${AEGIS_MV_BIN:-/bin/mv}"
-    local old_staged=0
-    local target_installed=0
-
-    rollback() {
-        if [[ "$target_installed" -eq 0 && "$old_staged" -eq 1 && ! -e "$target" && -e "$previous" ]]; then
-            "$mv_bin" "$previous" "$target" || true
-        fi
-    }
+    AEGIS_TARGET_APP="$target"
+    AEGIS_PREVIOUS_APP="$previous"
+    AEGIS_OLD_APP_STAGED=0
 
     if [[ -e "$target" ]]; then
         [[ -d "$target" && ! -L "$target" ]] || die "refusing to replace unexpected target: $target"
         if ! "$mv_bin" "$target" "$previous"; then
             die "could not stage the existing Aegis app"
         fi
-        old_staged=1
+        AEGIS_OLD_APP_STAGED=1
     fi
 
+    AEGIS_INSTALL_ACTIVE=1
     if ! "$mv_bin" "$candidate" "$target"; then
-        rollback
         die "could not install the built Aegis app"
     fi
-    target_installed=1
     if ! aegis_app_is_valid "$target"; then
-        target_installed=0
         "$mv_bin" "$target" "${AEGIS_STAGING_DIR}/invalid-Aegis.app" || true
         [[ ! -e "$target" ]] || rm -rf "$target"
-        rollback
         die "installed Aegis bundle failed verification"
     fi
+}
 
-    if [[ "$old_staged" -eq 1 ]]; then
-        rm -rf "$previous"
+commit_install() {
+    if [[ "${AEGIS_OLD_APP_STAGED:-0}" -eq 1 ]]; then
+        rm -rf "${AEGIS_PREVIOUS_APP:?}"
     fi
+    AEGIS_INSTALL_COMMITTED=1
+    AEGIS_INSTALL_ACTIVE=0
 }
 
 write_receipt() {
@@ -239,6 +261,12 @@ main() {
     AEGIS_SIGNING_IDENTITY_HASH=""
     AEGIS_DESIGNATED_REQUIREMENT_HASH=""
     AEGIS_STAGING_DIR=""
+    AEGIS_TARGET_APP=""
+    AEGIS_PREVIOUS_APP=""
+    AEGIS_OLD_APP_STAGED=0
+    AEGIS_INSTALL_ACTIVE=0
+    AEGIS_INSTALL_COMMITTED=0
+    AEGIS_ROLLBACK_IN_PROGRESS=0
 
     require_clean_source
     resolve_signing_identity
@@ -248,7 +276,7 @@ main() {
     mkdir -p "$AEGIS_APPLICATIONS_DIR"
     staging_dir="$(mktemp -d "${AEGIS_APPLICATIONS_DIR}/.aegis-local-install.XXXXXX")"
     AEGIS_STAGING_DIR="$staging_dir"
-    trap 'rm -rf "$AEGIS_STAGING_DIR"' EXIT
+    trap 'rollback_install; rm -rf "$AEGIS_STAGING_DIR"' EXIT
 
     candidate="$(build_aegis "$staging_dir")"
     aegis_app_is_valid "$candidate" || die "built Aegis bundle failed verification"
@@ -261,6 +289,7 @@ main() {
     "$defaults_bin" write "$AEGIS_EXPECTED_BUNDLE_ID" SUAutomaticallyUpdate -bool false
     write_receipt
     "$open_bin" "${AEGIS_APPLICATIONS_DIR}/Aegis.app"
+    commit_install
     echo "Installed Aegis ${AEGIS_EXPECTED_VERSION} at ${AEGIS_INSTALLED_REVISION}"
 }
 

@@ -33,23 +33,31 @@ dot_local/bin/executable_start-btop
 dot_local/bin/executable_rift-layout-profile
 dot_local/bin/executable_wm-focus
 dot_local/bin/executable_aegis-local-install.tmpl
+dot_local/bin/executable_aegis-local-signing-setup.tmpl
+dot_local/bin/executable_rift-local-install.tmpl
+dot_local/bin/executable_rift-local-signing-setup.tmpl
 dot_config/aegis/
 dot_config/rift/
 dot_config/private_karabiner/
 dot_config/private_raycast/
 dot_config/raycast/
 dot_wezterm.lua
+Library/LaunchAgents/git.acsandmann.rift.plist.tmpl
 # macOS-only apps (target paths)
 .local/bin/brew-adopt
 .local/bin/start-btop
 .local/bin/rift-layout-profile
 .local/bin/wm-focus
 .local/bin/aegis-local-install
+.local/bin/aegis-local-signing-setup
+.local/bin/rift-local-install
+.local/bin/rift-local-signing-setup
 .config/aegis/
 .config/rift/
 .config/karabiner/
 .config/raycast/
 .wezterm.lua
+Library/LaunchAgents/git.acsandmann.rift.plist
 {{- end }}
 
 {{- if eq .profile "delftblue" }}

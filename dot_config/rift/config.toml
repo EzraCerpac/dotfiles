@@ -1,4 +1,4 @@
-# Rift v0.5.3 trial configuration.
+# Personal Rift tracking-build configuration.
 # Meh = Meta + Ctrl + Alt; Hyper adds Shift.
 
 [settings]
@@ -9,7 +9,13 @@ default_disable = false
 focus_follows_mouse = true
 mouse_follows_focus = false
 mouse_hides_on_focus = false
-auto_focus_blacklist = []
+auto_focus_blacklist = [
+  "com.raycast.macos",
+  "com.apple.dock",
+  "com.apple.systemuiserver",
+  "com.apple.SecurityAgent",
+  "com.apple.Spotlight",
+]
 run_on_start = [
   "/opt/homebrew/bin/borders active_color=0xffe1e3e4 inactive_color=0x00000000 width=5.0",
 ]
@@ -17,9 +23,11 @@ hot_reload = true
 
 [settings.layout]
 mode = "scrolling"
+window_insertion_point = "next_to_selection"
 
 [settings.layout.scrolling]
 column_width_ratio = 0.7
+single_column_width_ratio = 1.0
 min_column_width_ratio = 0.3
 max_column_width_ratio = 0.9
 alignment = "center"
@@ -42,10 +50,12 @@ vertical = 10.0
 enabled = false
 
 [settings.ui.stack_line]
-enabled = true
+enabled = false
 
 [settings.ui.mission_control]
 enabled = true
+fade_enabled = true
+fade_duration_ms = 180.0
 
 [settings.gestures]
 # Four-finger horizontal swipes switch directly between non-empty workspaces.
@@ -182,7 +192,8 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Meh + Comma" = "toggle_stack"
 "Hyper + Comma" = { consume_or_expel_window = "left" }
 "Hyper + Dot" = { consume_or_expel_window = "right" }
-"Hyper + Space" = "toggle_window_floating"
+"Hyper + Space" = { toggle_window_floating = { center = true, size = "smart" } }
+"Meh + Space" = "toggle_focus_floating"
 "Meh + Minus" = { resize_window_shrink = "horizontal" }
 "Meh + Equal" = { resize_window_grow = "horizontal" }
 "Hyper + Minus" = { resize_window_shrink = "vertical" }

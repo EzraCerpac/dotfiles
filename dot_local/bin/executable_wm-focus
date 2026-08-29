@@ -40,13 +40,13 @@ resolve_cli() {
         fi
     fi
 
-    for candidate in rift-cli /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli; do
-        if command -v "$candidate" >/dev/null 2>&1; then
-            command -v "$candidate"
-            return 0
-        fi
+    for candidate in "${HOME}/.local/bin/rift-cli" /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli rift-cli; do
         if [[ -x "$candidate" ]]; then
             printf '%s' "$candidate"
+            return 0
+        fi
+        if [[ "$candidate" != */* ]] && command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
             return 0
         fi
     done

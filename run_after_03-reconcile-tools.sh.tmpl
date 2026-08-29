@@ -304,48 +304,17 @@ reconcile_aegis() {
     rm -rf "$temporary_dir"
 }
 
-rift_service_is_running() {
-    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
-    "$launchctl_bin" print "gui/$(id -u)/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1
-}
-
 reconcile_rift_service() {
-    local rift_bin="${RIFT_BIN:-rift}"
-    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
-    local plist="$HOME/Library/LaunchAgents/${RIFT_LAUNCH_AGENT_LABEL}.plist"
-    local domain="gui/$(id -u)"
+    local rift_bin="${RIFT_BIN:-$HOME/.local/bin/rift}"
+    local config="${RIFT_CONFIG_PATH:-$HOME/.config/rift/config.toml}"
 
     if ! command -v "$rift_bin" >/dev/null 2>&1; then
-        echo "Warning: Rift not found; service reconciliation will retry next apply." >&2
+        echo "Warning: Rift not found; local candidate validation will retry next apply." >&2
         return 1
     fi
 
-    if rift_service_is_running; then
-        return 0
-    fi
-
-    if [[ "${RIFT_SERVICE_ACTIVATE:-0}" != "1" ]]; then
-        echo "Rift is installed but its login service is staged. Set RIFT_SERVICE_ACTIVATE=1 for the live cutover."
-        return 0
-    fi
-
-    if [[ ! -f "$plist" ]]; then
-        echo "Warning: managed Rift launch agent is missing; run chezmoi apply again." >&2
-        return 1
-    fi
-
-    # Rift's stock service uses KeepAlive. A denied Accessibility check then
-    # becomes an endless prompt/restart loop. Our launch agent starts once at
-    # login and stays stopped after a failed permission check.
-    "$launchctl_bin" enable "${domain}/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
-    "$launchctl_bin" bootout "${domain}/${RIFT_LAUNCH_AGENT_LABEL}" >/dev/null 2>&1 || true
-    if ! "$launchctl_bin" bootstrap "$domain" "$plist"; then
-        echo "Warning: Rift service did not start. Check Accessibility, then run chezmoi apply again." >&2
-        return 1
-    fi
-
-    if ! rift_service_is_running; then
-        echo "Warning: Rift exited during startup. Check Accessibility, then run chezmoi apply again." >&2
+    if ! "$rift_bin" config check --config "$config"; then
+        echo "Warning: Rift configuration failed its offline check; no service was changed." >&2
         return 1
     fi
 }
