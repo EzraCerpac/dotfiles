@@ -120,7 +120,7 @@ The Cmd+Tab surface follows the selected Aegis theme. Dark, light, system, and c
 
 Empty inactive workspaces are hidden from the Aegis bar. The focused workspace stays visible even when it has no windows. Occupancy comes from managed windows, so minimized, hidden, Finder, and icon-excluded windows still keep their workspace visible. The filter changes only the bar: every workspace remains available through shortcuts, Cmd+Tab, context menus, window moves, and app routing. Labels are resolved before filtering, so abbreviations and shortcut overrides do not change as workspaces appear or disappear.
 
-Transient utility panels stay outside Rift. This includes ChatGPT's Cmd+P and update popups, every Antinote window, Raycast, and Orion preview helpers whose titles may include page details. Their apps keep control of placement and overlay level. The ordinary ChatGPT window remains managed in workspace 2, and ordinary Orion browser windows remain managed where they were opened.
+Transient dialogs and floating utility panels stay outside Rift based on their accessibility roles. This covers ChatGPT's Cmd+P, update, Computer Use, and Browser Use panels without title-specific rules. Sheets remain managed but floating so they stay attached to their parent windows. Every Antinote window, Raycast, and Orion preview helpers also stay unmanaged. The ordinary ChatGPT window remains managed in workspace 2, and ordinary Orion browser windows remain managed where they were opened.
 
 Aegis treats every Rift workspace response as authoritative, including empty workspaces. This removes closed apps and newly ignored helpers from Cmd+Tab instead of retaining stale cached entries.
 
