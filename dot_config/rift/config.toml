@@ -88,7 +88,7 @@ workspace_rules = []
 
 app_rules = [
   # Keep transient helpers out of the workspace model. Order matters for ties.
-  { app_id = "com.kagi.kagimacOS", title_regex = '^Orion Preview$', manage = false },
+  { app_id = "com.kagi.kagimacOS", title_regex = '^Orion Preview(?:$|[[:space:]]*-)', manage = false },
   { app_id = "com.raycast.macos", manage = false },
   { app_id = "com.openai.codex", title_regex = '^ChatGPT$', manage = false },
   { app_id = "com.chabomakers.Antinote", manage = false },
