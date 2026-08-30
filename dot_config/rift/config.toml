@@ -106,6 +106,9 @@ app_rules = [
   { ax_role = "AXSheet", floating = true },
   { ax_subrole = "AXFloatingWindow", manage = false },
   { ax_subrole = "AXSystemFloatingWindow", manage = false },
+  # Codex labels some compact popups as ordinary windows. Size keeps them out
+  # without affecting the full ChatGPT window.
+  { app_id = "com.openai.codex", ax_role = "AXWindow", ax_subrole = "AXStandardWindow", max_width = 600.0, max_height = 700.0, manage = false },
 
   { app_id = "com.kagi.kagimacOS", workspace = "Browser Hub" },
   { app_id = "com.openai.codex", workspace = 2 },

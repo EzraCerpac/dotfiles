@@ -73,6 +73,8 @@ Four-finger horizontal swipes switch directly between non-empty workspaces and p
 
 The local gesture fallback patch keeps the global workspace-swipe handler active in scrolling layouts when scrolling-layout gestures are disabled. Without that fallback, Rift selects the disabled scrolling handler and drops the four-finger swipe.
 
+The local app-rule patch adds inclusive window-size matchers. ChatGPT standard windows no larger than 600 by 700 logical pixels stay unmanaged, while the full ChatGPT window still goes to workspace 2. Unknown window dimensions do not match this rule.
+
 Rift's focus blacklist covers Raycast, Dock, SystemUIServer, SecurityAgent, and Spotlight. This prevents focus-follows-mouse from stealing focus when the pointer crosses a system utility. The app rules use exact bundle IDs:
 
 - ChatGPT goes to workspace 2.
@@ -80,7 +82,7 @@ Rift's focus blacklist covers Raycast, Dock, SystemUIServer, SecurityAgent, and 
 - Music goes to Media.
 - Herdr-titled WezTerm windows go to Terminal Hub.
 - btop-titled WezTerm windows go to Ops.
-- Antinote, Weather, Contacts, and Raycast stay unmanaged or floating according to their rule.
+- Antinote, Weather, Contacts, and Raycast stay unmanaged or floating according to their rule. Antinote's built-in pin shortcut is Shift+Cmd+P. Pinned notes remain visible above other apps after focus moves; keyboard input follows the newly focused app. Unpinning restores hide-on-focus-loss behavior. This user-selected pin shortcut takes precedence over Antinote's normal Print shortcut.
 - ChatGPT Computer Use, Browser Use, update prompts, and similar role-based transient dialogs stay unmanaged.
 - Sheets remain managed but floating so they stay attached to their parent.
 - Orion preview helpers matching the configured preview prefix stay unmanaged. Ordinary Orion browser windows remain managed and are manually anchored in Browser Hub.
