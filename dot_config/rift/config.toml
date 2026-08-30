@@ -10,7 +10,6 @@ focus_follows_mouse = true
 mouse_follows_focus = false
 mouse_hides_on_focus = false
 auto_focus_blacklist = [
-  "com.openai.codex",
   "com.raycast.macos",
   "com.apple.dock",
   "com.apple.systemuiserver",
