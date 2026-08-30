@@ -32,7 +32,7 @@ printf 'cargo %s\n' "$*" >>"${RIFT_TEST_CALLS:?}"
 [[ "${RIFT_TEST_BUILD_FAIL:-0}" == 0 ]] || exit 1
 r="${RIFT_SOURCE_DIR}/target/aarch64-apple-darwin/release"; mkdir -p "$r"
 printf '#!/bin/sh\nif [ "$1" = config ]; then exit "${RIFT_TEST_CONFIG_FAIL:-0}"; fi\nexit 0\n' >"$r/rift"
-printf '#!/bin/sh\nexit 0\n' >"$r/rift-cli"; chmod +x "$r/rift" "$r/rift-cli"
+printf '#!/bin/sh\nif [ "$1" = query ]; then exit "${RIFT_TEST_CLI_READY_FAIL:-0}"; fi\nexit 0\n' >"$r/rift-cli"; chmod +x "$r/rift" "$r/rift-cli"
 EOF
     cat >"$bin/security" <<'EOF'
 #!/usr/bin/env bash
@@ -272,6 +272,16 @@ test_candidate_exit_and_receipt_failure_roll_back() (
     pass "candidate exit and receipt failure roll back fully"
 )
 
+test_candidate_mach_readiness_failure_rolls_back() (
+    local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
+    if RIFT_TEST_CLI_READY_FAIL=1 activate "$tmp"; then fail "unqueryable candidate was accepted"; fi
+    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "unqueryable candidate did not restore fallback"
+    [[ ! -e "$tmp/state/receipt" ]] || fail "unqueryable candidate wrote a receipt"
+    grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "unqueryable candidate was not stopped"
+    pass "activation requires the candidate Mach endpoint"
+)
+
 test_receipt_snapshot_failure_is_inert() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
@@ -328,6 +338,7 @@ test_invalid_current_pointer_falls_back_safely
 test_partial_bootout_failure_restores_service
 test_loaded_homebrew_without_stable_links_rolls_back
 test_candidate_exit_and_receipt_failure_roll_back
+test_candidate_mach_readiness_failure_rolls_back
 test_receipt_snapshot_failure_is_inert
 test_signal_rolls_back_candidate
 test_config_failure_before_stop

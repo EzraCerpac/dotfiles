@@ -38,6 +38,7 @@ readonly RIFT_IDENTITY_NAME RIFT_BINARY_IDENTIFIER RIFT_CLI_BINARY_IDENTIFIER RI
 readonly RIFT_LAUNCH_AGENT_LABEL="${RIFT_LAUNCH_AGENT_LABEL:-git.acsandmann.rift}"
 readonly RIFT_LAUNCH_AGENT_PATH="${RIFT_LAUNCH_AGENT_PATH:-${HOME}/Library/LaunchAgents/${RIFT_LAUNCH_AGENT_LABEL}.plist}"
 readonly RIFT_SERVICE_SETTLE_SECONDS="${RIFT_SERVICE_SETTLE_SECONDS:-0.2}"
+readonly RIFT_SERVICE_READY_ATTEMPTS="${RIFT_SERVICE_READY_ATTEMPTS:-20}"
 
 die() { echo "rift-local-install: $*" >&2; exit 1; }
 
@@ -236,9 +237,14 @@ service_running() {
 }
 
 wait_for_service_running() {
-    local sleep_bin="${RIFT_SLEEP_BIN:-/bin/sleep}"
-    "$sleep_bin" "$RIFT_SERVICE_SETTLE_SECONDS"
-    service_running
+    local sleep_bin="${RIFT_SLEEP_BIN:-/bin/sleep}" attempt
+    for ((attempt = 1; attempt <= RIFT_SERVICE_READY_ATTEMPTS; attempt++)); do
+        "$sleep_bin" "$RIFT_SERVICE_SETTLE_SECONDS"
+        if service_running && "$RIFT_CANDIDATE_RELEASE/rift-cli" query workspaces >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 write_receipt() {
@@ -318,7 +324,7 @@ activate() {
         return 1
     fi
     if ! "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" || ! wait_for_service_running; then
-        echo "rift-local-install: Rift service did not remain loaded after activation" >&2
+        echo "rift-local-install: Rift service did not become queryable after activation" >&2
         rollback
         return 1
     fi
