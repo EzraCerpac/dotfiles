@@ -306,7 +306,6 @@ dev_process_match() {
     local command_line="${1:?command line required}"
 
     case "${command_line}" in
-        *"codegraph serve --mcp"*|\
         *"vite dev"*|\
         *"next dev"*|\
         *"pnpm dev"*|\
@@ -412,7 +411,7 @@ write_report() {
         print_status
         echo
         echo "presentation process matches:"
-        ps -Ao pid=,ppid=,%cpu=,%mem=,command= | grep -Ei 'codegraph serve --mcp|vite dev|next dev|pnpm dev|npm run dev|uvicorn|cargo watch|scripts/serve_api.jl|qlmanage -t|CodexBar|Cotabby|VoiceInk|TypeWhisper|Ollama|MEGAsync|Raycast|Mattermost|Steam' || true
+        ps -Ao pid=,ppid=,%cpu=,%mem=,command= | grep -Ei 'vite dev|next dev|pnpm dev|npm run dev|uvicorn|cargo watch|scripts/serve_api.jl|qlmanage -t|CodexBar|Cotabby|VoiceInk|TypeWhisper|Ollama|MEGAsync|Raycast|Mattermost|Steam' || true
     } >"${REPORT_FILE}"
 }
 

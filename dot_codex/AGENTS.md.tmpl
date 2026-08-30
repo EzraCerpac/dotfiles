@@ -16,16 +16,6 @@ Tests are good! Endless smoke tests, "regression tests" for feature deletions, e
 
 Backwards compatibility never main concern, prefer simplicity and overall best design-choice. Keep codebase simple. Less is more. Again: always evaluate if less code can do the job.
 
-<!-- CODEGRAPH_START -->
-## CodeGraph
-
-In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE rg/fd or reading files when you need to understand or locate code:
-
-- **MCP tools**: `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them. `codegraph_node` returns one symbol's source + callers, or reads a whole file with line numbers. If the tools are listed but deferred, load them by name via tool search.
-- **Shell equivalent**: `codegraph explore "<symbol names or question>"` and `codegraph node <symbol-or-file>` print the same output.
-
-If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
-<!-- CODEGRAPH_END -->
 {{- if eq .profile "nas" }}
 
 ## CerpacNAS limits
