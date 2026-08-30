@@ -71,6 +71,8 @@ The local single-column patch sets `single_column_width_ratio` to `1.0`. A works
 
 Four-finger horizontal swipes switch directly between non-empty workspaces and produce one haptic when a switch commits. Scrolling-layout gestures stay disabled, so horizontal swipes do not also scroll the column strip. Vertical Mission Control gestures, shortcuts, and Hot Corners remain available. Before using side-by-side displays, switch to Docked Traditional because scrolling windows can leak across horizontal displays. Restarting Rift returns to Laptop Scrolling.
 
+The local gesture fallback patch keeps the global workspace-swipe handler active in scrolling layouts when scrolling-layout gestures are disabled. Without that fallback, Rift selects the disabled scrolling handler and drops the four-finger swipe.
+
 Rift's focus blacklist covers Raycast, Dock, SystemUIServer, SecurityAgent, and Spotlight. This prevents focus-follows-mouse from stealing focus when the pointer crosses a system utility. The app rules use exact bundle IDs:
 
 - ChatGPT goes to workspace 2.
