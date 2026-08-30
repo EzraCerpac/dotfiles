@@ -73,7 +73,7 @@ Four-finger horizontal swipes switch directly between non-empty workspaces and p
 
 The local gesture fallback patch keeps the global workspace-swipe handler active in scrolling layouts when scrolling-layout gestures are disabled. Without that fallback, Rift selects the disabled scrolling handler and drops the four-finger swipe.
 
-Rift's focus blacklist covers Raycast, Dock, SystemUIServer, SecurityAgent, and Spotlight. This prevents focus-follows-mouse from stealing focus when the pointer crosses a system utility. The app rules use exact bundle IDs:
+Rift's focus blacklist covers ChatGPT, Raycast, Dock, SystemUIServer, SecurityAgent, and Spotlight. This prevents focus-follows-mouse from stealing focus when the pointer crosses a system utility, and stops ChatGPT from reclaiming focus while Rift hides it during a workspace switch. The app rules use exact bundle IDs:
 
 - ChatGPT goes to workspace 2.
 - Mail and WhatsApp go to Comms.
