@@ -8,10 +8,6 @@
 - Use `uv` for Python commands.
 - Explain TypeScript, web-app, and API architecture in plain language.
 
-## CodeGraph
-
-When `.codegraph/` exists, use CodeGraph before `rg`, `fd`, or broad file reads to locate or understand code. Use `codegraph explore` for questions and call paths, and `codegraph node` for one symbol or file.
-
 ## CerpacNAS
 
 - Root login is intentional. Never use `sudo`, Docker, system package mutation, or dangerous sandbox or approval bypass flags.
