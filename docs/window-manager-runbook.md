@@ -112,7 +112,7 @@ The system-status pill uses a 28 pt outer height, roughly 14 pt content, and an 
 
 Native macOS owns notifications. The Aegis notification setting controls whether Aegis observes and draws an additional notification HUD. When that setting is off, Aegis does not dismiss native banners; the standalone notification follow-up covers startup and live on/off transitions. Do not add notification exclusions that make a banner disappear. BoringNotch remains the sole owner of media, volume, brightness, and device HUDs. Aegis's music, media, volume/brightness, device, focus, and virtual-notch HUDs stay off.
 
-Aegis treats each Rift workspace response as authoritative. Closed apps and newly ignored helpers therefore disappear from Cmd+Tab after its next refresh. It hides its bar on a display showing native macOS fullscreen or another unmanaged Space, while bars on other displays remain. Meh+F fullscreen within gaps stays managed and keeps the bar visible.
+Aegis treats each Rift workspace response as authoritative. Closed apps and newly ignored helpers therefore disappear from Cmd+Tab after its next refresh. It hides its bar on a display showing native macOS fullscreen or another unmanaged Space, while bars on other displays remain. Rift refreshes run one at a time, retain the strongest pending request, and recheck a native Space transition when Rift initially returns an unchanged or unknown display snapshot. Aegis applies the resolved fullscreen state before raising its bar window, so returning to an already-fullscreen video cannot place the bar above the macOS menu bar. Meh+F fullscreen within gaps stays managed and keeps the bar visible.
 
 ## Installation and configuration lifecycle
 
