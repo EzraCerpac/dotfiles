@@ -31,7 +31,7 @@ cat >"$bin/cargo" <<'EOF'
 printf 'cargo %s\n' "$*" >>"${RIFT_TEST_CALLS:?}"
 [[ "${RIFT_TEST_BUILD_FAIL:-0}" == 0 ]] || exit 1
 r="${RIFT_SOURCE_DIR}/target/aarch64-apple-darwin/release"; mkdir -p "$r"
-printf '#!/bin/sh\nif [ "$1" = config ]; then exit "${RIFT_TEST_CONFIG_FAIL:-0}"; fi\nexit 0\n' >"$r/rift"
+printf '#!/bin/sh\nif [ "$1" = config ]; then printf "config-check %%s\\n" "$4" >>"${RIFT_TEST_CALLS:?}"; exit "${RIFT_TEST_CONFIG_FAIL:-0}"; fi\nexit 0\n' >"$r/rift"
 printf '#!/bin/sh\nif [ "$1" = query ]; then exit "${RIFT_TEST_CLI_READY_FAIL:-0}"; fi\nexit 0\n' >"$r/rift-cli"; chmod +x "$r/rift" "$r/rift-cli"
 EOF
     cat >"$bin/security" <<'EOF'
@@ -59,12 +59,25 @@ EOF
 #!/usr/bin/env bash
 printf 'launchctl %s\n' "$*" >>"${RIFT_TEST_CALLS:?}"
 case "$1" in
- print) [[ -f "${RIFT_TEST_RUNNING:?}" ]] && printf 'state = running\npid = 123\n' ;;
- bootout) rm -f "${RIFT_TEST_RUNNING:?}"; [[ "${RIFT_TEST_BOOTOUT_FAIL:-0}" != 1 ]] ;;
+ print)
+   if [[ -f "${RIFT_TEST_RUNNING:?}" ]]; then printf 'state = running\npid = 123\n'
+   elif [[ -f "${RIFT_TEST_LOADED:?}" ]]; then printf 'state = loaded\n'
+   else exit 1; fi ;;
+ bootout) rm -f "${RIFT_TEST_RUNNING:?}" "${RIFT_TEST_LOADED:?}"; [[ "${RIFT_TEST_BOOTOUT_FAIL:-0}" != 1 ]] ;;
  bootstrap)
+   if [[ "${RIFT_TEST_MUTATE_LIVE:-0}" == 1 && ! -e "${RIFT_TEST_MUTATE_LIVE_MARKER:?}" ]]; then
+     : >"${RIFT_TEST_MUTATE_LIVE_MARKER}"
+     printf 'candidate config\n' >"${RIFT_CONFIG_PATH:?}"
+     if [[ "${RIFT_TEST_DIRECTORY_COLLISION:-0}" == 1 ]]; then rm -f "$RIFT_CONFIG_PATH"; mkdir "$RIFT_CONFIG_PATH"; fi
+     mkdir -p "$(dirname "${RIFT_LAYOUT_PATH:?}")"
+     printf 'candidate layout\n' >"$RIFT_LAYOUT_PATH"
+     printf 'candidate launch agent\n' >"${RIFT_LAUNCH_AGENT_PATH:?}"
+   fi
+   : >"${RIFT_TEST_LOADED:?}"
    [[ "${RIFT_TEST_BOOTSTRAP_FAIL:-0}" != 1 ]] || exit 1
    if [[ "${RIFT_TEST_BOOTSTRAP_FAIL_ONCE:-0}" == 1 && ! -e "${RIFT_TEST_BOOTSTRAP_FAIL_MARKER:?}" ]]; then : >"${RIFT_TEST_BOOTSTRAP_FAIL_MARKER}"; exit 1; fi
    [[ "${RIFT_TEST_EXIT_AFTER_BOOTSTRAP:-0}" != 1 ]] && : >"${RIFT_TEST_RUNNING:?}" ;;
+ kill) rm -f "${RIFT_TEST_RUNNING:?}" ;;
  *) exit 1 ;;
 esac
 EOF
@@ -106,12 +119,16 @@ run_helper() {
     local jj_bin="${RIFT_RUN_JJ_BIN:-$tmp/bin/jj}"
     env HOME="$tmp/home" PATH="$tmp/bin:/usr/bin:/bin" RIFT_SOURCE_DIR="$tmp/source" RIFT_BIN_DIR="$tmp/home/.local/bin" \
         RIFT_STATE_DIR="$tmp/state" RIFT_RELEASES_DIR="$tmp/state/releases" RIFT_CURRENT_LINK="$tmp/state/current" RIFT_HOMEBREW_BIN_DIR="$tmp/brew" \
-        RIFT_CONFIG_PATH="$tmp/home/.config/rift/config.toml" RIFT_LAUNCH_AGENT_PATH="$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" \
+        RIFT_CONFIG_PATH="$tmp/home/.config/rift/config.toml" RIFT_LAYOUT_PATH="$tmp/home/.rift/layout.ron" \
+        RIFT_LAUNCH_AGENT_PATH="$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" \
+        RIFT_TRACKED_CONFIG_PATH="${RIFT_RUN_TRACKED_CONFIG_PATH:-$tmp/home/.config/rift/config.toml}" \
+        RIFT_TRACKED_LAUNCH_AGENT_PATH="${RIFT_RUN_TRACKED_LAUNCH_AGENT_PATH:-$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist}" \
         RIFT_INSTALL_TESTING=1 RIFT_TEST_EXPECTED_REVISION="$expected_revision" RIFT_TEST_REVISION="${RIFT_TEST_REVISION:-$REVISION}" \
-        RIFT_TEST_CALLS="$tmp/calls" RIFT_TEST_RUNNING="$tmp/running" RIFT_JJ_BIN="$jj_bin" RIFT_CARGO_BIN="$tmp/bin/cargo" \
+        RIFT_TEST_CALLS="$tmp/calls" RIFT_TEST_RUNNING="$tmp/running" RIFT_TEST_LOADED="$tmp/loaded" RIFT_JJ_BIN="$jj_bin" RIFT_CARGO_BIN="$tmp/bin/cargo" \
         RIFT_SECURITY_BIN="$tmp/bin/security" RIFT_CODESIGN_BIN="$tmp/bin/codesign" RIFT_LIPO_BIN="$tmp/bin/lipo" RIFT_LAUNCHCTL_BIN="$tmp/bin/launchctl" \
         RIFT_MV_BIN="$tmp/bin/mv" RIFT_PUBLISH_MV_BIN="$tmp/bin/publish-mv" RIFT_MKTEMP_BIN="$tmp/bin/mktemp" RIFT_SLEEP_BIN="$tmp/bin/sleep" \
-        RIFT_CP_BIN="$tmp/bin/cp" RIFT_TEST_POINTER_FAIL_MARKER="$tmp/pointer-failed" RIFT_TEST_BOOTSTRAP_FAIL_MARKER="$tmp/bootstrap-failed" "$@"
+        RIFT_CP_BIN="$tmp/bin/cp" RIFT_TEST_POINTER_FAIL_MARKER="$tmp/pointer-failed" RIFT_TEST_BOOTSTRAP_FAIL_MARKER="$tmp/bootstrap-failed" \
+        RIFT_TEST_MUTATE_LIVE_MARKER="$tmp/mutate-live" "$@"
 }
 
 stage() { local tmp="$1"; run_helper "$tmp" "$tmp/helper"; }
@@ -193,7 +210,7 @@ test_failed_activation_restores_homebrew() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
     if RIFT_TEST_BOOTSTRAP_FAIL=1 activate "$tmp"; then fail "failed bootstrap accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "failed first activation did not restore Homebrew pointer"
+    [[ ! -e "$tmp/state/current" ]] || fail "failed first activation did not restore absent pointer"
     [[ ! -e "$tmp/state/receipt" ]] || fail "failed first activation left receipt"
     grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "failed activation did not restore stopped state"
     pass "first activation failure restores Homebrew and stopped service"
@@ -203,8 +220,8 @@ test_local_upgrade_and_receipt_rollback() (
     local tmp="$(mktemp -d)" old="fedcba9876543210fedcba9876543210fedcba98"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; activate "$tmp" >/dev/null
     mv "$tmp/state/releases/$REVISION" "$tmp/state/releases/$old"; rm -f "$tmp/state/current"; ln -s "$tmp/state/releases/$old" "$tmp/state/current"; printf 'revision=%s\n' "$old" >"$tmp/state/receipt"; : >"$tmp/running"; : >"$tmp/calls"
-    if RIFT_TEST_BOOTSTRAP_FAIL=1 activate "$tmp"; then fail "upgrade bootstrap failure accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$(cd "$tmp/state/releases/$old" && pwd -P)" ]] || fail "failed upgrade did not restore old release"
+    if RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then fail "upgrade bootstrap failure accepted"; fi
+    [[ "$(readlink "$tmp/state/current")" == "$tmp/state/releases/$old" ]] || fail "failed upgrade did not restore old release"
     grep -Fqx "revision=$old" "$tmp/state/receipt" || fail "failed upgrade did not restore receipt"
     grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "loaded service was not stopped"
     grep -Fq 'launchctl bootstrap ' "$tmp/calls" || fail "old service was not restored"
@@ -243,7 +260,7 @@ test_partial_bootout_failure_restores_service() (
     if RIFT_TEST_BOOTOUT_FAIL=1 activate "$tmp"; then fail "partial bootout failure was accepted"; fi
     [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "partial bootout changed current pointer"
     [[ -f "$tmp/running" ]] || fail "partially stopped service was not restored"
-    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/current/rift" ]] || fail "restored service lacks stable link"
+    [[ ! -e "$tmp/home/.local/bin/rift" ]] || fail "absent stable link was recreated"
     pass "partial bootout failure restores the prior service once"
 )
 
@@ -253,7 +270,7 @@ test_loaded_homebrew_without_stable_links_rolls_back() (
     mkdir -p "$tmp/state"; ln -s "$tmp/brew" "$tmp/state/current"; : >"$tmp/running"; : >"$tmp/calls"
     if RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then fail "failed replacement accepted"; fi
     [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "previous Homebrew pointer was not restored"
-    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/current/rift" ]] || fail "restored Homebrew lacks stable rift link"
+    [[ ! -e "$tmp/home/.local/bin/rift" ]] || fail "absent Homebrew stable link was recreated"
     [[ -f "$tmp/running" ]] || fail "previous Homebrew service was not running again"
     pass "loaded Homebrew service restores through stable links"
 )
@@ -262,11 +279,11 @@ test_candidate_exit_and_receipt_failure_roll_back() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
     if RIFT_TEST_EXIT_AFTER_BOOTSTRAP=1 activate "$tmp"; then fail "exited candidate was accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "exited candidate did not restore fallback"
+    [[ ! -e "$tmp/state/current" ]] || fail "exited candidate did not restore absent pointer"
     ! grep -Fq 'revision=' "$tmp/state/receipt" 2>/dev/null || fail "exited candidate wrote receipt"
     : >"$tmp/calls"
     if RIFT_TEST_RECEIPT_MKTEMP_FAIL=1 activate "$tmp"; then fail "receipt failure was accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "receipt failure did not restore fallback"
+    [[ ! -e "$tmp/state/current" ]] || fail "receipt failure did not restore absent pointer"
     [[ ! -e "$tmp/state/receipt" ]] || fail "receipt failure left a receipt"
     grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "receipt failure did not stop failed candidate"
     pass "candidate exit and receipt failure roll back fully"
@@ -276,10 +293,94 @@ test_candidate_mach_readiness_failure_rolls_back() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
     if RIFT_TEST_CLI_READY_FAIL=1 activate "$tmp"; then fail "unqueryable candidate was accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "unqueryable candidate did not restore fallback"
+    [[ ! -e "$tmp/state/current" ]] || fail "unqueryable candidate did not restore absent pointer"
     [[ ! -e "$tmp/state/receipt" ]] || fail "unqueryable candidate wrote a receipt"
     grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "unqueryable candidate was not stopped"
     pass "activation requires the candidate Mach endpoint"
+)
+
+test_transaction_restores_bytes_and_absence() (
+    local tmp="$(mktemp -d)" tracked; tracked="$tmp/tracked"; trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
+    mkdir -p "$tracked" "$tmp/home/.rift" "$tmp/state"
+    printf 'old config bytes\n' >"$tmp/home/.config/rift/config.toml"
+    printf 'old schema-2 layout bytes\n' >"$tmp/home/.rift/layout.ron"
+    printf 'old launch agent bytes\n' >"$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist"
+    printf 'old receipt bytes\n' >"$tmp/state/receipt"
+    printf 'tracked config bytes\n' >"$tracked/config.toml"
+    printf 'tracked launch agent bytes\n' >"$tracked/rift.plist"
+    mkdir -p "$tmp/state"; ln -s "$tmp/brew" "$tmp/state/current"
+    ln -s "$tmp/state/current/rift" "$tmp/home/.local/bin/rift"
+    ln -s "$tmp/state/current/rift-cli" "$tmp/home/.local/bin/rift-cli"
+    cp "$tmp/home/.config/rift/config.toml" "$tmp/old-config"
+    cp "$tmp/home/.rift/layout.ron" "$tmp/old-layout"
+    cp "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" "$tmp/old-plist"
+    cp "$tmp/state/receipt" "$tmp/old-receipt"
+    : >"$tmp/running"; : >"$tmp/calls"
+    if RIFT_RUN_TRACKED_CONFIG_PATH="$tracked/config.toml" RIFT_RUN_TRACKED_LAUNCH_AGENT_PATH="$tracked/rift.plist" \
+        RIFT_TEST_MUTATE_LIVE=1 RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then
+        fail "byte-for-byte rollback was accepted"
+    fi
+    cmp -s "$tmp/old-config" "$tmp/home/.config/rift/config.toml" || fail "config bytes changed after rollback"
+    cmp -s "$tmp/old-layout" "$tmp/home/.rift/layout.ron" || fail "schema-2 layout bytes changed after rollback"
+    cmp -s "$tmp/old-plist" "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" || fail "LaunchAgent bytes changed after rollback"
+    cmp -s "$tmp/old-receipt" "$tmp/state/receipt" || fail "receipt bytes changed after rollback"
+    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "old pointer was not restored"
+    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/current/rift" ]] || fail "old stable link was not restored"
+    pass "failed activation restores config, schema-2 layout, LaunchAgent, receipt, and links byte-for-byte"
+
+    rm -f "$tmp/state/current" "$tmp/home/.local/bin/rift" "$tmp/home/.local/bin/rift-cli" \
+        "$tmp/home/.config/rift/config.toml" "$tmp/home/.rift/layout.ron" \
+        "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" "$tmp/state/receipt" \
+        "$tmp/running" "$tmp/mutate-live" "$tmp/bootstrap-failed"
+    : >"$tmp/calls"
+    if RIFT_RUN_TRACKED_CONFIG_PATH="$tracked/config.toml" RIFT_RUN_TRACKED_LAUNCH_AGENT_PATH="$tracked/rift.plist" \
+        RIFT_TEST_MUTATE_LIVE=1 RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then
+        fail "absence rollback was accepted"
+    fi
+    [[ ! -e "$tmp/state/current" ]] || fail "absent pointer was recreated"
+    [[ ! -e "$tmp/home/.local/bin/rift" && ! -e "$tmp/home/.local/bin/rift-cli" ]] || fail "absent stable links were recreated"
+    [[ ! -e "$tmp/home/.config/rift/config.toml" ]] || fail "absent config was recreated"
+    [[ ! -e "$tmp/home/.rift/layout.ron" ]] || fail "absent layout was recreated"
+    [[ ! -e "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" ]] || fail "absent LaunchAgent was recreated"
+    [[ ! -e "$tmp/state/receipt" ]] || fail "absent receipt was recreated"
+    pass "failed activation restores missing managed paths to absence"
+)
+
+test_successful_activation_installs_tracked_assets() (
+    local tmp="$(mktemp -d)" tracked; tracked="$tmp/tracked"; trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
+    mkdir -p "$tracked"
+    printf 'tracked config bytes\n' >"$tracked/config.toml"
+    printf 'tracked launch agent bytes\n' >"$tracked/rift.plist"
+    if RIFT_RUN_TRACKED_CONFIG_PATH="$tracked/config.toml" RIFT_RUN_TRACKED_LAUNCH_AGENT_PATH="$tracked/rift.plist" activate "$tmp" >/dev/null; then :; else
+        fail "successful tracked activation failed"
+    fi
+    cmp -s "$tracked/config.toml" "$tmp/home/.config/rift/config.toml" || fail "tracked config was not installed exactly"
+    cmp -s "$tracked/rift.plist" "$tmp/home/Library/LaunchAgents/git.acsandmann.rift.plist" || fail "tracked LaunchAgent was not installed exactly"
+    grep -Fqx "config-check $tracked/config.toml" "$tmp/calls" || fail "config check did not use tracked config"
+    pass "successful activation installs and checks tracked config and LaunchAgent"
+)
+
+test_loaded_but_stopped_service_is_restored() (
+    local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
+    mkdir -p "$tmp/state"; ln -s "$tmp/brew" "$tmp/state/current"; : >"$tmp/loaded"; : >"$tmp/calls"
+    if RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then fail "loaded-but-stopped failure was accepted"; fi
+    [[ -f "$tmp/loaded" && ! -e "$tmp/running" ]] || fail "loaded-but-stopped state was not restored"
+    grep -Fq 'launchctl kill SIGTERM ' "$tmp/calls" || fail "stopped loaded service was not terminated after bootstrap"
+    pass "loaded-but-stopped service state is restored exactly"
+)
+
+test_rollback_failure_retains_snapshot() (
+    local tmp="$(mktemp -d)" output; trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
+    if output="$(RIFT_TEST_DIRECTORY_COLLISION=1 RIFT_TEST_MUTATE_LIVE=1 RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp" 2>&1)"; then
+        fail "rollback failure was accepted"
+    fi
+    grep -Fq 'activation snapshot retained for manual recovery:' <<<"$output" || fail "rollback failure was not reported"
+    find "$tmp/state" -maxdepth 1 -type d -name '.activation.*' -print -quit | grep -q . || fail "failed rollback discarded activation snapshot"
+    pass "rollback failure is reported and activation snapshot is retained"
 )
 
 test_receipt_snapshot_failure_is_inert() (
@@ -297,7 +398,7 @@ test_signal_rolls_back_candidate() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
     if RIFT_TEST_SIGNAL_DURING_SETTLE=1 activate "$tmp"; then fail "interrupted activation was accepted"; fi
-    [[ "$(readlink "$tmp/state/current")" == "$tmp/brew" ]] || fail "signal did not restore fallback pointer"
+    [[ ! -e "$tmp/state/current" ]] || fail "signal did not restore absent pointer"
     [[ ! -f "$tmp/running" ]] || fail "signal left candidate service running"
     [[ ! -e "$tmp/state/receipt" ]] || fail "signal wrote a receipt"
     pass "INT or TERM during activation restores state"
@@ -339,6 +440,10 @@ test_partial_bootout_failure_restores_service
 test_loaded_homebrew_without_stable_links_rolls_back
 test_candidate_exit_and_receipt_failure_roll_back
 test_candidate_mach_readiness_failure_rolls_back
+test_transaction_restores_bytes_and_absence
+test_successful_activation_installs_tracked_assets
+test_loaded_but_stopped_service_is_restored
+test_rollback_failure_retains_snapshot
 test_receipt_snapshot_failure_is_inert
 test_signal_rolls_back_candidate
 test_config_failure_before_stop

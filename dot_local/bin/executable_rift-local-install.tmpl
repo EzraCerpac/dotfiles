@@ -24,6 +24,8 @@ readonly RIFT_RELEASES_DIR="${RIFT_RELEASES_DIR:-${RIFT_STATE_DIR}/releases}"
 readonly RIFT_CURRENT_LINK="${RIFT_CURRENT_LINK:-${RIFT_STATE_DIR}/current}"
 readonly RIFT_HOMEBREW_BIN_DIR="${RIFT_HOMEBREW_BIN_DIR:-/opt/homebrew/bin}"
 readonly RIFT_CONFIG_PATH="${RIFT_CONFIG_PATH:-${HOME}/.config/rift/config.toml}"
+readonly RIFT_LAYOUT_PATH="${RIFT_LAYOUT_PATH:-${HOME}/.rift/layout.ron}"
+readonly RIFT_TRACKED_CONFIG_PATH="${RIFT_TRACKED_CONFIG_PATH:-$RIFT_CONFIG_PATH}"
 RIFT_IDENTITY_NAME="$RIFT_CONFIGURED_IDENTITY"
 RIFT_BINARY_IDENTIFIER="$RIFT_CONFIGURED_BINARY_IDENTIFIER"
 RIFT_CLI_BINARY_IDENTIFIER="$RIFT_CONFIGURED_CLI_BINARY_IDENTIFIER"
@@ -37,6 +39,7 @@ fi
 readonly RIFT_IDENTITY_NAME RIFT_BINARY_IDENTIFIER RIFT_CLI_BINARY_IDENTIFIER RIFT_TARGET_ARCH
 readonly RIFT_LAUNCH_AGENT_LABEL="${RIFT_LAUNCH_AGENT_LABEL:-git.acsandmann.rift}"
 readonly RIFT_LAUNCH_AGENT_PATH="${RIFT_LAUNCH_AGENT_PATH:-${HOME}/Library/LaunchAgents/${RIFT_LAUNCH_AGENT_LABEL}.plist}"
+readonly RIFT_TRACKED_LAUNCH_AGENT_PATH="${RIFT_TRACKED_LAUNCH_AGENT_PATH:-$RIFT_LAUNCH_AGENT_PATH}"
 readonly RIFT_SERVICE_SETTLE_SECONDS="${RIFT_SERVICE_SETTLE_SECONDS:-0.2}"
 readonly RIFT_SERVICE_READY_ATTEMPTS="${RIFT_SERVICE_READY_ATTEMPTS:-20}"
 
@@ -44,17 +47,27 @@ die() { echo "rift-local-install: $*" >&2; exit 1; }
 
 RIFT_ROLLBACK_ARMED=0
 RIFT_ROLLBACK_DONE=0
+RIFT_ROLLBACK_FAILURES=()
+
+rollback_failure() {
+    RIFT_ROLLBACK_FAILURES+=("$*")
+    echo "rift-local-install: rollback failed: $*" >&2
+}
 
 activation_exit() {
     local status=$?
-    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then rollback || true; fi
+    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then
+        if ! rollback; then status=1; fi
+    fi
     trap - EXIT INT TERM
     exit "$status"
 }
 
 activation_signal() {
     local status="${1:?signal status required}"
-    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then rollback || true; fi
+    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then
+        if ! rollback; then status=1; fi
+    fi
     trap - EXIT INT TERM
     exit "$status"
 }
@@ -160,7 +173,9 @@ build_stage() {
 }
 
 fallback_release() {
-    [[ -x "$RIFT_HOMEBREW_BIN_DIR/rift" && -x "$RIFT_HOMEBREW_BIN_DIR/rift-cli" ]] || die "Homebrew Rift fallback is missing from $RIFT_HOMEBREW_BIN_DIR"
+    [[ -x "$RIFT_HOMEBREW_BIN_DIR/rift" && -x "$RIFT_HOMEBREW_BIN_DIR/rift-cli" ]] || return 1
+    [[ -f "$RIFT_CONFIG_PATH" ]] || return 1
+    "$RIFT_HOMEBREW_BIN_DIR/rift" config check --config "$RIFT_CONFIG_PATH" >/dev/null 2>&1 || return 1
     printf '%s\n' "$RIFT_HOMEBREW_BIN_DIR"
 }
 
@@ -202,22 +217,130 @@ snapshot_bin_links() {
     for name in rift rift-cli; do
         path="$RIFT_BIN_DIR/$name"
         if [[ -L "$path" ]]; then printf 'link\n%s\n' "$(readlink "$path")" >"$snapshot/$name"
-        elif [[ -e "$path" ]]; then cp -p "$path" "$snapshot/$name.file"; printf 'file\n' >"$snapshot/$name"
+        elif [[ -f "$path" ]]; then
+            "${RIFT_CP_BIN:-/bin/cp}" -p "$path" "$snapshot/$name.file" || return 1
+            cmp -s "$path" "$snapshot/$name.file" || return 1
+            printf 'file\n' >"$snapshot/$name"
+        elif [[ -e "$path" ]]; then
+            printf 'unsupported\n' >"$snapshot/$name"
+            return 1
         else printf 'absent\n' >"$snapshot/$name"; fi
     done
 }
 
+snapshot_path() {
+    local path="${1:?path required}" snapshot="${2:?snapshot required}" kind_file="${3:?kind file required}"
+    mkdir -p "$(dirname "$kind_file")"
+    if [[ -L "$path" ]]; then
+        printf 'link\n%s\n' "$(readlink "$path")" >"$kind_file"
+    elif [[ -f "$path" ]]; then
+        printf 'file\n' >"$kind_file"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$path" "$kind_file.data" || return 1
+        cmp -s "$path" "$kind_file.data" || return 1
+    elif [[ -e "$path" ]]; then
+        printf 'unsupported\n' >"$kind_file"
+        return 1
+    else
+        printf 'absent\n' >"$kind_file"
+    fi
+}
+
+restore_path() {
+    local path="${1:?path required}" snapshot="${2:?snapshot required}" kind_file="${3:?kind file required}"
+    local kind target
+    if [[ -d "$path" && ! -L "$path" ]]; then
+        echo "rift-local-install: cannot restore over directory: $path" >&2
+        return 1
+    fi
+    rm -f "$path"
+    kind="$(head -n1 "$kind_file")"
+    case "$kind" in
+        link)
+            target="$(sed -n '2p' "$kind_file")"
+            ln -s "$target" "$path"
+            ;;
+        file)
+            mkdir -p "$(dirname "$path")"
+            "${RIFT_CP_BIN:-/bin/cp}" -p "$kind_file.data" "$path"
+            cmp -s "$kind_file.data" "$path"
+            ;;
+        absent) ;;
+        fallback)
+            target="$(sed -n '2p' "$kind_file")"
+            atomic_current_pointer "$target"
+            ;;
+        *) die "invalid path snapshot: $kind_file" ;;
+    esac
+}
+
+snapshot_current_pointer() {
+    local snapshot="${1:?snapshot required}" target resolved releases_resolved fallback
+    if [[ -L "$RIFT_CURRENT_LINK" ]]; then
+        target="$(readlink "$RIFT_CURRENT_LINK")"
+        [[ "$target" == /* ]] || target="$(dirname "$RIFT_CURRENT_LINK")/$target"
+        resolved="$(cd "$target" 2>/dev/null && pwd -P)" || resolved=""
+        releases_resolved="$(cd "$RIFT_RELEASES_DIR" 2>/dev/null && pwd -P)" || releases_resolved=""
+        if [[ -n "$resolved" && -n "$releases_resolved" && "$resolved" == "$releases_resolved/"* ]] &&
+            verify_local_release "$resolved"; then
+            snapshot_path "$RIFT_CURRENT_LINK" "$snapshot" "$snapshot/current"
+        else
+            # Never restore an escaped or invalid pointer after a failed
+            # activation. Validate and retain the safe fallback target now,
+            # before launchd is stopped.
+            fallback="$(fallback_release)" || return 1
+            printf 'fallback\n%s\n' "$fallback" >"$snapshot/current"
+        fi
+    else
+        snapshot_path "$RIFT_CURRENT_LINK" "$snapshot" "$snapshot/current"
+    fi
+}
+
+restore_current_pointer() {
+    restore_path "$RIFT_CURRENT_LINK" "$1" "$1/current"
+}
+
+snapshot_live_assets() {
+    local snapshot="${1:?snapshot required}"
+    snapshot_path "$RIFT_CONFIG_PATH" "$snapshot" "$snapshot/config"
+    snapshot_path "$RIFT_LAYOUT_PATH" "$snapshot" "$snapshot/layout"
+    snapshot_path "$RIFT_LAUNCH_AGENT_PATH" "$snapshot" "$snapshot/launch-agent"
+    snapshot_path "$RIFT_STATE_DIR/receipt" "$snapshot" "$snapshot/receipt"
+}
+
+restore_live_assets() {
+    local snapshot="${1:?snapshot required}" failures=0
+    if ! restore_path "$RIFT_CONFIG_PATH" "$snapshot" "$snapshot/config"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_LAYOUT_PATH" "$snapshot" "$snapshot/layout"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_LAUNCH_AGENT_PATH" "$snapshot" "$snapshot/launch-agent"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_STATE_DIR/receipt" "$snapshot" "$snapshot/receipt"; then failures=$((failures + 1)); fi
+    [[ "$failures" -eq 0 ]]
+}
+
+install_tracked_assets() {
+    local temporary
+    if [[ "$RIFT_TRACKED_CONFIG_PATH" != "$RIFT_CONFIG_PATH" ]]; then
+        temporary="$RIFT_CONFIG_PATH.new.$$"
+        mkdir -p "$(dirname "$RIFT_CONFIG_PATH")"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_TRACKED_CONFIG_PATH" "$temporary" || return 1
+        cmp -s "$RIFT_TRACKED_CONFIG_PATH" "$temporary" || return 1
+        mv -f "$temporary" "$RIFT_CONFIG_PATH" || return 1
+    fi
+    if [[ "$RIFT_TRACKED_LAUNCH_AGENT_PATH" != "$RIFT_LAUNCH_AGENT_PATH" ]]; then
+        temporary="$RIFT_LAUNCH_AGENT_PATH.new.$$"
+        mkdir -p "$(dirname "$RIFT_LAUNCH_AGENT_PATH")"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_TRACKED_LAUNCH_AGENT_PATH" "$temporary" || return 1
+        cmp -s "$RIFT_TRACKED_LAUNCH_AGENT_PATH" "$temporary" || return 1
+        mv -f "$temporary" "$RIFT_LAUNCH_AGENT_PATH" || return 1
+    fi
+}
+
 restore_bin_links() {
-    local snapshot="${1:?snapshot required}" name kind target path
+    local snapshot="${1:?snapshot required}" name failures=0 path
     for name in rift rift-cli; do
-        path="$RIFT_BIN_DIR/$name"; rm -f "$path"; kind="$(head -n1 "$snapshot/$name")"
-        case "$kind" in
-            link) target="$(sed -n '2p' "$snapshot/$name")"; ln -s "$target" "$path" ;;
-            file) mv "$snapshot/$name.file" "$path" ;;
-            absent) ;;
-            *) die "invalid stable-link snapshot" ;;
-        esac
+        path="$RIFT_BIN_DIR/$name"
+        if ! restore_path "$path" "$snapshot" "$snapshot/$name"; then failures=$((failures + 1)); fi
     done
+    [[ "$failures" -eq 0 ]]
 }
 
 install_stable_links() {
@@ -234,6 +357,11 @@ service_running() {
     output="$("$launchctl_bin" print "gui/$(id -u)/$RIFT_LAUNCH_AGENT_LABEL" 2>&1)" || return 1
     [[ "$output" =~ state[[:space:]]*=[[:space:]]*running ]] ||
         [[ "$output" =~ pid[[:space:]]*=[[:space:]]*[1-9][0-9]* ]]
+}
+
+service_loaded() {
+    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
+    "$launchctl_bin" print "gui/$(id -u)/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1
 }
 
 wait_for_service_running() {
@@ -269,40 +397,55 @@ write_receipt() {
 
 activate() {
     local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}" domain="gui/$(id -u)"
-    local previous_target previous_loaded=0 snapshot receipt_backup=""
-    [[ -f "$RIFT_CONFIG_PATH" ]] || die "Rift config is missing: $RIFT_CONFIG_PATH"
-    "$RIFT_CANDIDATE_RELEASE/rift" config check --config "$RIFT_CONFIG_PATH" || die "candidate config failed offline check"
-    previous_target="$(current_target_or_fallback)"
-    service_running && previous_loaded=1 || true
+    local previous_loaded=0 previous_running=0 snapshot
+    [[ -f "$RIFT_TRACKED_CONFIG_PATH" ]] || die "tracked Rift config is missing: $RIFT_TRACKED_CONFIG_PATH"
+    [[ -f "$RIFT_TRACKED_LAUNCH_AGENT_PATH" ]] || die "tracked Rift LaunchAgent is missing: $RIFT_TRACKED_LAUNCH_AGENT_PATH"
+    "$RIFT_CANDIDATE_RELEASE/rift" config check --config "$RIFT_TRACKED_CONFIG_PATH" || die "candidate config failed offline check"
+    # Capture loaded state before stopping anything. A loaded but currently
+    # exited job must still be bootstrapped again during rollback.
+    if service_loaded; then
+        previous_loaded=1
+        service_running && previous_running=1 || true
+    fi
     snapshot="$("${RIFT_MKTEMP_BIN:-mktemp}" -d "${RIFT_STATE_DIR}/.activation.XXXXXX")" || return 1
-    if ! snapshot_bin_links "$snapshot"; then rm -rf "$snapshot"; return 1; fi
-    if [[ -f "$RIFT_STATE_DIR/receipt" ]]; then
-        if ! "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_STATE_DIR/receipt" "$snapshot/receipt"; then
-            echo "rift-local-install: could not snapshot the existing receipt" >&2
-            rm -rf "$snapshot"
-            return 1
-        fi
-        receipt_backup=1
+    if ! snapshot_current_pointer "$snapshot" ||
+        ! snapshot_bin_links "$snapshot" ||
+        ! snapshot_live_assets "$snapshot"; then
+        echo "rift-local-install: could not snapshot activation state" >&2
+        rm -rf "$snapshot"
+        return 1
     fi
     rollback() {
         [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]] || return 0
         RIFT_ROLLBACK_DONE=1
         RIFT_ROLLBACK_ARMED=0
+        RIFT_ROLLBACK_FAILURES=()
         # A failed bootstrap can still leave launchd holding an exited job.
         # Remove that candidate before pointing the LaunchAgent back at the
         # known-good release.
-        "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1 || true
-        atomic_current_pointer "$previous_target" || true
-        if [[ "$previous_loaded" -eq 1 ]]; then
-            install_stable_links || true
-        else
-            restore_bin_links "$snapshot" || true
+        if service_loaded && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+            rollback_failure "could not unload candidate service"
         fi
-        if [[ -n "$receipt_backup" ]]; then mv -f "$snapshot/receipt" "$RIFT_STATE_DIR/receipt" || true; else rm -f "$RIFT_STATE_DIR/receipt"; fi
-        if [[ "$previous_loaded" -eq 1 ]]; then "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" >/dev/null 2>&1 || true
-        else "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1 || true; fi
-        rm -rf "$snapshot"
+        if ! restore_current_pointer "$snapshot"; then rollback_failure "could not restore current pointer"; fi
+        if ! restore_bin_links "$snapshot"; then rollback_failure "could not restore stable binary links"; fi
+        if ! restore_live_assets "$snapshot"; then rollback_failure "could not restore live config, layout, LaunchAgent, and receipt"; fi
+        if [[ "$previous_loaded" -eq 1 ]]; then
+            if ! "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" >/dev/null 2>&1; then
+                rollback_failure "could not restore loaded service"
+            elif [[ "$previous_running" -eq 0 ]] && ! "$launchctl_bin" kill SIGTERM "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+                rollback_failure "could not restore previously stopped service"
+            fi
+        elif service_loaded && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+            rollback_failure "could not leave service unloaded"
+        fi
+        if [[ "${#RIFT_ROLLBACK_FAILURES[@]}" -eq 0 ]]; then
+            if rm -rf "$snapshot"; then return 0; fi
+            rollback_failure "could not remove activation snapshot"
+        fi
+        echo "rift-local-install: activation snapshot retained for manual recovery: $snapshot" >&2
+        return 1
     }
+    RIFT_ROLLBACK_FAILURES=()
     RIFT_ROLLBACK_ARMED=1
     RIFT_ROLLBACK_DONE=0
     trap activation_exit EXIT
@@ -311,26 +454,26 @@ activate() {
     if [[ "$previous_loaded" -eq 1 ]] && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL"; then
         # launchctl can report failure after it has already stopped the job.
         # Use the same idempotent rollback path in either case.
-        rollback
+        if ! rollback; then :; fi
         return 1
     fi
-    if ! atomic_current_pointer "$RIFT_CANDIDATE_RELEASE" || ! install_stable_links; then
-        rollback
+    if ! atomic_current_pointer "$RIFT_CANDIDATE_RELEASE" || ! install_stable_links || ! install_tracked_assets; then
+        if ! rollback; then :; fi
         return 1
     fi
     if [[ ! -f "$RIFT_LAUNCH_AGENT_PATH" ]]; then
         echo "rift-local-install: managed Rift LaunchAgent is missing: $RIFT_LAUNCH_AGENT_PATH" >&2
-        rollback
+        if ! rollback; then :; fi
         return 1
     fi
     if ! "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" || ! wait_for_service_running; then
         echo "rift-local-install: Rift service did not become queryable after activation" >&2
-        rollback
+        if ! rollback; then :; fi
         return 1
     fi
     if ! write_receipt; then
         echo "rift-local-install: could not write activation receipt" >&2
-        rollback
+        if ! rollback; then :; fi
         return 1
     fi
     rm -rf "$snapshot"
