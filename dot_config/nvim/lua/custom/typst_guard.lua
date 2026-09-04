@@ -10,7 +10,7 @@ local function source_text(value)
 end
 
 local function serialize_node(node, bufnr)
-  if node:type() == "text" then
+  if node:type() == "text" or node:type() == "shorthand" or node:type() == "quote" then
     return "<text>"
   end
   local children = {}
@@ -57,20 +57,22 @@ local function protect_line(line, protected)
     table.insert(spans, { start = start_at, finish = finish_at })
   end
 
-  -- Whole code/import lines are never prose.
-  if line:match("^%s*#%s*let%s")
-    or line:match("^%s*#%s*import%s")
-    or line:match("^%s*#%s*include%s")
-    or line:match("^%s*#%s*show%s")
-    or line:match("^%s*#%s*set%s")
-    or line:match("^%s*#%s*context%s")
-    or line:match("^%s*#%s*if%s")
-    or line:match("^%s*#%s*for%s")
-    or line:match("^%s*#%s*while%s") then
+  -- Whole command and delimiter lines are never prose.
+  if line:match("^%s*#")
+    or line:match("^%s*[%[%]%(%){},]+%s*$") then
     span(1, #line)
   elseif line:match("^%s*```") then
     span(1, #line)
   else
+    local _, heading_end = line:find("^%s*=+%s+")
+    local _, list_end = line:find("^%s*[-+/>]%s+")
+    local _, bracket_start = line:find("^%s*%[")
+    if heading_end then span(1, heading_end) end
+    if list_end then span(1, list_end) end
+    if bracket_start then span(1, bracket_start) end
+    local bracket_finish = line:find("%]%s*,?%s*$")
+    if bracket_finish then span(bracket_finish, #line) end
+
     local i = 1
     while i <= #line do
       local c = line:sub(i, i)
@@ -92,6 +94,15 @@ local function protect_line(line, protected)
           i = j + 1
         else
           span(i, i)
+          i = i + 1
+        end
+      elseif c == "*" or c == "_" then
+        local j = line:find(c, i + 1, true)
+        span(i, i)
+        if j then
+          span(j, j)
+          i = j + 1
+        else
           i = i + 1
         end
       elseif c == "<" then
@@ -150,6 +161,7 @@ function M.prepare(value, paragraph_mode)
   local protected = {}
   local lines = vim.split(source, "\n", { plain = true })
   local in_fence = false
+  local in_math = false
   for i, line in ipairs(lines) do
     if in_fence or line:match("^%s*```") then
       local closes = line:match("^%s*```") and in_fence
@@ -161,6 +173,12 @@ function M.prepare(value, paragraph_mode)
       else
         in_fence = true
       end
+    elseif in_math or line:match("^%s*%$%s*$") then
+      local delimiter = line:match("^%s*%$%s*$") ~= nil
+      local id = #protected + 1
+      protected[id] = line
+      lines[i] = string.format(PLACEHOLDER, id)
+      if delimiter then in_math = not in_math end
     else
       lines[i] = protect_line(line, protected)
     end

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import io
 import json
 import os
 import re
@@ -21,10 +22,11 @@ import sys
 import tempfile
 import time
 import tomllib
+import traceback
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import yaml
 
@@ -45,6 +47,7 @@ ENV_OVERRIDES = (
     "ATLASCLOUD_API_KEY",
     "ATLAS_CLOUD_API_KEY",
 )
+TYPST_BASELINE_CACHE: dict[tuple[str, int, int, tuple[str, ...]], tuple[int, set[str]]] = {}
 
 
 class HumanizeError(RuntimeError):
@@ -60,6 +63,73 @@ class RunSettings:
     model: str
     intermediate_language: str
     compile_command: tuple[str, ...]
+
+
+class ParagraphProgress:
+    def __init__(self, stream: TextIO, *, enabled: bool) -> None:
+        self.stream = stream
+        self.enabled = enabled
+        self.total = 0
+        self.current = 0
+        self.started = 0.0
+
+    def start(self, total: int) -> None:
+        self.total = total
+        self.current = 0
+        self.started = time.monotonic()
+
+    def paragraph(self, current: int) -> None:
+        self.current = current
+        self._render("rewriting")
+
+    def protect_syntax(self, current: int) -> None:
+        self.current = current
+        self._render("protecting syntax")
+
+    def syntax_retry(self, current: int, attempt: int) -> None:
+        self.current = current
+        self._render(f"syntax retry {attempt}/2")
+
+    def finish(self) -> None:
+        if not self.enabled:
+            return
+        elapsed = self._elapsed()
+        self._clear()
+        self.stream.write(
+            f"  \033[32m✓\033[0m humanize-text  {self.total} paragraphs rewritten  \033[90m{elapsed}\033[0m\n"
+        )
+        self.stream.flush()
+
+    def fail(self) -> None:
+        if not self.enabled:
+            return
+        self._clear()
+        self.stream.write(
+            f"  \033[31m×\033[0m stopped at paragraph {self.current}/{self.total}  \033[90m{self._elapsed()}\033[0m\n"
+        )
+        self.stream.flush()
+
+    def _render(self, label: str) -> None:
+        if not self.enabled:
+            return
+        width = 18
+        completed = max(0, self.current - 1)
+        filled = round(width * completed / max(1, self.total))
+        bar = "█" * filled + "░" * (width - filled)
+        self._clear()
+        self.stream.write(
+            f"  \033[36mhumanize-text\033[0m  {bar}  {self.current}/{self.total}  "
+            f"{label}  \033[90m{self._elapsed()}\033[0m"
+        )
+        self.stream.flush()
+
+    def _clear(self) -> None:
+        self.stream.write("\r\033[2K")
+
+    def _elapsed(self) -> str:
+        seconds = max(0, int(time.monotonic() - self.started))
+        minutes, seconds = divmod(seconds, 60)
+        return f"{minutes:02d}:{seconds:02d}"
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -218,33 +288,80 @@ def read_niutrans_key() -> str | None:
 
 
 @contextlib.contextmanager
-def google_fallback_for_niutrans(pipeline: Any, *, enabled: bool) -> Iterator[None]:
+def google_fallback_for_niutrans(
+    pipeline: Any,
+    *,
+    enabled: bool,
+    translation_fallback: Callable[[str, str], str] | None = None,
+) -> Iterator[None]:
     original_google = pipeline.google_translate
+    original_llm = pipeline.llm_rewrite
     original_niutrans = pipeline.niutrans_translate
 
+    def retry_llm(*args: Any, **kwargs: Any) -> str:
+        retryable_errors = {
+            "ConnectError",
+            "ConnectTimeout",
+            "HTTPStatusError",
+            "ReadError",
+            "ReadTimeout",
+            "RemoteProtocolError",
+            "WriteError",
+            "WriteTimeout",
+        }
+        for attempt in range(3):
+            try:
+                result = original_llm(*args, **kwargs)
+                if not isinstance(result, str):
+                    raise TypeError("LLM returned a non-text result")
+                return result
+            except Exception as error:
+                if not isinstance(error, TypeError) and type(error).__name__ not in retryable_errors:
+                    raise
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        raise AssertionError("unreachable")
+
     def retry_google(text: str, source: str, target: str) -> str:
+        def translate(chosen_source: str) -> str:
+            result = original_google(text, source=chosen_source, target=target)
+            if not isinstance(result, str) or not result.strip():
+                raise TypeError("Google Translate returned a non-text result")
+            return result
+
         last_error: Exception | None = None
         for attempt in range(3):
             try:
-                return original_google(text, source=source, target=target)
+                return translate(source)
             except Exception as error:
                 last_error = error
                 if attempt < 2:
                     time.sleep(0.5 * (attempt + 1))
         if source != "auto":
-            return original_google(text, source="auto", target=target)
+            try:
+                return translate("auto")
+            except Exception as error:
+                last_error = error
+        if translation_fallback is not None:
+            result = translation_fallback(text, target)
+            if not isinstance(result, str) or not result.strip():
+                raise TypeError("LLM translation fallback returned a non-text result")
+            return result
         assert last_error is not None
         raise last_error
 
     def google_final_hop(text: str, source: str, target: str, api_key: str | None) -> str:
         return retry_google(text, source, target)
 
+    pipeline.llm_rewrite = retry_llm
     pipeline.google_translate = retry_google
     if enabled:
         pipeline.niutrans_translate = google_final_hop
     try:
         yield
     finally:
+        pipeline.llm_rewrite = original_llm
         pipeline.google_translate = original_google
         pipeline.niutrans_translate = original_niutrans
 
@@ -285,11 +402,34 @@ def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
         try:
             from src.standard import pipeline as standard_pipeline
 
+            language_names = {"en": "English", "fi": "Finnish", "ja": "Japanese"}
+
+            def translate_with_proxy(value: str, target: str) -> str:
+                return standard_pipeline.llm_rewrite(
+                    text=value,
+                    target_language=language_names.get(target, target),
+                    api_key=proxy_key or "local-no-auth",
+                    base_url=settings.proxy_url,
+                    model=settings.model,
+                    history=None,
+                    temperature=settings.temperature,
+                    extra_headers=None,
+                    provider="deepseek",
+                )
+
             with without_upstream_env_overrides():
-                with google_fallback_for_niutrans(standard_pipeline, enabled=not niutrans_key):
+                with google_fallback_for_niutrans(
+                    standard_pipeline,
+                    enabled=not niutrans_key,
+                    translation_fallback=translate_with_proxy,
+                ):
                     result = standard_pipeline.run_standard_pipeline(text, config, target_lang="en")
         except Exception as error:
-            raise HumanizeError(f"Cloud pipeline failed: {type(error).__name__}") from error
+            frames = traceback.extract_tb(error.__traceback__)
+            function = frames[-1].name if frames else "unknown"
+            detail = str(error).strip() if isinstance(error, TypeError) else "no details"
+            detail = detail or "no details"
+            raise HumanizeError(f"Cloud pipeline failed in {function}: {type(error).__name__}: {detail}") from error
         output = result.get("result", "")
         if not isinstance(output, str) or not output.strip():
             raise HumanizeError("Cloud pipeline returned empty output")
@@ -303,14 +443,74 @@ def split_plain_paragraphs(text: str) -> list[tuple[bool, str]]:
     return [(not bool(re.fullmatch(r"\n[ \t]*\n+", part)), part) for part in parts if part]
 
 
-def rewrite_plain(text: str, paragraphs: bool, rewrite: Callable[[str], str]) -> str:
+def typst_placeholder_ids(text: str) -> list[str]:
+    return re.findall(r"⟦TYPST_GUARD_(\d+)⟧", text)
+
+
+def loose_typst_placeholder_ids(text: str) -> list[str]:
+    return re.findall(r"TYPST[ _]GUARD[ _](\d+)", text, flags=re.IGNORECASE)
+
+
+def escape_typst_prose(text: str) -> str:
+    escaped = text.replace("\\", "\\\\")
+    escaped = re.sub(r"([#$@<>\[\]*_`])", r"\\\1", escaped)
+    if re.match(r"^=+\s", escaped) or re.match(r"^[-+/>]\s", escaped):
+        escaped = "\\" + escaped
+    return escaped
+
+
+def rewrite_around_typst_placeholders(text: str, rewrite: Callable[[str], str]) -> str:
+    parts = re.split(r"(⟦TYPST_GUARD_\d+⟧)", text)
+    result: list[str] = []
+    for part in parts:
+        if not part or re.fullmatch(r"⟦TYPST_GUARD_\d+⟧", part) or not part.strip():
+            result.append(part)
+            continue
+        for line in part.splitlines(keepends=True):
+            ending_match = re.search(r"\r?\n$", line)
+            ending = ending_match.group() if ending_match else ""
+            body = line[: -len(ending)] if ending else line
+            if not body.strip():
+                result.append(body + ending)
+                continue
+            leading = re.match(r"[ \t]*", body).group()
+            trailing = re.search(r"[ \t]*$", body).group()
+            finish = len(body) - len(trailing) if trailing else len(body)
+            core = body[len(leading) : finish]
+            rewritten = " ".join(rewrite(core).split())
+            result.append(leading + escape_typst_prose(rewritten) + trailing + ending)
+    return "".join(result)
+
+
+def rewrite_plain(
+    text: str,
+    paragraphs: bool,
+    rewrite: Callable[[str], str],
+    *,
+    progress: ParagraphProgress | None = None,
+) -> str:
     if not text.strip():
         raise HumanizeError("Input is empty")
     if not paragraphs:
         return rewrite(text)
+    parts = split_plain_paragraphs(text)
+    total = sum(is_content and bool(part.strip()) for is_content, part in parts)
+    reporter = progress or ParagraphProgress(io.StringIO(), enabled=False)
+    reporter.start(total)
     result: list[str] = []
-    for is_content, part in split_plain_paragraphs(text):
-        result.append(rewrite(part) if is_content and part.strip() else part)
+    current = 0
+    try:
+        for is_content, part in parts:
+            if is_content and part.strip():
+                current += 1
+                reporter.paragraph(current)
+                result.append(rewrite(part))
+            else:
+                result.append(part)
+    except Exception:
+        reporter.fail()
+        raise
+    reporter.finish()
     return "".join(result)
 
 
@@ -353,29 +553,69 @@ def rewrite_typst(
     rewrite: Callable[[str], str],
     *,
     guard: Callable[[str, dict[str, Any]], dict[str, Any]] = run_guard,
+    progress: ParagraphProgress | None = None,
+    validate: Callable[[str], None] | None = None,
 ) -> str:
     prepared = guard("prepare", {"source": source, "paragraph_mode": paragraphs})
     chunks = prepared.get("chunks")
     plan = prepared.get("plan")
     if not isinstance(chunks, list) or not isinstance(plan, dict):
         raise HumanizeError("Typst guard returned an invalid preparation plan")
-    outputs: list[dict[str, str]] = []
-    for index, chunk in enumerate(chunks, start=1):
+    for chunk in chunks:
         if (
             not isinstance(chunk, dict)
             or not isinstance(chunk.get("id"), (str, int))
             or not isinstance(chunk.get("text"), str)
         ):
             raise HumanizeError("Typst guard returned an invalid chunk")
-        try:
-            output = rewrite(chunk["text"])
-        except HumanizeError as error:
-            raise HumanizeError(f"Paragraph {index} failed: {error}") from error
-        outputs.append({"id": chunk["id"], "text": output})
-    restored = guard("restore", {"plan": plan, "outputs": outputs})
-    result = restored.get("source")
-    if not isinstance(result, str):
-        raise HumanizeError("Typst guard returned an invalid reconstruction")
+    reporter = progress or ParagraphProgress(io.StringIO(), enabled=False)
+    reporter.start(len(chunks))
+    outputs: list[dict[str, str]] = []
+    try:
+        for index, chunk in enumerate(chunks, start=1):
+            reporter.paragraph(index)
+            for syntax_attempt in range(3):
+                try:
+                    expected_placeholders = typst_placeholder_ids(chunk["text"])
+                    if syntax_attempt == 0:
+                        output = rewrite(chunk["text"])
+                    else:
+                        reporter.protect_syntax(index)
+                        output = rewrite_around_typst_placeholders(chunk["text"], rewrite)
+                    if typst_placeholder_ids(output) != expected_placeholders:
+                        reporter.protect_syntax(index)
+                        output = rewrite_around_typst_placeholders(chunk["text"], rewrite)
+                    if typst_placeholder_ids(output) != expected_placeholders:
+                        observed = loose_typst_placeholder_ids(output)
+                        raise HumanizeError(
+                            "protected Typst placeholder mismatch after syntax protection "
+                            f"(expected IDs {expected_placeholders}, observed IDs {observed})"
+                        )
+                    candidate_outputs = [*outputs, {"id": chunk["id"], "text": output}]
+                    candidate_outputs.extend({"id": future["id"], "text": future["text"]} for future in chunks[index:])
+                    candidate = guard("restore", {"plan": plan, "outputs": candidate_outputs})
+                    candidate_source = candidate.get("source")
+                    if not isinstance(candidate_source, str):
+                        raise HumanizeError("Typst guard returned an invalid reconstruction")
+                    if validate is not None:
+                        validate(candidate_source)
+                except HumanizeError as error:
+                    if syntax_attempt == 2:
+                        raise HumanizeError(f"Paragraph {index} failed: {error}") from error
+                    reporter.syntax_retry(index, syntax_attempt + 1)
+                    continue
+                outputs.append({"id": chunk["id"], "text": output})
+                break
+        restored = guard("restore", {"plan": plan, "outputs": outputs})
+        result = restored.get("source")
+        if not isinstance(result, str):
+            raise HumanizeError("Typst guard returned an invalid reconstruction")
+        if validate is not None:
+            validate(result)
+    except Exception:
+        reporter.fail()
+        raise
+    reporter.finish()
     return result
 
 
@@ -403,14 +643,14 @@ def expand_compile_command(template: Sequence[str], *, proposal: Path, output: P
         raise HumanizeError(f"Unknown Typst compile placeholder: {error.args[0]}") from error
 
 
-def compile_typst_proposal(target: Path, proposal_text: str, settings: RunSettings) -> None:
+def run_typst_compile(target: Path, source: str, settings: RunSettings) -> subprocess.CompletedProcess[str]:
     target = target.resolve()
     temporary: Path | None = None
     try:
         descriptor, name = tempfile.mkstemp(prefix=".humanize-", suffix=".typ", dir=target.parent)
         os.close(descriptor)
         temporary = Path(name)
-        temporary.write_text(proposal_text, encoding="utf-8")
+        temporary.write_text(source, encoding="utf-8")
         with tempfile.TemporaryDirectory(prefix="humanize-typst-") as output_directory:
             output = Path(output_directory) / "check.pdf"
             relative = temporary.name
@@ -438,14 +678,37 @@ def compile_typst_proposal(target: Path, proposal_text: str, settings: RunSettin
                 else:
                     command = ["typst", "compile", str(temporary), str(output)]
                     cwd = target.parent
-            result = command_result(command, cwd)
-            if result.returncode != 0:
-                lines = (result.stderr or result.stdout or "").strip().splitlines()
-                detail = lines[-1] if lines else "unknown compile error"
-                raise HumanizeError(f"Typst compile check failed: {detail}")
+            return command_result(command, cwd)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def typst_error_signatures(result: subprocess.CompletedProcess[str]) -> set[str]:
+    output = result.stderr or result.stdout or ""
+    return {line.strip() for line in output.splitlines() if line.startswith("error:")}
+
+
+def compile_typst_proposal(target: Path, proposal_text: str, settings: RunSettings) -> None:
+    result = run_typst_compile(target, proposal_text, settings)
+    if result.returncode == 0:
+        return
+    target = target.resolve()
+    metadata = target.stat()
+    cache_key = (str(target), metadata.st_mtime_ns, metadata.st_size, settings.compile_command)
+    baseline_status = TYPST_BASELINE_CACHE.get(cache_key)
+    if baseline_status is None:
+        baseline = run_typst_compile(target, target.read_text(encoding="utf-8"), settings)
+        baseline_status = (baseline.returncode, typst_error_signatures(baseline))
+        TYPST_BASELINE_CACHE[cache_key] = baseline_status
+    baseline_returncode, baseline_errors = baseline_status
+    new_errors = typst_error_signatures(result) - baseline_errors
+    if baseline_returncode != 0 and not new_errors:
+        return
+    lines = (result.stderr or result.stdout or "").strip().splitlines()
+    useful = [line.rstrip() for line in lines if line.strip()]
+    detail = "\n".join(useful[-8:]) if useful else "unknown compile error"
+    raise HumanizeError(f"Typst compile check failed: {detail}")
 
 
 def atomic_write(path: Path, text: str, *, refuse_existing: bool, mode: int | None = None) -> None:
@@ -639,12 +902,17 @@ def run(argv: Sequence[str] | None = None, *, program: str | None = None) -> int
         paragraph_override=args.paragraphs,
     )
     rewriter = make_cloud_rewriter(settings)
+    progress = ParagraphProgress(sys.stderr, enabled=sys.stderr.isatty())
     if typst:
-        result = rewrite_typst(source, settings.paragraphs, rewriter)
+        validator = None
         if target is not None:
-            compile_typst_proposal(target, result, settings)
+            def validate_typst(proposal: str) -> None:
+                compile_typst_proposal(target, proposal, settings)
+
+            validator = validate_typst
+        result = rewrite_typst(source, settings.paragraphs, rewriter, progress=progress, validate=validator)
     else:
-        result = rewrite_plain(source, settings.paragraphs, rewriter)
+        result = rewrite_plain(source, settings.paragraphs, rewriter, progress=progress)
     publish(result, args=args, clipboard=clipboard, target=target, typst=typst, settings=settings)
     return 0
 

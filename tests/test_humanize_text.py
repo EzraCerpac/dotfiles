@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -74,6 +75,7 @@ compile_command = []
             return "niutrans"
 
         pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
             niutrans_translate=original,
             google_translate=lambda text, source, target: f"google:{source}:{target}:{text}",
         )
@@ -93,6 +95,7 @@ compile_command = []
             return "translated"
 
         pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
             niutrans_translate=lambda *args, **kwargs: "niutrans",
             google_translate=flaky_google,
         )
@@ -112,12 +115,96 @@ compile_command = []
             return "translated"
 
         pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
             niutrans_translate=lambda *args, **kwargs: "niutrans",
             google_translate=strict_source_fails,
         )
         with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
             self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "translated")
         self.assertEqual(sources, ["fi", "fi", "fi", "auto"])
+
+    @patch("time.sleep")
+    def test_google_none_result_retries_then_detects_source(self, _sleep) -> None:
+        sources = []
+
+        def google_returns_none(text, source, target):
+            sources.append(source)
+            return "translated" if source == "auto" else None
+
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=google_returns_none,
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "translated")
+        self.assertEqual(sources, ["fi", "fi", "fi", "auto"])
+
+    @patch("time.sleep")
+    def test_google_empty_result_uses_llm_translation_fallback(self, _sleep) -> None:
+        fallback_calls = []
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=lambda text, source, target: None,
+        )
+
+        def fallback(text, target):
+            fallback_calls.append((text, target))
+            return "llm translated"
+
+        with MODULE.google_fallback_for_niutrans(
+            pipeline,
+            enabled=True,
+            translation_fallback=fallback,
+        ):
+            self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "llm translated")
+        self.assertEqual(fallback_calls, [("text", "en")])
+
+    @patch("time.sleep")
+    def test_type_error_retries_only_failed_llm_pass(self, sleep) -> None:
+        attempts = 0
+
+        def flaky_llm(*args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise TypeError("bad response shape")
+            return "rewritten"
+
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=flaky_llm,
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=lambda text, source, target: "translated",
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.llm_rewrite("text"), "rewritten")
+        self.assertEqual(attempts, 2)
+        sleep.assert_called_once()
+
+    @patch("time.sleep")
+    def test_http_status_error_retries_only_failed_llm_pass(self, sleep) -> None:
+        class HTTPStatusError(RuntimeError):
+            pass
+
+        attempts = 0
+
+        def flaky_llm(*args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise HTTPStatusError("temporary upstream failure")
+            return "rewritten"
+
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=flaky_llm,
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=lambda text, source, target: "translated",
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.llm_rewrite("text"), "rewritten")
+        self.assertEqual(attempts, 3)
+        self.assertEqual(sleep.call_count, 2)
 
     def test_save_model_preserves_other_local_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -130,6 +217,25 @@ compile_command = []
 
 
 class RewritingTests(unittest.TestCase):
+    def test_progress_is_tty_only_and_never_prints_source(self) -> None:
+        visible = io.StringIO()
+        progress = MODULE.ParagraphProgress(visible, enabled=True)
+        progress.start(3)
+        progress.paragraph(2)
+        progress.finish()
+        rendered = visible.getvalue()
+        self.assertIn("2/3", rendered)
+        self.assertIn("██", rendered)
+        self.assertIn("3 paragraphs rewritten", rendered)
+        self.assertNotIn("SECRET SOURCE", rendered)
+
+        hidden = io.StringIO()
+        quiet = MODULE.ParagraphProgress(hidden, enabled=False)
+        quiet.start(3)
+        quiet.paragraph(2)
+        quiet.finish()
+        self.assertEqual(hidden.getvalue(), "")
+
     def test_plain_paragraphs_preserve_separators(self) -> None:
         result = MODULE.rewrite_plain("one\n\n\ntwo", True, lambda text: text.upper())
         self.assertEqual(result, "ONE\n\n\nTWO")
@@ -148,9 +254,13 @@ class RewritingTests(unittest.TestCase):
                 raise MODULE.HumanizeError("network")
             return text.upper()
 
+        stream = io.StringIO()
+        progress = MODULE.ParagraphProgress(stream, enabled=True)
         with self.assertRaisesRegex(MODULE.HumanizeError, "Paragraph 2 failed"):
-            MODULE.rewrite_typst("source", True, rewrite, guard=guard)
-        self.assertEqual([name for name, _ in calls], ["prepare"])
+            MODULE.rewrite_typst("source", True, rewrite, guard=guard, progress=progress)
+        self.assertEqual([name for name, _ in calls], ["prepare", "restore"])
+        self.assertIn("stopped at paragraph 2/2", stream.getvalue())
+        self.assertNotIn("source", stream.getvalue())
 
     def test_typst_restore_receives_all_outputs(self) -> None:
         def guard(operation, payload):
@@ -161,6 +271,95 @@ class RewritingTests(unittest.TestCase):
 
         result = MODULE.rewrite_typst("source", True, str.upper, guard=guard)
         self.assertEqual(result, "proposal")
+
+    def test_typst_placeholder_damage_rewrites_around_protected_tokens(self) -> None:
+        calls = []
+
+        def guard(operation, payload):
+            if operation == "prepare":
+                return {
+                    "plan": {"opaque": True},
+                    "chunks": [{"id": "p1", "text": "hello ⟦TYPST_GUARD_0001⟧ world"}],
+                }
+            self.assertEqual(payload["outputs"][0]["text"], "HELLO ⟦TYPST_GUARD_0001⟧ WORLD")
+            return {"source": "proposal"}
+
+        def rewrite(text):
+            calls.append(text)
+            if "TYPST_GUARD" in text:
+                return "broken ⟦TYPST_GUARD_0002⟧"
+            return text.upper()
+
+        result = MODULE.rewrite_typst("source", True, rewrite, guard=guard)
+        self.assertEqual(result, "proposal")
+        self.assertEqual(calls, ["hello ⟦TYPST_GUARD_0001⟧ world", "hello", "world"])
+
+    def test_typst_safe_fragments_preserve_lines_and_escape_markup(self) -> None:
+        calls = []
+
+        def rewrite(text):
+            calls.append(text)
+            return "changed #tag\nextra"
+
+        result = MODULE.rewrite_around_typst_placeholders(
+            "  first line\n  second ⟦TYPST_GUARD_0001⟧ tail",
+            rewrite,
+        )
+        self.assertEqual(calls, ["first line", "second", "tail"])
+        self.assertEqual(result.count("\n"), 1)
+        self.assertIn(r"changed \#tag extra", result)
+        self.assertIn("⟦TYPST_GUARD_0001⟧", result)
+
+    def test_typst_syntax_failure_retries_only_that_paragraph(self) -> None:
+        attempts = 0
+        restore_calls = 0
+
+        def guard(operation, payload):
+            nonlocal restore_calls
+            if operation == "prepare":
+                return {
+                    "plan": {"opaque": True},
+                    "chunks": [{"id": "p1", "text": "original"}],
+                }
+            restore_calls += 1
+            if payload["outputs"][0]["text"] == "bad #syntax":
+                raise MODULE.HumanizeError("Typst syntax contains a parse error")
+            return {"source": "proposal"}
+
+        def rewrite(_text):
+            nonlocal attempts
+            attempts += 1
+            return "bad #syntax" if attempts == 1 else "good prose"
+
+        result = MODULE.rewrite_typst("source", True, rewrite, guard=guard)
+        self.assertEqual(result, "proposal")
+        self.assertEqual(attempts, 2)
+        self.assertEqual(restore_calls, 3)
+
+    def test_typst_compile_failure_retries_only_that_paragraph(self) -> None:
+        rewrites = 0
+        validations = []
+
+        def guard(operation, payload):
+            if operation == "prepare":
+                return {"plan": {}, "chunks": [{"id": "p1", "text": "original"}]}
+            source = payload["outputs"][0]["text"]
+            return {"source": source}
+
+        def rewrite(_text):
+            nonlocal rewrites
+            rewrites += 1
+            return "bad syntax" if rewrites == 1 else "safe prose"
+
+        def validate(source):
+            validations.append(source)
+            if source == "bad syntax":
+                raise MODULE.HumanizeError("Typst compile check failed: bad syntax")
+
+        result = MODULE.rewrite_typst("source", True, rewrite, guard=guard, validate=validate)
+        self.assertEqual(result, "safe prose")
+        self.assertEqual(rewrites, 2)
+        self.assertEqual(validations, ["bad syntax", "safe prose", "safe prose"])
 
     def test_headless_guard_adapter_round_trip(self) -> None:
         adapter = ROOT / "dot_local/share/humanize-text/typst_guard_cli.lua"
@@ -236,6 +435,28 @@ class OutputTests(unittest.TestCase):
             MODULE.compile_typst_proposal(path, "= Revised\n\nText.\n", settings)
             self.assertEqual(path.read_text(encoding="utf-8"), "= Original\n\nText.\n")
             self.assertEqual(list(path.parent.glob(".humanize-*.typ")), [])
+
+    def test_typst_compile_error_keeps_useful_context(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "chapter.typ"
+            path.write_text("original", encoding="utf-8")
+            diagnostic = "error: bad syntax\n  ┌─ file.typ:2:3\n  │\n2 │ bad\n  │   ^"
+            failed = subprocess.CompletedProcess([], 1, "", diagnostic)
+            passed = subprocess.CompletedProcess([], 0, "", "")
+            with patch.object(MODULE, "command_result", side_effect=[failed, passed]):
+                with self.assertRaisesRegex(MODULE.HumanizeError, "error: bad syntax") as raised:
+                    MODULE.compile_typst_proposal(path, "bad", settings)
+            self.assertIn("file.typ:2:3", str(raised.exception))
+
+    def test_typst_compile_allows_existing_baseline_errors(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "chapter.typ"
+            path.write_text("original", encoding="utf-8")
+            existing = subprocess.CompletedProcess([], 1, "", "error: label <missing> does not exist")
+            with patch.object(MODULE, "command_result", side_effect=[existing, existing]):
+                MODULE.compile_typst_proposal(path, "proposal", settings)
 
     def test_default_typst_sink_creates_described_parent_and_empty_child(self) -> None:
         settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
