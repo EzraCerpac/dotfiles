@@ -47,6 +47,21 @@ case "$1:$2" in
     requested_space=$4
     active=$(<"$ACTIVE_WORKSPACE")
     if test -e "$WINDOW_STATE" && test "$(cut -f4 "$WINDOW_STATE")" = "$requested_space"; then window=$(state_json); else window=null; fi
+    if test -n "${GLOBAL_WORKSPACES_FIXTURE:-}"; then
+      jq --argjson active "$active" --argjson window "$window" '
+        map(. + {
+          is_active: (if has("is_active") then .is_active
+                      else (.native_space_id == 42 and .index == $active)
+                        or (.native_space_id == 44 and .index == $active)
+                      end),
+          windows: (if $window != null
+                    and .native_space_id == ($window.space)
+                    and .index == ($window.workspace)
+                    then [$window] else [] end)
+        })
+      ' "$GLOBAL_WORKSPACES_FIXTURE"
+      exit 0
+    fi
     jq -n --argjson active "$active" --argjson window "$window" \
       '[range(0;14) as $i | {index:$i,is_active:($i==$active),windows:(if $window != null and $window.workspace==$i then [$window] else [] end)}]'
     ;;
@@ -171,6 +186,43 @@ grep -q 'rift-cli <execute> <window> <toggle-fullscreen-within-gaps>' "$CALLS" |
 test "$(<"$FULLSCREEN_STATE")" = 1 || fail 'new btop fullscreen state was not retained'
 if grep -q 'rift-cli <execute> <workspace> <switch>' "$CALLS"; then fail 'focus switched back'; fi
 stop_timers
+
+: >"$CALLS"; export GLOBAL_WORKSPACES_FIXTURE="$TEST_TMP/global-workspaces"
+jq -n '
+  [ range(0;14) as $index
+    | if $index == 2 then
+        {index:$index,display_uuid:"built-in",native_space_id:42,is_active:true}
+      elif $index == 9 then
+        {index:$index,display_uuid:"external-right",native_space_id:44,is_active:true}
+      elif $index < 7 then
+        {index:$index,display_uuid:"built-in",native_space_id:42,is_active:false}
+      else
+        {index:$index,display_uuid:"external-right",native_space_id:44,is_active:false}
+      end
+  ]
+' >"$GLOBAL_WORKSPACES_FIXTURE"
+echo 2 >"$ACTIVE_WORKSPACE"
+printf '720\t1720\t2720\t44\t9\tcom.github.wez.wezterm\tWezTerm\tbtop\n' >"$WINDOW_STATE"
+if ! START_BTOP_LOCKED=1 bash "$HELPER" --focus; then
+  fail 'global Meh+9 focus failed with owner-aware workspaces'
+fi
+grep -q 'rift-cli <execute> <workspace> <move-window> <9> <1720>' "$CALLS" \
+  || fail 'global Meh+9 did not move btop to Ops'
+grep -q 'rift-cli <execute> <workspace> <switch> <9>' "$CALLS" \
+  || fail 'global Meh+9 did not follow Ops'
+stop_timers
+
+: >"$CALLS"; export TIMER_MODE=hold
+START_BTOP_LOCKED=1 bash "$HELPER" --focus; wait_for_timer
+generation=$(cut -f4 "$START_BTOP_TIMER_STATE")
+START_BTOP_LOCKED=1 bash "$HELPER" --expire 720 1720 2720 "$generation"
+if grep -q 'rift-cli <execute> <window> <close>' "$CALLS"; then
+  fail 'global Ops activity was double-counted and closed btop'
+fi
+test -e "$WINDOW_STATE" || fail 'global Ops activity removed btop'
+stop_timers
+export TIMER_MODE=ignore
+unset GLOBAL_WORKSPACES_FIXTURE
 
 : >"$CALLS"; export TIMER_MODE=hold OPEN_PID=703 OPEN_IDX=1703 OPEN_WINDOW_SERVER_ID=2703
 rm -f "$WINDOW_STATE"; bash "$HELPER" --focus; wait_for_timer

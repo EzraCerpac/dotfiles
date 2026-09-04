@@ -117,12 +117,48 @@ focus_display() {
 }
 
 active_workspace_index() {
-    local space_id=$1
+    local display_uuid=$1
+    local space_id=$2
     "$RIFT_CLI" query workspaces --space-id "$space_id" \
-        | "$JQ" -er '
-            [ .[] | select(.is_active == true) | .index ]
-            | if length == 1 then .[0] else error("active Rift workspace is ambiguous") end
-        '
+        | "$JQ" -er \
+            --arg display_uuid "$display_uuid" \
+            --arg space_id "$space_id" '
+                (any(.[]; has("display_uuid") or has("native_space_id"))) as $has_owners
+                | [ .[]
+                    | select(.is_active == true)
+                    | select(
+                        ($has_owners | not)
+                        or (
+                            .display_uuid == $display_uuid
+                            and ((.native_space_id // "") | tostring) == $space_id
+                        )
+                    )
+                    | .index
+                  ]
+                | if length == 1 then .[0]
+                  else error("active Rift workspace is ambiguous")
+                  end
+            '
+}
+
+workspace_records_for_owner() {
+    local display_uuid=$1
+    local space_id=$2
+    "$RIFT_CLI" query workspaces --space-id "$space_id" \
+        | "$JQ" -c \
+            --arg display_uuid "$display_uuid" \
+            --arg space_id "$space_id" '
+                (any(.[]; has("display_uuid") or has("native_space_id"))) as $has_owners
+                | if $has_owners then
+                    [ .[]
+                      | select(
+                          .display_uuid == $display_uuid
+                          and ((.native_space_id // "") | tostring) == $space_id
+                        )
+                    ]
+                  else .
+                  end
+            '
 }
 
 find_btop_window() {
@@ -131,9 +167,9 @@ find_btop_window() {
     local records
     while IFS=$'\t' read -r display_uuid space_id; do
         [[ -n "$display_uuid" && -n "$space_id" ]] || continue
-        records=$("$RIFT_CLI" query workspaces --space-id "$space_id" \
+        records=$(workspace_records_for_owner "$display_uuid" "$space_id" \
             | "$JQ" -c --arg display_uuid "$display_uuid" '
-                .[] | .windows[]?
+                [ .[] | .windows[]?
                 | select(
                     .bundle_id == "com.github.wez.wezterm"
                     or (.bundle_id == null and .app_name == "WezTerm")
@@ -141,9 +177,10 @@ find_btop_window() {
                 | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
                 | select(.id.pid != null and .id.idx != null)
                 | { pid: .id.pid, idx: .id.idx, display_uuid: $display_uuid }
+                ] | unique_by([.pid, .idx, .display_uuid])
             ') || return 1
-        if [[ -n "$records" ]]; then
-            printf '%s\n' "${records%%$'\n'*}"
+        if [[ "$records" != '[]' ]]; then
+            "$JQ" -c '.[0]' <<<"$records"
             return 0
         fi
     done < <(
@@ -281,20 +318,25 @@ btop_workspace_activity() {
     while IFS=$'\t' read -r display_uuid space_id; do
         [[ -n "$display_uuid" && -n "$space_id" ]] || continue
         workspace_activity=$(
-            "$RIFT_CLI" query workspaces --space-id "$space_id" \
+            workspace_records_for_owner "$display_uuid" "$space_id" \
                 | "$JQ" -r \
                     --argjson expected_pid "$expected_pid" \
                     --argjson expected_idx "$expected_idx" \
                     --argjson expected_window_server_id "$expected_window_server_id" \
                     --argjson ops_workspace "$OPS_WORKSPACE" '
-                        .[]
-                        | select(.index == $ops_workspace)
-                        | select(any(.windows[]?;
-                            .id.pid == $expected_pid
-                            and .id.idx == $expected_idx
-                            and .window_server_id == $expected_window_server_id
-                        ))
-                        | if .is_active == true then "active" else "inactive" end
+                        [ .[]
+                          | select(.index == $ops_workspace)
+                          | select(any(.windows[]?;
+                              .id.pid == $expected_pid
+                              and .id.idx == $expected_idx
+                              and .window_server_id == $expected_window_server_id
+                          ))
+                          | if .is_active == true then "active" else "inactive" end
+                        ] | unique
+                        | if length == 1 then .[0]
+                          elif length == 0 then empty
+                          else error("Ops workspace is ambiguous")
+                          end
                     '
         ) || return 1
         if [[ -n "$workspace_activity" ]]; then
@@ -376,7 +418,10 @@ fi
 load_displays
 active_display=$(active_display_uuid)
 space_id=$(active_space_id)
-focused_workspace=$(active_workspace_index "$space_id")
+focused_workspace=
+if ! $focus_workspace; then
+    focused_workspace=$(active_workspace_index "$active_display" "$space_id")
+fi
 target_display=$(target_display_uuid "$active_display")
 
 existing_window=$(find_btop_window) || existing_window=
