@@ -1,4 +1,5 @@
 local M = {}
+local typst_guard = require("custom.typst_guard")
 
 local bridge_dir = vim.fn.expand("~/.local/share/grammarly-bridge")
 local bridge_name = "grammarly-bridge"
@@ -144,48 +145,7 @@ local function tinymist_context(bufnr)
   return client, state
 end
 
-local function serialize_node(node, bufnr)
-  if node:type() == "text" then
-    return "<text>"
-  end
-
-  local children = {}
-  for child in node:iter_children() do
-    local serialized = serialize_node(child, bufnr)
-    if not (serialized == "<text>" and children[#children] == "<text>") then
-      table.insert(children, serialized)
-    end
-  end
-
-  if #children == 0 then
-    local source = vim.treesitter.get_node_text(node, bufnr) or ""
-    if source:match("^%s*$") then
-      source = "<ws>"
-    end
-    return node:type() .. "{" .. source .. "}"
-  end
-  return node:type() .. "[" .. table.concat(children, ",") .. "]"
-end
-
-local function fingerprint(content)
-  local bufnr = vim.api.nvim_create_buf(false, true)
-  vim.bo[bufnr].filetype = "typst"
-  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, content)
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "typst")
-  if not ok then
-    vim.api.nvim_buf_delete(bufnr, { force = true })
-    return nil, "Typst Tree-sitter parser is unavailable"
-  end
-  local tree = parser:parse()[1]
-  local root = tree and tree:root()
-  if not root or root:has_error() then
-    vim.api.nvim_buf_delete(bufnr, { force = true })
-    return nil, "Typst syntax contains a parse error"
-  end
-  local result = serialize_node(root, bufnr)
-  vim.api.nvim_buf_delete(bufnr, { force = true })
-  return result
-end
+local fingerprint = typst_guard.fingerprint
 
 local function error_set(client)
   local result = {}

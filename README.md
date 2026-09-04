@@ -12,6 +12,8 @@ This installs chezmoi, clones the repo, bootstraps package managers, installs co
 
 See the standalone [workflow guide](docs/workflow-guide.html) for exact daily commands, Herdr concepts and shortcuts, remote workflows, and recovery steps. The current macOS window workflow is documented in [CONTEXT.md](CONTEXT.md).
 
+For local prose cleanup, see the [humanize-text runbook](docs/humanize-text.md). Run `humanize-text configure` once, then use `humanize-text FILE.typ` or `humanize-clipboard`.
+
 ## What's Included
 
 **Shell**: fish, starship prompt, atuin history, zoxide, fzf, carapace completions

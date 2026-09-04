@@ -1,0 +1,15 @@
+[proxy]
+base_url = "http://127.0.0.1:8317/v1"
+config_path = "~/.cli-proxy-api/config.yaml"
+
+[presets.plain]
+temperature = 1.3
+paragraphs = false
+
+[presets.typst]
+temperature = 1.0
+paragraphs = true
+default_sink = "commit"
+
+[typst]
+compile_command = []

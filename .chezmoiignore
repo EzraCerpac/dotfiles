@@ -15,6 +15,9 @@ tests/
 **/*.bak*
 **/*.log
 **/*.lock
+!.local/share/humanize-text/main.py.lock
+!.local/bin/humanize-text.lock
+!.local/bin/humanize-clipboard.lock
 dot_config/nvim/lazy-lock.json
 dot_config/nvim/lazyvim.json
 dot_config/nvim/spell/
@@ -27,6 +30,19 @@ dot_DELFTBLUE.md.tmpl
 {{- end }}
 
 {{- if eq .chezmoi.os "linux" }}
+# humanize-text is a macOS-only local tool
+dot_config/humanize-text/
+dot_local/share/humanize-text/
+dot_local/bin/symlink_humanize-text
+dot_local/bin/symlink_humanize-clipboard
+dot_local/bin/symlink_humanize-text.lock
+dot_local/bin/symlink_humanize-clipboard.lock
+.config/humanize-text/
+.local/share/humanize-text/
+.local/bin/humanize-text
+.local/bin/humanize-clipboard
+.local/bin/humanize-text.lock
+.local/bin/humanize-clipboard.lock
 # macOS-only apps (source paths)
 dot_local/bin/executable_brew-adopt
 dot_local/bin/executable_start-btop
@@ -61,6 +77,19 @@ Library/LaunchAgents/git.acsandmann.rift.plist
 {{- end }}
 
 {{- if eq .profile "delftblue" }}
+# humanize-text needs the macOS clipboard, Keychain, and local services
+dot_config/humanize-text/
+dot_local/share/humanize-text/
+dot_local/bin/symlink_humanize-text
+dot_local/bin/symlink_humanize-clipboard
+dot_local/bin/symlink_humanize-text.lock
+dot_local/bin/symlink_humanize-clipboard.lock
+.config/humanize-text/
+.local/share/humanize-text/
+.local/bin/humanize-text
+.local/bin/humanize-clipboard
+.local/bin/humanize-text.lock
+.local/bin/humanize-clipboard.lock
 # Workstation-heavy config excluded on DelftBlue
 dot_codex/
 dot_config/atuin/atuin-receipt.json
@@ -85,6 +114,19 @@ run_after_26-sync-jj-waltz-skill.sh.tmpl
 {{- end }}
 
 {{- if eq .profile "nas" }}
+# humanize-text needs the macOS clipboard, Keychain, and local services
+dot_config/humanize-text/
+dot_local/share/humanize-text/
+dot_local/bin/symlink_humanize-text
+dot_local/bin/symlink_humanize-clipboard
+dot_local/bin/symlink_humanize-text.lock
+dot_local/bin/symlink_humanize-clipboard.lock
+.config/humanize-text/
+.local/share/humanize-text/
+.local/bin/humanize-text
+.local/bin/humanize-clipboard
+.local/bin/humanize-text.lock
+.local/bin/humanize-clipboard.lock
 # Keep CerpacNAS small and headless. Codex, mise, Git, and NAS helpers stay included.
 .bash_profile
 .bashrc
