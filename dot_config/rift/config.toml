@@ -201,8 +201,7 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Meh + Comma" = "toggle_stack"
 "Hyper + Comma" = { consume_or_expel_window = "left" }
 "Hyper + Dot" = { consume_or_expel_window = "right" }
-"Hyper + Space" = { toggle_window_floating = { center = true, size = "smart" } }
-"Meh + Space" = "toggle_focus_floating"
+"Meh + Space" = { toggle_window_floating = { center = true, size = "smart" } }
 "Meh + Minus" = { resize_window_shrink = "horizontal" }
 "Meh + Equal" = { resize_window_grow = "horizontal" }
 "Hyper + Minus" = { resize_window_shrink = "vertical" }
