@@ -7,6 +7,7 @@ animation_duration = 0.18
 animation_fps = 120.0
 default_disable = false
 focus_follows_mouse = true
+focus_follows_mouse_disable_hotkey = "Meta + Ctrl + Alt + Shift"
 mouse_follows_focus = false
 mouse_hides_on_focus = false
 auto_focus_blacklist = [
