@@ -77,6 +77,7 @@ haptic_pattern = "level_change"
 
 [virtual_workspaces]
 enabled = true
+workspace_scope = "global"
 default_workspace_count = 14
 auto_assign_windows = true
 preserve_focus_per_workspace = true
@@ -170,7 +171,7 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Meh + E" = { switch_to_workspace = 12 }
 "Meh + M" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace switch 13"] }
 "Meh + Tab" = "switch_to_last_workspace"
-"Hyper + Tab" = { move_window_to_display = { selector = "right" } }
+"Hyper + Tab" = { move_workspace_to_display = { selector = "next", wrap = true } }
 "Meh + [" = { prev_workspace = true }
 "Meh + ]" = { next_workspace = true }
 

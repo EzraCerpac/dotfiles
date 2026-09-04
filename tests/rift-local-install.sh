@@ -422,6 +422,8 @@ test_template_contract() {
     [[ "$package_pin" =~ ^[[:xdigit:]]{40}$ ]] || fail "package Rift pin is not a 40-hex revision"
     [[ "$rendered_pin" =~ ^[[:xdigit:]]{40}$ ]] || fail "rendered production pin is not a 40-hex revision"
     [[ "$rendered_pin" == "$package_pin" ]] || fail "rendered production pin differs from package pin"
+    grep -Fq '/chezmoi/dot_config/rift/config.toml' "$helper" || \
+        fail "production activation does not read the tracked Rift config"
     ! grep -Eq 'brew[[:space:]]+(install|upgrade|services)' "$helper" || fail "installer mutates Homebrew"
     pass "installer keeps immutable production pin and no Homebrew mutation"
 }

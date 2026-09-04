@@ -8,12 +8,14 @@ This glossary defines the terms used by the Rift, Aegis, and BoringNotch setup. 
 - **Custom patch**: A deliberate local change that is kept separate from upstream code and can be replaced by the official build.
 - **Daily pin**: The exact tracking-build revision selected for normal use.
 - **Candidate build**: A newer tracking build built for a limited trial before it replaces the daily pin or becomes an upstream change.
-- **Rift activation**: The explicit `rift-local-install --activate` cutover. It switches the signed release pointer and managed service as one rollback-safe transaction; Chezmoi only stages files.
+- **Rift activation**: The explicit `rift-local-install --activate` cutover. It switches the signed release, live config, saved layout, LaunchAgent, receipt, and managed service as one rollback-safe transaction. Chezmoi only stages files.
 - **Single-column expansion**: The Rift layout behavior that lets one non-floating column fill the usable tiling area while preserving gaps.
 - **External bar reserve**: The 58 px outer top gap on every non-built-in display: 48 px for Aegis and the normal 10 px breathing gap.
 - **Notch target**: A display with a hardware notch, or a notchless display only when Aegis's virtual-notch setting is explicitly enabled.
 - **macOS Space**: A native Mission Control desktop. Rift manages windows inside it.
-- **Virtual workspace**: One indexed Rift window group inside a macOS Space.
+- **Virtual workspace**: One indexed Rift window group from the global pool. It belongs to one display and one current macOS Space at a time.
+- **Workspace owner**: The display UUID and current macOS Space that hold a global Rift workspace.
+- **Preferred workspace owner**: The display UUID Rift remembers so a workspace can return when that display reconnects.
 - **Scrolling workspace**: A workspace whose windows form a horizontal strip of columns. A column may contain a vertical stack.
 - **Flow**: The mixed workspace for the current task.
 - **Thesis**: The workspace reserved for thesis work. It has no broad automatic routing.

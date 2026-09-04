@@ -8,7 +8,7 @@ Rift manages windows and virtual workspaces. Aegis draws the workspace bar, prov
 
 ## Workspace model
 
-There are fourteen zero-based Rift workspaces. Aegis shows the indices, with four label overrides.
+There are fourteen zero-based Rift workspaces in one global pool. Each workspace belongs to one display and can be visible on only that display. Direct workspace shortcuts follow the workspace to its owner display. Aegis shows the indices, with four label overrides.
 
 | Index | Name | Select | Purpose |
 |---:|---|---|---|
@@ -24,7 +24,7 @@ There are fourteen zero-based Rift workspaces. Aegis shows the indices, with fou
 
 Thesis and workspaces 3 through 8 have no broad automatic app rule. Atlas and other browsers stay where they open. ChatGPT goes to workspace 2. Mail and WhatsApp go to Comms. Music goes to Media. Herdr-titled WezTerm windows go to Terminal Hub. Raw shells, btop, and Gitlogue screensaver windows do not match the Herdr rule.
 
-Meh+M selects Media on the preferred external display. Hyper+M opens or reuses Music there. Hyper+0 through Hyper+8 move the focused window and follow it. Hyper+B, Hyper+T, and Hyper+E move a window to Browser Hub, Terminal Hub, and Comms. Hyper+9 moves a window to Ops on the preferred external display. With no external display, these actions use the current display.
+Meh+M selects Media on its owner display. Hyper+M opens or reuses Music there. Hyper+0 through Hyper+8 move the focused window to the named global workspace and follow it. Hyper+B, Hyper+T, and Hyper+E do the same for Browser Hub, Terminal Hub, and Comms. Hyper+9 moves a window to Ops. The target workspace owner decides the destination display.
 
 Empty workspaces are hidden from the Aegis bar. The focused workspace remains visible even when empty. Occupancy comes from managed windows, so minimized, hidden, Finder, and icon-excluded windows can keep a workspace visible. The filter changes only the bar. Shortcuts, app rules, moves, Cmd+Tab, and context-menu actions can still reach every workspace.
 
@@ -36,8 +36,8 @@ Meh is Cmd+Ctrl+Alt. Hyper adds Shift. On the internal keyboard, the bottom-left
 |---|---|
 | Meh+H/J/K/L or arrows | Focus through Neovim, Herdr, then Rift |
 | Hyper+H/J/K/L or arrows | Move the focused Rift node |
-| Meh+Tab | Return to the last virtual workspace |
-| Meh+[ or Meh+] | Previous or next non-empty workspace |
+| Meh+Tab | Return to the globally previous workspace, including another display |
+| Meh+[ or Meh+] | Previous or next non-empty workspace owned by the focused display |
 | F3 or Meh+O | Show every non-empty Rift workspace |
 | Shift+F3 | Show windows in the current Rift workspace |
 | Meh+F | Fullscreen within gaps |
@@ -49,7 +49,7 @@ Meh is Cmd+Ctrl+Alt. Hyper adds Shift. On the internal keyboard, the bottom-left
 | Meh+, | Toggle a whole stack |
 | Hyper+Space | Toggle floating with centered smart-size placement |
 | Meh+Space | Raise the floating window |
-| Hyper+Tab | Move the window to the display on the right |
+| Hyper+Tab | Move the focused workspace to the next physical display and wrap |
 | Meh+- or Meh+= | Shrink or grow horizontally |
 | Hyper+- or Hyper+= | Shrink or grow vertically |
 | Hyper+A | Activity Monitor |
@@ -69,7 +69,7 @@ The local Rift config uses scrolling layout with 70 percent columns, 30 to 90 pe
 
 The local single-column patch sets `single_column_width_ratio` to `1.0`. A workspace with one non-floating column fills the usable tiling width while preserving gaps. Floating windows do not count. Multiple columns keep the normal 70 percent behavior. Explicit fullscreen remains separate. A manual shrink starts at the configured 90 percent maximum; growing past that limit restores automatic full width. Adding, removing, joining, or expelling a window while a layout has or reaches one column clears the manual override. Multi-column manual widths remain unchanged.
 
-Four-finger horizontal swipes switch directly between non-empty workspaces and produce one haptic when a switch commits. Scrolling-layout gestures stay disabled, so horizontal swipes do not also scroll the column strip. Vertical Mission Control gestures, shortcuts, and Hot Corners remain available. Before using side-by-side displays, switch to Docked Traditional because scrolling windows can leak across horizontal displays. Restarting Rift returns to Laptop Scrolling.
+Four-finger horizontal swipes switch between non-empty workspaces owned by the focused display and produce one haptic when a switch commits. Scrolling-layout gestures stay disabled, so horizontal swipes do not also scroll the column strip. Vertical Mission Control gestures, shortcuts, and Hot Corners remain available. Before using side-by-side displays, switch to Docked Traditional because scrolling windows can leak across horizontal displays. Restarting Rift returns to Laptop Scrolling.
 
 The local gesture fallback patch keeps the global workspace-swipe handler active in scrolling layouts when scrolling-layout gestures are disabled. Without that fallback, Rift selects the disabled scrolling handler and drops the four-finger swipe.
 
@@ -91,7 +91,7 @@ Transient rules come before workspace routes. Role-based matching handles future
 
 ## Runtime profiles and Aegis commands
 
-Laptop Scrolling is the tracked default. Docked Traditional is for side-by-side displays. Both profiles update all fourteen workspaces on every connected display without rewriting the tracked Rift file. The helper briefly focuses each display while it updates, then restores the original display.
+Laptop Scrolling is the tracked default. Docked Traditional is for side-by-side displays. Both profiles update all fourteen global workspaces without rewriting the tracked Rift file. The helper briefly focuses each display while it updates, then restores the original display.
 
 Aegis's Cmd+Tab command palette includes these entries in this order:
 
@@ -106,7 +106,7 @@ The two overview commands call `rift-cli execute mission-control show-all` and `
 
 ## Aegis behavior
 
-Aegis shows the Rift workspace indices `0` through `9`, `B`, `T`, `E`, and `M`. The indices remain Rift's source of truth. The bar uses `Auto` multi-monitor mode. The far-left context button opens its full menu on either primary or secondary click when `contextButtonMenuOnly` is enabled. Scrolling over it does nothing.
+Aegis shows the Rift workspace indices `0` through `9`, `B`, `T`, `E`, and `M`. The indices remain Rift's source of truth. The bar uses `Auto` multi-monitor mode, with one bar per physical display. Each bar shows only the global workspaces owned by that display. Aegis waits for stable Rift display identities instead of guessing a screen from `NSScreen.main`. The far-left context button opens its full menu on either primary or secondary click when `contextButtonMenuOnly` is enabled. Scrolling over it does nothing.
 
 The system-status pill uses a 28 pt outer height, roughly 14 pt content, and an adaptive minimum width. Its size fields remain configurable through the standalone status-sizing follow-up. The workspace pills, status pill, and Cmd+Tab follow the selected Aegis theme. Liquid Glass affects those pills and Cmd+Tab on supported macOS versions; older systems and Reduce Transparency use the matching solid fallback. The settings window uses an opaque native background.
 
@@ -123,13 +123,14 @@ For a local Rift cutover:
 1. Create or update `~/Projects/Tools/rift` from the selected upstream base. Keep the checkout clean at the pinned revision.
 2. Run `rift-local-signing-setup` once. It walks you through creating the `Rift Local Code Signing` identity in Keychain Access, then validates its trust. It never exports the private key.
 3. Run plain `rift-local-install`. It builds locked arm64 `rift` and `rift-cli` binaries, signs them with the identity hash, verifies architecture, identifiers, signatures, trust, and designated requirements, and stages them under `~/.local/state/rift-local-install/releases/<revision>/`. It does not stop, start, or reconfigure the running service. The stable `current` pointer and `~/.local/bin/` links are unchanged.
-4. Run the staged candidate directly, for example `~/.local/state/rift-local-install/releases/<revision>/rift config check --config ~/.config/rift/config.toml`, and inspect the release and signing state before activation.
-5. Run `rift-local-install --activate` only for the cutover. It snapshots the current pointer, links, receipt, and service state; stops the managed service; atomically switches `current`; bootstraps the candidate LaunchAgent; verifies that it stays running; and writes the receipt. Any activation failure rolls back the pointer, links, receipt, and previously loaded service.
-6. Grant Accessibility access if macOS asks, reload the config, and inspect the live service. Do not use an environment flag or Chezmoi apply to activate Rift.
+4. Run the staged candidate directly against the tracked source, for example `~/.local/state/rift-local-install/releases/<revision>/rift config check --config ~/.local/share/chezmoi/dot_config/rift/config.toml`, and inspect the release and signing state before activation.
+5. Install the compatible signed Aegis build before enabling global Rift workspaces.
+6. Run `rift-local-install --activate` only for the cutover. It snapshots the current pointer, links, live config, `~/.rift/layout.ron`, LaunchAgent, receipt, and exact service state before stopping anything. It then switches the signed release and tracked assets together, starts the candidate, verifies its Mach endpoint, and writes the receipt. Any activation failure restores the complete snapshot. If rollback itself fails, the installer reports it and keeps the snapshot for manual recovery.
+7. Grant Accessibility access if macOS asks, reload the config, and inspect the live service. Do not use an environment flag or Chezmoi apply to activate Rift.
 
 The managed login agent points at `~/.local/bin/rift`. Homebrew's Rift remains installed and untouched. The Aegis adapter normally installs the official 1.1.0 bundle. To use the pinned local Aegis source, run `aegis-local-signing-setup` once and invoke `aegis-local-install` explicitly. It requires a clean source checkout at the exact pinned revision, builds a Release app, signs it with the stable local identity, verifies the bundle and nested code, replaces `/Applications/Aegis.app` atomically, disables automatic Sparkle checks, and records a receipt under `~/.local/state/aegis-local-install/`. It restores the old app if replacement or verification fails. The binary stays out of Chezmoi and GitHub. A manual Aegis update check can still replace it.
 
-The local Aegis source combines the current reviewable PR stack plus three separate upstream-ready follow-ups: `feat(rift): allow configured CLI path`, `fix(notifications): respect notification HUD setting`, and `fix(menu-bar): honor system status sizing`. The first resolves an optional absolute executable path for Rift commands and subscriptions. The second leaves native banners alone when the Aegis notification HUD is off and starts or stops monitoring when the setting changes. The third makes the existing status sizing fields control an adaptive-min pill with a 28 pt outer height and roughly 14 pt content. Keep these changes separate from unrelated reliability, switcher, or visual branches. Reserve `fix(media): stop adapter on app termination` for the separate future MediaService orphan-adapter fix; it is not implemented here. A fresh certificate or Aegis replacement may need new Accessibility and Screen Recording approval. Remove only a stale Aegis entry from Privacy & Security, then add the replacement app. Do not reset other applications' grants. XCTest hosts must not request Accessibility or install a global event tap.
+The local Aegis source combines the current reviewable PR stack, the display-identity fix, and the Rift workspace-ownership adapter. The two new changes remain independent upstream-ready commits. The identity fix assigns at most one bar coordinator to each CoreGraphics display and rebuilds only when topology or identity assignment changes. The ownership adapter consumes Rift's stable workspace ID, `display_uuid`, and `native_space_id`, while keeping labels and Cmd+Tab based on the complete global set. Existing follow-ups for the configured Rift CLI path, notification HUD lifecycle, and adaptive status sizing stay separate. Reserve `fix(media): stop adapter on app termination` for the future MediaService orphan-adapter fix. A fresh certificate or Aegis replacement may need new Accessibility and Screen Recording approval. Remove only a stale Aegis entry from Privacy & Security, then add the replacement app. Do not reset other applications' grants. XCTest hosts must not request Accessibility or install a global event tap.
 
 Aegis writes UI changes to `~/.config/aegis/config.json`. The `ca` workflow re-adds that allowlisted file before applying, so deliberate Aegis changes enter the JJ working copy. Keep the JSON outside hand-written lock tests so Aegis remains free to add or reorder settings.
 
@@ -163,7 +164,7 @@ rift-cli query displays
 
 Run Rift formatting, Clippy, unit tests, locked release builds, and the offline checker tests. Run Aegis unit tests for the configured CLI resolver, notification startup and transitions, and status sizing without launching permission-sensitive production services from XCTest. Run the remaining Chezmoi, package, keyboard, Herdr, and presentation dry-run tests.
 
-After the live cutover, confirm one Rift daemon, one Aegis subscription, and one JankyBorders service process. Check workspace overview selection and dismissal, modified Cmd+Tab, horizontal four-finger workspace gestures, Mission Control's vertical fallback, focus-follows-mouse, keyboard focus and move commands, smart floating, Meh+Space, stacks, fullscreen modes, resizing, profile switching, app routing, btop reuse, sleep and wake, and external-display recovery.
+After the live cutover, confirm one Rift daemon, one Aegis subscription, and one JankyBorders service process. Repeated Hyper+Tab presses must move the whole workspace across displays without losing layout or focus. Direct workspace shortcuts must follow the owner display. Brackets and four-finger swipes must remain local to the focused display. Confirm one Aegis bar frame per connected screen and only owner workspaces on each bar. Unplugging a display must gather its workspaces; reconnecting it must restore preferred ownership. Also check workspace overview selection and dismissal, modified Cmd+Tab, Mission Control's vertical fallback, focus-follows-mouse, smart floating, Meh+Space, stacks, fullscreen modes, resizing, profile switching, app routing, btop reuse, sleep and wake.
 
 Confirm normal ChatGPT, Mail, WhatsApp, Music, Herdr, btop, Orion, and Atlas behavior. Confirm transient ChatGPT previews, update prompts, Computer Use, Browser Use, Antinote, Weather, Contacts, Raycast, and Orion Preview helpers stay out of Rift layouts. Confirm the active border is white and inactive borders are invisible. Send one benign notification and verify the native banner remains visible and clickable. Confirm BoringNotch alone owns media, volume, brightness, and device HUDs. Confirm Aegis and BoringNotch survive logout and login.
 
