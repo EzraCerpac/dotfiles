@@ -81,6 +81,26 @@ compile_command = []
             self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "google:fi:en:text")
         self.assertIs(pipeline.niutrans_translate, original)
 
+    @patch("time.sleep")
+    def test_google_translation_retries_without_repeating_pipeline(self, sleep) -> None:
+        attempts = 0
+
+        def flaky_google(text, source, target):
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise RuntimeError("TranslationNotFound")
+            return "translated"
+
+        pipeline = types.SimpleNamespace(
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=flaky_google,
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "translated")
+        self.assertEqual(attempts, 3)
+        self.assertEqual(sleep.call_count, 2)
+
     def test_save_model_preserves_other_local_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.toml"

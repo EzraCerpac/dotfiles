@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
@@ -218,17 +219,30 @@ def read_niutrans_key() -> str | None:
 
 @contextlib.contextmanager
 def google_fallback_for_niutrans(pipeline: Any, *, enabled: bool) -> Iterator[None]:
-    if not enabled:
-        yield
-        return
-    original = pipeline.niutrans_translate
-    pipeline.niutrans_translate = lambda text, source, target, api_key: pipeline.google_translate(
-        text, source=source, target=target
-    )
+    original_google = pipeline.google_translate
+    original_niutrans = pipeline.niutrans_translate
+
+    def retry_google(text: str, source: str, target: str) -> str:
+        for attempt in range(3):
+            try:
+                return original_google(text, source=source, target=target)
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        raise AssertionError("unreachable")
+
+    def google_final_hop(text: str, source: str, target: str, api_key: str | None) -> str:
+        return retry_google(text, source, target)
+
+    pipeline.google_translate = retry_google
+    if enabled:
+        pipeline.niutrans_translate = google_final_hop
     try:
         yield
     finally:
-        pipeline.niutrans_translate = original
+        pipeline.google_translate = original_google
+        pipeline.niutrans_translate = original_niutrans
 
 
 @contextlib.contextmanager
