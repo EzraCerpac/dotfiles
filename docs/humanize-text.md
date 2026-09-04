@@ -1,14 +1,17 @@
 # humanize-text
 
 `humanize-text` is the local command for sending prose through the configured
-CLIProxyAPI, Google Translate, and Niutrans chain. Those providers receive the
-text during a run. The command is installed on normal macOS profiles only and
-does not add files to the thesis checkout by itself.
+CLIProxyAPI and a two-hop translation chain. Google Translate always handles
+the first hop. Niutrans handles the final hop when its Keychain entry exists;
+otherwise Google Translate handles that hop too. The active providers receive
+the text during a run. The command is installed on normal macOS profiles only
+and does not add files to the thesis checkout by itself.
 
 Run `humanize-text configure` once to choose a proxy model, save the model in
-`~/.config/humanize-text/config.toml`, and store the Niutrans key in macOS
-Keychain. The last stage runs a short disposable smoke test. The wizard asks
-for the key with hidden input. It never writes the key to a config file. If
+`~/.config/humanize-text/config.toml`, and optionally store a Niutrans key in
+macOS Keychain. The last stage runs a short disposable smoke test. The wizard
+asks for the key with hidden input when Niutrans is selected. It never writes
+the key to a config file. If
 CLIProxyAPI is stopped, the wizard starts its existing Homebrew service and
 waits up to five seconds for the model endpoint.
 
@@ -52,5 +55,5 @@ belong in `~/.config/humanize-text/config.toml`; keep secrets in Keychain.
 
 If setup says the proxy is unavailable, start CLIProxyAPI on
 `127.0.0.1:8317` and rerun the wizard. If a smoke test fails, check the saved
-model and the Niutrans Keychain entry. A failed Typst guard or cloud request
+model and the configured translation providers. A failed Typst guard or cloud request
 leaves the source file and clipboard unchanged.

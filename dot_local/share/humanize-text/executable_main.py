@@ -198,7 +198,7 @@ def save_model(model: str, path: Path = LOCAL_CONFIG_PATH) -> None:
     atomic_write(path, "\n".join(lines) + "\n", refuse_existing=False, mode=0o600)
 
 
-def read_niutrans_key() -> str:
+def read_niutrans_key() -> str | None:
     command = [
         "security",
         "find-generic-password",
@@ -210,12 +210,25 @@ def read_niutrans_key() -> str:
     ]
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True)
-    except (FileNotFoundError, subprocess.CalledProcessError) as error:
-        raise HumanizeError("Niutrans key is not configured. Run: humanize-text configure") from error
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
     key = result.stdout.strip()
-    if not key:
-        raise HumanizeError("Niutrans key is empty. Run: humanize-text configure")
-    return key
+    return key or None
+
+
+@contextlib.contextmanager
+def google_fallback_for_niutrans(pipeline: Any, *, enabled: bool) -> Iterator[None]:
+    if not enabled:
+        yield
+        return
+    original = pipeline.niutrans_translate
+    pipeline.niutrans_translate = lambda text, source, target, api_key: pipeline.google_translate(
+        text, source=source, target=target
+    )
+    try:
+        yield
+    finally:
+        pipeline.niutrans_translate = original
 
 
 @contextlib.contextmanager
@@ -252,10 +265,11 @@ def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
         if not text.strip():
             return text
         try:
-            from src.standard.pipeline import run_standard_pipeline
+            from src.standard import pipeline as standard_pipeline
 
             with without_upstream_env_overrides():
-                result = run_standard_pipeline(text, config, target_lang="en")
+                with google_fallback_for_niutrans(standard_pipeline, enabled=not niutrans_key):
+                    result = standard_pipeline.run_standard_pipeline(text, config, target_lang="en")
         except Exception as error:
             raise HumanizeError(f"Cloud pipeline failed: {type(error).__name__}") from error
         output = result.get("result", "")

@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -63,6 +64,22 @@ compile_command = []
             path = Path(directory) / "config.yaml"
             path.write_text("api-keys: []\n", encoding="utf-8")
             self.assertIsNone(MODULE.read_proxy_key(path))
+
+    @patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, ["security"]))
+    def test_missing_niutrans_key_is_optional(self, _run) -> None:
+        self.assertIsNone(MODULE.read_niutrans_key())
+
+    def test_google_fallback_only_replaces_niutrans_temporarily(self) -> None:
+        def original(*args, **kwargs):
+            return "niutrans"
+
+        pipeline = types.SimpleNamespace(
+            niutrans_translate=original,
+            google_translate=lambda text, source, target: f"google:{source}:{target}:{text}",
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "google:fi:en:text")
+        self.assertIs(pipeline.niutrans_translate, original)
 
     def test_save_model_preserves_other_local_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

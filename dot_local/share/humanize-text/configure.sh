@@ -238,6 +238,7 @@ note "saved non-secret model choice to ${CONFIG_FILE}"
 
 stage "Niutrans; API key"
 keep_existing_key=false
+configure_niutrans=false
 if security find-generic-password -s HUMANIZE_TEXT_NIUTRANS_API_KEY -a "${USER}" >/dev/null 2>&1; then
   note "a Niutrans key already exists in macOS Keychain"
   if confirm "Keep the existing Niutrans key?"; then
@@ -245,16 +246,23 @@ if security find-generic-password -s HUMANIZE_TEXT_NIUTRANS_API_KEY -a "${USER}"
   fi
 fi
 if [[ "${keep_existing_key}" == false ]]; then
-  say "Open the Niutrans console and create or copy an API key."
-  open_url "https://console.niutrans.com/"
-  step "In the console, open API keys, create a key if needed, and copy it."
-  ask_secret NIUTRANS_API_KEY "Paste the Niutrans API key:"
-  [[ -n "${NIUTRANS_API_KEY}" ]] || { warn "A Niutrans key is required."; exit 1; }
-  if ! security add-generic-password -U -s HUMANIZE_TEXT_NIUTRANS_API_KEY -a "${USER}" -w "${NIUTRANS_API_KEY}" >/dev/null; then
-    warn "macOS Keychain rejected the key. Nothing was saved by this stage."
-    exit 1
+  say "Niutrans is optional. Without a key, Google Translate handles the final hop."
+  if confirm "Configure a Niutrans key now?"; then
+    configure_niutrans=true
+    open_url "https://console.niutrans.com/"
+    step "In the console, open API keys, create a key if needed, and copy it."
+    ask_secret NIUTRANS_API_KEY "Paste the Niutrans API key:"
+    [[ -n "${NIUTRANS_API_KEY}" ]] || { warn "No key entered; using the Google fallback."; configure_niutrans=false; }
   fi
-  note "saved the key in macOS Keychain service HUMANIZE_TEXT_NIUTRANS_API_KEY"
+  if [[ "${configure_niutrans}" == true ]] && ! security add-generic-password -U -s HUMANIZE_TEXT_NIUTRANS_API_KEY -a "${USER}" -w "${NIUTRANS_API_KEY}" >/dev/null; then
+      warn "macOS Keychain rejected the key. Nothing was saved by this stage."
+      exit 1
+  fi
+  if [[ "${configure_niutrans}" == true ]]; then
+    note "saved the key in macOS Keychain service HUMANIZE_TEXT_NIUTRANS_API_KEY"
+  else
+    note "Niutrans skipped; Google Translate will handle the final hop"
+  fi
 fi
 
 stage "humanize-text; smoke test"
@@ -264,7 +272,7 @@ if [[ ! -x "${HUMANIZE_TEXT_BIN}" ]]; then
   exit 1
 fi
 if ! "${HUMANIZE_TEXT_BIN}" --text "A short disposable smoke test." >/dev/null; then
-  warn "The smoke test failed. Check CLIProxyAPI, Niutrans, and the saved model."
+  warn "The smoke test failed. Check CLIProxyAPI, the saved model, and the configured translation providers."
   exit 1
 fi
 note "smoke test passed; no test text was saved"
