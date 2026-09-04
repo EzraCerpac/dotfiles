@@ -189,19 +189,33 @@ TOTAL_STAGES=3
 CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/humanize-text"
 CONFIG_FILE="${CONFIG_DIR}/config.toml"
 PROXY_URL="http://127.0.0.1:8317"
+HUMANIZE_TEXT_BIN="${HUMANIZE_TEXT_BIN:-${HOME}/.local/bin/humanize-text}"
 
 banner "humanize-text setup"
 
 stage "CLIProxyAPI; choose model"
 say "The local proxy must be running at ${PROXY_URL}."
-if ! command -v humanize-text >/dev/null 2>&1; then
+if [[ ! -x "${HUMANIZE_TEXT_BIN}" ]]; then
   warn "humanize-text is not installed yet. Apply chezmoi, then rerun this wizard."
   exit 1
 fi
-MODELS=$(humanize-text models) || {
-  warn "CLIProxyAPI did not answer with the configured local key. Start it, then rerun this wizard."
-  exit 1
-}
+MODELS=$("${HUMANIZE_TEXT_BIN}" models 2>/dev/null) || true
+if [[ -z "${MODELS}" ]]; then
+  if command -v brew >/dev/null 2>&1; then
+    proxy_status=$(brew services list 2>/dev/null | awk '$1 == "cliproxyapi" { print $2 }')
+    if [[ "${proxy_status}" != "started" ]]; then
+      say "CLIProxyAPI is stopped; starting its Homebrew service."
+      if ! brew services start cliproxyapi; then
+        warn "Homebrew could not start CLIProxyAPI."
+        exit 1
+      fi
+    fi
+  fi
+  for _ in {1..20}; do
+    MODELS=$("${HUMANIZE_TEXT_BIN}" models 2>/dev/null) && break
+    sleep 0.25
+  done
+fi
 [[ -n "${MODELS}" ]] || { warn "The proxy returned no models."; exit 1; }
 say "Available models:"
 printf '  %s\n' "${MODELS}"
@@ -219,7 +233,7 @@ fi
 case "${HUMANIZE_MODEL}" in
   *'"'*|*$'\n'*|*$'\r'*) warn "Model name contains invalid TOML characters."; exit 1 ;;
 esac
-humanize-text save-model "${HUMANIZE_MODEL}"
+"${HUMANIZE_TEXT_BIN}" save-model "${HUMANIZE_MODEL}"
 note "saved non-secret model choice to ${CONFIG_FILE}"
 
 stage "Niutrans; API key"
@@ -245,11 +259,11 @@ fi
 
 stage "humanize-text; smoke test"
 say "Run a disposable end-to-end request through the configured chain."
-if ! command -v humanize-text >/dev/null 2>&1; then
+if [[ ! -x "${HUMANIZE_TEXT_BIN}" ]]; then
   warn "humanize-text is not installed yet. Apply chezmoi, then rerun this wizard."
   exit 1
 fi
-if ! humanize-text --text "A short disposable smoke test." >/dev/null; then
+if ! "${HUMANIZE_TEXT_BIN}" --text "A short disposable smoke test." >/dev/null; then
   warn "The smoke test failed. Check CLIProxyAPI, Niutrans, and the saved model."
   exit 1
 fi

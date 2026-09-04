@@ -8,7 +8,9 @@ does not add files to the thesis checkout by itself.
 Run `humanize-text configure` once to choose a proxy model, save the model in
 `~/.config/humanize-text/config.toml`, and store the Niutrans key in macOS
 Keychain. The last stage runs a short disposable smoke test. The wizard asks
-for the key with hidden input. It never writes the key to a config file.
+for the key with hidden input. It never writes the key to a config file. If
+CLIProxyAPI is stopped, the wizard starts its existing Homebrew service and
+waits up to five seconds for the model endpoint.
 
 ## Presets
 
