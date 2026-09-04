@@ -223,14 +223,18 @@ def google_fallback_for_niutrans(pipeline: Any, *, enabled: bool) -> Iterator[No
     original_niutrans = pipeline.niutrans_translate
 
     def retry_google(text: str, source: str, target: str) -> str:
+        last_error: Exception | None = None
         for attempt in range(3):
             try:
                 return original_google(text, source=source, target=target)
-            except Exception:
-                if attempt == 2:
-                    raise
-                time.sleep(0.5 * (attempt + 1))
-        raise AssertionError("unreachable")
+            except Exception as error:
+                last_error = error
+                if attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+        if source != "auto":
+            return original_google(text, source="auto", target=target)
+        assert last_error is not None
+        raise last_error
 
     def google_final_hop(text: str, source: str, target: str, api_key: str | None) -> str:
         return retry_google(text, source, target)

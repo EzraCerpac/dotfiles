@@ -101,6 +101,24 @@ compile_command = []
         self.assertEqual(attempts, 3)
         self.assertEqual(sleep.call_count, 2)
 
+    @patch("time.sleep")
+    def test_google_translation_falls_back_to_source_detection(self, _sleep) -> None:
+        sources = []
+
+        def strict_source_fails(text, source, target):
+            sources.append(source)
+            if source != "auto":
+                raise RuntimeError("TranslationNotFound")
+            return "translated"
+
+        pipeline = types.SimpleNamespace(
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=strict_source_fails,
+        )
+        with MODULE.google_fallback_for_niutrans(pipeline, enabled=True):
+            self.assertEqual(pipeline.niutrans_translate("text", "fi", "en", None), "translated")
+        self.assertEqual(sources, ["fi", "fi", "fi", "auto"])
+
     def test_save_model_preserves_other_local_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.toml"
