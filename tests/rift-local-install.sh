@@ -33,6 +33,7 @@ printf 'cargo %s\n' "$*" >>"${RIFT_TEST_CALLS:?}"
 r="${RIFT_SOURCE_DIR}/target/aarch64-apple-darwin/release"; mkdir -p "$r"
 printf '#!/bin/sh\nif [ "$1" = config ]; then printf "config-check %%s\\n" "$4" >>"${RIFT_TEST_CALLS:?}"; exit "${RIFT_TEST_CONFIG_FAIL:-0}"; fi\nexit 0\n' >"$r/rift"
 printf '#!/bin/sh\nif [ "$1" = query ]; then exit "${RIFT_TEST_CLI_READY_FAIL:-0}"; fi\nexit 0\n' >"$r/rift-cli"; chmod +x "$r/rift" "$r/rift-cli"
+for name in rift rift-cli; do printf '# revision=%s\n' "${RIFT_TEST_REVISION:?}" >>"$r/$name"; done
 EOF
     cat >"$bin/security" <<'EOF'
 #!/usr/bin/env bash
@@ -88,7 +89,18 @@ if [[ "${RIFT_TEST_POINTER_FAIL_ONCE:-0}" == 1 && "$*" == *current.new* && ! -e 
     : >"${RIFT_TEST_POINTER_FAIL_MARKER}"
     exit 1
 fi
-/bin/mv "$@"
+if [[ "${!#}" == "$RIFT_STATE_DIR/active/"* ]]; then
+    [[ ! -f "${RIFT_TEST_RUNNING:?}" ]] || { echo 'replaced a running binary' >&2; exit 1; }
+    if [[ "${RIFT_TEST_ACTIVE_RENAME_FAIL_ONCE:-0}" == 1 && "${!#}" == "$RIFT_STATE_DIR/active/rift-cli" && ! -e "$RIFT_STATE_DIR/rename-failed" ]]; then
+        : >"$RIFT_STATE_DIR/rename-failed"
+        exit 1
+    fi
+fi
+/bin/mv "$@" || exit 1
+if [[ "${RIFT_TEST_ACTIVE_SIGNAL_ONCE:-0}" == 1 && "${!#}" == "$RIFT_STATE_DIR/active/rift" && ! -e "$RIFT_STATE_DIR/signal-sent" ]]; then
+    : >"$RIFT_STATE_DIR/signal-sent"
+    kill -TERM "$PPID"
+fi
 EOF
     cat >"$bin/publish-mv" <<'EOF'
 #!/usr/bin/env bash
@@ -139,7 +151,7 @@ test_stage_is_inert() (
     render_helper "$tmp/helper"; make_fixture "$tmp"; : >"$tmp/calls"
     stage "$tmp" >/dev/null
     [[ -x "$tmp/state/releases/$REVISION/rift" ]] || fail "candidate was not staged"
-    [[ ! -e "$tmp/state/current" ]] || fail "stage changed current pointer"
+    [[ ! -e "$tmp/state/current" && ! -e "$tmp/state/active" ]] || fail "stage changed active installation"
     [[ ! -e "$tmp/home/.local/bin/rift" ]] || fail "stage changed stable binary"
     ! grep -Fq launchctl "$tmp/calls" || fail "stage called launchctl"
     ! grep -Fq brew "$tmp/calls" || fail "stage invoked Homebrew"
@@ -199,7 +211,9 @@ test_first_activation_and_rollback() (
     stage "$tmp" >/dev/null; : >"$tmp/calls"
     activate "$tmp" >/dev/null
     [[ "$(readlink "$tmp/state/current")" == "$tmp/state/releases/$REVISION" ]] || fail "candidate was not made current"
-    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/current/rift" ]] || fail "stable rift link is not indirect"
+    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/active/rift" ]] || fail "rift does not use the permanent path"
+    [[ -d "$tmp/state/active" && ! -L "$tmp/state/active" ]] || fail "active is not a real directory"
+    cmp -s "$tmp/state/active/rift" "$tmp/state/releases/$REVISION/rift" || fail "active bytes differ from release"
     grep -Fqx "revision=$REVISION" "$tmp/state/receipt" || fail "receipt not written"
     grep -Fq 'launchctl bootstrap ' "$tmp/calls" || fail "activation did not bootstrap"
     ! grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "first activation booted out absent service"
@@ -210,7 +224,7 @@ test_failed_activation_restores_homebrew() (
     local tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null; : >"$tmp/calls"
     if RIFT_TEST_BOOTSTRAP_FAIL=1 activate "$tmp"; then fail "failed bootstrap accepted"; fi
-    [[ ! -e "$tmp/state/current" ]] || fail "failed first activation did not restore absent pointer"
+    [[ ! -e "$tmp/state/current" && ! -e "$tmp/state/active" ]] || fail "failed first activation did not restore absence"
     [[ ! -e "$tmp/state/receipt" ]] || fail "failed first activation left receipt"
     grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "failed activation did not restore stopped state"
     pass "first activation failure restores Homebrew and stopped service"
@@ -427,6 +441,80 @@ test_template_contract() {
     ! grep -Eq 'brew[[:space:]]+(install|upgrade|services)' "$helper" || fail "installer mutates Homebrew"
     pass "installer keeps immutable production pin and no Homebrew mutation"
 }
+
+# Revisions produce different executable bytes in the fake cargo build.
+test_fixed_path_across_changed_revisions() (
+    local tmp="$(mktemp -d)" next="abcdef0123456789abcdef0123456789abcdef01" name old_inode
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; activate "$tmp" >/dev/null
+    old_inode="$(ls -di "$tmp/state/active" | awk '{ print $1 }')"
+    RIFT_RUN_EXPECTED_REVISION="$next" RIFT_TEST_REVISION="$next" activate "$tmp" >/dev/null
+    [[ "$(ls -di "$tmp/state/active" | awk '{ print $1 }')" == "$old_inode" ]] || fail "active directory was replaced"
+    for name in rift rift-cli; do
+        [[ ! -L "$tmp/state/active/$name" ]] || fail "active binary is a symlink"
+        [[ "$(readlink "$tmp/home/.local/bin/$name")" == "$tmp/state/active/$name" ]] || fail "command path changed"
+        cmp -s "$tmp/state/active/$name" "$tmp/state/releases/$next/$name" || fail "new bytes were not installed"
+        ! cmp -s "$tmp/state/active/$name" "$tmp/state/releases/$REVISION/$name" || fail "test did not change executable bytes"
+    done
+    [[ "$(readlink "$tmp/state/current")" == "$tmp/state/releases/$next" ]] || fail "release metadata did not advance"
+    [[ -f "$tmp/running" ]] || fail "updated service is not running"
+    pass "changed builds keep the same real executable paths and retain both releases"
+)
+
+test_active_upgrade_failure_restores_both_binaries() (
+    local tmp="$(mktemp -d)" next="abcdef0123456789abcdef0123456789abcdef01" mode name
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; activate "$tmp" >/dev/null
+    cp "$tmp/state/receipt" "$tmp/old-receipt"
+    for mode in RIFT_TEST_BOOTSTRAP_FAIL_ONCE RIFT_TEST_ACTIVE_RENAME_FAIL_ONCE RIFT_TEST_ACTIVE_SIGNAL_ONCE; do
+        if (export "$mode=1"; RIFT_RUN_EXPECTED_REVISION="$next" RIFT_TEST_REVISION="$next" activate "$tmp"); then
+            fail "$mode was accepted"
+        fi
+        for name in rift rift-cli; do
+            cmp -s "$tmp/state/active/$name" "$tmp/state/releases/$REVISION/$name" || fail "$mode did not restore $name"
+        done
+        cmp -s "$tmp/state/receipt" "$tmp/old-receipt" || fail "$mode changed receipt"
+        [[ "$(readlink "$tmp/state/current")" == "$tmp/state/releases/$REVISION" ]] || fail "$mode changed release metadata"
+        [[ -f "$tmp/running" ]] || fail "$mode did not restart previous service"
+    done
+    pass "bootstrap failure, partial replacement, and interruption restore both old binaries before restart"
+)
+
+test_versioned_link_migrates_to_active() (
+    local tmp="$(mktemp -d)" name
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
+    ln -s "$tmp/state/releases/$REVISION" "$tmp/state/current"
+    for name in rift rift-cli; do ln -s "$tmp/state/current/$name" "$tmp/home/.local/bin/$name"; done
+    : >"$tmp/running"
+    if RIFT_TEST_BOOTSTRAP_FAIL_ONCE=1 activate "$tmp"; then fail "failed migration accepted"; fi
+    [[ ! -e "$tmp/state/active" ]] || fail "failed migration left active directory"
+    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/current/rift" ]] || fail "failed migration did not restore legacy link"
+    [[ -f "$tmp/running" ]] || fail "failed migration did not restore service"
+    activate "$tmp" >/dev/null
+    [[ "$(readlink "$tmp/home/.local/bin/rift")" == "$tmp/state/active/rift" ]] || fail "migration kept versioned execution path"
+    pass "versioned installations migrate to the permanent path with rollback"
+)
+
+test_active_symlinks_rejected_before_stop() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"; make_fixture "$tmp"; stage "$tmp" >/dev/null
+    ln -s "$tmp/state/releases/$REVISION" "$tmp/state/active"
+    : >"$tmp/running"; : >"$tmp/calls"
+    if activate "$tmp"; then fail "active directory symlink accepted"; fi
+    ! grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "invalid active path stopped service"
+    rm "$tmp/state/active"; mkdir "$tmp/state/active"
+    ln -s "$tmp/state/releases/$REVISION/rift" "$tmp/state/active/rift"
+    if activate "$tmp"; then fail "active executable symlink accepted"; fi
+    ! grep -Fq 'launchctl bootout ' "$tmp/calls" || fail "invalid executable path stopped service"
+    pass "active directory and executable symlinks fail before stopping Rift"
+)
+
+test_fixed_path_across_changed_revisions
+test_active_upgrade_failure_restores_both_binaries
+test_versioned_link_migrates_to_active
+test_active_symlinks_rejected_before_stop
 
 test_stage_is_inert
 test_jj_guards
