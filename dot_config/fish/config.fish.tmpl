@@ -102,8 +102,8 @@ alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
-alias cc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml claude --dangerously-skip-permissions'
-alias oc='JJ_CONFIG=~/.config/jj/config.toml:~/.config/jj/claude-config.toml opencode'
+alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" claude --dangerously-skip-permissions'
+alias oc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" opencode'
 alias ca='chezmoi-smart-apply'
 
 if command -q wt

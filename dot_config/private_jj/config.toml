@@ -13,7 +13,7 @@ merge-editor = "pycharm"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 
 [aliases]
-d = ["util", "exec", "--", "bash", "-lc", "jj diff --git \"$@\" | diffnav --side-by-side", ""]
+d = ["util", "exec", "--", "bash", "-lc", "set -o pipefail; jj diff --git \"$@\" | diffnav --side-by-side", ""]
 
 [template-aliases]
 "format_short_signature(signature)"= "signature.email().local()"
@@ -27,33 +27,20 @@ auto-track-bookmarks = "~substring:\"private\""
 [snapshot]
 max-new-file-size = "1MiB"  # Default
 
-[merge-tools.diffconflicts]
-program = "nvim"
-merge-args = [
-    "-c", "let g:jj_diffconflicts_marker_length=$marker_length",
-    "-c", "JJDiffConflicts!", "$output", "$base", "$left", "$right",
-]
-merge-tool-edits-conflict-markers = true
-
 [merge-tools.pycharm]
 program = "pycharm-merge"
 merge-args = ["$left", "$right", "$base", "$output"]
 merge-tool-edits-conflict-markers = true
 
-[merge-tools.test]
-program = "echo"
-merge-args = ["$left", "$right", "$base", "$output"]
-merge-tool-edits-conflict-markers = true
-
 [revset-aliases]
-# Like Git's HEAD~n: look back n parents from the current change
+# Root changes among the current change and up to n ancestors of its parent
 "p(n)" = "roots(@ | ancestors(@-, n))"
 # Default showing more (n)
 "default(n)" = "present(@) | ancestors(immutable_heads().., n) | present(trunk())"
 # All changes authored by you
 "mine()" = "author_email(exact-i:\"47384389+EzraCerpac@users.noreply.github.com\")"
-# Get all WIP or TODO changes based on description pattern
-"wip" = "description(regex:\"^[(wip|WIP|todo|TODO)]|(wip|WIP|todo|TODO):?\")"
+# Get changes whose descriptions start with WIP or TODO, optionally bracketed or followed by a colon
+"wip" = "description(regex:\"(?i)^(\\\\[(wip|todo)\\\\]|(wip|todo))(:|[[:space:]]|$)\")"
 # All changes with 'Bug XXXXX' in subject (find heads/roots as below)
 "bug_all(x)" = "mutable() & subject(glob:\"Bug *\") & subject(x)"
 "bug(x)" = "heads(bug_all(x))"

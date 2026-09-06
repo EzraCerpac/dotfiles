@@ -43,13 +43,19 @@ fi
 
 echo "Building local jj-waltz from $JJ_WALTZ_DIR..."
 if command -v cargo &>/dev/null; then
-    cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    cargo build --locked --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
 elif command -v mise &>/dev/null; then
-    mise exec rust -- cargo build --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
+    mise exec rust -- cargo build --locked --release --manifest-path "$JJ_WALTZ_DIR/Cargo.toml"
 else
     echo "Error: cargo not found, and mise is unavailable for the local jj-waltz build" >&2
     echo "Install Rust or keep it in mise to enable the local jw build" >&2
     exit 1
 fi
 
-echo "jj-waltz release binary is up to date at $JJ_WALTZ_DIR/target/release/jw"
+EXPECTED_VERSION="$(awk '/^\[package\]/{package=1; next} /^\[/{package=0} package && /^version = /{gsub(/"/, "", $3); print $3; exit}' "$JJ_WALTZ_DIR/Cargo.toml")"
+ACTUAL_VERSION="$("$JJ_WALTZ_DIR/target/release/jw" --version)"
+if [[ -z "$EXPECTED_VERSION" || "$ACTUAL_VERSION" != "jw $EXPECTED_VERSION" ]]; then
+    echo "Error: built jw version '$ACTUAL_VERSION' does not match source '$EXPECTED_VERSION'" >&2
+    exit 1
+fi
+echo "$ACTUAL_VERSION verified at $JJ_WALTZ_DIR/target/release/jw"

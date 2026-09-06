@@ -115,11 +115,6 @@ return {
         })
       end, { desc = "JJ log all" })
 
-      -- This is an alias i use for moving bookmarks its so good
-      vim.keymap.set("n", "<leader>jt", function()
-        jj_cmd.j("tug")
-        jj_cmd.log({})
-      end, { desc = "JJ tug" })
     end,
   },
 }
