@@ -74,7 +74,7 @@ packages:
       - warp
     managed_apps:
       rift:
-        local_revision: 7ae03a029cc4822a4dd5938bbf883a6b71296e79
+        local_revision: 889b16a11548be85dd6487ae85527f17cc2e8d57
         signing_identity: Rift Local Code Signing
       aegis:
         version: 1.1.0
