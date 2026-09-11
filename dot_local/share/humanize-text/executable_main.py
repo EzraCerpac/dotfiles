@@ -314,6 +314,7 @@ def google_fallback_for_niutrans(
                 result = original_llm(*args, **kwargs)
                 if not isinstance(result, str):
                     raise TypeError("LLM returned a non-text result")
+                validate_provider_text(result)
                 return result
             except Exception as error:
                 if not isinstance(error, TypeError) and type(error).__name__ not in retryable_errors:
@@ -328,6 +329,7 @@ def google_fallback_for_niutrans(
             result = original_google(text, source=chosen_source, target=target)
             if not isinstance(result, str) or not result.strip():
                 raise TypeError("Google Translate returned a non-text result")
+            validate_provider_text(result)
             return result
 
         last_error: Exception | None = None
@@ -347,6 +349,7 @@ def google_fallback_for_niutrans(
             result = translation_fallback(text, target)
             if not isinstance(result, str) or not result.strip():
                 raise TypeError("LLM translation fallback returned a non-text result")
+            validate_provider_text(result)
             return result
         assert last_error is not None
         raise last_error
@@ -373,6 +376,16 @@ def without_upstream_env_overrides() -> Iterator[None]:
         yield
     finally:
         os.environ.update(saved)
+
+
+def validate_provider_text(text: str) -> None:
+    # Translation scrapers can return a flattened HTTP error page as successful text.
+    normalized = text.casefold().replace("’", "'")
+    error_page = re.search(r"\berror\s*[45]\d\d\s*\(", normalized)
+    google_page = "that's an error" in normalized and "that's all we know" in normalized
+    html_page = re.search(r"<!doctype\s+html|<html(?:\s|>)", normalized)
+    if error_page or google_page or html_page:
+        raise HumanizeError("Provider returned an error page instead of processed text")
 
 
 def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
@@ -433,6 +446,7 @@ def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
         output = result.get("result", "")
         if not isinstance(output, str) or not output.strip():
             raise HumanizeError("Cloud pipeline returned empty output")
+        validate_provider_text(output)
         return output
 
     return rewrite
@@ -848,6 +862,7 @@ def publish(
     settings: RunSettings,
 ) -> None:
     if clipboard:
+        validate_provider_text(result)
         try:
             subprocess.run(["pbcopy"], input=result, text=True, check=True)
         except (FileNotFoundError, subprocess.CalledProcessError) as error:

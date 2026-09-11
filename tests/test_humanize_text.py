@@ -141,6 +141,22 @@ compile_command = []
         self.assertEqual(sources, ["fi", "fi", "fi", "auto"])
 
     @patch("time.sleep")
+    def test_google_error_page_uses_fallback(self, _sleep) -> None:
+        page = (
+            "Error 500 (Server Error)!!1500.That’s an error.There was an error. "
+            "Please try again later.That’s all we know."
+        )
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
+            niutrans_translate=lambda *args, **kwargs: "niutrans",
+            google_translate=lambda *args, **kwargs: page,
+        )
+        with MODULE.google_fallback_for_niutrans(
+            pipeline, enabled=True, translation_fallback=lambda text, target: "valid translation"
+        ):
+            self.assertEqual(pipeline.google_translate("source", "fi", "en"), "valid translation")
+
+    @patch("time.sleep")
     def test_google_empty_result_uses_llm_translation_fallback(self, _sleep) -> None:
         fallback_calls = []
         pipeline = types.SimpleNamespace(
@@ -426,6 +442,17 @@ class OutputTests(unittest.TestCase):
         with patch.object(MODULE.subprocess, "run") as run:
             MODULE.publish("finished", args=args, clipboard=True, target=None, typst=False, settings=settings)
         run.assert_called_once_with(["pbcopy"], input="finished", text=True, check=True)
+
+    def test_clipboard_rejects_provider_error_without_writing(self) -> None:
+        args = MODULE.make_parser(clipboard=True).parse_args([])
+        settings = MODULE.RunSettings(1.3, False, "url", Path("proxy"), "model", "fi", ())
+        with patch.object(MODULE.subprocess, "run") as run:
+            with self.assertRaisesRegex(MODULE.HumanizeError, "error page"):
+                MODULE.publish(
+                    "Error 500 (Server Error)!!1500.That’s an error.That’s all we know.",
+                    args=args, clipboard=True, target=None, typst=False, settings=settings,
+                )
+        run.assert_not_called()
 
     def test_typst_compile_check_uses_temporary_sibling(self) -> None:
         settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
