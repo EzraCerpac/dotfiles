@@ -867,6 +867,9 @@ def publish(
             subprocess.run(["pbcopy"], input=result, text=True, check=True)
         except (FileNotFoundError, subprocess.CalledProcessError) as error:
             raise HumanizeError("Could not update the macOS clipboard") from error
+        sys.stdout.write(result)
+        if result and not result.endswith("\n"):
+            sys.stdout.write("\n")
         return
     if args.output is not None:
         atomic_write(args.output.expanduser(), result, refuse_existing=True)

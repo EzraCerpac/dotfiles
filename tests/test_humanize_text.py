@@ -439,9 +439,13 @@ class OutputTests(unittest.TestCase):
         parser = MODULE.make_parser(clipboard=True)
         args = parser.parse_args([])
         settings = MODULE.RunSettings(1.3, False, "url", Path("proxy"), "model", "fi", ())
-        with patch.object(MODULE.subprocess, "run") as run:
+        with (
+            patch.object(MODULE.subprocess, "run") as run,
+            patch.object(MODULE.sys, "stdout", new_callable=io.StringIO) as output,
+        ):
             MODULE.publish("finished", args=args, clipboard=True, target=None, typst=False, settings=settings)
         run.assert_called_once_with(["pbcopy"], input="finished", text=True, check=True)
+        self.assertEqual(output.getvalue(), "finished\n")
 
     def test_clipboard_rejects_provider_error_without_writing(self) -> None:
         args = MODULE.make_parser(clipboard=True).parse_args([])
@@ -450,7 +454,11 @@ class OutputTests(unittest.TestCase):
             with self.assertRaisesRegex(MODULE.HumanizeError, "error page"):
                 MODULE.publish(
                     "Error 500 (Server Error)!!1500.That’s an error.That’s all we know.",
-                    args=args, clipboard=True, target=None, typst=False, settings=settings,
+                    args=args,
+                    clipboard=True,
+                    target=None,
+                    typst=False,
+                    settings=settings,
                 )
         run.assert_not_called()
 
