@@ -1,11 +1,11 @@
 local root = assert(os.getenv("GRAMMARLY_BRIDGE_TEST_ROOT"))
 package.path = root
-  .. "/dot_config/nvim/lua/?.lua;"
+  .. "/dotfiles/.config/nvim/lua/?.lua;"
   .. root
-  .. "/dot_config/nvim/lua/?/init.lua;"
+  .. "/dotfiles/.config/nvim/lua/?/init.lua;"
   .. package.path
 
-local bridge = dofile(root .. "/dot_config/nvim/lua/custom/grammarly_bridge.lua")
+local bridge = dofile(root .. "/dotfiles/.config/nvim/lua/custom/grammarly_bridge.lua")
 
 local bridge_url = "https://grammarly-bridge.localhost"
 assert(bridge._is_bridge_buffer_name(bridge_url .. "/", bridge_url))

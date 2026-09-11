@@ -1,4 +1,0 @@
-interface:
-  display_name: "Work on CerpacNAS"
-  short_description: "Run safe Codex tasks over Remote SSH"
-  default_prompt: "Use $work-on-cerpacnas to sync, inspect, hand off, or run work on CerpacNAS with native Codex Remote SSH."

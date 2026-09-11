@@ -20,8 +20,8 @@ export KBD_KANATA_ERR_LOG="${TMP_ROOT}/log/kanata.err.log"
 export KBD_KANATA_LEGACY_AGENT="${TMP_ROOT}/com.kanata.agent.plist"
 export KBD_TCC_DB="${TMP_ROOT}/TCC.db"
 
-# shellcheck source=../dot_local/bin/executable_kbd
-source "${ROOT}/dot_local/bin/executable_kbd"
+# shellcheck source=../dotfiles/.local/bin/kbd
+source "${ROOT}/dotfiles/.local/bin/kbd"
 
 TESTS=0
 FAKE_KANATA="${TMP_ROOT}/kanata"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-HELPER="$ROOT/dot_local/bin/executable_start-btop"
+HELPER="$ROOT/dotfiles/.local/bin/start-btop"
 TEST_TMP=$(mktemp -d)
 FAKE_BIN="$TEST_TMP/bin"
 mkdir -p "$FAKE_BIN" "$TEST_TMP/timers"

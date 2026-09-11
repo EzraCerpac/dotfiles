@@ -9,7 +9,7 @@ fail() {
 }
 
 grep -Fq $'BoringNotch\ttheboringteam.boringnotch' \
-    "$ROOT/dot_local/bin/executable_present" || fail "presentation mode does not manage BoringNotch"
+    "$ROOT/dotfiles/.local/bin/present" || fail "presentation mode does not manage BoringNotch"
 
 mission_script="$ROOT/run_onchange_05-configure-mission-control.sh.tmpl"
 [[ -f "$mission_script" ]] || fail "Mission Control run-on-change script is missing"

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "dot_local/bin/executable_codex-sync-jj-waltz"
+SCRIPT = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/codex-sync-jj-waltz"
 
 
 class SkillSyncTest(unittest.TestCase):
@@ -41,14 +41,14 @@ class SkillSyncTest(unittest.TestCase):
     def test_distributes_references_but_not_evals(self):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
-        for target in ("dot_codex/skills/jj-waltz", "dot_config/opencode/skills/jj-waltz"):
+        for target in ("dotfiles/.codex/skills/jj-waltz", "dotfiles/.config/opencode/skills/jj-waltz"):
             dest = self.chezmoi / target
             self.assertEqual((dest / "references/codex.md").read_text(), "# Codex\n")
             self.assertFalse((dest / "evals").exists())
         (self.source / "references/codex.md").unlink()
         self.write_skill("No references now.")
         self.assertEqual(self.run_sync().returncode, 0)
-        self.assertFalse((self.chezmoi / "dot_codex/skills/jj-waltz/references/codex.md").exists())
+        self.assertFalse((self.chezmoi / "dotfiles/.codex/skills/jj-waltz/references/codex.md").exists())
 
     def test_missing_link_leaves_destinations_untouched(self):
         self.write_skill("[Missing](references/missing.md)")

@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "dot_local/share/humanize-text/executable_main.py"
+MODULE_PATH = ROOT / "dotfiles/.local/share/humanize-text/main.py"
 SPEC = importlib.util.spec_from_file_location("humanize_text_main", MODULE_PATH)
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -378,8 +378,8 @@ class RewritingTests(unittest.TestCase):
         self.assertEqual(validations, ["bad syntax", "safe prose", "safe prose"])
 
     def test_headless_guard_adapter_round_trip(self) -> None:
-        adapter = ROOT / "dot_local/share/humanize-text/typst_guard_cli.lua"
-        guard_path = ROOT / "dot_config/nvim/lua/custom/typst_guard.lua"
+        adapter = ROOT / "dotfiles/.local/share/humanize-text/typst_guard_cli.lua"
+        guard_path = ROOT / "dotfiles/.config/nvim/lua/custom/typst_guard.lua"
         environment = dict(os.environ, HUMANIZE_TYPST_GUARD_PATH=str(guard_path))
         prepared = subprocess.run(
             ["nvim", "--headless", "-u", "NONE", "-l", str(adapter), "prepare"],

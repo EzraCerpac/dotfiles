@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+window_id="${AEROSPACE_WINDOW_ID:-}"
+[[ "$window_id" =~ ^[1-9][0-9]*$ ]] || exit 0
+exec /usr/bin/open -g "hammerspoon://aerospace-route-codex?window_id=${window_id}"

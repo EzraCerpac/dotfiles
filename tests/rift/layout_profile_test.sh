@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-HELPER="$ROOT/dot_local/bin/executable_rift-layout-profile"
+HELPER="$ROOT/dotfiles/.local/bin/rift-layout-profile"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 

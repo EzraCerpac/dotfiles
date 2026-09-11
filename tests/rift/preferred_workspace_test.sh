@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-HELPER="$ROOT/dot_local/bin/executable_rift-preferred-workspace"
+HELPER="$ROOT/dotfiles/.local/bin/rift-preferred-workspace"
 TEST_TMP=$(mktemp -d)
 CALLS="$TEST_TMP/calls"
 DISPLAY_JSON="$TEST_TMP/displays.json"

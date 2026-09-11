@@ -1,5 +1,5 @@
 local root = assert(os.getenv("AEROSPACE_DEFAULTS_TEST_ROOT"))
-local module = dofile(root .. "/dot_hammerspoon/aerospace_workspaces.lua")
+local module = dofile(root .. "/dotfiles/.hammerspoon/aerospace_workspaces.lua")
 
 local function screen(uuid, name, x)
   return {

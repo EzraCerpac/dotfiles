@@ -315,6 +315,7 @@ if enable_gitlogue_idle then
 end
 
 aerospace_workspaces = require("aerospace_workspaces").new():start()
+require("aerospace_codex").start(hs)
 
 local registered = {}
 for _, key in ipairs({"f17", "f18", "f19", "f23"}) do

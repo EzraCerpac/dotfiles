@@ -13,7 +13,7 @@ swiftc -O \
     -framework CryptoKit \
     -lsqlite3 \
     -module-cache-path "$tmp_root/module-cache" \
-    "$repo_root/dot_local/share/personal-concierge/antinote-bridge/main.swift" \
+    "$repo_root/dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift" \
     -o "$tmp_root/antinote"
 
 db="$tmp_root/antinote.sqlite"

@@ -27,7 +27,7 @@ accordion-padding = 30
 on-window-detected = [
   { if = 'test %{app-bundle-id} = com.kagi.kagimacOS && test %{window-title} ~= "^Orion Preview(?:$|[[:space:]]*-)"', run = 'layout floating' },
   { if = 'test %{app-bundle-id} = com.raycast.macos || test %{app-bundle-id} = com.chabomakers.Antinote || test %{app-bundle-id} = com.apple.weather || test %{app-bundle-id} = com.apple.AddressBook', run = 'layout floating' },
-  { if = 'test %{app-bundle-id} = com.openai.codex', run = 'move-node-to-workspace 2' },
+  { if = 'test %{app-bundle-id} = com.openai.codex', run = 'exec-and-forget ~/.local/bin/aerospace-route-codex' },
   { if = 'test %{app-bundle-id} = com.kagi.kagimacOS', run = 'move-node-to-workspace B' },
   { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^herdr([[:space:]]|$)"', run = 'move-node-to-workspace T' },
   { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^btop([[:space:]]|$)"', run = 'move-node-to-workspace 9' },

@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKTREE_OPENCODE="${ROOT}/dot_local/bin/executable_worktree-opencode"
-PRDIFF_REVIEW="${ROOT}/dot_local/bin/executable_prdiff-review"
-GITLOGUE_SELECT="${ROOT}/dot_local/bin/executable_gitlogue-select"
+WORKTREE_OPENCODE="${ROOT}/dotfiles/.local/bin/worktree-opencode"
+PRDIFF_REVIEW="${ROOT}/dotfiles/.local/bin/prdiff-review"
+GITLOGUE_SELECT="${ROOT}/dotfiles/.local/bin/gitlogue-select"
 
 TEST_ROOT="$(mktemp -d)"
 trap 'rm -rf "${TEST_ROOT}"' EXIT

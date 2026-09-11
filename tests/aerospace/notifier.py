@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-notifier = Path(__file__).resolve().parents[2] / "dot_config/aegis/executable_aegis-aerospace-notify"
+notifier = Path(__file__).resolve().parents[2] / "dotfiles/.config/aegis/aegis-aerospace-notify"
 with tempfile.TemporaryDirectory() as directory:
     env = dict(os.environ, HOME=directory)
     pipe = Path(directory) / ".config/aegis/aerospace.pipe"

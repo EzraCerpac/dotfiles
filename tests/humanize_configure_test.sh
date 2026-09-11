@@ -3,7 +3,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-wizard="${root}/dot_local/share/humanize-text/configure.sh"
+wizard="${root}/dotfiles/.local/share/humanize-text/configure.sh"
 fixture=$(mktemp -d)
 trap 'rm -rf "${fixture}"' EXIT
 

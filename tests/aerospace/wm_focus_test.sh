@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-HELPER="$ROOT/dot_local/bin/executable_wm-focus"
+HELPER="$ROOT/dotfiles/.local/bin/wm-focus"
 TEST_TMP=$(mktemp -d)
 trap 'rm -rf "$TEST_TMP"' EXIT
 
