@@ -147,23 +147,7 @@ and stops for manual `chezmoi merge` if any other destination drift is present.
 
 ## CerpacNAS Remote Codex
 
-The `nas` chezmoi profile keeps CerpacNAS headless and small. It installs a minimal user-space toolset, shared Codex rules, the `work-on-cerpacnas` skill, a project manifest, and the `nas` command. It also installs modern Git in a small micromamba prefix because Debian 10's Git is too old for current JJ credential operations. Existing `nas`/`cerpacnas` SSH aliases continue to use root. Native Codex Remote SSH runs remote tasks; `nas` handles configuration, GitHub/JJ handoffs, focused validation, and artifacts.
-
-Use GitHub/JJ for code, chezmoi `dev` for configuration, and allowlisted rsync only for artifacts:
-
-```bash
-nas doctor
-nas projects status thesis
-nas projects sync thesis
-nas handoff thesis my-task --to nas --push
-nas validate thesis my-task web-type
-nas validate thesis my-task focus:selector --calibrate
-nas handoff thesis my-task --to mac --push
-nas artifact plan thesis data
-nas artifact push thesis data --apply
-```
-
-`nas projects sync --all` reconciles only projects declared in `~/.config/cerpacnas/projects.toml`. With no project argument, it infers a configured project from cwd or fails; it never falls back to the sole manifest entry. In this chezmoi checkout use `nas config status|update` instead. Project sync clones or fetches; it never merges, rebases, pushes, deletes, or mirrors live project directories. Artifact commands exclude repository metadata, dependencies, caches, and credentials and never use `rsync --delete`.
+The `nas` chezmoi profile installs shared configuration and user-space tools. Coordinate NAS work from a Mac Codex task, with separate worker tasks running through native Codex Remote SSH. The local `work-on-cerpacnas` skill in `~/.agents/skills/` describes this workflow and is not managed by chezmoi. Existing `nas`/`cerpacnas` SSH aliases continue to use root.
 
 The NAS profile auto-selects on the CerpacNAS hostname. It follows the dotfiles `dev` branch and leaves `main` untouched. Its static x86_64-musl `jw` installer runs only when the exact release archive checksum is pinned in chezmoi data; until v0.3.1 is published, it skips safely.
 

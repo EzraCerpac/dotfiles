@@ -122,12 +122,10 @@ class TemplateTests(unittest.TestCase):
             self.assertNotIn(forbidden, managed)
         for required in (
             ".codex/AGENTS.md",
-            ".codex/skills/work-on-cerpacnas/SKILL.md",
             ".config/cerpacnas/projects.toml",
             ".config/git/config",
             ".config/jj-waltz/config.toml",
             ".config/mise/config.toml",
-            ".local/bin/nas",
             "06-build-jj-waltz.sh",
         ):
             self.assertIn(required, managed)
