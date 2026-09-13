@@ -15,7 +15,7 @@ exec-on-workspace-change = ['/bin/bash', '-c', '$HOME/.config/aegis/aegis-aerosp
 on-focus-changed = ['exec-and-forget ~/.config/aegis/aegis-aerospace-notify']
 on-mode-changed = ['exec-and-forget ~/.config/aegis/aegis-aerospace-mode-notify']
 
-persistent-workspaces = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'B', 'T', 'E', 'M']
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'B', 'T', 'E', 'M']
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 default-root-container-layout = 'tiles'
@@ -41,7 +41,7 @@ inner.vertical = 10
 outer.bottom = 10
 outer.left = 10
 outer.right = 10
-outer.top = [{ monitor.'Built-in Retina Display' = 10 }, 58]
+outer.top = [{ monitor.'Built-in Retina Display' = 10 }, 45]
 
 # Ops and Media have connection-time defaults, not forced monitor assignments.
 [mode.main.binding]
@@ -62,7 +62,6 @@ cmd-ctrl-alt-shift-down = 'move --boundaries all-monitors-outer-frame down'
 cmd-ctrl-alt-shift-up = 'move --boundaries all-monitors-outer-frame up'
 cmd-ctrl-alt-shift-right = 'move --boundaries all-monitors-outer-frame right'
 
-cmd-ctrl-alt-0 = 'workspace 0'
 cmd-ctrl-alt-1 = 'workspace 1'
 cmd-ctrl-alt-2 = 'workspace 2'
 cmd-ctrl-alt-3 = 'workspace 3'
@@ -76,7 +75,7 @@ cmd-ctrl-alt-b = 'workspace B'
 cmd-ctrl-alt-t = 'workspace T'
 cmd-ctrl-alt-e = 'workspace E'
 cmd-ctrl-alt-m = 'workspace M'
-cmd-ctrl-alt-shift-0 = 'move-node-to-workspace 0 --focus-follows-window'
+cmd-ctrl-alt-shift-0 = 'balance-sizes'
 cmd-ctrl-alt-shift-1 = 'move-node-to-workspace 1 --focus-follows-window'
 cmd-ctrl-alt-shift-2 = 'move-node-to-workspace 2 --focus-follows-window'
 cmd-ctrl-alt-shift-3 = 'move-node-to-workspace 3 --focus-follows-window'
@@ -86,9 +85,9 @@ cmd-ctrl-alt-shift-6 = 'move-node-to-workspace 6 --focus-follows-window'
 cmd-ctrl-alt-shift-7 = 'move-node-to-workspace 7 --focus-follows-window'
 cmd-ctrl-alt-shift-8 = 'move-node-to-workspace 8 --focus-follows-window'
 cmd-ctrl-alt-shift-9 = 'move-node-to-workspace 9 --focus-follows-window'
-cmd-ctrl-alt-shift-b = 'move-node-to-workspace B --focus-follows-window'
+cmd-ctrl-alt-shift-b = ['workspace B', 'exec-and-forget open -a "Orion"']
 cmd-ctrl-alt-shift-t = 'move-node-to-workspace T --focus-follows-window'
-cmd-ctrl-alt-shift-e = 'move-node-to-workspace E --focus-follows-window'
+cmd-ctrl-alt-shift-e = ['workspace E', 'exec-and-forget open -a "Mail"']
 cmd-ctrl-alt-tab = 'workspace-back-and-forth'
 cmd-ctrl-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
 cmd-ctrl-alt-leftSquareBracket = 'list-workspaces --monitor focused --empty no | workspace --stdin --wrap-around prev'
@@ -98,10 +97,11 @@ cmd-ctrl-alt-f = 'fullscreen'
 cmd-ctrl-alt-space = 'layout floating tiling'
 cmd-ctrl-alt-comma = 'layout accordion horizontal vertical'
 cmd-ctrl-alt-slash = 'layout tiles horizontal vertical'
-cmd-ctrl-alt-minus = 'resize width -50'
-cmd-ctrl-alt-equal = 'resize width +50'
-cmd-ctrl-alt-shift-minus = 'resize height -50'
-cmd-ctrl-alt-shift-equal = 'resize height +50'
+# Shifted '=' is '+', so both modifier variants grow on the same key.
+cmd-ctrl-alt-minus = 'resize smart -50'
+cmd-ctrl-alt-equal = 'resize smart +50'
+cmd-ctrl-alt-shift-minus = 'resize smart -50'
+cmd-ctrl-alt-shift-equal = 'resize smart +50'
 cmd-ctrl-alt-o = 'exec-and-forget open -a "Mission Control"'
 
 cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
@@ -114,6 +114,14 @@ cmd-ctrl-alt-shift-enter = 'exec-and-forget /opt/homebrew/bin/wezterm start -- /
 cmd-ctrl-alt-shift-semicolon = 'mode service'
 [mode.service.binding]
 esc = ['reload-config', 'mode main']
+cmd-ctrl-alt-shift-h = ['join-with left', 'mode main']
+cmd-ctrl-alt-shift-j = ['join-with down', 'mode main']
+cmd-ctrl-alt-shift-k = ['join-with up', 'mode main']
+cmd-ctrl-alt-shift-l = ['join-with right', 'mode main']
+cmd-ctrl-alt-shift-left = ['join-with left', 'mode main']
+cmd-ctrl-alt-shift-down = ['join-with down', 'mode main']
+cmd-ctrl-alt-shift-up = ['join-with up', 'mode main']
+cmd-ctrl-alt-shift-right = ['join-with right', 'mode main']
 h = ['join-with left', 'mode main']
 j = ['join-with down', 'mode main']
 k = ['join-with up', 'mode main']
@@ -126,6 +134,10 @@ shift-h = ['swap left', 'mode main']
 shift-j = ['swap down', 'mode main']
 shift-k = ['swap up', 'mode main']
 shift-l = ['swap right', 'mode main']
+shift-left = ['swap left', 'mode main']
+shift-down = ['swap down', 'mode main']
+shift-up = ['swap up', 'mode main']
+shift-right = ['swap right', 'mode main']
 b = ['balance-sizes', 'mode main']
 r = ['flatten-workspace-tree', 'layout tiles', 'mode main']
 f = ['layout floating tiling', 'mode main']

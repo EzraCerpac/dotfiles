@@ -95,7 +95,7 @@ write_window() {
 reset_case
 write_window com.apple.Safari 'Docs'
 bash "$HELPER" left
-assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\naerospace <focus> <left>'
+assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\naerospace <focus> <--boundaries> <all-monitors-outer-frame> <left>'
 
 reset_case
 write_window com.github.wez.wezterm 'Herdr thesis'
@@ -122,14 +122,14 @@ for fixture in \
     reset_case
     printf '%s\n' "$fixture" >"$FOCUSED_WINDOW"
     bash "$HELPER" right
-    assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\naerospace <focus> <right>'
+    assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\naerospace <focus> <--boundaries> <all-monitors-outer-frame> <right>'
 done
 
 reset_case
 write_window com.github.wez.wezterm 'Herdr editor'
 export HERDR_PLUGIN_FAIL=1
 bash "$HELPER" left
-assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\nherdr <pane> <process-info> <--current>\nherdr <plugin> <action> <invoke> <vim-herdr-navigation.left>\naerospace <focus> <left>'
+assert_calls $'aerospace <list-windows> <--focused> <--format> <%{app-bundle-id}%{tab}%{window-title}%{newline}>\nherdr <pane> <process-info> <--current>\nherdr <plugin> <action> <invoke> <vim-herdr-navigation.left>\naerospace <focus> <--boundaries> <all-monitors-outer-frame> <left>'
 
 printf 'wm-focus AeroSpace tests passed\n'
 

@@ -79,8 +79,7 @@ if [[ -x "$HERDR_BIN_PATH" ]] && command -v "$JQ" >/dev/null 2>&1 && is_herdr_wi
     fi
 fi
 
-if ! "$AEROSPACE_BIN" focus "$direction" >/dev/null; then
+if ! "$AEROSPACE_BIN" focus --boundaries all-monitors-outer-frame "$direction" >/dev/null; then
     echo "wm-focus: AeroSpace focus command failed for direction '$direction'" >&2
     exit 1
 fi
-

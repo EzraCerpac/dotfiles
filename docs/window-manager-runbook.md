@@ -10,7 +10,6 @@ AeroSpace keeps these workspaces persistent:
 
 | Workspace | Purpose |
 |---|---|
-| 0 | Flow |
 | 1 | Thesis |
 | 2 | Codex |
 | 3–8 | Flexible |
@@ -26,7 +25,7 @@ At AeroSpace startup and when a new external display is connected, the Hammerspo
 
 Focus follows the pointer. To disable hover focus, change `focus-follows-mouse.enabled` to `false` in the tracked AeroSpace config and apply that file. AeroSpace does not move the pointer when the focused monitor changes. The focus helper sends directional focus through Neovim and Herdr when applicable, then AeroSpace. `start-btop` reuses the matching WezTerm btop window, moves it to Ops, and fills the display within the configured gaps. It checks every minute and leaves btop open while Ops is visible; after Ops is no longer visible, the next timer check closes it only if the saved window and AeroSpace process identities still match.
 
-The built-in display uses a 10 px top gap; external displays use 58 px total (48 px for Aegis plus 10 px breathing room). Other outer and inner gaps are 10 px. App placement uses bundle and title rules, with no window-size matchers.
+The built-in display uses a 10 px top gap; external displays reserve 45 px above windows for Aegis. Other outer and inner gaps are 10 px. App placement uses bundle and title rules, with no window-size matchers.
 
 ## Keyboard controls
 
@@ -34,11 +33,14 @@ Meh is Cmd+Ctrl+Alt. Hyper adds Shift. The approved config retains the current M
 
 | Shortcut | Action |
 |---|---|
-| Meh+H/J/K/L or arrows | Focus through Herdr/Neovim when applicable, otherwise AeroSpace |
+| Meh+H/J/K/L or arrows | Focus through Neovim/Herdr when applicable, then AeroSpace across monitors |
 | Hyper+H/J/K/L or arrows | Move the focused window |
-| Meh+0–8, B, T, E, M | Switch workspace |
+| Meh+1–8, B, T, E, M | Switch workspace |
 | Meh+9 | Open or reuse btop in Ops |
-| Hyper+0–9, B, T, E | Move the focused window to that workspace and follow |
+| Hyper+0 | Balance window sizes |
+| Hyper+1–9, T | Move the focused window to that workspace and follow |
+| Hyper+B | Switch to Browser Hub and open/reuse Orion |
+| Hyper+E | Switch to Comms and open/reuse Apple Mail |
 | Hyper+M | Switch to Media and open Music |
 | Meh+Tab | Return to the previous workspace |
 | Hyper+Tab | Move the current workspace to the next monitor |
@@ -48,15 +50,17 @@ Meh is Cmd+Ctrl+Alt. Hyper adds Shift. The approved config retains the current M
 | Meh+O | Open native macOS Mission Control |
 | Meh+Space | Toggle floating and tiling |
 | Meh+, or Meh+/ | Accordion layout or tiles |
-| Meh+- or Meh+= | Shrink or grow window width |
-| Hyper+- or Hyper+= | Shrink or grow window height |
+| Meh+- or Meh+= | Smart-shrink or smart-grow by 50 px, following the parent layout orientation |
+| Hyper+- or Hyper+= | Smart-shrink or smart-grow by 50 px, following the parent layout orientation |
 | Hyper+F, A, W, Y, or Enter | Open Finder, Activity Monitor, WhatsApp, System Settings, or a new WezTerm shell |
 
-The service mode provides join and swap actions; `b` balances sizes and `r` flattens the workspace tree. `f` toggles floating and tiling. The Aegis Reset Layout command separately flattens the tree and selects tiles. Hyper+Space remains assigned to Homerow.
+The Corne's dedicated `+` key uses QMK's `KC_PLUS` (Shift+Equal), so Meh+`+` and Hyper+`+` both smart-grow by 50 px.
+
+Enter service mode with Hyper+semicolon. It joins with a neighboring window using H/J/K/L, arrows, or their Hyper-modified forms; Shift+H/J/K/L and Shift+arrows swap with a neighbor. Each action exits service mode. `b` balances sizes, `r` flattens the workspace tree and selects tiles, and `f` toggles floating and tiling. Escape reloads the config and exits. Hyper+Space remains assigned to Homerow.
 
 ## Aegis, BoringNotch, and fullscreen
 
-Aegis is configured for AeroSpace. Its menu provides Reload AeroSpace, Balance Windows, Reset Layout, Reapply App Rules, and native Mission Control. Its workspace order follows AeroSpace's `0–9, B, T, E, M` labels. Keep Aegis excluded from its own app switcher.
+Aegis is configured for AeroSpace. Its menu provides Reload AeroSpace, Balance Windows, Reset Layout, Reapply App Rules, and native Mission Control. Its workspace order follows AeroSpace's `1–9, B, T, E, M` labels. Keep Aegis excluded from its own app switcher.
 
 BoringNotch remains the only owner of media, volume, brightness, and device HUDs. Keep Aegis's corresponding HUDs disabled. macOS owns notification banners; Aegis's optional notification HUD stays disabled so it does not replace native banners.
 
