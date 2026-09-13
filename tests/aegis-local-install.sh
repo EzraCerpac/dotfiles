@@ -43,6 +43,10 @@ make_fixture() {
 #!/usr/bin/env bash
 set -euo pipefail
 case "$*" in
+    *"rev-parse --show-toplevel"*)
+        [[ "${AEGIS_TEST_COLOCATED:-1}" == 1 ]] || exit 128
+        printf '%s\n' "$AEGIS_SOURCE_DIR"
+        ;;
     *"status --porcelain"*)
         if [[ "${AEGIS_TEST_DIRTY:-0}" == 1 ]]; then
             printf ' M Aegis/App.swift\n'
@@ -55,7 +59,22 @@ esac
 EOF
     cat >"$bin/jj" <<'EOF'
 #!/usr/bin/env bash
-exit 0
+set -euo pipefail
+case "$*" in
+    *" status") exit 0 ;;
+    *"diff --summary -r @"*)
+        if [[ "${AEGIS_TEST_JJ_DIRTY:-0}" == 1 ]]; then
+            printf 'M Aegis/App.swift\n'
+        fi
+        ;;
+    *"log --no-graph -r @ -T parents.len()"*)
+        printf '%s' "${AEGIS_TEST_PARENT_COUNT:-1}"
+        ;;
+    *"log --no-graph -r @- -T commit_id"*)
+        printf '%s' "${AEGIS_TEST_PARENT_REVISION:-${AEGIS_TEST_REVISION:?}}"
+        ;;
+    *) exit 1 ;;
+esac
 EOF
     cat >"$bin/security" <<'EOF'
 #!/usr/bin/env bash
@@ -147,6 +166,10 @@ run_helper() {
     local tmp="${1:?temporary directory required}"
     local revision="${AEGIS_RUN_REVISION:-$EXPECTED_REVISION}"
     local dirty="${AEGIS_RUN_DIRTY:-0}"
+    local jj_dirty="${AEGIS_RUN_JJ_DIRTY:-0}"
+    local colocated="${AEGIS_RUN_COLOCATED:-1}"
+    local parent_revision="${AEGIS_RUN_PARENT_REVISION:-$EXPECTED_REVISION}"
+    local parent_count="${AEGIS_RUN_PARENT_COUNT:-1}"
     shift
     env \
         HOME="$tmp/home" \
@@ -156,6 +179,10 @@ run_helper() {
         AEGIS_STATE_DIR="$tmp/state" \
         AEGIS_TEST_REVISION="$revision" \
         AEGIS_TEST_DIRTY="$dirty" \
+        AEGIS_TEST_JJ_DIRTY="$jj_dirty" \
+        AEGIS_TEST_COLOCATED="$colocated" \
+        AEGIS_TEST_PARENT_REVISION="$parent_revision" \
+        AEGIS_TEST_PARENT_COUNT="$parent_count" \
         AEGIS_TEST_DEFAULTS_FAIL="${AEGIS_TEST_DEFAULTS_FAIL:-0}" \
         AEGIS_TEST_RECEIPT_FAIL="${AEGIS_TEST_RECEIPT_FAIL:-0}" \
         AEGIS_TEST_OPEN_FAIL="${AEGIS_TEST_OPEN_FAIL:-0}" \
@@ -197,6 +224,45 @@ test_dirty_checkout() (
     fi
     [[ ! -s "$tmp/calls" ]] || fail "build started before dirty checkout check"
     pass "dirty source checkout rejected"
+)
+
+test_dirty_jj_working_copy() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    : >"$tmp/calls"
+    if AEGIS_RUN_COLOCATED=0 AEGIS_RUN_JJ_DIRTY=1 run_helper "$tmp" "$tmp/helper"; then
+        fail "dirty JJ working copy was accepted"
+    fi
+    [[ ! -s "$tmp/calls" ]] || fail "build started before JJ working copy check"
+    pass "dirty JJ working copy rejected"
+)
+
+test_wrong_jj_parent() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    : >"$tmp/calls"
+    if AEGIS_RUN_COLOCATED=0 AEGIS_RUN_PARENT_REVISION=deadbeef run_helper "$tmp" "$tmp/helper"; then
+        fail "wrong JJ parent revision was accepted"
+    fi
+    [[ ! -s "$tmp/calls" ]] || fail "build started before JJ parent revision check"
+    pass "wrong JJ parent revision rejected"
+)
+
+test_merge_working_copy() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    : >"$tmp/calls"
+    if AEGIS_RUN_COLOCATED=0 AEGIS_RUN_PARENT_COUNT=2 run_helper "$tmp" "$tmp/helper"; then
+        fail "merge JJ working copy was accepted"
+    fi
+    [[ ! -s "$tmp/calls" ]] || fail "build started before JJ parent count check"
+    pass "merge JJ working copy rejected"
 )
 
 test_missing_identity() (
@@ -358,8 +424,24 @@ test_successful_install() (
     pass "successful install records receipt and relaunches"
 )
 
+test_successful_secondary_jj_workspace() (
+    local tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    render_helper "$tmp/helper"
+    make_fixture "$tmp"
+    : >"$tmp/calls"
+    AEGIS_RUN_COLOCATED=0 run_helper "$tmp" "$tmp/helper" >/dev/null
+    grep -Fqx "revision=$EXPECTED_REVISION" "$tmp/state/receipt" || \
+        fail "secondary JJ workspace receipt has the wrong revision"
+    [[ -d "$tmp/Applications/Aegis.app" ]] || fail "Aegis app was not installed from secondary JJ workspace"
+    pass "secondary JJ workspace installs without a Git checkout"
+)
+
 test_wrong_revision
 test_dirty_checkout
+test_dirty_jj_working_copy
+test_wrong_jj_parent
+test_merge_working_copy
 test_missing_identity
 test_duplicate_identity
 test_invalid_bundle
@@ -370,5 +452,6 @@ test_defaults_failure_rolls_back
 test_receipt_failure_rolls_back
 test_relaunch_failure_rolls_back
 test_successful_install
+test_successful_secondary_jj_workspace
 
 echo "Aegis local installer tests passed"

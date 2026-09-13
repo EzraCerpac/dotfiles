@@ -1,49 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
 BTOP=${BTOP:-/opt/homebrew/bin/btop}
 OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
 WEZTERM_APP=${WEZTERM_APP:-/Applications/WezTerm.app}
-JQ=${JQ:-jq}
 LOCKF=${LOCKF:-/usr/bin/lockf}
+JQ=${JQ:-jq}
+PGREP=${PGREP:-/usr/bin/pgrep}
+SLEEP=${SLEEP:-sleep}
 LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
 TIMER_STATE=${START_BTOP_TIMER_STATE:-${TMPDIR:-/tmp}/start-btop.timer}
 CLOSE_AFTER=${START_BTOP_CLOSE_AFTER:-60}
 OPS_WORKSPACE=${START_BTOP_WORKSPACE:-9}
+WEZTERM_BUNDLE=com.github.wez.wezterm
+WINDOW_FORMAT='%{window-id}%{tab}%{app-pid}%{tab}%{app-bundle-id}%{tab}%{window-title}%{tab}%{workspace}%{newline}'
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+BASH_BIN=${BASH:-/bin/bash}
 
-resolve_rift_cli() {
-    local candidate
-
-    if [[ -n "${RIFT_CLI:-}" ]]; then
-        if [[ "${RIFT_CLI}" == */* ]]; then
-            [[ -x "${RIFT_CLI}" ]] || return 1
-            printf '%s\n' "${RIFT_CLI}"
-            return 0
-        fi
-        command -v "${RIFT_CLI}" || return 1
-        return 0
-    fi
-
-    for candidate in "${HOME}/.local/bin/rift-cli" /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli; do
-        if [[ -x "${candidate}" ]]; then
-            printf '%s\n' "${candidate}"
-            return 0
-        fi
-    done
-    command -v rift-cli
-}
-
-RIFT_CLI=$(resolve_rift_cli) || {
-    echo "start-btop: could not locate Rift CLI (rift-cli)" >&2
+if [[ "$AEROSPACE_BIN" != */* ]]; then
+    AEROSPACE_BIN=$(command -v "$AEROSPACE_BIN") || {
+        echo "start-btop: could not locate AeroSpace CLI" >&2
+        exit 1
+    }
+elif [[ ! -x "$AEROSPACE_BIN" ]]; then
+    echo "start-btop: AeroSpace CLI not executable: $AEROSPACE_BIN" >&2
     exit 1
-}
+fi
+
+if ! command -v "$JQ" >/dev/null 2>&1; then
+    echo "start-btop: jq is required" >&2
+    exit 1
+fi
 
 focus_workspace=false
 case "${1:-}" in
     "") ;;
     --focus) focus_workspace=true ;;
     --expire)
-        [[ $# -eq 5 ]] || exit 2
+        [[ $# -eq 7 ]] || exit 2
         ;;
     *)
         echo "usage: start-btop [--focus]" >&2
@@ -54,428 +49,263 @@ esac
 if [[ ${START_BTOP_LOCKED:-0} != 1 ]]; then
     exec "$LOCKF" -k "$LOCK_PATH" /usr/bin/env \
         START_BTOP_LOCKED=1 \
-        RIFT_CLI="$RIFT_CLI" \
+        AEROSPACE_BIN="$AEROSPACE_BIN" \
         START_BTOP_LOCK_PATH="$LOCK_PATH" \
         START_BTOP_TIMER_STATE="$TIMER_STATE" \
         START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
         START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
-        /bin/bash "$0" "$@"
+        "$BASH_BIN" "$SCRIPT_PATH" "$@"
 fi
 
-displays_json=
-
-load_displays() {
-    displays_json=$("$RIFT_CLI" query displays)
-}
-
-active_display_uuid() {
-    "$JQ" -er '
-        [ .[] | select(.is_active_context == true and .space != null) | .uuid ]
-        | if length == 1 then .[0] else error("active Rift display is ambiguous") end
-    ' <<<"$displays_json"
-}
-
-active_space_id() {
-    "$JQ" -er '
-        [ .[] | select(.is_active_context == true and .space != null) | .space ]
-        | if length == 1 then .[0] else error("active Rift display space is ambiguous") end
-    ' <<<"$displays_json"
-}
-
-preferred_display_uuid() {
-    "$JQ" -er '
-        def is_external:
-            if has("is_builtin") then
-                .is_builtin == false
-            elif ((.name // "") | test("built-in"; "i")) then
-                false
-            else
-                (.screen_id // 1) != 1
-            end;
-        [ .[]
-          | select(.space != null and is_external)
-          | {uuid, x: (.frame.origin.x // 0), y: (.frame.origin.y // 0)}
-        ]
-        | if length == 0 then empty
-          else sort_by([.x, .y]) | last.uuid
-          end
-    ' <<<"$displays_json"
-}
-
-target_display_uuid() {
-    local active_uuid=$1
-    if $focus_workspace; then
-        preferred_display_uuid || printf '%s\n' "$active_uuid"
-    else
-        printf '%s\n' "$active_uuid"
-    fi
-}
-
-focus_display() {
-    local display_uuid=$1
-    "$RIFT_CLI" execute display focus --uuid "$display_uuid" >/dev/null
-}
-
-active_workspace_index() {
-    local display_uuid=$1
-    local space_id=$2
-    "$RIFT_CLI" query workspaces --space-id "$space_id" \
-        | "$JQ" -er \
-            --arg display_uuid "$display_uuid" \
-            --arg space_id "$space_id" '
-                (any(.[]; has("display_uuid") or has("native_space_id"))) as $has_owners
-                | [ .[]
-                    | select(.is_active == true)
-                    | select(
-                        ($has_owners | not)
-                        or (
-                            .display_uuid == $display_uuid
-                            and ((.native_space_id // "") | tostring) == $space_id
-                        )
-                    )
-                    | .index
-                  ]
-                | if length == 1 then .[0]
-                  else error("active Rift workspace is ambiguous")
-                  end
-            '
-}
-
-workspace_records_for_owner() {
-    local display_uuid=$1
-    local space_id=$2
-    "$RIFT_CLI" query workspaces --space-id "$space_id" \
-        | "$JQ" -c \
-            --arg display_uuid "$display_uuid" \
-            --arg space_id "$space_id" '
-                (any(.[]; has("display_uuid") or has("native_space_id"))) as $has_owners
-                | if $has_owners then
-                    [ .[]
-                      | select(
-                          .display_uuid == $display_uuid
-                          and ((.native_space_id // "") | tostring) == $space_id
-                        )
-                    ]
-                  else .
-                  end
-            '
+list_windows() {
+    "$AEROSPACE_BIN" list-windows --all --format "$WINDOW_FORMAT"
 }
 
 find_btop_window() {
-    local display_uuid
-    local space_id
-    local records
-    while IFS=$'\t' read -r display_uuid space_id; do
-        [[ -n "$display_uuid" && -n "$space_id" ]] || continue
-        records=$(workspace_records_for_owner "$display_uuid" "$space_id" \
-            | "$JQ" -c --arg display_uuid "$display_uuid" '
-                [ .[] | .windows[]?
-                | select(
-                    .bundle_id == "com.github.wez.wezterm"
-                    or (.bundle_id == null and .app_name == "WezTerm")
-                )
-                | select((.title // "") | test("^btop([[:space:]]|$)"; "i"))
-                | select(.id.pid != null and .id.idx != null)
-                | { pid: .id.pid, idx: .id.idx, display_uuid: $display_uuid }
-                ] | unique_by([.pid, .idx, .display_uuid])
-            ') || return 1
-        if [[ "$records" != '[]' ]]; then
-            "$JQ" -c '.[0]' <<<"$records"
-            return 0
-        fi
-    done < <(
-        "$JQ" -r '.[] | select(.space != null and .uuid != null) | [.uuid, (.space | tostring)] | @tsv' <<<"$displays_json"
-    )
-    return 1
-}
+    local windows id pid bundle title workspace
+    local count=0
+    local record=
 
-window_json() {
-    printf '{"pid":%s,"idx":%s}' "$1" "$2"
-}
+    windows=$(list_windows) || return 2
+    while IFS=$'\t' read -r id pid bundle title workspace; do
+        [[ "$id" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ ]] || continue
+        [[ "$bundle" == "$WEZTERM_BUNDLE" ]] || continue
+        [[ "$title" =~ ^[bB][tT][oO][pP]([[:space:]]|$) ]] || continue
+        [[ "$title" != *$'\t'* && "$title" != *$'\n'* ]] || continue
 
-btop_fill_state() {
-    local expected_pid=$1
-    local expected_idx=$2
-    local display_uuid=$3
-    local json
-    local window
-    json=$(window_json "$expected_pid" "$expected_idx")
-    window=$("$RIFT_CLI" query window "$json") || return 1
+        count=$((count + 1))
+        record="$id"$'\t'"$pid"$'\t'"$bundle"$'\t'"$title"$'\t'"$workspace"
+    done <<<"$windows"
 
-    "$JQ" -er \
-        --arg display_uuid "$display_uuid" \
-        --argjson expected_pid "$expected_pid" \
-        --argjson expected_idx "$expected_idx" \
-        --argjson window "$window" '
-            [ .[] | select(.uuid == $display_uuid and .frame.size != null) ]
-            | if length == 1 then .[0].frame.size else error("target display is ambiguous") end
-            | . as $display
-            | select(
-                $window.id.pid == $expected_pid
-                and $window.id.idx == $expected_idx
-                and $window.frame.size != null
-                and (
-                    $window.bundle_id == "com.github.wez.wezterm"
-                    or ($window.bundle_id == null and $window.app_name == "WezTerm")
-                )
-                and (($window.title // "") | test("^btop([[:space:]]|$)"; "i"))
-            )
-            | if (
-                $window.frame.size.width >= ($display.width * 0.95)
-                and $window.frame.size.height >= ($display.height * 0.95)
-              ) then "full" else "narrow" end
-        ' <<<"$displays_json"
-}
-
-ensure_btop_fullscreen() {
-    local pid=$1
-    local idx=$2
-    local display_uuid=$3
-    local fill_state=
-    local json
-    json=$(window_json "$pid" "$idx")
-
-    "$RIFT_CLI" execute window focus --window-id "$json"
-    fill_state=$(btop_fill_state "$pid" "$idx" "$display_uuid") || fill_state=
-    if [[ $fill_state == narrow ]]; then
-        "$RIFT_CLI" execute window toggle-fullscreen-within-gaps
+    if [[ $count -eq 1 ]]; then
+        printf '%s\n' "$record"
+        return 0
+    elif [[ $count -eq 0 ]]; then
+        return 1
     fi
+    return 3
 }
 
-is_btop_window() {
+has_exact_window() {
+    local expected_id=$1
+    local expected_pid=$2
+    local expected_bundle=$3
+    local expected_title=$4
+    local expected_workspace=$5
+    local windows id pid bundle title workspace
+    local count=0
+
+    windows=$(list_windows) || return 1
+    while IFS=$'\t' read -r id pid bundle title workspace; do
+        if [[ "$id" == "$expected_id" \
+            && "$pid" == "$expected_pid" \
+            && "$bundle" == "$expected_bundle" \
+            && "$title" == "$expected_title" \
+            && "$workspace" == "$expected_workspace" ]]; then
+            count=$((count + 1))
+        fi
+    done <<<"$windows"
+
+    [[ $count -eq 1 ]]
+}
+
+current_aerospace_daemon_pid() {
+    local pids
+    [[ -x "$PGREP" ]] || return 1
+    pids=$("$PGREP" -a -x AeroSpace 2>/dev/null) || return 1
+    [[ "$pids" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$pids"
+}
+
+daemon_is_unchanged() {
     local expected_pid=$1
-    local expected_idx=$2
-    local expected_window_server_id=$3
-    local json
-    json=$(window_json "$expected_pid" "$expected_idx")
-
-    "$RIFT_CLI" query window "$json" \
-        | "$JQ" -e \
-            --argjson expected_pid "$expected_pid" \
-            --argjson expected_idx "$expected_idx" \
-            --argjson expected_window_server_id "$expected_window_server_id" '
-                .id.pid == $expected_pid
-                and .id.idx == $expected_idx
-                and .window_server_id == $expected_window_server_id
-                and (
-                    .bundle_id == "com.github.wez.wezterm"
-                    or (.bundle_id == null and .app_name == "WezTerm")
-                )
-                and ((.title // "") | test("^btop([[:space:]]|$)"; "i"))
-            ' >/dev/null
+    local current_pid
+    [[ -n "$expected_pid" ]] || return 1
+    current_pid=$(current_aerospace_daemon_pid) || return 1
+    [[ "$current_pid" == "$expected_pid" ]]
 }
 
-fresh_btop_window_server_id() {
-    local expected_pid=$1
-    local expected_idx=$2
-    local json
-    json=$(window_json "$expected_pid" "$expected_idx")
+ops_workspace_is_visible() {
+    local workspaces
+    workspaces=$("$AEROSPACE_BIN" list-workspaces --monitor all --visible --json) || return 2
 
-    "$RIFT_CLI" query window "$json" \
-        | "$JQ" -er \
-            --argjson expected_pid "$expected_pid" \
-            --argjson expected_idx "$expected_idx" '
-                select(
-                    .id.pid == $expected_pid
-                    and .id.idx == $expected_idx
-                    and .window_server_id != null
-                    and (
-                        .bundle_id == "com.github.wez.wezterm"
-                        or (.bundle_id == null and .app_name == "WezTerm")
-                    )
-                    and ((.title // "") | test("^btop([[:space:]]|$)"; "i"))
-                )
-                | .window_server_id
-            '
-}
-
-schedule_close_if_safe() {
-    local pid=$1
-    local idx=$2
-    local window_server_id=
-
-    # Reusing and focusing only needs Rift's stable {pid, idx}. Closing is more
-    # dangerous, so require a freshly queried WindowServer identity.
-    window_server_id=$(fresh_btop_window_server_id "$pid" "$idx") || window_server_id=
-    if [[ -n "$window_server_id" ]]; then
-        schedule_close "$pid" "$idx" "$window_server_id"
+    if printf '%s\n' "$workspaces" | "$JQ" -e --arg workspace "$OPS_WORKSPACE" '
+        if type != "array" then error("expected workspace array")
+        elif all(.[]; type == "object" and (.workspace | type == "string")) then
+            any(.[]; .workspace == $workspace)
+        else error("invalid workspace record")
+        end
+    ' >/dev/null; then
+        return 0
     else
-        rm -f "$TIMER_STATE"
+        local status=$?
+        [[ $status -eq 1 ]] && return 1
+        return 2
     fi
 }
 
-btop_workspace_activity() {
-    local expected_pid=$1
-    local expected_idx=$2
-    local expected_window_server_id=$3
-    local display_uuid
-    local space_id
-    local activity=
-    local matches=0
-    local workspace_activity
+read_timer_state() {
+    local wanted_generation=$1
+    local state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid
 
-    load_displays || return 1
-    while IFS=$'\t' read -r display_uuid space_id; do
-        [[ -n "$display_uuid" && -n "$space_id" ]] || continue
-        workspace_activity=$(
-            workspace_records_for_owner "$display_uuid" "$space_id" \
-                | "$JQ" -r \
-                    --argjson expected_pid "$expected_pid" \
-                    --argjson expected_idx "$expected_idx" \
-                    --argjson expected_window_server_id "$expected_window_server_id" \
-                    --argjson ops_workspace "$OPS_WORKSPACE" '
-                        [ .[]
-                          | select(.index == $ops_workspace)
-                          | select(any(.windows[]?;
-                              .id.pid == $expected_pid
-                              and .id.idx == $expected_idx
-                              and .window_server_id == $expected_window_server_id
-                          ))
-                          | if .is_active == true then "active" else "inactive" end
-                        ] | unique
-                        | if length == 1 then .[0]
-                          elif length == 0 then empty
-                          else error("Ops workspace is ambiguous")
-                          end
-                    '
-        ) || return 1
-        if [[ -n "$workspace_activity" ]]; then
-            activity=$workspace_activity
-            matches=$((matches + 1))
-        fi
-    done < <(
-        "$JQ" -r '.[] | select(.space != null and .uuid != null) | [.uuid, (.space | tostring)] | @tsv' <<<"$displays_json"
-    )
-
-    [[ $matches -eq 1 ]] || return 1
-    printf '%s\n' "$activity"
+    [[ -f "$TIMER_STATE" ]] || return 1
+    IFS=$'\t' read -r state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid \
+        <"$TIMER_STATE" || return 1
+    [[ "$state_generation" == "$wanted_generation" ]] || return 1
+    printf '%s\n' "$state_id"$'\t'"$state_pid"$'\t'"$state_bundle"$'\t'"$state_title"$'\t'"$state_workspace"$'\t'"$state_generation"$'\t'"$state_daemon_pid"
 }
 
-expire_btop_window() {
-    local expected_pid=$1
-    local expected_idx=$2
-    local expected_window_server_id=$3
-    local expected_generation=$4
-    local scheduled_pid=
-    local scheduled_idx=
-    local scheduled_window_server_id=
-    local scheduled_generation=
-    local workspace_activity=
-
-    [[ -f "$TIMER_STATE" ]] || exit 0
-    IFS=$'\t' read -r scheduled_pid scheduled_idx scheduled_window_server_id scheduled_generation < "$TIMER_STATE" || exit 0
-    [[ $scheduled_pid == "$expected_pid" \
-        && $scheduled_idx == "$expected_idx" \
-        && $scheduled_window_server_id == "$expected_window_server_id" \
-        && $scheduled_generation == "$expected_generation" ]] || exit 0
-
-    # A missing/restarted Rift instance, changed title, ambiguous workspace, or
-    # changed identity is deliberately a no-op. Never close an uncertain window.
-    if ! is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
-        rm -f "$TIMER_STATE"
-        return
-    fi
-    workspace_activity=$(
-        btop_workspace_activity "$expected_pid" "$expected_idx" "$expected_window_server_id"
-    ) || workspace_activity=
-    if [[ $workspace_activity == active ]]; then
-        schedule_close "$expected_pid" "$expected_idx" "$expected_window_server_id"
-        return
-    fi
-    if [[ $workspace_activity == inactive ]] \
-        && is_btop_window "$expected_pid" "$expected_idx" "$expected_window_server_id"; then
-        "$RIFT_CLI" execute window close --window-server-id "$expected_window_server_id"
-    fi
-    rm -f "$TIMER_STATE"
+remove_timer_state() {
+    local wanted_generation=$1
+    local state
+    state=$(read_timer_state "$wanted_generation") || return 0
+    [[ -n "$state" ]] && rm -f "$TIMER_STATE"
 }
 
 schedule_close() {
-    local pid=$1
-    local idx=$2
-    local window_server_id=$3
-    local generation
-    generation="$(/bin/date +%s%N)-$$-$RANDOM-$RANDOM"
+    local window_id=$1
+    local app_pid=$2
+    local app_bundle=$3
+    local title=$4
+    local generation daemon_pid state_tmp
 
+    generation="$(/bin/date +%s)-$$-$RANDOM-$RANDOM"
+    daemon_pid=$(current_aerospace_daemon_pid) || {
+        rm -f "$TIMER_STATE"
+        echo "start-btop: AeroSpace daemon PID unavailable; timer cancelled" >&2
+        return 0
+    }
     umask 077
-    printf '%s\t%s\t%s\t%s\n' "$pid" "$idx" "$window_server_id" "$generation" > "$TIMER_STATE"
+    state_tmp="${TIMER_STATE}.tmp.$$"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$window_id" "$app_pid" "$app_bundle" "$title" "$OPS_WORKSPACE" "$generation" "$daemon_pid" >"$state_tmp"
+    mv -f "$state_tmp" "$TIMER_STATE"
+
     (
-        sleep "$CLOSE_AFTER"
+        "$SLEEP" "$CLOSE_AFTER"
         /usr/bin/env START_BTOP_LOCKED=0 \
-            RIFT_CLI="$RIFT_CLI" \
             START_BTOP_LOCK_PATH="$LOCK_PATH" \
             START_BTOP_TIMER_STATE="$TIMER_STATE" \
             START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
             START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
-            /bin/bash "$0" --expire "$pid" "$idx" "$window_server_id" "$generation"
+            "$BASH_BIN" "$SCRIPT_PATH" --expire \
+            "$window_id" "$app_pid" "$app_bundle" "$title" "$generation" "$daemon_pid"
     ) </dev/null >/dev/null 2>&1 &
 }
 
-if [[ ${1:-} == --expire ]]; then
-    expire_btop_window "$2" "$3" "$4" "$5"
+expire_btop_window() {
+    local expected_id=$1
+    local expected_pid=$2
+    local expected_bundle=$3
+    local expected_title=$4
+    local expected_generation=$5
+    local expected_daemon_pid=$6
+    local state state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid
+    local visible_status
+
+    state=$(read_timer_state "$expected_generation") || return 0
+    IFS=$'\t' read -r state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid \
+        <<<"$state"
+    [[ "$state_id" == "$expected_id" \
+        && "$state_pid" == "$expected_pid" \
+        && "$state_bundle" == "$expected_bundle" \
+        && "$state_title" == "$expected_title" \
+        && "$state_workspace" == "$OPS_WORKSPACE" \
+        && "$state_daemon_pid" == "$expected_daemon_pid" ]] || return 0
+
+    if ! daemon_is_unchanged "$expected_daemon_pid" \
+        || ! has_exact_window "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title" "$OPS_WORKSPACE"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+
+    if ops_workspace_is_visible; then
+        schedule_close "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title"
+        return 0
+    else
+        visible_status=$?
+        if [[ $visible_status -ne 1 ]]; then
+            remove_timer_state "$expected_generation"
+            return 0
+        fi
+    fi
+
+    # Recheck the target and visible workspace just before closing.
+    if ! daemon_is_unchanged "$expected_daemon_pid" \
+        || ! has_exact_window "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title" "$OPS_WORKSPACE"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+    if ops_workspace_is_visible; then
+        schedule_close "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title"
+        return 0
+    else
+        visible_status=$?
+        if [[ $visible_status -ne 1 ]]; then
+            remove_timer_state "$expected_generation"
+            return 0
+        fi
+    fi
+
+    if ! "$AEROSPACE_BIN" close --window-id "$expected_id"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+    remove_timer_state "$expected_generation"
+}
+
+if [[ "${1:-}" == "--expire" ]]; then
+    shift
+    expire_btop_window "$@"
     exit 0
 fi
 
-load_displays
-active_display=$(active_display_uuid)
-space_id=$(active_space_id)
-focused_workspace=
-if ! $focus_workspace; then
-    focused_workspace=$(active_workspace_index "$active_display" "$space_id")
+if existing_window=$(find_btop_window); then
+    :
+else
+    status=$?
+    if [[ $status -ne 1 ]]; then
+        echo "start-btop: AeroSpace window query failed or found multiple btop windows" >&2
+        exit 1
+    fi
+    existing_window=
 fi
-target_display=$(target_display_uuid "$active_display")
-
-existing_window=$(find_btop_window) || existing_window=
 
 if [[ -n "$existing_window" ]]; then
-    btop_pid=$("$JQ" -er '.pid' <<< "$existing_window")
-    btop_idx=$("$JQ" -er '.idx' <<< "$existing_window")
-    btop_display=$("$JQ" -er '.display_uuid' <<< "$existing_window")
-    if [[ "$btop_display" != "$target_display" ]]; then
-        "$RIFT_CLI" execute display move-window \
-            --uuid "$target_display" --window-id "$btop_idx"
-    fi
-    if $focus_workspace; then
-        if [[ "$target_display" != "$active_display" ]]; then
-            focus_display "$target_display"
-        fi
-        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
-        "$RIFT_CLI" execute workspace switch "$OPS_WORKSPACE"
-        ensure_btop_fullscreen "$btop_pid" "$btop_idx" "$target_display"
-    else
-        "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
-    fi
-    schedule_close_if_safe "$btop_pid" "$btop_idx"
-    exit 0
-fi
-
-if $focus_workspace && [[ "$target_display" != "$active_display" ]]; then
-    focus_display "$target_display"
-fi
-"$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
-
-# WezTerm publishes its title after launch; poll Rift until the managed window
-# appears in one of the managed native spaces.
-window_record=
-for _ in {1..200}; do
-    if window_record=$(find_btop_window) && [[ -n "$window_record" ]]; then
-        break
-    fi
-    window_record=
-    sleep 0.1
-done
-
-if [[ -z "$window_record" ]]; then
-    echo "start-btop: Rift WezTerm window not detected" >&2
-    exit 1
-fi
-
-btop_pid=$("$JQ" -er '.pid' <<< "$window_record")
-btop_idx=$("$JQ" -er '.idx' <<< "$window_record")
-if $focus_workspace; then
-    "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" --follow "$btop_idx"
-    ensure_btop_fullscreen "$btop_pid" "$btop_idx" "$target_display"
+    IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$existing_window"
 else
-    "$RIFT_CLI" execute workspace move-window "$OPS_WORKSPACE" "$btop_idx"
-    "$RIFT_CLI" execute workspace switch "$focused_workspace"
+    "$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
+
+    window_record=
+    for _ in {1..200}; do
+        if window_record=$(find_btop_window); then
+            break
+        else
+            status=$?
+            [[ $status -eq 1 || $status -eq 2 ]] || {
+                echo "start-btop: multiple btop windows appeared" >&2
+                exit 1
+            }
+        fi
+        "$SLEEP" 0.1
+    done
+    if [[ -z "$window_record" ]]; then
+        echo "start-btop: AeroSpace WezTerm btop window not detected" >&2
+        exit 1
+    fi
+    IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$window_record"
 fi
-schedule_close_if_safe "$btop_pid" "$btop_idx"
+
+if [[ "$workspace" != "$OPS_WORKSPACE" ]]; then
+    "$AEROSPACE_BIN" move-node-to-workspace --window-id "$window_id" "$OPS_WORKSPACE"
+    workspace=$OPS_WORKSPACE
+fi
+
+"$AEROSPACE_BIN" fullscreen on --window-id "$window_id"
+
+if $focus_workspace; then
+    "$AEROSPACE_BIN" workspace "$OPS_WORKSPACE"
+    "$AEROSPACE_BIN" focus --window-id "$window_id"
+fi
+
+schedule_close "$window_id" "$app_pid" "$app_bundle" "$title"

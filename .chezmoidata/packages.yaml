@@ -6,11 +6,13 @@ packages:
       - osx-cross/avr
       - felixkratz/formulae
       - acsandmann/tap
+      - nikitabobko/tap
     trusted_taps:
       - qmk/qmk
       - osx-cross/arm
       - osx-cross/avr
       - acsandmann/tap
+      - nikitabobko/tap
     brews:
       - atuin
       - bat
@@ -58,6 +60,7 @@ packages:
       - acsandmann/tap/rift
       - felixkratz/formulae/borders
     casks:
+      - nikitabobko/tap/aerospace
       - font-sf-pro
       - font-hack-nerd-font
       - font-symbols-only-nerd-font
@@ -79,7 +82,7 @@ packages:
       aegis:
         version: 1.1.0
         bundle_id: Aegis.Aegis
-        local_revision: 0bbf457e5d518f2254986fb71265ec6855d95b90
+        local_revision: 0b48a069ff81840f39f537e928e4589b0ef1ae3a
         signing_identity: Aegis Local Code Signing
         url: https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip
         sha256: 89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59

@@ -27,7 +27,6 @@ readonly AEGIS_VERSION="{{ .packages.darwin.managed_apps.aegis.version }}"
 readonly AEGIS_BUNDLE_ID="{{ .packages.darwin.managed_apps.aegis.bundle_id }}"
 readonly AEGIS_URL="{{ .packages.darwin.managed_apps.aegis.url }}"
 readonly AEGIS_SHA256="{{ .packages.darwin.managed_apps.aegis.sha256 }}"
-readonly RIFT_LAUNCH_AGENT_LABEL="git.acsandmann.rift"
 {{- end }}
 
 marker_matches() {
@@ -304,20 +303,6 @@ reconcile_aegis() {
     rm -rf "$temporary_dir"
 }
 
-reconcile_rift_service() {
-    local rift_bin="${RIFT_BIN:-$HOME/.local/bin/rift}"
-    local config="${RIFT_CONFIG_PATH:-$HOME/.config/rift/config.toml}"
-
-    if ! command -v "$rift_bin" >/dev/null 2>&1; then
-        echo "Warning: Rift not found; local candidate validation will retry next apply." >&2
-        return 1
-    fi
-
-    if ! "$rift_bin" config check --config "$config"; then
-        echo "Warning: Rift configuration failed its offline check; no service was changed." >&2
-        return 1
-    fi
-}
 {{- end }}
 
 if [[ "${TOOL_RECONCILE_LIB_ONLY:-0}" != "1" ]]; then
@@ -331,7 +316,6 @@ if [[ "${TOOL_RECONCILE_LIB_ONLY:-0}" != "1" ]]; then
     reconcile_codex_acp || failed=1
 {{- if eq .chezmoi.os "darwin" }}
     reconcile_aegis || failed=1
-    reconcile_rift_service || failed=1
 {{- end }}
 
     if [[ "$failed" -ne 0 ]]; then

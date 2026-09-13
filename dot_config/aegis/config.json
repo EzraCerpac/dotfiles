@@ -31,40 +31,34 @@
   "cpuUpdateInterval" : 3,
   "customCommands" : [
     {
-      "command" : "~\/.local\/bin\/rift-layout-profile scrolling",
-      "description" : "Use Rift's scrolling layout on every workspace",
+      "command" : "/opt/homebrew/bin/aerospace reload-config",
+      "description" : "Reload the AeroSpace configuration",
       "icon" : "rectangle.split.3x1",
-      "label" : "Laptop Scrolling"
+      "label" : "Reload AeroSpace"
     },
     {
-      "command" : "~\/.local\/bin\/rift-layout-profile traditional",
-      "description" : "Use Rift's traditional layout on every workspace",
+      "command" : "/opt/homebrew/bin/aerospace balance-sizes",
+      "description" : "Balance windows in the current workspace",
       "icon" : "rectangle.split.3x1",
-      "label" : "Docked Traditional"
+      "label" : "Balance Windows"
     },
     {
-      "command" : "rift-cli execute mission-control show-all",
-      "description" : "Show every non-empty Rift workspace",
+      "command" : "/opt/homebrew/bin/aerospace flatten-workspace-tree && /opt/homebrew/bin/aerospace layout tiles",
+      "description" : "Reset the current workspace to tiles",
       "icon" : "square.grid.2x2",
-      "label" : "All Workspaces"
+      "label" : "Reset Layout"
     },
     {
-      "command" : "rift-cli execute mission-control show-current",
-      "description" : "Show windows in the current Rift workspace",
+      "command" : "/opt/homebrew/bin/aerospace run-callback --for-every-window on-window-detected",
+      "description" : "Reapply app and title rules to existing windows",
       "icon" : "rectangle.grid.2x2",
-      "label" : "Current Workspace"
+      "label" : "Reapply App Rules"
     },
     {
-      "command" : "rift-cli execute config reload",
-      "description" : "Reload the tracked Rift configuration",
+      "command" : "/usr/bin/open -a \"Mission Control\"",
+      "description" : "Open native macOS Mission Control",
       "icon" : "arrow.clockwise",
-      "label" : "Reload Rift"
-    },
-    {
-      "command" : "\/bin\/launchctl kickstart -k gui\/$(id -u)\/git.acsandmann.rift",
-      "description" : "Restart Rift and return to the tracked layout",
-      "icon" : "power",
-      "label" : "Restart Rift"
+      "label" : "Mission Control"
     }
   ],
   "dateFormat" : "long",
@@ -217,14 +211,10 @@
   "windowIconExpansionAutoCollapseDelay" : 2,
   "windowIconFrameHeight" : 22,
   "windowIconFrameWidth" : 22,
-  "workspaceLabelOverrides" : {
-    "10" : "B",
-    "11" : "T",
-    "12" : "E",
-    "13" : "M"
-  },
-  "workspaceLabelStyle" : "index",
-  "windowManagerType" : "rift",
+  "workspaceLabelOverrides" : {},
+  "workspaceOrder" : ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "B", "T", "E", "M"],
+  "workspaceLabelStyle" : "nameInitial",
+  "windowManagerType" : "aerospace",
   "windowTitleFontSize" : 11,
   "windowUpdateDuration" : 0.2
 }

@@ -100,7 +100,7 @@ local function process_basename(path)
   return path:match("([^/\\]+)$") or path
 end
 
--- Give Rift and wm-focus one stable outer-window marker. Herdr updates its
+-- Give AeroSpace and wm-focus one stable outer-window marker. Herdr updates its
 -- pane title to the active host/workspace, so matching that title directly is
 -- not reliable. Raw shells, btop, and Gitlogue have different foreground
 -- executables and keep their ordinary titles.

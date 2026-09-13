@@ -25,20 +25,37 @@ require_clean_source() {
     local status=""
     local git_bin="${AEGIS_GIT_BIN:-git}"
     local jj_bin="${AEGIS_JJ_BIN:-jj}"
+    local parent_count=""
 
     [[ -d "$AEGIS_SOURCE_DIR" ]] || die "source checkout is missing: $AEGIS_SOURCE_DIR"
     [[ -d "$AEGIS_SOURCE_DIR/.jj" ]] || die "source is not a JJ checkout: $AEGIS_SOURCE_DIR"
-    require_command "$git_bin"
     require_command "$jj_bin"
 
     "$jj_bin" --no-pager -R "$AEGIS_SOURCE_DIR" status >/dev/null 2>&1 || \
         die "could not inspect JJ checkout: $AEGIS_SOURCE_DIR"
-    status="$("$git_bin" -C "$AEGIS_SOURCE_DIR" status --porcelain --untracked-files=all)"
-    [[ -z "$status" ]] || die "source checkout is dirty: $AEGIS_SOURCE_DIR"
 
-    actual_revision="$("$git_bin" -C "$AEGIS_SOURCE_DIR" rev-parse HEAD)"
+    status="$("$jj_bin" --no-pager -R "$AEGIS_SOURCE_DIR" diff --summary -r @)" || \
+        die "could not inspect JJ working copy changes: $AEGIS_SOURCE_DIR"
+    [[ -z "$status" ]] || die "JJ working copy is not empty: $AEGIS_SOURCE_DIR"
+
+    parent_count="$("$jj_bin" --no-pager -R "$AEGIS_SOURCE_DIR" log --no-graph -r @ -T 'parents.len()')" || \
+        die "could not inspect JJ working copy parents: $AEGIS_SOURCE_DIR"
+    [[ "$parent_count" == 1 ]] || die "JJ working copy must have exactly one parent; found $parent_count"
+
+    actual_revision="$("$jj_bin" --no-pager -R "$AEGIS_SOURCE_DIR" log --no-graph -r @- -T 'commit_id')" || \
+        die "could not inspect JJ working copy parent revision: $AEGIS_SOURCE_DIR"
     [[ "$actual_revision" == "$AEGIS_EXPECTED_REVISION" ]] || \
-        die "source revision is $actual_revision, expected $AEGIS_EXPECTED_REVISION"
+        die "JJ parent revision is $actual_revision, expected $AEGIS_EXPECTED_REVISION"
+
+    if command -v "$git_bin" >/dev/null 2>&1 && \
+        "$git_bin" -C "$AEGIS_SOURCE_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+        status="$("$git_bin" -C "$AEGIS_SOURCE_DIR" status --porcelain --untracked-files=all)"
+        [[ -z "$status" ]] || die "source checkout is dirty: $AEGIS_SOURCE_DIR"
+
+        actual_revision="$("$git_bin" -C "$AEGIS_SOURCE_DIR" rev-parse HEAD)"
+        [[ "$actual_revision" == "$AEGIS_EXPECTED_REVISION" ]] || \
+            die "source revision is $actual_revision, expected $AEGIS_EXPECTED_REVISION"
+    fi
     AEGIS_INSTALLED_REVISION="$actual_revision"
 }
 

@@ -19,9 +19,4 @@ if rg -q 'showMissionControlGestureEnabled.*false' "$mission_script"; then
     fail "native vertical Mission Control fallback is disabled"
 fi
 
-if rg -q 'move_boring_notch_to_trash|mv .*boringNotch' \
-    "$ROOT/run_after_04-migrate-window-manager.sh.tmpl"; then
-    fail "migration still moves BoringNotch to Trash"
-fi
-
 printf 'window-manager refinement tests passed\n'

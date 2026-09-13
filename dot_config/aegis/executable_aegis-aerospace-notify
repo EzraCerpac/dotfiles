@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Fcntl qw(O_WRONLY O_NONBLOCK S_ISFIFO);
+
+# Drop notifications when Aegis is absent or busy. Never leave a blocked
+# writer behind when the reader restarts between the check and open.
+my $pipe = "$ENV{HOME}/.config/aegis/aerospace.pipe";
+my @info = lstat($pipe);
+exit 0 unless @info && S_ISFIFO($info[2]);
+my $event = $ARGV[0] // 'workspace_changed';
+exit 2 unless $event =~ /\A(?:workspace_changed|mode:[a-zA-Z0-9_-]+)\z/;
+$SIG{PIPE} = 'IGNORE';
+sysopen(my $writer, $pipe, O_WRONLY | O_NONBLOCK) or exit 0;
+syswrite($writer, "$event\n");
+close($writer);
