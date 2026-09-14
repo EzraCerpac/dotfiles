@@ -3,10 +3,7 @@
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly EXPECTED_REVISION="$(
-    chezmoi execute-template --init=false --source "$ROOT" \
-        '{{ with (index .packages.darwin.managed_apps "aegis") }}{{ .local_revision }}{{ end }}'
-)"
+readonly EXPECTED_REVISION="$(awk -F '"' '/^aegis_local_revision = / { print $2; exit }' "$ROOT/config.toml")"
 
 [[ "$EXPECTED_REVISION" =~ ^[[:xdigit:]]{40}$ ]] || {
     echo "not ok - rendered Aegis revision pin is missing or invalid" >&2
@@ -24,8 +21,14 @@ pass() {
 
 render_helper() {
     local output="${1:?output required}"
-    chezmoi execute-template --init=false --source "$ROOT" \
-        --file dot_local/bin/executable_aegis-local-install.tmpl >"$output"
+    local vars_json
+    vars_json="$(python3 "$ROOT/tests/lib/tera.py" --read-vars "$ROOT/config.toml" \
+        --var-key aegis_bundle_id --var-key aegis_local_revision --var-key aegis_sha256 \
+        --var-key aegis_signing_identity --var-key aegis_url --var-key aegis_version)"
+    python3 "$ROOT/tests/lib/tera.py" \
+        --source "$ROOT/templates/.local/bin/aegis-local-install.tera" \
+        --target "$output" --scratch "$(dirname "$output")" \
+        --vars-json "$vars_json" >/dev/null
     chmod +x "$output"
 }
 

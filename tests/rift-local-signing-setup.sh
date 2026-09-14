@@ -14,9 +14,13 @@ pass() {
 }
 
 render_helper() {
-    local output="${1:?output required}"
-    chezmoi execute-template --init=false --source "$ROOT" \
-        --file dot_local/bin/executable_rift-local-signing-setup.tmpl >"$output"
+    local output="${1:?output required}" vars_json
+    vars_json="$(python3 "$ROOT/tests/lib/tera.py" --read-vars "$ROOT/config.toml" \
+        --var-key rift_signing_identity)"
+    python3 "$ROOT/tests/lib/tera.py" \
+        --source "$ROOT/templates/.local/bin/rift-local-signing-setup.tera" \
+        --target "$output" --scratch "$(dirname "$output")" \
+        --vars-json "$vars_json" >/dev/null
     chmod +x "$output"
     bash -n "$output"
 }

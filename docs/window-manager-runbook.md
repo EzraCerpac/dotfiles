@@ -1,6 +1,6 @@
 # Window-manager runbook
 
-The daily window manager is AeroSpace, configured in `dot_config/aerospace/aerospace.toml`. Aegis supplies the workspace bar, app switcher, and command menu. BoringNotch owns the media, volume, brightness, and device HUDs. macOS owns notifications and native Mission Control.
+The daily window manager is AeroSpace, configured in `dotfiles/.config/aerospace/aerospace.toml`. Aegis supplies the workspace bar, app switcher, and command menu. BoringNotch owns the media, volume, brightness, and device HUDs. macOS owns notifications and native Mission Control.
 
 Rift remains available as a rollback path. Its Homebrew formula, tracked config, and LaunchAgent remain managed; the cutover disabled the Rift LaunchAgent with `launchctl`, and routine package reconciliation no longer changes Rift service state. Do not enable the Rift agent during normal AeroSpace use. This keeps the fallback intact without running both managers.
 
@@ -64,15 +64,25 @@ Aegis is configured for AeroSpace. Its menu provides Reload AeroSpace, Balance W
 
 BoringNotch remains the only owner of media, volume, brightness, and device HUDs. Keep Aegis's corresponding HUDs disabled. macOS owns notification banners; Aegis's optional notification HUD stays disabled so it does not replace native banners.
 
-Keep **Displays have separate Spaces** enabled in macOS. The AeroSpace config and Chezmoi setup do not set `com.apple.spaces spans-displays`; native fullscreen display separation remains a macOS preference. Aegis should hide its bar only on a display showing a native fullscreen window, leaving bars on other displays visible. No new swipe or custom overview integration is part of this configuration. Physical external-display acceptance has not been completed: verify native fullscreen on one display while checking that the other display remains usable and its Aegis bar stays visible.
+Keep **Displays have separate Spaces** enabled in macOS. The AeroSpace config and mise setup do not set `com.apple.spaces spans-displays`; native fullscreen display separation remains a macOS preference. Aegis should hide its bar only on a display showing a native fullscreen window, leaving bars on other displays visible. No new swipe or custom overview integration is part of this configuration. Physical external-display acceptance has not been completed: verify native fullscreen on one display while checking that the other display remains usable and its Aegis bar stays visible.
 
-If Aegis reports that Accessibility is required, grant access to the current signed Aegis app and relaunch it. Screen Recording is only needed for previews; denial should leave icons available. A replacement local signing identity may require renewing Aegis's own permission entry. Do not reset other apps' grants. The managed app reconciliation installs the pinned official Aegis bundle; `aegis-local-install` is an explicit opt-in for the pinned, locally signed source build.
+If Aegis reports that Accessibility is required, grant access to the current signed Aegis app and relaunch it. Screen Recording is only needed for previews; denial should leave icons available. A replacement local signing identity may require renewing Aegis's own permission entry. Do not reset other apps' grants. The explicit Aegis installer retains the pinned, locally signed source build and its existing signing identity.
 
 ## Apply and rollback
 
-Review `chezmoi diff` and `chezmoi apply --dry-run` before applying config changes. The package reconciler installs AeroSpace from `nikitabobko/tap/aerospace`; the config starts AeroSpace at login, and Aegis has its own launch-at-login setting. Aegis's custom commands can reload AeroSpace and reapply window rules after a config change.
+Linked configuration edits change source directly. Review the source diff with JJ.
+For rendered files, inspect `mise -C ~/.config/mise bootstrap dotfiles diff`
+and its apply dry-run before deployment. Routine dotfile application does not
+restart or switch window managers.
 
-Rift's Homebrew package, tracked config, local installer commands, and LaunchAgent remain available and managed. The cutover disabled the Rift agent with `launchctl`; routine package reconciliation does not re-enable it. A rollback requires an explicit manager handoff and launchctl action. Do not remove the retained Rift setup or enable it alongside AeroSpace.
+AeroSpace currently uses the local PR2245/Hyper build, not the upstream cask
+release. Its explicit build task preserves that source revision; ordinary
+package updates leave it alone. Aegis keeps its own launch-at-login setting.
+
+Rift's configuration and explicit local installer remain available. The inactive,
+malformed legacy LaunchAgent belongs in the protected rollback backup, not
+normal bootstrap. Switching to Rift requires a deliberate manager handoff;
+never enable it alongside AeroSpace.
 
 After applying, check AeroSpace startup, the workspace map, app routing, Aegis's bar and switcher, and the Ops/Media placement with the actual external display. Confirm that native fullscreen affects only its own display. This runbook does not claim those live or physical checks have passed.
 

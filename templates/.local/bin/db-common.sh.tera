@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DB_HOST_ALIAS="{{ vars.delftblue_host_alias }}"
+DB_HOSTNAME="{{ vars.delftblue_hostname }}"
+DB_NETID="{{ vars.delftblue_netid }}"
+DB_MODULE_STACK="{{ vars.delftblue_module_stack }}"
+DB_SLURM_ACCOUNT="{{ vars.delftblue_slurm_account }}"
+DB_CPU_PARTITION="{{ vars.delftblue_default_cpu_partition }}"
+DB_GPU_PARTITION="{{ vars.delftblue_default_gpu_partition }}"
+DB_PROJECT_STORAGE_ROOT="{{ vars.delftblue_project_storage_root }}"
+
+db_hostname() {
+    hostname -f 2>/dev/null || hostname 2>/dev/null || true
+}
+
+db_node_kind() {
+    local host=""
+    host="$(db_hostname)"
+    host="${host%%.*}"
+    host="${host,,}"
+
+    case "${host}" in
+        login*)
+            echo "login"
+            ;;
+        cmp*|compute*)
+            echo "compute"
+            ;;
+        vis*|visual*)
+            echo "visual"
+            ;;
+        *)
+            if [[ -n "${SLURM_CLUSTER_NAME:-}" ]]; then
+                echo "compute"
+            else
+                echo "unknown"
+            fi
+            ;;
+    esac
+}
+
+db_is_cluster_host() {
+    if [[ -n "${SLURM_CLUSTER_NAME:-}" ]]; then
+        return 0
+    fi
+
+    if command -v squeue >/dev/null 2>&1 && [[ -d "/scratch/${USER}" ]]; then
+        return 0
+    fi
+
+    local host=""
+    host="$(db_hostname)"
+    [[ "${host}" == *"delftblue"* || "${host}" == "${DB_HOSTNAME}" ]]
+}
+
+db_remote() {
+    ssh "${DB_HOST_ALIAS}" "$@"
+}
+
+db_require_cluster_host() {
+    if ! db_is_cluster_host; then
+        echo "This command should be run on DelftBlue. Use ssh ${DB_HOST_ALIAS} first." >&2
+        exit 1
+    fi
+}

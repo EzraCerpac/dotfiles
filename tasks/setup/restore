@@ -1,0 +1,376 @@
+#!/usr/bin/env bash
+# MISE description="Fetch and apply private settings history without publishing local defaults"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+setup_init || exit $?
+
+initialize_history=0
+while (($#)); do
+    case "$1" in
+        --initialize-history) initialize_history=1; shift ;;
+        -h|--help)
+            cat <<'EOF'
+Restore this host's encrypted settings from the private history repository.
+
+Usage: setup:restore [--initialize-history]
+
+The flag is required only when replacing an existing, unconnected local history
+store. That store is moved to a protected sibling backup before the new one is
+installed. No local state is published.
+EOF
+            exit 0
+            ;;
+        *) setup_error "unknown argument: $1"; exit 2 ;;
+    esac
+done
+
+if [[ -z "${SETUP_HISTORY_ORIGIN:-}" ]]; then
+    setup_error "SETUP_HISTORY_ORIGIN is required; configure the private history URL in ignored local mise config"
+    exit 2
+fi
+if [[ -z "$SETUP_MACHINE_ID" ]]; then
+    setup_error 'SETUP_MACHINE_ID is required to restore host-specific private settings'
+    exit 2
+fi
+
+case "$SETUP_HISTORY_ORIGIN" in
+    git@github.com:EzraCerpac/dotfiles-state|git@github.com:EzraCerpac/dotfiles-state.git|\
+    ssh://git@github.com/EzraCerpac/dotfiles-state|ssh://git@github.com/EzraCerpac/dotfiles-state.git|\
+    https://github.com/EzraCerpac/dotfiles-state|https://github.com/EzraCerpac/dotfiles-state.git)
+        ;;
+    *)
+        setup_error 'history origin must be the private EzraCerpac/dotfiles-state repository'
+        setup_error 'restore will not adopt or fetch private history into the public source repository'
+        exit 2
+        ;;
+esac
+
+history_store_path() {
+    local state_dir
+    if [[ -n "${MISE_STATE_DIR:-}" ]]; then
+        state_dir="$MISE_STATE_DIR"
+    else
+        state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/mise"
+    fi
+    case "$state_dir" in
+        "~/"*) state_dir="$HOME/${state_dir#\~/}" ;;
+    esac
+    printf '%s/history/repo.git\n' "${state_dir%/}"
+}
+
+history_git() {
+    "${SETUP_GIT_BIN:-git}" "$@"
+}
+
+watcher_guard() {
+    local uid platform service_file label state status watcher_processes
+    uid="$(id -u)" || { setup_error 'cannot determine current user for watcher check'; return 2; }
+
+    if command -v pgrep >/dev/null 2>&1; then
+        if pgrep -u "$uid" -f 'mise.*bootstrap dotfiles watch' >/dev/null 2>&1; then
+            setup_error 'mise history watcher is running; stop it through its owner before restoring'
+            return 1
+        else
+            status=$?
+            if [[ "$status" -ne 1 ]]; then
+                setup_error 'could not verify that the mise history watcher is stopped'
+                return 2
+            fi
+        fi
+    else
+        if ! command -v ps >/dev/null 2>&1; then
+            setup_error 'pgrep and ps are unavailable; cannot safely verify that the history watcher is stopped'
+            return 2
+        fi
+        watcher_processes="$(ps -eo args= 2>/dev/null || ps -Ao command= 2>/dev/null)" || {
+            setup_error 'could not inspect processes to verify that the history watcher is stopped'
+            return 2
+        }
+        if grep -Eq 'mise[[:space:]].*bootstrap[[:space:]]+dotfiles[[:space:]]+watch' <<< "$watcher_processes"; then
+            setup_error 'mise history watcher is running; stop it through its owner before restoring'
+            return 1
+        fi
+    fi
+
+    platform="$(uname -s 2>/dev/null || true)"
+    case "$platform" in
+        Darwin)
+            for service_file in "$HOME"/Library/LaunchAgents/dev.mise.*history*.plist; do
+                [[ -f "$service_file" ]] || continue
+                label="$(basename "$service_file" .plist)"
+                if ! command -v launchctl >/dev/null 2>&1; then
+                    setup_error "history watcher definition exists at $service_file but launchctl is unavailable"
+                    return 2
+                fi
+                if state="$(launchctl list "$label" 2>&1)"; then
+                    setup_error "mise history watcher service '$label' is loaded; stop it through launchd before restoring"
+                    return 1
+                elif [[ "$state" != *'Could not find service'* ]]; then
+                    setup_error "cannot confirm history watcher service '$label' is unloaded (${state:-unknown})"
+                    return 2
+                fi
+            done
+            ;;
+        Linux)
+            for service_file in "$HOME"/.config/systemd/user/dev.mise.*history*.service; do
+                [[ -f "$service_file" ]] || continue
+                label="$(basename "$service_file")"
+                if ! command -v systemctl >/dev/null 2>&1; then
+                    setup_error "history watcher definition exists at $service_file but systemctl is unavailable"
+                    return 2
+                fi
+                state="$(systemctl --user is-active "$label" 2>/dev/null || true)"
+                case "$state" in
+                    inactive) ;;
+                    active|activating|deactivating|reloading|maintenance)
+                        setup_error "mise history watcher service '$label' is $state; stop it through systemd before restoring"
+                        return 1
+                        ;;
+                    *)
+                        setup_error "cannot confirm history watcher service '$label' is inactive (state: ${state:-unknown})"
+                        return 2
+                        ;;
+                esac
+            done
+            ;;
+        *)
+            setup_error "cannot check the native history watcher on platform '$platform'"
+            return 2
+            ;;
+    esac
+}
+
+make_stage_path() {
+    local history_dir="$1" path
+    path="$(mktemp -d "$history_dir/.repo.git.restore.XXXXXX")" || return 1
+    rmdir "$path" || return 1
+    printf '%s\n' "$path"
+}
+
+remove_owned_stage() {
+    local path="$1" expected_parent="$2"
+    [[ -n "$path" && "$path" == "$expected_parent"/.repo.git.restore.* ]] || return 2
+    [[ -d "$path" && ! -L "$path" ]] || return 0
+    rm -rf "$path"
+}
+
+write_pending_marker() {
+    local marker="$1" origin="$2" marker_tmp
+    marker_tmp="$(mktemp "${marker}.XXXXXX")" || return 1
+    if ! printf '%s\n' "$origin" > "$marker_tmp" || ! chmod 600 "$marker_tmp" || ! mv "$marker_tmp" "$marker"; then
+        rm -f "$marker_tmp"
+        return 1
+    fi
+}
+
+history_store="$(history_store_path)"
+history_dir="$(dirname "$history_store")"
+pending_marker="$history_dir/.repo.git.restore-pending"
+store_exists=0
+connected=0
+local_history_valid=0
+pending_restore=0
+
+if [[ -e "$pending_marker" || -L "$pending_marker" ]]; then
+    if [[ -L "$pending_marker" || ! -f "$pending_marker" ]]; then
+        setup_error "refusing invalid pending-restore marker: $pending_marker"
+        exit 2
+    fi
+    pending_origin="$(cat "$pending_marker")"
+    if [[ "$pending_origin" != "$SETUP_HISTORY_ORIGIN" ]]; then
+        setup_error "pending restore names a different history origin: $pending_marker"
+        setup_error 'inspect the marker and local store before retrying'
+        exit 2
+    fi
+    pending_restore=1
+fi
+
+if [[ -e "$history_store" || -L "$history_store" ]]; then
+    store_exists=1
+    if [[ -L "$history_store" ]]; then
+        setup_error "refusing symlink history store: $history_store"
+        exit 2
+    fi
+    if history_git "--git-dir=$history_store" rev-parse --is-bare-repository 2>/dev/null | grep -qx true; then
+        local_history_valid=1
+        configured_origin="$(history_git "--git-dir=$history_store" config --get remote.origin.url 2>/dev/null || true)"
+        [[ "$configured_origin" == "$SETUP_HISTORY_ORIGIN" ]] && connected=1
+        if [[ "$pending_restore" -eq 1 && -n "$configured_origin" && "$configured_origin" != "$SETUP_HISTORY_ORIGIN" ]]; then
+            setup_error 'pending restore does not match the local history origin; inspect the history store before retrying'
+            exit 2
+        fi
+    fi
+fi
+
+if [[ "$pending_restore" -eq 1 && "$local_history_valid" -ne 1 ]]; then
+    setup_error 'pending first restore no longer has a valid bare history store; inspect the store before retrying'
+    exit 2
+fi
+
+if [[ "$pending_restore" -eq 1 && "$store_exists" -eq 0 ]]; then
+    setup_error 'pending first restore has no local history store; inspect its backup and retry manually'
+    exit 2
+fi
+
+if [[ "$store_exists" -eq 1 && "$connected" -eq 0 && "$initialize_history" -ne 1 && "$pending_restore" -ne 1 ]]; then
+    setup_error "local history exists but is not connected to the configured private repository: $history_store"
+    setup_error 'review the existing store, then pass --initialize-history to preserve it as a sibling backup before recovery'
+    exit 2
+fi
+
+watcher_guard || exit $?
+
+if [[ "$pending_restore" -eq 0 && "$store_exists" -eq 1 && "$connected" -eq 0 ]]; then
+    printf 'Preparing a staged copy of the private history repository...\n'
+    mkdir -p "$history_dir"
+    umask 077
+    stage_path="$(make_stage_path "$history_dir")" || {
+        setup_error "could not create a private staging path in $history_dir"
+        exit 1
+    }
+    if ! history_git clone --bare --single-branch "$SETUP_HISTORY_ORIGIN" "$stage_path"; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not clone private settings history; the existing local store was left unchanged'
+        exit 1
+    fi
+    if ! history_git "--git-dir=$stage_path" rev-parse --is-bare-repository 2>/dev/null | grep -qx true \
+        || [[ "$(history_git "--git-dir=$stage_path" config --get remote.origin.url 2>/dev/null || true)" != "$SETUP_HISTORY_ORIGIN" ]] \
+        || ! history_git "--git-dir=$stage_path" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'cloned history repository failed validation; the existing local store was left unchanged'
+        exit 1
+    fi
+    backup_dir="$(mktemp -d "$history_dir/repo.git.pre-restore.XXXXXX")" || {
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not create a protected backup location; the existing local store was left unchanged'
+        exit 1
+    }
+    chmod 700 "$backup_dir" || {
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        rmdir "$backup_dir" 2>/dev/null || true
+        setup_error 'could not protect the history backup location; the existing local store was left unchanged'
+        exit 1
+    }
+    if ! mv "$history_store" "$backup_dir/repo.git"; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        rmdir "$backup_dir" 2>/dev/null || true
+        setup_error 'could not preserve the existing local history store; restore stopped before replacement'
+        exit 1
+    fi
+    if ! mv "$stage_path" "$history_store"; then
+        mv "$backup_dir/repo.git" "$history_store" || true
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not install the staged history store; attempted to restore the original store'
+        exit 1
+    fi
+    if ! write_pending_marker "$pending_marker" "$SETUP_HISTORY_ORIGIN"; then
+        mv "$history_store" "$stage_path" || true
+        mv "$backup_dir/repo.git" "$history_store" || true
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not record the pending first-restore state; attempted to restore the original store'
+        exit 1
+    fi
+    pending_restore=1
+    printf 'Preserved the previous history store at %s\n' "$backup_dir/repo.git"
+elif [[ "$pending_restore" -eq 0 && "$store_exists" -eq 0 ]]; then
+    printf 'Preparing first-time private history recovery...\n'
+    mkdir -p "$history_dir"
+    umask 077
+    stage_path="$(make_stage_path "$history_dir")" || {
+        setup_error "could not create a private staging path in $history_dir"
+        exit 1
+    }
+    if ! history_git clone --bare --single-branch "$SETUP_HISTORY_ORIGIN" "$stage_path"; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not clone private settings history; no local history store was installed'
+        exit 1
+    fi
+    if ! history_git "--git-dir=$stage_path" rev-parse --is-bare-repository 2>/dev/null | grep -qx true \
+        || [[ "$(history_git "--git-dir=$stage_path" config --get remote.origin.url 2>/dev/null || true)" != "$SETUP_HISTORY_ORIGIN" ]] \
+        || ! history_git "--git-dir=$stage_path" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'cloned history repository failed validation; no local history store was installed'
+        exit 1
+    fi
+    if ! mv "$stage_path" "$history_store"; then
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not install the staged private history repository'
+        exit 1
+    fi
+    if ! write_pending_marker "$pending_marker" "$SETUP_HISTORY_ORIGIN"; then
+        mv "$history_store" "$stage_path" || true
+        remove_owned_stage "$stage_path" "$history_dir" || true
+        setup_error 'could not record the pending first-restore state; removed the staged history store'
+        exit 1
+    fi
+    pending_restore=1
+fi
+
+printf 'Connecting to private history in fetch-only mode...\n'
+setup_mise --yes bootstrap dotfiles origin set "$SETUP_HISTORY_ORIGIN" --sync fetch-only
+printf '\nReviewing fetched settings state:\n'
+setup_mise bootstrap dotfiles status
+printf '\nApplying incoming settings with native conflict checks...\n'
+setup_mise --yes bootstrap dotfiles pull
+
+if [[ "$pending_restore" -eq 1 ]]; then
+    tracking_refs="$(history_git "--git-dir=$history_store" for-each-ref --format='%(refname)' refs/remotes/origin)" || {
+        setup_error 'could not locate the fetched private history branch after connecting'
+        exit 1
+    }
+    tracking_ref=""
+    extra_ref=""
+    while IFS= read -r ref; do
+        [[ -n "$ref" ]] || continue
+        if [[ -z "$tracking_ref" ]]; then tracking_ref="$ref"; else extra_ref="$ref"; fi
+    done <<< "$tracking_refs"
+    if [[ -z "$tracking_ref" || -n "$extra_ref" ]]; then
+        setup_error 'expected exactly one fetched branch for first restore; inspect the private history repository before retrying'
+        exit 1
+    fi
+    seed_commit="$(history_git "--git-dir=$history_store" rev-parse --verify "$tracking_ref^{commit}")" || {
+        setup_error 'could not resolve the fetched private history commit'
+        exit 1
+    }
+    printf '\nApplying the initial remote checkpoint through native rollback checks...\n'
+    setup_mise bootstrap dotfiles rollback --to "commit:$seed_commit" --all --dry-run
+    setup_mise bootstrap dotfiles rollback --to "commit:$seed_commit" --all --yes
+fi
+
+printf '\nApplying the current host file-permission policy...\n'
+history_identity="${SETUP_AGE_IDENTITY:-$HOME/.config/age/keys.txt}"
+printf 'Refreshing encrypted exact-file enrollment for host %s...\n' "$SETUP_MACHINE_ID"
+SETUP_PROFILE="$SETUP_PROFILE" \
+SETUP_MACHINE_ID="$SETUP_MACHINE_ID" \
+SETUP_HISTORY_ORIGIN="$SETUP_HISTORY_ORIGIN" \
+SETUP_AGE_IDENTITY="$history_identity" \
+MISE_CONFIG_DIR="$SETUP_ROOT" \
+    setup_mise exec -- bash "$SETUP_ROOT/tasks/bootstrap/enroll-history" \
+        --profile "$SETUP_PROFILE" \
+        --machine-id "$SETUP_MACHINE_ID" \
+        --identity "$history_identity" \
+        --origin "$SETUP_HISTORY_ORIGIN" \
+        --refresh
+printf 'Securing the exact current-host tracked paths...\n'
+if ! setup_mise exec -- node -e 'process.exit(0)' >/dev/null 2>&1; then
+    setup_error 'Node must already be available in the selected mise profile to parse exact tracked history paths'
+    exit 1
+fi
+setup_mise bootstrap dotfiles paths --json |
+    setup_mise exec -- node -e '
+const fs = require("fs");
+const document = JSON.parse(fs.readFileSync(0, "utf8"));
+if (!Array.isArray(document.entries)) throw new Error("mise dotfiles paths JSON has no entries array");
+for (const entry of document.entries) {
+  if (entry.mode !== "track") continue;
+  if (typeof entry.path !== "string") throw new Error("tracked mise dotfile entry has no path");
+  process.stdout.write(entry.path + "\n");
+}
+' |
+    bash "$SETUP_ROOT/tasks/bootstrap/history-permissions.sh"
+printf 'Setting routine history mode to manual; no publish was run.\n'
+setup_mise settings set history.sync manual
+if [[ "$pending_restore" -eq 1 ]]; then
+    rm -f "$pending_marker"
+fi

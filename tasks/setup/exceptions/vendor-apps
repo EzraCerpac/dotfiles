@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(uname -s)" != Darwin ]]; then
+    exit 0
+fi
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+manifest="${SCRIPT_DIR}/../vendor-apps.tsv"
+
+if [[ ! -f "$manifest" ]]; then
+    printf 'vendor-apps: exception manifest is missing: %s\n' "$manifest" >&2
+    exit 2
+fi
+
+expand_target() {
+    case "$1" in
+        \~/*) printf '%s/%s\n' "$HOME" "${1:2}" ;;
+        /*) printf '%s\n' "$1" ;;
+        *) return 2 ;;
+    esac
+}
+
+printf 'Named app and CLI exceptions (ownership only; not update or health checks):\n'
+while IFS=$'\t' read -r status app target owner instruction extra || [[ -n "${status}${app}${target}${owner}${instruction}${extra}" ]]; do
+    [[ -z "$status" || "$status" == \#* ]] && continue
+    if [[ -n "$extra" || -z "$app" || -z "$target" || -z "$owner" || -z "$instruction" ]]; then
+        printf 'vendor-apps: invalid row in %s\n' "$manifest" >&2
+        exit 2
+    fi
+    case "$status" in
+        pinned|deferred) ;;
+        *)
+            printf 'vendor-apps: invalid status for %s in %s\n' "$app" "$manifest" >&2
+            exit 2
+            ;;
+    esac
+
+    target_path="$(expand_target "$target")" || {
+        printf 'vendor-apps: target must be absolute or start with ~/ (%s)\n' "$app" >&2
+        exit 2
+    }
+    if [[ -e "$target_path" ]]; then
+        target_state="target exists"
+    else
+        target_state="target missing"
+    fi
+
+    if [[ "$status" == pinned && "$target_state" == "target exists" ]]; then
+        printf 'Pinned: %s — owner %s; %s at %s.\n' "$app" "$owner" "$target_state" "$target_path"
+    else
+        printf 'Deferred: %s — owner %s; %s at %s; %s\n' "$app" "$owner" "$target_state" "$target_path" "$instruction"
+    fi
+done < "$manifest"

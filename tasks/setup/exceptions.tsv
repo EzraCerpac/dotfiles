@@ -1,0 +1,18 @@
+# One explicit updater per remaining unsupported app: profile<TAB>name
+workstation	brooklyn
+workstation	mactex-no-gui
+workstation	aerospace-local
+workstation	pi-plugins
+workstation	typ2docx
+workstation	mlx-vlm
+workstation	vendor-apps
+workstation	zoom
+workstation	karabiner-elements
+workstation	tailscale-app
+workstation	font-sf-pro
+workstation	mlx-audio
+workstation	memo
+workstation	qmk
+workstation	keyboard-toolchains
+workstation	tapped-tools
+workstation	peekaboo

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$script_dir/common.sh"
+
+usage() {
+    cat <<'EOF'
+Persist the local setup profile before loading host-specific mise config.
+
+Usage: tasks/bootstrap/profile --profile ROLE --machine-id ID [--origin URL]
+
+ROLE is workstation, nas, or delftblue. The history origin is optional here;
+use an SSH URL or credential-helper URL without embedded credentials.
+EOF
+}
+
+SETUP_PROFILE=""
+SETUP_MACHINE_ID=""
+SETUP_HISTORY_ORIGIN="${SETUP_HISTORY_ORIGIN:-}"
+
+while (($#)); do
+    case "$1" in
+        --profile) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_PROFILE="$2"; shift 2 ;;
+        --machine-id) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_MACHINE_ID="$2"; shift 2 ;;
+        --origin) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_HISTORY_ORIGIN="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) bootstrap_error "unknown argument: $1"; usage >&2; exit 2 ;;
+    esac
+done
+
+bootstrap_validate_profile
+bootstrap_persist_profile
+printf 'Saved local setup profile %s for host %s.\n' "$SETUP_PROFILE" "$SETUP_MACHINE_ID"

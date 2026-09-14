@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$(uname -s)" == Darwin ]] || exit 0
+if [[ ! -d /Applications/AeroSpace.app ]]; then
+    printf 'Deferred: AeroSpace local build is not installed; use local:aerospace-local-build and the documented activation steps.\n'
+    exit 0
+fi
+version="$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - /Applications/AeroSpace.app/Contents/Info.plist)"
+printf 'Pinned: AeroSpace %s; update only through its explicit local build/install workflow.\n' "$version"

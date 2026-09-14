@@ -69,7 +69,7 @@ test_missing_prerequisite() {
 
     output="$(cmd_provision_prerequisites 2>&1 || true)"
     assert_contains "${output}" "missing keyboard prerequisite: kanata"
-    assert_contains "${output}" "Run: chezmoi apply"
+    assert_contains "${output}" "Run: mise -C ~/.config/mise bootstrap"
     unset -f command
 }
 
@@ -320,7 +320,7 @@ test_qmk_config_failure_propagates() {
     fi
     pass
     assert_contains "${output}" "QMK config failed"
-    assert_contains "${output}" "Run chezmoi apply"
+    assert_contains "${output}" "Run mise -C ~/.config/mise bootstrap"
 }
 
 test_provision_finishes_with_doctor() {

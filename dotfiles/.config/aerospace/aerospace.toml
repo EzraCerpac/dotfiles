@@ -1,0 +1,143 @@
+# Restored from e7e5f92e3143; current workspace and terminal controls retained.
+# Meh = cmd-ctrl-alt; Hyper adds shift. Hyper+Space belongs to Homerow.
+config-version = 2
+start-at-login = true
+auto-reload-config = true
+focus-follows-mouse.enabled = true
+on-focused-monitor-changed = [] # Keep the pointer where you leave it.
+
+after-startup-command = [
+  'exec-and-forget ~/.local/bin/aerospace-default-workspaces',
+]
+
+# AEGIS_INTEGRATION: these helpers never wait for a missing FIFO reader.
+exec-on-workspace-change = ['/bin/bash', '-c', '$HOME/.config/aegis/aegis-aerospace-notify']
+on-focus-changed = ['exec-and-forget ~/.config/aegis/aegis-aerospace-notify']
+on-mode-changed = ['exec-and-forget ~/.config/aegis/aegis-aerospace-mode-notify']
+
+persistent-workspaces = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'B', 'T', 'E', 'M']
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+default-root-container-layout = 'tiles'
+default-root-container-orientation = 'auto'
+accordion-padding = 30
+
+# Transient rules precede app destinations. Native dialogs use AeroSpace's
+# own window classification; title rules run when a window is detected.
+on-window-detected = [
+  { if = 'test %{app-bundle-id} = com.kagi.kagimacOS && test %{window-title} ~= "^Orion Preview(?:$|[[:space:]]*-)"', run = 'layout floating' },
+  { if = 'test %{app-bundle-id} = com.raycast.macos || test %{app-bundle-id} = com.chabomakers.Antinote || test %{app-bundle-id} = com.apple.weather || test %{app-bundle-id} = com.apple.AddressBook', run = 'layout floating' },
+  { if = 'test %{app-bundle-id} = com.openai.codex', run = 'move-node-to-workspace 2' },
+  { if = 'test %{app-bundle-id} = com.kagi.kagimacOS', run = 'move-node-to-workspace B' },
+  { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^herdr([[:space:]]|$)"', run = 'move-node-to-workspace T' },
+  { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^btop([[:space:]]|$)"', run = 'move-node-to-workspace 9' },
+  { if = 'test %{app-bundle-id} = com.apple.mail || test %{app-bundle-id} = net.whatsapp.WhatsApp', run = 'move-node-to-workspace E' },
+  { if = 'test %{app-bundle-id} = com.apple.Music', run = 'move-node-to-workspace M' },
+]
+
+[gaps]
+inner.horizontal = 10
+inner.vertical = 10
+outer.bottom = 10
+outer.left = 10
+outer.right = 10
+outer.top = [{ monitor.'Built-in Retina Display' = 10 }, 45]
+
+# Ops and Media have connection-time defaults, not forced monitor assignments.
+[mode.main.binding]
+cmd-ctrl-alt-h = 'exec-and-forget ~/.local/bin/wm-focus left'
+cmd-ctrl-alt-j = 'exec-and-forget ~/.local/bin/wm-focus down'
+cmd-ctrl-alt-k = 'exec-and-forget ~/.local/bin/wm-focus up'
+cmd-ctrl-alt-l = 'exec-and-forget ~/.local/bin/wm-focus right'
+cmd-ctrl-alt-left = 'exec-and-forget ~/.local/bin/wm-focus left'
+cmd-ctrl-alt-down = 'exec-and-forget ~/.local/bin/wm-focus down'
+cmd-ctrl-alt-up = 'exec-and-forget ~/.local/bin/wm-focus up'
+cmd-ctrl-alt-right = 'exec-and-forget ~/.local/bin/wm-focus right'
+cmd-ctrl-alt-shift-h = 'move --boundaries all-monitors-outer-frame left'
+cmd-ctrl-alt-shift-j = 'move --boundaries all-monitors-outer-frame down'
+cmd-ctrl-alt-shift-k = 'move --boundaries all-monitors-outer-frame up'
+cmd-ctrl-alt-shift-l = 'move --boundaries all-monitors-outer-frame right'
+cmd-ctrl-alt-shift-left = 'move --boundaries all-monitors-outer-frame left'
+cmd-ctrl-alt-shift-down = 'move --boundaries all-monitors-outer-frame down'
+cmd-ctrl-alt-shift-up = 'move --boundaries all-monitors-outer-frame up'
+cmd-ctrl-alt-shift-right = 'move --boundaries all-monitors-outer-frame right'
+
+cmd-ctrl-alt-1 = 'workspace 1'
+cmd-ctrl-alt-2 = 'workspace 2'
+cmd-ctrl-alt-3 = 'workspace 3'
+cmd-ctrl-alt-4 = 'workspace 4'
+cmd-ctrl-alt-5 = 'workspace 5'
+cmd-ctrl-alt-6 = 'workspace 6'
+cmd-ctrl-alt-7 = 'workspace 7'
+cmd-ctrl-alt-8 = 'workspace 8'
+cmd-ctrl-alt-9 = 'exec-and-forget ~/.local/bin/start-btop --focus'
+cmd-ctrl-alt-b = 'workspace B'
+cmd-ctrl-alt-t = 'workspace T'
+cmd-ctrl-alt-e = 'workspace E'
+cmd-ctrl-alt-m = 'workspace M'
+cmd-ctrl-alt-shift-0 = 'balance-sizes'
+cmd-ctrl-alt-shift-1 = 'move-node-to-workspace 1 --focus-follows-window'
+cmd-ctrl-alt-shift-2 = 'move-node-to-workspace 2 --focus-follows-window'
+cmd-ctrl-alt-shift-3 = 'move-node-to-workspace 3 --focus-follows-window'
+cmd-ctrl-alt-shift-4 = 'move-node-to-workspace 4 --focus-follows-window'
+cmd-ctrl-alt-shift-5 = 'move-node-to-workspace 5 --focus-follows-window'
+cmd-ctrl-alt-shift-6 = 'move-node-to-workspace 6 --focus-follows-window'
+cmd-ctrl-alt-shift-7 = 'move-node-to-workspace 7 --focus-follows-window'
+cmd-ctrl-alt-shift-8 = 'move-node-to-workspace 8 --focus-follows-window'
+cmd-ctrl-alt-shift-9 = 'move-node-to-workspace 9 --focus-follows-window'
+cmd-ctrl-alt-shift-b = ['workspace B', 'exec-and-forget open -a "Orion"']
+cmd-ctrl-alt-shift-t = 'move-node-to-workspace T --focus-follows-window'
+cmd-ctrl-alt-shift-e = ['workspace E', 'exec-and-forget open -a "Mail"']
+cmd-ctrl-alt-tab = 'workspace-back-and-forth'
+cmd-ctrl-alt-shift-tab = 'move-workspace-to-monitor --wrap-around next'
+cmd-ctrl-alt-leftSquareBracket = 'list-workspaces --monitor focused --empty no | workspace --stdin --wrap-around prev'
+cmd-ctrl-alt-rightSquareBracket = 'list-workspaces --monitor focused --empty no | workspace --stdin --wrap-around next'
+
+cmd-ctrl-alt-f = 'fullscreen'
+cmd-ctrl-alt-space = 'layout floating tiling'
+cmd-ctrl-alt-comma = 'layout accordion horizontal vertical'
+cmd-ctrl-alt-slash = 'layout tiles horizontal vertical'
+# Shifted '=' is '+', so both modifier variants grow on the same key.
+cmd-ctrl-alt-minus = 'resize smart -50'
+cmd-ctrl-alt-equal = 'resize smart +50'
+cmd-ctrl-alt-shift-minus = 'resize smart -50'
+cmd-ctrl-alt-shift-equal = 'resize smart +50'
+cmd-ctrl-alt-o = 'exec-and-forget open -a "Mission Control"'
+
+cmd-ctrl-alt-shift-a = 'exec-and-forget open -a "Activity Monitor"'
+cmd-ctrl-alt-shift-f = 'exec-and-forget open -a "Finder"'
+cmd-ctrl-alt-shift-y = 'exec-and-forget open -a "System Settings"'
+cmd-ctrl-alt-shift-w = 'exec-and-forget open -a "WhatsApp"'
+cmd-ctrl-alt-shift-m = ['workspace M', 'exec-and-forget open -a "Music"']
+cmd-ctrl-alt-shift-enter = 'exec-and-forget /opt/homebrew/bin/wezterm start -- /opt/homebrew/bin/fish -l'
+
+cmd-ctrl-alt-shift-semicolon = 'mode service'
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+cmd-ctrl-alt-shift-h = ['join-with left', 'mode main']
+cmd-ctrl-alt-shift-j = ['join-with down', 'mode main']
+cmd-ctrl-alt-shift-k = ['join-with up', 'mode main']
+cmd-ctrl-alt-shift-l = ['join-with right', 'mode main']
+cmd-ctrl-alt-shift-left = ['join-with left', 'mode main']
+cmd-ctrl-alt-shift-down = ['join-with down', 'mode main']
+cmd-ctrl-alt-shift-up = ['join-with up', 'mode main']
+cmd-ctrl-alt-shift-right = ['join-with right', 'mode main']
+h = ['join-with left', 'mode main']
+j = ['join-with down', 'mode main']
+k = ['join-with up', 'mode main']
+l = ['join-with right', 'mode main']
+left = ['join-with left', 'mode main']
+down = ['join-with down', 'mode main']
+up = ['join-with up', 'mode main']
+right = ['join-with right', 'mode main']
+shift-h = ['swap left', 'mode main']
+shift-j = ['swap down', 'mode main']
+shift-k = ['swap up', 'mode main']
+shift-l = ['swap right', 'mode main']
+shift-left = ['swap left', 'mode main']
+shift-down = ['swap down', 'mode main']
+shift-up = ['swap up', 'mode main']
+shift-right = ['swap right', 'mode main']
+b = ['balance-sizes', 'mode main']
+r = ['flatten-workspace-tree', 'layout tiles', 'mode main']
+f = ['layout floating tiling', 'mode main']

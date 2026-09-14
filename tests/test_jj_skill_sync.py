@@ -17,8 +17,8 @@ class SkillSyncTest(unittest.TestCase):
         root = Path(self.temp.name)
         self.source = root / "source/jj-waltz"
         self.source.mkdir(parents=True)
-        self.chezmoi = root / "chezmoi"
-        self.chezmoi.mkdir()
+        self.setup = root / "mise-config"
+        self.setup.mkdir()
         (self.source / "references").mkdir()
         (self.source / "references/codex.md").write_text("# Codex\n")
         (self.source / "evals").mkdir()
@@ -33,7 +33,7 @@ class SkillSyncTest(unittest.TestCase):
     def run_sync(self):
         return subprocess.run(
             ["bash", str(SCRIPT)],
-            env={**os.environ, "CHEZMOI_SOURCE_DIR": str(self.chezmoi),
+            env={**os.environ, "MISE_CONFIG_DIR": str(self.setup),
                  "JJ_WALTZ_SKILL_SOURCE": str(self.source)},
             capture_output=True, text=True,
         )
@@ -42,27 +42,27 @@ class SkillSyncTest(unittest.TestCase):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         for target in ("dotfiles/.codex/skills/jj-waltz", "dotfiles/.config/opencode/skills/jj-waltz"):
-            dest = self.chezmoi / target
+            dest = self.setup / target
             self.assertEqual((dest / "references/codex.md").read_text(), "# Codex\n")
             self.assertFalse((dest / "evals").exists())
         (self.source / "references/codex.md").unlink()
         self.write_skill("No references now.")
         self.assertEqual(self.run_sync().returncode, 0)
-        self.assertFalse((self.chezmoi / "dotfiles/.codex/skills/jj-waltz/references/codex.md").exists())
+        self.assertFalse((self.setup / "dotfiles/.codex/skills/jj-waltz/references/codex.md").exists())
 
     def test_missing_link_leaves_destinations_untouched(self):
         self.write_skill("[Missing](references/missing.md)")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing or external local link", result.stderr)
-        self.assertEqual(list(self.chezmoi.iterdir()), [])
+        self.assertEqual(list(self.setup.iterdir()), [])
 
     def test_runtime_cannot_link_to_excluded_evals(self):
         self.write_skill("[Test](evals/private.md)")
         result = self.run_sync()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("link is not distributed", result.stderr)
-        self.assertEqual(list(self.chezmoi.iterdir()), [])
+        self.assertEqual(list(self.setup.iterdir()), [])
 
 
 if __name__ == "__main__":

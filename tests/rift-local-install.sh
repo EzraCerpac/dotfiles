@@ -9,8 +9,14 @@ fail() { echo "not ok - $*" >&2; exit 1; }
 pass() { echo "ok - $*"; }
 
 render_helper() {
-    chezmoi execute-template --init=false --source "$ROOT" --file dot_local/bin/executable_rift-local-install.tmpl >"$1"
-    chmod +x "$1"; bash -n "$1"
+    local output="${1:?output required}" vars_json
+    vars_json="$(python3 "$ROOT/tests/lib/tera.py" --read-vars "$ROOT/config.toml" \
+        --var-key rift_local_revision --var-key rift_signing_identity)"
+    python3 "$ROOT/tests/lib/tera.py" \
+        --source "$ROOT/templates/.local/bin/rift-local-install.tera" \
+        --target "$output" --scratch "$(dirname "$output")" \
+        --vars-json "$vars_json" >/dev/null
+    chmod +x "$output"; bash -n "$output"
 }
 
 make_fixture() {
@@ -168,16 +174,27 @@ test_jj_guards() (
 )
 
 test_real_jj_empty_child() (
-    local tmp="$(mktemp -d)" real_jj parent_revision
+    local tmp="$(mktemp -d)" real_jj parent_revision candidate mise_data
     trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; : >"$tmp/calls"
     real_jj="$(command -v jj)"
+    if [[ "$(readlink "$real_jj" 2>/dev/null || true)" == */mise ]]; then
+        mise_data="${MISE_DATA_DIR:-${HOME}/.local/share/mise}"
+        for candidate in "$mise_data/installs/jj/latest/jj" "$mise_data/installs/jj/latest/bin/jj"; do
+            if [[ -x "$candidate" ]]; then
+                real_jj="$candidate"
+                break
+            fi
+        done
+    fi
+    [[ -x "$real_jj" ]] || fail "no direct JJ executable is available for the fixture"
     rm -rf "$tmp/source/.jj"
     "$real_jj" git init "$tmp/source" >/dev/null
     "$real_jj" -R "$tmp/source" describe -m base >/dev/null
     "$real_jj" -R "$tmp/source" new >/dev/null
     parent_revision="$("$real_jj" -R "$tmp/source" log -r @- --no-graph -T 'commit_id ++ "\n"')"
-    RIFT_RUN_JJ_BIN="$real_jj" RIFT_RUN_EXPECTED_REVISION="$parent_revision" stage "$tmp" >/dev/null
+    export RIFT_RUN_JJ_BIN="$real_jj" RIFT_RUN_EXPECTED_REVISION="$parent_revision"
+    stage "$tmp" >/dev/null
     [[ -x "$tmp/state/releases/$parent_revision/rift" ]] || fail "real-JJ empty child was not accepted"
     pass "real JJ empty child and parent revision are parsed exactly"
 )
@@ -432,11 +449,11 @@ test_template_contract() {
     grep -Fq 'current' "$helper" || fail "current pointer missing"
     local rendered_pin package_pin
     rendered_pin="$(sed -n 's/^readonly RIFT_CONFIGURED_REVISION="\([^"]*\)"/\1/p' "$helper")"
-    package_pin="$(awk '$1 == "rift:" { in_rift = 1; next } in_rift && $1 == "local_revision:" { print $2; exit }' "$ROOT/.chezmoidata/packages.yaml")"
+    package_pin="$(awk -F '"' '/^rift_local_revision = / { print $2; exit }' "$ROOT/config.toml")"
     [[ "$package_pin" =~ ^[[:xdigit:]]{40}$ ]] || fail "package Rift pin is not a 40-hex revision"
     [[ "$rendered_pin" =~ ^[[:xdigit:]]{40}$ ]] || fail "rendered production pin is not a 40-hex revision"
     [[ "$rendered_pin" == "$package_pin" ]] || fail "rendered production pin differs from package pin"
-    grep -Fq '/chezmoi/dot_config/rift/config.toml' "$helper" || \
+    grep -Fq '/dotfiles/.config/rift/config.toml' "$helper" || \
         fail "production activation does not read the tracked Rift config"
     ! grep -Eq 'brew[[:space:]]+(install|upgrade|services)' "$helper" || fail "installer mutates Homebrew"
     pass "installer keeps immutable production pin and no Homebrew mutation"

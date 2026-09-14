@@ -11,11 +11,16 @@ fail() {
 grep -Fq $'BoringNotch\ttheboringteam.boringnotch' \
     "$ROOT/dotfiles/.local/bin/present" || fail "presentation mode does not manage BoringNotch"
 
-mission_script="$ROOT/run_onchange_05-configure-mission-control.sh.tmpl"
-[[ -f "$mission_script" ]] || fail "Mission Control run-on-change script is missing"
-grep -Fq 'enterMissionControlByTopWindowDrag -bool false' "$mission_script" || \
+dock_defaults="$(awk '
+    $0 == "[bootstrap.macos.defaults.\"com.apple.dock\"]" { in_dock = 1; next }
+    in_dock && /^\[/ { exit }
+    in_dock { print }
+' "$ROOT/config.workstation.toml")"
+grep -Fqx 'static-only = true' <<<"$dock_defaults" || fail "Dock static-only setting is missing"
+grep -Fqx 'expose-group-apps = true' <<<"$dock_defaults" || fail "Dock group-app setting is missing"
+grep -Fqx 'enterMissionControlByTopWindowDrag = false' <<<"$dock_defaults" || \
     fail "top-edge Mission Control drag is not disabled"
-if rg -q 'showMissionControlGestureEnabled.*false' "$mission_script"; then
+if grep -Eq '^showMissionControlGestureEnabled[[:space:]]*=[[:space:]]*false$' <<<"$dock_defaults"; then
     fail "native vertical Mission Control fallback is disabled"
 fi
 

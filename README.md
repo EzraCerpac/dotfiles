@@ -1,16 +1,12 @@
 # Dotfiles
 
-Personal dotfiles managed with [chezmoi](https://www.chezmoi.io/). Supports Apple Silicon macOS and Linux. Intel macOS is intentionally unsupported.
+Personal dotfiles managed with mise's native `bootstrap dotfiles` workflow. The source checkout is `~/.config/mise`, from `EzraCerpac/dotfiles`. Supports Apple Silicon macOS, Linux workstations, CerpacNAS, and DelftBlue; Intel macOS is intentionally unsupported.
 
 ## Quick Start
 
-```bash
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply EzraCerpac
-```
+Install mise 2026.9.7 or newer before using the native dotfiles adoption flow. Select the machine role explicitly in the local `~/.config/mise/miserc.toml`: `workstation`, `nas`, or `delftblue`. The role is never inferred from the host name. See the [migration and setup guide](docs/migration.md) for adoption, daily commands, history, and rollback.
 
-This installs chezmoi, clones the repo, bootstraps package managers, installs core tools with `brew` or `apt`, installs versioned runtimes with `mise`, and applies all configs.
-
-See the standalone [workflow guide](docs/workflow-guide.html) for exact daily commands, Herdr concepts and shortcuts, remote workflows, and recovery steps. The current macOS window workflow is documented in [CONTEXT.md](CONTEXT.md).
+The current macOS window workflow is documented in [CONTEXT.md](CONTEXT.md). Herdr's settings and shortcuts live in [its configuration](dotfiles/.config/herdr/config.toml).
 
 For local prose cleanup, see the [humanize-text runbook](docs/humanize-text.md). Run `humanize-text configure` once, then use `humanize-text FILE.typ` or `humanize-clipboard`.
 
@@ -22,54 +18,52 @@ For local prose cleanup, see the [humanize-text runbook](docs/humanize-text.md).
 
 **Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
 
-**macOS**: Rift window manager, Aegis bar and switcher, JankyBorders, Karabiner, Raycast, WezTerm, Ghostty
+**macOS**: AeroSpace, Aegis bar and switcher, JankyBorders, Karabiner, Raycast, WezTerm; Rift remains an explicit optional local build.
 
-## Tool Management
+## Tool and setup management
 
-General-purpose CLI tools, system dependencies, Homebrew taps, and casks are listed in `.chezmoidata/packages.yaml`.
-`chezmoi apply` reconciles them through one generated `run_after_03-reconcile-tools.sh` module. It keeps per-adapter fingerprints under `~/.local/state/chezmoi/tool-reconcile`, checks for missing tools, and invokes only affected ecosystem installers. It never removes undeclared tools.
+`~/.config/mise` is the setup root and source checkout. Shared configuration lives in `config.toml`; the explicit role files are `config.workstation.toml`, `config.nas.toml`, and `config.delftblue.toml`. For workstation and NAS, `setup:update` upgrades declared packages and tools without pruning undeclared installations. DelftBlue's update task stays disabled pending its restricted workflow. Use the task entry point for routine setup work:
 
-`mise` is reserved for versioned runtimes and a small set of tools where pinning matters (`~/.config/mise/config.toml`). Today that mainly means Neovim nightly, Rust, UV, and Julia.
+```sh
+mise -C ~/.config/mise run setup:status
+mise -C ~/.config/mise run setup:update
+```
 
-For one-off Homebrew installs, use the pending-list helpers:
+Dotfile source and private settings history have separate repositories and histories. `EzraCerpac/dotfiles` is ordinary JJ-managed source; native mise history uses a separate private Git repository named `dotfiles-state`. `setup:backup` is the explicit network publication path. `setup:restore` fetches first, restores tracked state, refreshes host enrollment, enforces mode `0600`, and never publishes local defaults.
 
-- `bi ripgrep` installs a formula and records it in `~/.local/state/chezmoi/brew-pending/Brewfile`
-- `bic wezterm` installs a cask and records it in the same pending file
-- `brew-pending` reviews pending entries
-- `brew-promote` moves pending entries into `.chezmoidata/packages.yaml`
-- `brew-adopt` interactively reviews Homebrew formulae and casks installed outside those helpers
+The [software inventory](docs/software-ownership.md) records the pre-cutover tools; [migration status](docs/migration.md#mac-cutover-progress) records the live handoff. Custom Homebrew formulae and unsupported casks have named installer exceptions under the same update command. Grok CLI remains pinned to `1.0.4` because the native registry cannot discover its latest release; upgrading requires an intentional pin change.
+
+For authenticated GitHub downloads, mise reads the existing `gh auth login`
+credential through a credential command. Tokens stay in the system credential
+store. Interactive updates can request administrator authorization for the
+package exceptions; noninteractive runs report those items as deferred.
+
+See [docs/migration.md](docs/migration.md) for recovery steps and current acceptance status.
 
 Review defaults:
 
 - `git diff` opens in `diffnav --side-by-side`
 - `git show` and embedded diff views use `delta --side-by-side --paging=never`
-- `wt` is installed via Homebrew and initialized in fish
+- `wt` is declared in the workstation profile and initialized in fish
 - `jw` is built from the local `~/Projects/jj-waltz` checkout and shell-initialized in fish and zsh
-- `jj-waltz` skill content is sourced from `~/Projects/jj-waltz/skills/jj-waltz` and auto-synced on `chezmoi apply` to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
+- `jj-waltz` skill content is linked from this source checkout to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
 - `prdiff [pr]` opens `gh pr diff` output in `diffnav`
 - `glf [git-log-args...]` selects a commit and replays it in `gitlogue`
 - `gitlogue-menu` selects a Gitlogue mode, author, date range, commit, or theme
 
-## Repository Structure
+## Source layout
 
-```
-dot_config/                          → ~/.config/
-  fish/config.fish.tmpl              → fish shell (cross-platform template)
-  mise/config.toml.tmpl              → profile-aware versioned runtimes and pinned tools
-  nvim/                              → neovim config
-  git/, jj/, starship.toml, ...     → other tool configs
-run_once_01-setup-directories.sh.tmpl   → create ~/Projects, ~/.local/bin, etc.
-run_once_02-install-package-managers.sh.tmpl → brew (macOS) + mise
-run_after_03-reconcile-tools.sh.tmpl    → reconcile packages, mise tools, and standalone tools
-run_once_04-setup-macos.sh.tmpl         → macOS defaults
-run_onchange_06-build-jj-waltz.sh.tmpl  → rebuild local `jw` when the `jj-waltz` Rust source changes
-run_once_07-remove-legacy-kbd-commands.sh.tmpl → remove old `kbd-*` helper commands
-run_after_setup-shell.sh.tmpl           → fish shell setup, /etc/shells, default shell
-run_after_10-enable-touchid-for-sudo.sh.tmpl → macOS Touch ID for sudo via /etc/pam.d/sudo_local
-```
+| Path | Purpose |
+| --- | --- |
+| `config.toml` and `config.<role>.toml` | Shared mise configuration, tasks, and explicit machine profiles |
+| `dotfiles/` | Native symlink sources; editing a linked target edits this source |
+| `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
+| `tasks/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
+| `tasks/install/` and `tasks/local/` | Explicit install and machine lifecycle tasks |
+| `encrypted/` | Existing age-encrypted WakaTime and Himalaya sources; private settings history is stored separately |
 
-`chezmoi apply` rebuilds the local `jw` binary through a `run_onchange` script whose rendered fingerprint is computed from the external `~/Projects/jj-waltz` Rust build inputs. This lets chezmoi notice local source changes even though that checkout is not managed by this dotfiles repo.
+The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.
 
 ## Keyboard Workflow (Corne + QMK)
 
@@ -77,7 +71,7 @@ Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `
 
 Commands:
 
-- `kbd provision` → validate prerequisites managed by `chezmoi apply`, prepare QMK, activate VirtualHID, and install the Kanata daemon
+- `kbd provision` → validate setup prerequisites, prepare QMK, activate VirtualHID, and install the Kanata daemon
 - `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
@@ -88,68 +82,44 @@ Commands:
 - `kbd hud-reload` → reload Hammerspoon HUD overlay
 - `kbd open-artifacts` → open UF2 artifact folder in Finder
 
-`kbd provision` is the sole keyboard lifecycle command. Run it explicitly after `chezmoi apply`; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same command; finished stages are safe to repeat.
+`kbd provision` is an explicit lifecycle task; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same task; finished stages are safe to repeat.
 
-`mise run` keyboard tasks are defined in the source repo's repo-local [`mise.toml`](mise.toml), and `.chezmoiignore` keeps that file from being deployed to `~/mise.toml`. Run them from this chezmoi checkout, not from arbitrary directories.
+Run keyboard tasks from the setup root so mise loads the selected profile:
 
-`~/Projects` is auto-trusted via `~/.config/mise/config.toml`, so project repos under that tree do not need manual `mise trust`.
-
-This chezmoi checkout is intentionally not auto-trusted. If needed, trust it explicitly before running repo-local keyboard tasks:
-
-```bash
-cd ~/.local/share/chezmoi
-mise trust
-mise run kbd_flash_left
-```
-
-If you still have a legacy home-level `mise` task file from the old setup, remove it once:
-
-```bash
-rm -f ~/mise.toml ~/.mise.toml
-```
-
-After cleanup, the keyboard tasks should only appear when your current directory is this chezmoi checkout.
-
-Available repo-local tasks:
-
-- `mise run kbd_provision`
-- `mise run kbd_sync`
-- `mise run kbd_build`
-- `mise run kbd_build_all`
-- `mise run kbd_build_left`
-- `mise run kbd_build_right`
-- `mise run kbd_flash_left`
-- `mise run kbd_flash_right`
-- `mise run kbd_hud`
-- `mise run kbd_images`
+- `mise -C ~/.config/mise run kbd_provision`
+- `mise -C ~/.config/mise run kbd_sync`
+- `mise -C ~/.config/mise run kbd_build`
+- `mise -C ~/.config/mise run kbd_build_all`
+- `mise -C ~/.config/mise run kbd_build_left`
+- `mise -C ~/.config/mise run kbd_build_right`
+- `mise -C ~/.config/mise run kbd_flash_left`
+- `mise -C ~/.config/mise run kbd_flash_right`
+- `mise -C ~/.config/mise run kbd_hud`
+- `mise -C ~/.config/mise run kbd_images`
 
 ## Adding/Editing Configs
 
+Edit ordinary symlinked files at their native target; the target is the tracked source. Edit a Tera template with `--apply` to render and deploy the result. Add globally shared links with `-g`, or scope an entry to a profile:
+
 ```bash
-chezmoi edit ~/.config/fish/config.fish   # edit source file
-chezmoi apply                              # apply changes
-chezmoi-smart-apply                        # re-add trusted app-written drift, then apply
-chezmoi add ~/.config/new-app/config.yaml  # track a new file
-chezmoi update                             # pull + apply from remote
+mise -C ~/.config/mise bootstrap dotfiles edit ~/.config/fish/config.fish
+mise -C ~/.config/mise bootstrap dotfiles edit --apply ~/.config/atuin/config.toml
+mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g ~/.config/new-app/config.yaml
+mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.workstation.toml ~/.config/new-app/config.yaml
 ```
 
-`chezmoi-smart-apply` is the safe path for tracked app configs that mutate themselves in `$HOME`.
-It auto-readds only explicitly allowlisted plain files from `~/.config/chezmoi/smart-apply.toml`
-and stops for manual `chezmoi merge` if any other destination drift is present.
+Change `workstation` to `nas` or `delftblue` for a profile-specific entry. Use `setup:update` for declared package/tool updates; it does not publish source or restart services.
 
 ## Cross-Platform Notes
 
-- Intel macOS is not supported; Homebrew paths and bootstrap scripts assume Apple Silicon macOS when `chezmoi.os == "darwin"`
-- macOS-only configs (Rift, Aegis, JankyBorders, Karabiner, Raycast, WezTerm) are ignored on Linux via `.chezmoiignore`
-- Fish config uses chezmoi templates to conditionally include Homebrew paths, OrbStack, Tailscale alias, etc.
-- On Linux, system packages install via `apt-get`; on macOS, via `brew`
-- `mise` is used only for version-sensitive runtimes and pinned tools, not as the universal installer
+- Intel macOS is not supported; macOS package declarations target Apple Silicon
+- OS and profile variants select the appropriate files and package declarations
+- Tera templates provide small machine-specific values; ordinary linked files remain directly editable
+- The `workstation`, `nas`, or `delftblue` role must be selected explicitly in local mise configuration
 
 ## CerpacNAS Remote Codex
 
-The `nas` chezmoi profile installs shared configuration and user-space tools. Coordinate NAS work from a Mac Codex task, with separate worker tasks running through native Codex Remote SSH. The local `work-on-cerpacnas` skill in `~/.agents/skills/` describes this workflow and is not managed by chezmoi. Existing `nas`/`cerpacnas` SSH aliases continue to use root.
-
-The NAS profile auto-selects on the CerpacNAS hostname. It follows the dotfiles `dev` branch and leaves `main` untouched. Its static x86_64-musl `jw` installer runs only when the exact release archive checksum is pinned in chezmoi data; until v0.3.1 is published, it skips safely.
+The explicit `nas` profile describes shared configuration and user-space tools. Coordinate NAS work from a Mac task, with separate worker tasks through native Codex Remote SSH. The local `work-on-cerpacnas` skill in `~/.agents/skills/` describes this workflow. Existing `nas`/`cerpacnas` SSH aliases continue to use root. NAS activation is still pending a reachable host and compatibility checks; this README does not claim the profile has been applied there.
 
 ## DelftBlue Profile
 
@@ -163,17 +133,7 @@ It is intentionally smaller than the normal Linux workstation setup:
 - Slurm starter templates live in `~/.config/delftblue/jobs/`
 - local SSH and `rsync` helpers are installed via `~/.ssh/config` and `~/.local/bin/db*`
 
-Set it in your chezmoi config on DelftBlue:
-
-```toml
-[data]
-profile = "delftblue"
-
-[data.delftblue]
-netid = "ecerpac"
-slurm_account = "education-eemcs-msc-cosse"
-project_storage_root = "/path/to/project/storage" # optional
-```
+Select `delftblue` explicitly in that machine's ignored local mise configuration. Keep the host's netid, Slurm account, and optional project-storage root in local settings; do not copy them into the public shared configuration. The cluster profile is not cut over or accepted. Existing `.bashrc` and `.bash_profile` files need explicit conflict review and targeted deployment; DelftBlue does not automatically adopt Linux skeleton files.
 
 Important helpers:
 

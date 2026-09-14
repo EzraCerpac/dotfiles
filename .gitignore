@@ -39,9 +39,6 @@ dist/
 build/
 *.egg-info/
 
-# Chezmoi specific
-.chezmoi.toml.local
-
 # Tool-specific ignores
 karabiner/automatic_backups/
 nvim/lazy-lock.json
@@ -68,5 +65,21 @@ archive/drafts/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-AGENTS.md
+/AGENTS.md
 
+
+# Host identity, history connection, and migration artifacts
+/miserc.toml
+/config.local.toml
+/github_tokens.toml
+/.setup-state/
+
+# Dotfile source trees must override user-global ignore patterns.
+!dotfiles/
+!dotfiles/**
+!templates/
+!templates/**
+!seeds/
+!seeds/**
+
+/config.host-*.toml

@@ -1,0 +1,49 @@
+"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+
+[user]
+name = "Ezra Cerpac"
+email = "47384389+EzraCerpac@users.noreply.github.com"
+
+[ui]
+default-command = ["log"]
+pager = ["hunk", "pager"]
+diff-formatter = ":git"
+editor = "nvim +startinsert"
+merge-editor = "vimdiff"
+diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
+
+[aliases]
+d = ["util", "exec", "--", "bash", "-lc", "set -o pipefail; jj diff --git \"$@\" | diffnav --side-by-side", ""]
+
+[template-aliases]
+"format_short_signature(signature)"= "signature.email().local()"
+
+[git]
+private-commits = "description(glob:'private:*') | description(glob:'private-*:*') | bookmarks(glob:'private-*')"
+
+[remotes.origin]
+auto-track-bookmarks = "~substring:\"private\""
+
+[snapshot]
+max-new-file-size = "1MiB"  # Default
+
+[merge-tools.vimdiff]
+program = "nvim"
+
+[revset-aliases]
+# Root changes among the current change and up to n ancestors of its parent
+"p(n)" = "roots(@ | ancestors(@-, n))"
+# Default showing more (n)
+"default(n)" = "present(@) | ancestors(immutable_heads().., n) | present(trunk())"
+# All changes authored by you
+"mine()" = "author_email(exact-i:\"47384389+EzraCerpac@users.noreply.github.com\")"
+# Get changes whose descriptions start with WIP or TODO, optionally bracketed or followed by a colon
+"wip" = "description(regex:\"(?i)^(\\\\[(wip|todo)\\\\]|(wip|todo))(:|[[:space:]]|$)\")"
+# All changes with 'Bug XXXXX' in subject (find heads/roots as below)
+"bug_all(x)" = "mutable() & subject(glob:\"Bug *\") & subject(x)"
+"bug(x)" = "heads(bug_all(x))"
+"bug_root(x)" = "roots(bug_all(x))"
+# Notes and connected history
+"just_notes()" = "subject(substring:\"NOTE:\") | subject(substring:\"TODO:\")"
+"my_notes()" = "connected(mine() & just_notes())"
+"notes()" = "present(@) | just_notes() | just_notes()-"

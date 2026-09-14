@@ -15,9 +15,9 @@ pass() {
 
 render_wizard() {
     local output="${1:?output required}"
-    chezmoi execute-template --init=false --source "$ROOT" \
-        --file dot_local/bin/executable_aegis-local-signing-setup.tmpl >"$output"
+    cp "$ROOT/dotfiles/.local/bin/aegis-local-signing-setup" "$output"
     chmod +x "$output"
+    bash -n "$output"
 }
 
 make_fixture() {

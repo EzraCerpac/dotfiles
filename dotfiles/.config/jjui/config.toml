@@ -1,0 +1,280 @@
+[[actions]]
+name = "revisions.diff"
+desc = "diff"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_interactive("diff", "-r", id)
+'''
+
+[[actions]]
+name = "show-oplog-diff"
+lua = '''
+local op_id = context.operation_id()
+if not op_id then
+  flash({ text = "No operation selected", error = true })
+  return
+end
+
+local out, err = jj("op", "show", op_id, "--color", "always")
+if err then
+  flash({ text = err, error = true })
+  return
+end
+
+jjui.diff.show(out)
+'''
+
+[[bindings]]
+action = "show-oplog-diff"
+key = "ctrl+o"
+scope = "oplog"
+desc = "show oplog diff"
+
+[[actions]]
+name = "resolve"
+lua = '''
+jj_interactive("resolve")
+'''
+
+[[bindings]]
+action = "resolve"
+key = "R"
+scope = "revisions"
+desc = "resolve"
+
+[[actions]]
+name = "new-main"
+lua = '''
+jj_async("new", "main")
+revisions.refresh()
+'''
+
+[[actions]]
+name = "show-after-revisions"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+revset.set("::" .. id)
+'''
+
+[[bindings]]
+action = "show-after-revisions"
+key = "M"
+scope = "revisions"
+desc = "show descendants"
+
+[[actions]]
+name = "toggle-parent"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async(
+  "rebase",
+  "-r",
+  "@",
+  "-d",
+  "all:(parents(@) | " .. id .. ") ~ (parents(@) & " .. id .. ")"
+)
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "toggle-parent"
+key = "ctrl+p"
+scope = "revisions"
+desc = "toggle parent"
+
+[[actions]]
+name = "move-commit-down"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("rebase", "-r", id, "--insert-before", id .. "-")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "move-commit-down"
+key = "J"
+scope = "revisions"
+desc = "move commit down"
+
+[[actions]]
+name = "move-commit-up"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("rebase", "-r", id, "--insert-after", id .. "+")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "move-commit-up"
+key = "K"
+scope = "revisions"
+desc = "move commit up"
+
+[[actions]]
+name = "new-note-commit"
+lua = '''
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+jj_async("new", id, "--no-edit", "-m", "NOTE: ")
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "new-note-commit"
+key = "N"
+scope = "revisions"
+desc = "new note commit"
+
+[[actions]]
+name = "show-notes"
+lua = '''
+revset.set("notes()")
+'''
+
+[[bindings]]
+action = "show-notes"
+key = "ctrl+n"
+scope = "revisions"
+desc = "show notes"
+
+[[actions]]
+name = "jw-list"
+lua = '''
+exec_shell("jw list")
+'''
+
+[[bindings]]
+action = "jw-list"
+seq = ["\\", "w", "l"]
+scope = "revisions"
+desc = "jw list"
+
+[[actions]]
+name = "jw-switch-default"
+lua = '''
+exec_shell("jw switch default")
+'''
+
+[[bindings]]
+action = "jw-switch-default"
+seq = ["\\", "w", "d"]
+scope = "revisions"
+desc = "jw default"
+
+[[actions]]
+name = "jw-switch-previous"
+lua = '''
+exec_shell("jw switch -")
+'''
+
+[[bindings]]
+action = "jw-switch-previous"
+seq = ["\\", "w", "p"]
+scope = "revisions"
+desc = "jw previous"
+
+[[actions]]
+name = "jw-switch-current"
+lua = '''
+exec_shell("jw switch @")
+'''
+
+[[bindings]]
+action = "jw-switch-current"
+seq = ["\\", "w", "c"]
+scope = "revisions"
+desc = "jw current"
+
+[[actions]]
+name = "jw-switch-interactive"
+lua = '''
+local out, err = jj("workspace", "list", "--color", "never")
+if err then
+  flash({ text = err, error = true })
+  return
+end
+
+local names = {}
+for line in split_lines(out) do
+  local name = line:match("^. ([^:]+):")
+  if name and name ~= "" then
+    table.insert(names, name)
+  end
+end
+
+if #names == 0 then
+  flash({ text = "No workspaces found", error = true })
+  return
+end
+
+local selected = choose({ options = names, title = "Switch workspace" })
+if not selected then
+  return
+end
+
+local quoted = "'" .. selected:gsub("'", "'\\''") .. "'"
+exec_shell("jw switch " .. quoted)
+'''
+
+[[bindings]]
+action = "jw-switch-interactive"
+seq = ["\\", "w", "s"]
+scope = "revisions"
+desc = "jw interactive switch"
+
+[[actions]]
+name = "jw-add-at-change"
+lua = '''
+local function shell_quote(value)
+  return "'" .. value:gsub("'", "'\\''") .. "'"
+end
+
+local rev = context.commit_id() or context.change_id()
+if not rev then
+  flash({ text = "No change selected", error = true })
+  return
+end
+
+local name = input({ title = "jw add --at", prompt = "Workspace name:" })
+if not name or name == "" then
+  return
+end
+
+exec_shell("jw add --at " .. shell_quote(rev) .. " " .. shell_quote(name))
+revisions.refresh()
+'''
+
+[[bindings]]
+action = "jw-add-at-change"
+seq = ["\\", "w", "n"]
+scope = "revisions"
+desc = "jw add --at"

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$script_dir/common.sh"
+
+bootstrap_new_machine_id() {
+    local generated
+    if command -v uuidgen >/dev/null 2>&1; then
+        generated="$(uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-')"
+    elif [[ -r /proc/sys/kernel/random/uuid ]]; then
+        IFS= read -r generated < /proc/sys/kernel/random/uuid
+        generated="$(printf '%s' "$generated" | tr -d '-')"
+    else
+        bootstrap_error 'no UUID generator found; pass SETUP_MACHINE_ID explicitly'
+        return 2
+    fi
+    [[ -n "$generated" ]] || return 2
+    printf 'auto-%s' "$generated"
+}
+
+SETUP_PROFILE="${SETUP_PROFILE:-}"
+SETUP_MACHINE_ID="${SETUP_MACHINE_ID:-}"
+SETUP_HISTORY_ORIGIN="${SETUP_HISTORY_ORIGIN:-}"
+bootstrap_init
+
+miserc_path="$BOOTSTRAP_CONFIG_DIR/miserc.toml"
+miserc_env_values="$(bootstrap_miserc_env_values)" || exit $?
+persisted_role=""
+persisted_machine_id=""
+while IFS= read -r selector; do
+    [[ -n "$selector" ]] || continue
+    case "$selector" in
+        workstation|nas|delftblue)
+            if [[ -n "$persisted_role" && "$persisted_role" != "$selector" ]]; then
+                bootstrap_error 'miserc has multiple setup roles; resolve it before bootstrap'
+                exit 2
+            fi
+            persisted_role="$selector"
+            ;;
+    esac
+    if [[ "$selector" =~ ^host-([a-z0-9][a-z0-9-]*)$ ]]; then
+        if [[ -n "$persisted_machine_id" && "$persisted_machine_id" != "${BASH_REMATCH[1]}" ]]; then
+            bootstrap_error 'miserc has multiple host identities; resolve them before bootstrap'
+            exit 2
+        fi
+        persisted_machine_id="${BASH_REMATCH[1]}"
+    fi
+done <<< "$miserc_env_values"
+
+if [[ -n "$persisted_role" ]]; then
+    # Keep an existing role. Add a stable host id only when this older profile
+    # has none, then make the local task environment agree with that selection.
+    SETUP_PROFILE="$persisted_role"
+    if [[ -n "$persisted_machine_id" ]]; then
+        SETUP_MACHINE_ID="$persisted_machine_id"
+    else
+        if [[ -z "$SETUP_MACHINE_ID" ]]; then
+            SETUP_MACHINE_ID="$(bootstrap_new_machine_id)" || exit $?
+        fi
+        bootstrap_set_miserc_env "$SETUP_PROFILE" "$SETUP_MACHINE_ID"
+    fi
+    bootstrap_init
+    bootstrap_validate_profile
+    bootstrap_persist_local_profile
+    printf 'Kept existing mise role %s for host %s.\n' "$SETUP_PROFILE" "$SETUP_MACHINE_ID"
+    exit 0
+fi
+
+if [[ -z "$SETUP_PROFILE" ]]; then
+    for candidate in workstation nas delftblue; do
+        if [[ ",${MISE_ENV:-}," == *",$candidate,"* ]]; then
+            SETUP_PROFILE="$candidate"
+            break
+        fi
+    done
+fi
+if [[ -z "$SETUP_MACHINE_ID" ]]; then
+    if [[ -n "$persisted_machine_id" ]]; then
+        SETUP_MACHINE_ID="$persisted_machine_id"
+    else
+        SETUP_MACHINE_ID="$(bootstrap_new_machine_id)"
+    fi
+fi
+bootstrap_validate_profile
+
+args=(--profile "$SETUP_PROFILE" --machine-id "$SETUP_MACHINE_ID")
+if [[ -n "$SETUP_HISTORY_ORIGIN" ]]; then
+    args+=(--origin "$SETUP_HISTORY_ORIGIN")
+fi
+"$script_dir/profile" "${args[@]}"
