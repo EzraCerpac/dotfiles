@@ -32,10 +32,12 @@ Use mise 2026.9.7 or newer before adopting the source repository. On a fresh Mac
 mise -E workstation bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git
 ```
 
-On a fresh NAS host (including Intel macOS, where the base tools and brew
-formulae now also cover `macos/x64`), select the nas role explicitly. The
-bootstrap hooks derive `SETUP_PROFILE` from the `-E` selector, so no manual
-export is needed before this first command:
+On a fresh NAS host (including Intel macOS, where the base tools now also
+cover `macos/x64`), select the nas role explicitly. The bootstrap hooks
+derive `SETUP_PROFILE` from the `-E` selector, so no manual export is needed
+before this first command. On Intel macOS the `brew:` bootstrap backend is
+skipped by mise itself (upstream jdx/mise#10968); fish, git, and diffnav
+there are owned by the `nas/intel-brew-basics` installer exception instead.
 
 ```sh
 mise -E nas bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git

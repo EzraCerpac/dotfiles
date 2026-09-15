@@ -252,9 +252,11 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 # entries are shared by workstation and NAS; a NAS without a supported native
 # package manager must provide them before applying its profile.
 [bootstrap.packages]
-"brew:fish" = { os = ["macos/arm64", "macos/x64"] }
-"brew:git" = { os = ["macos/arm64", "macos/x64"] }
-"brew:diffnav" = { os = ["macos/arm64", "macos/x64"] }
+# Intel macOS gets these through the intel-brew-basics exception: mise's brew
+# bootstrap backend skips darwin/amd64 (upstream jdx/mise#10968).
+"brew:fish" = { os = "macos/arm64" }
+"brew:git" = { os = "macos/arm64" }
+"brew:diffnav" = { os = "macos/arm64" }
 "apt:fish" = { os = ["linux/x64", "linux/arm64"] }
 "apt:git" = { os = ["linux/x64", "linux/arm64"] }
 "dnf:fish" = { os = ["linux/x64", "linux/arm64"] }
