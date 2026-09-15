@@ -44,7 +44,8 @@ age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linu
 atuin = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 bat = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 carapace = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
-delta = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
+# Delta ships no darwin/amd64 builds; keep it off Intel macOS.
+delta = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 fd = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 fzf = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 gh = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
