@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remctl_cli="$HOME/.local/libexec/remctl/remctl"
+
+if [[ ! -x "$remctl_cli" ]]; then
+    echo "remctl is not installed at $remctl_cli" >&2
+    exit 1
+fi
+
+exec mise -C "$HOME/.config/mise" exec python@3.13 -- python3 "$remctl_cli" "$@"

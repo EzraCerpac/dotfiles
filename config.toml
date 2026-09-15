@@ -1,0 +1,220 @@
+# Shared settings. Select workstation, nas, or delftblue with -E.
+min_version = "2026.9.7"
+
+[settings]
+dotfiles.root = "~/.config/mise/dotfiles"
+trusted_config_paths = ["~/Projects", "~/.config/mise"]
+# Keep a project's rust-toolchain.toml ahead of the workstation Rust default.
+idiomatic_version_file_enable_tools = ["rust"]
+history.sync = "manual"
+# Maintenance must be able to inspect a partially installed setup.
+task.run_auto_install = false
+github.credential_command = 'sh "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/lib/github-credential.sh"'
+
+[vars]
+name = "Ezra Cerpac"
+email = "47384389+EzraCerpac@users.noreply.github.com"
+nas_dotfiles_branch = "main"
+nas_host_alias = "nas"
+nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"
+nas_jj_waltz_version = "0.3.1"
+delftblue_default_cpu_partition = "compute-p2"
+delftblue_default_gpu_partition = "gpu-a100-small"
+delftblue_host_alias = "delftblue"
+delftblue_hostname = "login.delftblue.tudelft.nl"
+delftblue_module_stack = "2025"
+delftblue_netid = "ecerpac"
+delftblue_project_storage_root = ""
+delftblue_slurm_account = "education-eemcs-msc-cosse"
+aegis_bundle_id = "Aegis.Aegis"
+aegis_local_revision = "0b48a069ff81840f39f537e928e4589b0ef1ae3a"
+aegis_sha256 = "89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59"
+aegis_signing_identity = "Aegis Local Code Signing"
+aegis_url = "https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegis.app.zip"
+aegis_version = "1.1.0"
+rift_local_revision = "b6cda064c6841c0cf20042e26bcdafb6bb2f9a64"
+rift_signing_identity = "Rift Local Code Signing"
+
+[tasks."setup:status"]
+description = "Inspect setup health"
+run = "bash tasks/setup/status"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."setup:update"]
+description = "Update the machine setup"
+raw = true
+run = "bash tasks/setup/update"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."setup:backup"]
+description = "Backup the machine setup"
+run = "bash tasks/setup/backup"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."setup:restore"]
+description = "Restore the machine setup"
+run = "bash tasks/setup/restore"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."setup:secrets"]
+description = "Deploy encrypted private configuration"
+run = "bash tasks/setup/secrets"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+
+[tasks."install:herdr-plugins"]
+description = "Herdr plugins"
+run = "bash tasks/install/herdr-plugins.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."install:jw-build-install"]
+description = "Jw build install"
+run = "bash tasks/install/jw-build-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."install:jw-nas-release"]
+description = "Jw nas release"
+run = "bash tasks/install/jw-nas-release.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."install:nas-modern-git"]
+description = "Nas modern git"
+run = "bash tasks/install/nas-modern-git.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:aegis-local-install"]
+description = "Aegis local install"
+run = "bash tasks/local/aegis-local-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:aegis-signing-setup"]
+description = "Aegis signing setup"
+run = "bash tasks/local/aegis-signing-setup.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:antinote-bridge-build"]
+description = "Antinote bridge build"
+run = "bash tasks/local/antinote-bridge-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:cliproxy-configure"]
+description = "Cliproxy configure"
+run = "bash tasks/local/cliproxy-configure.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:cliproxy-service"]
+description = "Cliproxy service"
+run = "bash tasks/local/cliproxy-service.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:rift-local-install"]
+description = "Rift local install"
+run = "bash tasks/local/rift-local-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:rift-signing-setup"]
+description = "Rift signing setup"
+run = "bash tasks/local/rift-signing-setup.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:shell-select"]
+description = "Shell select"
+run = "bash tasks/local/shell-select.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:touchid-sudo"]
+description = "Touchid sudo"
+run = "bash tasks/local/touchid-sudo.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+[tasks.kbd_provision]
+description = "Provision Corne QMK and macOS keyboard runtime"
+run = "./dotfiles/.local/bin/kbd provision"
+
+[tasks.kbd_sync]
+description = "Sync keymap + regenerate images + reload HUD"
+run = "./dotfiles/.local/bin/kbd sync"
+
+[tasks.kbd_build]
+description = "Build default UF2"
+run = "./dotfiles/.local/bin/kbd build"
+
+[tasks.kbd_build_all]
+description = "Build all UF2 variants"
+run = "./dotfiles/.local/bin/kbd build-all"
+
+[tasks.kbd_build_left]
+description = "Build left-hand tagged UF2 artifact"
+run = "./dotfiles/.local/bin/kbd build --left"
+
+[tasks.kbd_build_right]
+description = "Build right-hand tagged UF2 artifact"
+run = "./dotfiles/.local/bin/kbd build --right"
+
+[tasks.kbd_flash_left]
+description = "Flash LEFT half and set EE_HANDS left"
+depends = ["kbd_build_left"]
+run = "./dotfiles/.local/bin/kbd flash left"
+
+[tasks.kbd_flash_right]
+description = "Flash RIGHT half and set EE_HANDS right"
+depends = ["kbd_build_right"]
+run = "./dotfiles/.local/bin/kbd flash right"
+
+[tasks.kbd_hud]
+description = "Reload Hammerspoon HUD"
+run = "./dotfiles/.local/bin/kbd hud-reload"
+
+[tasks.kbd_images]
+description = "Regenerate keymap images"
+run = "./dotfiles/.local/bin/kbd layout-images"
+
+[tasks."local:seed-configs"]
+run = "bash tasks/local/seed-configs.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:finish-dotfiles"]
+run = "bash tasks/local/finish-dotfiles.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:private-permissions"]
+run = "bash tasks/local/private-permissions.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:sync-skills"]
+run = "bash dotfiles/.local/bin/codex-sync-jj-waltz"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+
+[tasks."setup:profile"]
+run = "bash tasks/bootstrap/profile"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."setup:enroll-history"]
+run = "bash tasks/bootstrap/enroll-history"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:aerospace-local-build"]
+run = "bash tasks/local/aerospace-local-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:install-exceptions"]
+run = "bash tasks/local/install-exceptions.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks.bootstrap]
+description = "Install the declared software exceptions after native tools"
+run = "bash tasks/local/install-exceptions.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:remctl-install"]
+run = "bash tasks/local/remctl-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:agenda-build-install"]
+run = "bash tasks/local/agenda-build-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[tasks."local:voiceink-build"]
+description = "Stage the current locally signed VoiceInk build"
+run = "bash tasks/local/voiceink-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"

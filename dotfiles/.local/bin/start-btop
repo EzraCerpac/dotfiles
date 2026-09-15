@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
+BTOP=${BTOP:-/opt/homebrew/bin/btop}
+OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
+WEZTERM_APP=${WEZTERM_APP:-/Applications/WezTerm.app}
+LOCKF=${LOCKF:-/usr/bin/lockf}
+JQ=${JQ:-jq}
+PGREP=${PGREP:-/usr/bin/pgrep}
+SLEEP=${SLEEP:-sleep}
+LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
+TIMER_STATE=${START_BTOP_TIMER_STATE:-${TMPDIR:-/tmp}/start-btop.timer}
+CLOSE_AFTER=${START_BTOP_CLOSE_AFTER:-60}
+OPS_WORKSPACE=${START_BTOP_WORKSPACE:-9}
+WEZTERM_BUNDLE=com.github.wez.wezterm
+WINDOW_FORMAT='%{window-id}%{tab}%{app-pid}%{tab}%{app-bundle-id}%{tab}%{window-title}%{tab}%{workspace}%{newline}'
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+BASH_BIN=${BASH:-/bin/bash}
+
+if [[ "$AEROSPACE_BIN" != */* ]]; then
+    AEROSPACE_BIN=$(command -v "$AEROSPACE_BIN") || {
+        echo "start-btop: could not locate AeroSpace CLI" >&2
+        exit 1
+    }
+elif [[ ! -x "$AEROSPACE_BIN" ]]; then
+    echo "start-btop: AeroSpace CLI not executable: $AEROSPACE_BIN" >&2
+    exit 1
+fi
+
+if ! command -v "$JQ" >/dev/null 2>&1; then
+    echo "start-btop: jq is required" >&2
+    exit 1
+fi
+
+focus_workspace=false
+case "${1:-}" in
+    "") ;;
+    --focus) focus_workspace=true ;;
+    --expire)
+        [[ $# -eq 7 ]] || exit 2
+        ;;
+    *)
+        echo "usage: start-btop [--focus]" >&2
+        exit 2
+        ;;
+esac
+
+if [[ ${START_BTOP_LOCKED:-0} != 1 ]]; then
+    exec "$LOCKF" -k "$LOCK_PATH" /usr/bin/env \
+        START_BTOP_LOCKED=1 \
+        AEROSPACE_BIN="$AEROSPACE_BIN" \
+        START_BTOP_LOCK_PATH="$LOCK_PATH" \
+        START_BTOP_TIMER_STATE="$TIMER_STATE" \
+        START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
+        START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
+        "$BASH_BIN" "$SCRIPT_PATH" "$@"
+fi
+
+list_windows() {
+    "$AEROSPACE_BIN" list-windows --all --format "$WINDOW_FORMAT"
+}
+
+find_btop_window() {
+    local windows id pid bundle title workspace
+    local count=0
+    local record=
+
+    windows=$(list_windows) || return 2
+    while IFS=$'\t' read -r id pid bundle title workspace; do
+        [[ "$id" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ ]] || continue
+        [[ "$bundle" == "$WEZTERM_BUNDLE" ]] || continue
+        [[ "$title" =~ ^[bB][tT][oO][pP]([[:space:]]|$) ]] || continue
+        [[ "$title" != *$'\t'* && "$title" != *$'\n'* ]] || continue
+
+        count=$((count + 1))
+        record="$id"$'\t'"$pid"$'\t'"$bundle"$'\t'"$title"$'\t'"$workspace"
+    done <<<"$windows"
+
+    if [[ $count -eq 1 ]]; then
+        printf '%s\n' "$record"
+        return 0
+    elif [[ $count -eq 0 ]]; then
+        return 1
+    fi
+    return 3
+}
+
+has_exact_window() {
+    local expected_id=$1
+    local expected_pid=$2
+    local expected_bundle=$3
+    local expected_title=$4
+    local expected_workspace=$5
+    local windows id pid bundle title workspace
+    local count=0
+
+    windows=$(list_windows) || return 1
+    while IFS=$'\t' read -r id pid bundle title workspace; do
+        if [[ "$id" == "$expected_id" \
+            && "$pid" == "$expected_pid" \
+            && "$bundle" == "$expected_bundle" \
+            && "$title" == "$expected_title" \
+            && "$workspace" == "$expected_workspace" ]]; then
+            count=$((count + 1))
+        fi
+    done <<<"$windows"
+
+    [[ $count -eq 1 ]]
+}
+
+current_aerospace_daemon_pid() {
+    local pids
+    [[ -x "$PGREP" ]] || return 1
+    pids=$("$PGREP" -a -x AeroSpace 2>/dev/null) || return 1
+    [[ "$pids" =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$pids"
+}
+
+daemon_is_unchanged() {
+    local expected_pid=$1
+    local current_pid
+    [[ -n "$expected_pid" ]] || return 1
+    current_pid=$(current_aerospace_daemon_pid) || return 1
+    [[ "$current_pid" == "$expected_pid" ]]
+}
+
+ops_workspace_is_visible() {
+    local workspaces
+    workspaces=$("$AEROSPACE_BIN" list-workspaces --monitor all --visible --json) || return 2
+
+    if printf '%s\n' "$workspaces" | "$JQ" -e --arg workspace "$OPS_WORKSPACE" '
+        if type != "array" then error("expected workspace array")
+        elif all(.[]; type == "object" and (.workspace | type == "string")) then
+            any(.[]; .workspace == $workspace)
+        else error("invalid workspace record")
+        end
+    ' >/dev/null; then
+        return 0
+    else
+        local status=$?
+        [[ $status -eq 1 ]] && return 1
+        return 2
+    fi
+}
+
+read_timer_state() {
+    local wanted_generation=$1
+    local state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid
+
+    [[ -f "$TIMER_STATE" ]] || return 1
+    IFS=$'\t' read -r state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid \
+        <"$TIMER_STATE" || return 1
+    [[ "$state_generation" == "$wanted_generation" ]] || return 1
+    printf '%s\n' "$state_id"$'\t'"$state_pid"$'\t'"$state_bundle"$'\t'"$state_title"$'\t'"$state_workspace"$'\t'"$state_generation"$'\t'"$state_daemon_pid"
+}
+
+remove_timer_state() {
+    local wanted_generation=$1
+    local state
+    state=$(read_timer_state "$wanted_generation") || return 0
+    [[ -n "$state" ]] && rm -f "$TIMER_STATE"
+}
+
+schedule_close() {
+    local window_id=$1
+    local app_pid=$2
+    local app_bundle=$3
+    local title=$4
+    local generation daemon_pid state_tmp
+
+    generation="$(/bin/date +%s)-$$-$RANDOM-$RANDOM"
+    daemon_pid=$(current_aerospace_daemon_pid) || {
+        rm -f "$TIMER_STATE"
+        echo "start-btop: AeroSpace daemon PID unavailable; timer cancelled" >&2
+        return 0
+    }
+    umask 077
+    state_tmp="${TIMER_STATE}.tmp.$$"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$window_id" "$app_pid" "$app_bundle" "$title" "$OPS_WORKSPACE" "$generation" "$daemon_pid" >"$state_tmp"
+    mv -f "$state_tmp" "$TIMER_STATE"
+
+    (
+        "$SLEEP" "$CLOSE_AFTER"
+        /usr/bin/env START_BTOP_LOCKED=0 \
+            START_BTOP_LOCK_PATH="$LOCK_PATH" \
+            START_BTOP_TIMER_STATE="$TIMER_STATE" \
+            START_BTOP_CLOSE_AFTER="$CLOSE_AFTER" \
+            START_BTOP_WORKSPACE="$OPS_WORKSPACE" \
+            "$BASH_BIN" "$SCRIPT_PATH" --expire \
+            "$window_id" "$app_pid" "$app_bundle" "$title" "$generation" "$daemon_pid"
+    ) </dev/null >/dev/null 2>&1 &
+}
+
+expire_btop_window() {
+    local expected_id=$1
+    local expected_pid=$2
+    local expected_bundle=$3
+    local expected_title=$4
+    local expected_generation=$5
+    local expected_daemon_pid=$6
+    local state state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid
+    local visible_status
+
+    state=$(read_timer_state "$expected_generation") || return 0
+    IFS=$'\t' read -r state_id state_pid state_bundle state_title state_workspace state_generation state_daemon_pid \
+        <<<"$state"
+    [[ "$state_id" == "$expected_id" \
+        && "$state_pid" == "$expected_pid" \
+        && "$state_bundle" == "$expected_bundle" \
+        && "$state_title" == "$expected_title" \
+        && "$state_workspace" == "$OPS_WORKSPACE" \
+        && "$state_daemon_pid" == "$expected_daemon_pid" ]] || return 0
+
+    if ! daemon_is_unchanged "$expected_daemon_pid" \
+        || ! has_exact_window "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title" "$OPS_WORKSPACE"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+
+    if ops_workspace_is_visible; then
+        schedule_close "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title"
+        return 0
+    else
+        visible_status=$?
+        if [[ $visible_status -ne 1 ]]; then
+            remove_timer_state "$expected_generation"
+            return 0
+        fi
+    fi
+
+    # Recheck the target and visible workspace just before closing.
+    if ! daemon_is_unchanged "$expected_daemon_pid" \
+        || ! has_exact_window "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title" "$OPS_WORKSPACE"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+    if ops_workspace_is_visible; then
+        schedule_close "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title"
+        return 0
+    else
+        visible_status=$?
+        if [[ $visible_status -ne 1 ]]; then
+            remove_timer_state "$expected_generation"
+            return 0
+        fi
+    fi
+
+    if ! "$AEROSPACE_BIN" close --window-id "$expected_id"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+    remove_timer_state "$expected_generation"
+}
+
+if [[ "${1:-}" == "--expire" ]]; then
+    shift
+    expire_btop_window "$@"
+    exit 0
+fi
+
+if existing_window=$(find_btop_window); then
+    :
+else
+    status=$?
+    if [[ $status -ne 1 ]]; then
+        echo "start-btop: AeroSpace window query failed or found multiple btop windows" >&2
+        exit 1
+    fi
+    existing_window=
+fi
+
+if [[ -n "$existing_window" ]]; then
+    IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$existing_window"
+else
+    "$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
+
+    window_record=
+    for _ in {1..200}; do
+        if window_record=$(find_btop_window); then
+            break
+        else
+            status=$?
+            [[ $status -eq 1 || $status -eq 2 ]] || {
+                echo "start-btop: multiple btop windows appeared" >&2
+                exit 1
+            }
+        fi
+        "$SLEEP" 0.1
+    done
+    if [[ -z "$window_record" ]]; then
+        echo "start-btop: AeroSpace WezTerm btop window not detected" >&2
+        exit 1
+    fi
+    IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$window_record"
+fi
+
+if [[ "$workspace" != "$OPS_WORKSPACE" ]]; then
+    "$AEROSPACE_BIN" move-node-to-workspace --window-id "$window_id" "$OPS_WORKSPACE"
+    workspace=$OPS_WORKSPACE
+fi
+
+"$AEROSPACE_BIN" fullscreen on --window-id "$window_id"
+
+if $focus_workspace; then
+    "$AEROSPACE_BIN" workspace "$OPS_WORKSPACE"
+    "$AEROSPACE_BIN" focus --window-id "$window_id"
+fi
+
+schedule_close "$window_id" "$app_pid" "$app_bundle" "$title"

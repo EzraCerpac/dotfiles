@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+antinote_bin="$HOME/.local/libexec/antinote/antinote"
+
+if [[ ! -x "$antinote_bin" ]]; then
+    echo "antinote is not installed at $antinote_bin" >&2
+    exit 1
+fi
+
+exec "$antinote_bin" "$@"

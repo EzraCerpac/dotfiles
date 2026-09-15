@@ -1,0 +1,542 @@
+#!/usr/bin/env bash
+
+# Build and stage a personally signed Rift without touching the running
+# service. `--activate` is deliberately the only path that changes the
+# active binaries, release pointer, or LaunchAgent.
+set -euo pipefail
+
+readonly RIFT_CONFIGURED_REVISION="{% if vars.rift_signing_identity is defined %}{{ vars.rift_local_revision }}{% endif %}"
+readonly RIFT_CONFIGURED_IDENTITY="{% if vars.rift_signing_identity is defined %}{{ vars.rift_signing_identity }}{% endif %}"
+readonly RIFT_CONFIGURED_BINARY_IDENTIFIER="git.acsandmann.rift"
+readonly RIFT_CONFIGURED_CLI_BINARY_IDENTIFIER="git.acsandmann.rift-cli"
+readonly RIFT_CONFIGURED_TARGET_ARCH="arm64"
+RIFT_EXPECTED_REVISION="$RIFT_CONFIGURED_REVISION"
+# This is intentionally test-only. Production always uses the immutable
+# rendered package pin above.
+if [[ "${RIFT_INSTALL_TESTING:-0}" == 1 ]]; then
+    RIFT_EXPECTED_REVISION="${RIFT_TEST_EXPECTED_REVISION:-$RIFT_EXPECTED_REVISION}"
+fi
+readonly RIFT_EXPECTED_REVISION
+readonly RIFT_SOURCE_DIR="${RIFT_SOURCE_DIR:-${HOME}/Projects/Tools/rift}"
+readonly RIFT_BIN_DIR="${RIFT_BIN_DIR:-${HOME}/.local/bin}"
+readonly RIFT_STATE_DIR="${RIFT_STATE_DIR:-${XDG_STATE_HOME:-${HOME}/.local/state}/rift-local-install}"
+readonly RIFT_RELEASES_DIR="${RIFT_RELEASES_DIR:-${RIFT_STATE_DIR}/releases}"
+readonly RIFT_ACTIVE_DIR="${RIFT_STATE_DIR}/active"
+readonly RIFT_CURRENT_LINK="${RIFT_CURRENT_LINK:-${RIFT_STATE_DIR}/current}"
+readonly RIFT_HOMEBREW_BIN_DIR="${RIFT_HOMEBREW_BIN_DIR:-/opt/homebrew/bin}"
+readonly RIFT_CONFIG_PATH="${RIFT_CONFIG_PATH:-${HOME}/.config/rift/config.toml}"
+readonly RIFT_LAYOUT_PATH="${RIFT_LAYOUT_PATH:-${HOME}/.rift/layout.ron}"
+readonly RIFT_TRACKED_CONFIG_PATH="${RIFT_TRACKED_CONFIG_PATH:-${MISE_CONFIG_DIR:-${HOME}/.config/mise}/dotfiles/.config/rift/config.toml}"
+RIFT_IDENTITY_NAME="$RIFT_CONFIGURED_IDENTITY"
+RIFT_BINARY_IDENTIFIER="$RIFT_CONFIGURED_BINARY_IDENTIFIER"
+RIFT_CLI_BINARY_IDENTIFIER="$RIFT_CONFIGURED_CLI_BINARY_IDENTIFIER"
+RIFT_TARGET_ARCH="$RIFT_CONFIGURED_TARGET_ARCH"
+if [[ "${RIFT_INSTALL_TESTING:-0}" == 1 ]]; then
+    RIFT_IDENTITY_NAME="${RIFT_TEST_SIGNING_IDENTITY_NAME:-$RIFT_IDENTITY_NAME}"
+    RIFT_BINARY_IDENTIFIER="${RIFT_TEST_BINARY_IDENTIFIER:-$RIFT_BINARY_IDENTIFIER}"
+    RIFT_CLI_BINARY_IDENTIFIER="${RIFT_TEST_CLI_BINARY_IDENTIFIER:-$RIFT_CLI_BINARY_IDENTIFIER}"
+    RIFT_TARGET_ARCH="${RIFT_TEST_TARGET_ARCH:-$RIFT_TARGET_ARCH}"
+fi
+readonly RIFT_IDENTITY_NAME RIFT_BINARY_IDENTIFIER RIFT_CLI_BINARY_IDENTIFIER RIFT_TARGET_ARCH
+readonly RIFT_LAUNCH_AGENT_LABEL="${RIFT_LAUNCH_AGENT_LABEL:-git.acsandmann.rift}"
+readonly RIFT_LAUNCH_AGENT_PATH="${RIFT_LAUNCH_AGENT_PATH:-${HOME}/Library/LaunchAgents/${RIFT_LAUNCH_AGENT_LABEL}.plist}"
+readonly RIFT_TRACKED_LAUNCH_AGENT_PATH="${RIFT_TRACKED_LAUNCH_AGENT_PATH:-$RIFT_LAUNCH_AGENT_PATH}"
+readonly RIFT_SERVICE_SETTLE_SECONDS="${RIFT_SERVICE_SETTLE_SECONDS:-0.2}"
+readonly RIFT_SERVICE_READY_ATTEMPTS="${RIFT_SERVICE_READY_ATTEMPTS:-20}"
+
+die() { echo "rift-local-install: $*" >&2; exit 1; }
+
+RIFT_ROLLBACK_ARMED=0
+RIFT_ROLLBACK_DONE=0
+RIFT_ROLLBACK_FAILURES=()
+
+rollback_failure() {
+    RIFT_ROLLBACK_FAILURES+=("$*")
+    echo "rift-local-install: rollback failed: $*" >&2
+}
+
+activation_exit() {
+    local status=$?
+    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then
+        if ! rollback; then status=1; fi
+    fi
+    trap - EXIT INT TERM
+    exit "$status"
+}
+
+activation_signal() {
+    local status="${1:?signal status required}"
+    if [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]]; then
+        if ! rollback; then status=1; fi
+    fi
+    trap - EXIT INT TERM
+    exit "$status"
+}
+
+require_command() {
+    command -v "${1:?command required}" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+require_clean_source() {
+    local jj_bin="${RIFT_JJ_BIN:-jj}" actual_revision empty
+    [[ -d "$RIFT_SOURCE_DIR/.jj" ]] || die "source is not a JJ checkout: $RIFT_SOURCE_DIR"
+    [[ "$RIFT_EXPECTED_REVISION" =~ ^[[:xdigit:]]{40}$ ]] || die "the Rift source revision pin is missing or invalid"
+    require_command "$jj_bin"
+    empty="$("$jj_bin" --no-pager -R "$RIFT_SOURCE_DIR" log -r @ --no-graph -T 'if(empty, "true", "false") ++ "\n"')" ||
+        die "could not inspect the JJ working commit"
+    [[ "$empty" == true ]] || die "JJ working commit is not empty: $RIFT_SOURCE_DIR"
+    actual_revision="$("$jj_bin" --no-pager -R "$RIFT_SOURCE_DIR" log -r @- --no-graph -T 'commit_id ++ "\n"')" ||
+        die "could not inspect the JJ working parent"
+    [[ "$actual_revision" =~ ^[[:xdigit:]]{40}$ && "$actual_revision" == "$RIFT_EXPECTED_REVISION" ]] ||
+        die "JJ working parent is $actual_revision, expected $RIFT_EXPECTED_REVISION"
+    RIFT_INSTALLED_REVISION="$actual_revision"
+}
+
+resolve_signing_identity() {
+    local security_bin="${RIFT_SECURITY_BIN:-security}" output line matches=0
+    require_command "$security_bin"
+    output="$("$security_bin" find-identity -v -p codesigning 2>/dev/null)" || die "could not inspect code-signing identities"
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*[0-9]+\)[[:space:]]+([[:xdigit:]]{40})[[:space:]]+\"([^\"]+)\"[[:space:]]*$ ]] &&
+            [[ "${BASH_REMATCH[2]}" == "$RIFT_IDENTITY_NAME" ]]; then
+            RIFT_SIGNING_IDENTITY_HASH="${BASH_REMATCH[1]}"
+            matches=$((matches + 1))
+        fi
+    done <<< "$output"
+    [[ "$matches" -eq 1 ]] || die "expected exactly one usable '$RIFT_IDENTITY_NAME' identity; found $matches"
+}
+
+read_designated_requirement() {
+    local output requirement codesign_bin="${RIFT_CODESIGN_BIN:-/usr/bin/codesign}"
+    output="$("$codesign_bin" -d -r- "${1:?code path required}" 2>&1)" || return 1
+    requirement="$(printf '%s\n' "$output" | sed -n 's/^[[:space:]]*designated =>/designated =>/p' | head -n 1)"
+    [[ -n "$requirement" ]] || return 1
+    printf '%s\n' "$requirement"
+}
+
+verify_binary_signature() {
+    local binary_path="${1:?binary required}" expected_identifier="${2:?identifier required}"
+    local codesign_bin="${RIFT_CODESIGN_BIN:-/usr/bin/codesign}" details requirement authority identifier
+    "$codesign_bin" --verify --strict --verbose=2 "$binary_path" >/dev/null 2>&1 || return 1
+    details="$("$codesign_bin" --display --verbose=4 "$binary_path" 2>&1)" || return 1
+    authority="$(printf '%s\n' "$details" | awk -F= '$1 == "Authority" { print substr($0, 11); exit }')"
+    identifier="$(printf '%s\n' "$details" | awk -F= '$1 == "Identifier" { print substr($0, 12); exit }')"
+    [[ "$authority" == "$RIFT_IDENTITY_NAME" && "$identifier" == "$expected_identifier" ]] || return 1
+    requirement="$(read_designated_requirement "$binary_path")" || return 1
+    [[ "$(printf '%s' "$requirement" | tr '[:upper:]' '[:lower:]')" != *cdhash* ]] || return 1
+    "$codesign_bin" -v "-R=${requirement#designated => }" "$binary_path" >/dev/null 2>&1
+}
+
+verify_arm64() {
+    local lipo_bin="${RIFT_LIPO_BIN:-/usr/bin/lipo}"
+    [[ "$("$lipo_bin" -archs "${1:?binary required}" 2>/dev/null)" == "$RIFT_TARGET_ARCH" ]]
+}
+
+verify_local_release() {
+    local release="${1:?release required}"
+    [[ -d "$release" && -x "$release/rift" && -x "$release/rift-cli" ]] || return 1
+    verify_arm64 "$release/rift" && verify_arm64 "$release/rift-cli" &&
+        verify_binary_signature "$release/rift" "$RIFT_BINARY_IDENTIFIER" &&
+        verify_binary_signature "$release/rift-cli" "$RIFT_CLI_BINARY_IDENTIFIER"
+}
+
+build_stage() {
+    local cargo_bin="${RIFT_CARGO_BIN:-cargo}" codesign_bin="${RIFT_CODESIGN_BIN:-/usr/bin/codesign}"
+    local stage release source identifier name
+    require_command "$cargo_bin"; require_command "$codesign_bin"; require_command "${RIFT_LIPO_BIN:-/usr/bin/lipo}"
+    mkdir -p "$RIFT_RELEASES_DIR"
+    stage="$(mktemp -d "${RIFT_RELEASES_DIR}/.staging.${RIFT_INSTALLED_REVISION}.XXXXXX")"
+    cleanup_stage() { [[ -z "${stage:-}" ]] || rm -rf "$stage"; }
+    # Cargo/signing/publish can fail through `set -e`, so RETURN alone is not
+    # enough. Keep the staging directory scoped to this build on every exit.
+    trap cleanup_stage EXIT
+    trap 'cleanup_stage; exit 130' INT
+    trap 'cleanup_stage; exit 143' TERM
+    ( cd "$RIFT_SOURCE_DIR"; "$cargo_bin" build --release --locked --bins --target aarch64-apple-darwin )
+    source="$RIFT_SOURCE_DIR/target/aarch64-apple-darwin/release"
+    for name in rift rift-cli; do
+        identifier="$RIFT_BINARY_IDENTIFIER"; [[ "$name" == rift-cli ]] && identifier="$RIFT_CLI_BINARY_IDENTIFIER"
+        [[ -x "$source/$name" ]] || die "cargo did not produce executable: $source/$name"
+        cp "$source/$name" "$stage/$name"; chmod 755 "$stage/$name"
+        "$codesign_bin" --force --sign "$RIFT_SIGNING_IDENTITY_HASH" --identifier "$identifier" --timestamp=none "$stage/$name" >/dev/null
+    done
+    verify_local_release "$stage" || die "staged Rift release failed architecture or signature verification"
+    release="$RIFT_RELEASES_DIR/$RIFT_INSTALLED_REVISION"
+    if [[ -e "$release" || -L "$release" ]]; then
+        verify_local_release "$release" || die "existing release path is invalid: $release"
+        rm -rf "$stage"
+    else
+        "${RIFT_PUBLISH_MV_BIN:-/bin/mv}" "$stage" "$release" || die "could not publish staged release"
+    fi
+    RIFT_CANDIDATE_RELEASE="$release"
+    stage=""
+    trap - EXIT INT TERM
+}
+
+fallback_release() {
+    [[ -x "$RIFT_HOMEBREW_BIN_DIR/rift" && -x "$RIFT_HOMEBREW_BIN_DIR/rift-cli" ]] || return 1
+    [[ -f "$RIFT_CONFIG_PATH" ]] || return 1
+    "$RIFT_HOMEBREW_BIN_DIR/rift" config check --config "$RIFT_CONFIG_PATH" >/dev/null 2>&1 || return 1
+    printf '%s\n' "$RIFT_HOMEBREW_BIN_DIR"
+}
+
+# The real executable path must stay fixed across revisions. `current` is
+# release metadata only; launchd and clients use regular files in `active`.
+snapshot_active_binaries() {
+    local snapshot="${1:?snapshot required}" name
+    [[ ! -L "$RIFT_ACTIVE_DIR" ]] || return 1
+    if [[ ! -e "$RIFT_ACTIVE_DIR" ]]; then
+        printf 'absent\n' >"$snapshot/active-state"
+        return 0
+    fi
+    [[ -d "$RIFT_ACTIVE_DIR" ]] || return 1
+    mkdir -p "$snapshot/active" || return 1
+    for name in rift rift-cli; do
+        [[ -f "$RIFT_ACTIVE_DIR/$name" && ! -L "$RIFT_ACTIVE_DIR/$name" ]] || return 1
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_ACTIVE_DIR/$name" "$snapshot/active/$name" || return 1
+        cmp -s "$RIFT_ACTIVE_DIR/$name" "$snapshot/active/$name" || return 1
+    done
+    printf 'present\n' >"$snapshot/active-state"
+}
+
+replace_active_binaries() {
+    local source="${1:?source required}" snapshot="${2:?snapshot required}" temporary name status=0
+    [[ ! -L "$RIFT_ACTIVE_DIR" ]] || return 1
+    mkdir -p "$RIFT_ACTIVE_DIR" || return 1
+    temporary="$(mktemp -d "${snapshot}/.binaries.XXXXXX")" || return 1
+    # Prepare both files before replacing either. Each rename is atomic and
+    # the service stays stopped until the complete pair has been installed.
+    for name in rift rift-cli; do
+        if [[ -L "$RIFT_ACTIVE_DIR/$name" || -d "$RIFT_ACTIVE_DIR/$name" ]] ||
+            ! "${RIFT_CP_BIN:-/bin/cp}" -p "$source/$name" "$temporary/$name" ||
+            ! cmp -s "$source/$name" "$temporary/$name"; then
+            status=1
+            break
+        fi
+    done
+    if [[ "$status" -eq 0 ]]; then
+        for name in rift rift-cli; do
+            if ! "${RIFT_MV_BIN:-/bin/mv}" -f "$temporary/$name" "$RIFT_ACTIVE_DIR/$name"; then
+                status=1
+                break
+            fi
+        done
+    fi
+    rm -rf "$temporary"
+    return "$status"
+}
+
+restore_active_binaries() {
+    local snapshot="${1:?snapshot required}"
+    case "$(cat "$snapshot/active-state")" in
+        present) replace_active_binaries "$snapshot/active" "$snapshot" ;;
+        absent)
+            [[ ! -L "$RIFT_ACTIVE_DIR" ]] || return 1
+            rm -f "$RIFT_ACTIVE_DIR/rift" "$RIFT_ACTIVE_DIR/rift-cli" || return 1
+            if [[ -d "$RIFT_ACTIVE_DIR" ]]; then rmdir "$RIFT_ACTIVE_DIR"; fi
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+atomic_current_pointer() {
+    local target="${1:?target required}" temporary="${RIFT_CURRENT_LINK}.new.$$" mv_bin="${RIFT_MV_BIN:-/bin/mv}"
+    mkdir -p "$RIFT_STATE_DIR"
+    [[ ! -e "$RIFT_CURRENT_LINK" || -L "$RIFT_CURRENT_LINK" ]] || return 1
+    rm -f "$temporary"
+    ln -s "$target" "$temporary" || return 1
+    # mv normally follows a destination symlink to a directory. Tell the
+    # platform implementation to rename the link itself, not its target.
+    if [[ "$(uname -s)" == Darwin ]]; then
+        "$mv_bin" -fh "$temporary" "$RIFT_CURRENT_LINK" || return 1
+    else
+        "$mv_bin" -Tf "$temporary" "$RIFT_CURRENT_LINK" || return 1
+    fi
+    [[ -L "$RIFT_CURRENT_LINK" && "$(readlink "$RIFT_CURRENT_LINK")" == "$target" ]]
+}
+
+snapshot_bin_links() {
+    local snapshot="${1:?snapshot required}" name path
+    mkdir -p "$snapshot"
+    for name in rift rift-cli; do
+        path="$RIFT_BIN_DIR/$name"
+        if [[ -L "$path" ]]; then printf 'link\n%s\n' "$(readlink "$path")" >"$snapshot/$name"
+        elif [[ -f "$path" ]]; then
+            "${RIFT_CP_BIN:-/bin/cp}" -p "$path" "$snapshot/$name.file" || return 1
+            cmp -s "$path" "$snapshot/$name.file" || return 1
+            printf 'file\n' >"$snapshot/$name"
+        elif [[ -e "$path" ]]; then
+            printf 'unsupported\n' >"$snapshot/$name"
+            return 1
+        else printf 'absent\n' >"$snapshot/$name"; fi
+    done
+}
+
+snapshot_path() {
+    local path="${1:?path required}" snapshot="${2:?snapshot required}" kind_file="${3:?kind file required}"
+    mkdir -p "$(dirname "$kind_file")"
+    if [[ -L "$path" ]]; then
+        printf 'link\n%s\n' "$(readlink "$path")" >"$kind_file"
+    elif [[ -f "$path" ]]; then
+        printf 'file\n' >"$kind_file"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$path" "$kind_file.data" || return 1
+        cmp -s "$path" "$kind_file.data" || return 1
+    elif [[ -e "$path" ]]; then
+        printf 'unsupported\n' >"$kind_file"
+        return 1
+    else
+        printf 'absent\n' >"$kind_file"
+    fi
+}
+
+restore_path() {
+    local path="${1:?path required}" snapshot="${2:?snapshot required}" kind_file="${3:?kind file required}"
+    local kind target
+    if [[ -d "$path" && ! -L "$path" ]]; then
+        echo "rift-local-install: cannot restore over directory: $path" >&2
+        return 1
+    fi
+    rm -f "$path"
+    kind="$(head -n1 "$kind_file")"
+    case "$kind" in
+        link)
+            target="$(sed -n '2p' "$kind_file")"
+            ln -s "$target" "$path"
+            ;;
+        file)
+            mkdir -p "$(dirname "$path")"
+            "${RIFT_CP_BIN:-/bin/cp}" -p "$kind_file.data" "$path"
+            cmp -s "$kind_file.data" "$path"
+            ;;
+        absent) ;;
+        fallback)
+            target="$(sed -n '2p' "$kind_file")"
+            atomic_current_pointer "$target"
+            ;;
+        *) die "invalid path snapshot: $kind_file" ;;
+    esac
+}
+
+snapshot_current_pointer() {
+    local snapshot="${1:?snapshot required}" target resolved releases_resolved fallback
+    if [[ -L "$RIFT_CURRENT_LINK" ]]; then
+        target="$(readlink "$RIFT_CURRENT_LINK")"
+        [[ "$target" == /* ]] || target="$(dirname "$RIFT_CURRENT_LINK")/$target"
+        resolved="$(cd "$target" 2>/dev/null && pwd -P)" || resolved=""
+        releases_resolved="$(cd "$RIFT_RELEASES_DIR" 2>/dev/null && pwd -P)" || releases_resolved=""
+        if [[ -n "$resolved" && -n "$releases_resolved" && "$resolved" == "$releases_resolved/"* ]] &&
+            verify_local_release "$resolved"; then
+            snapshot_path "$RIFT_CURRENT_LINK" "$snapshot" "$snapshot/current"
+        else
+            # Never restore an escaped or invalid pointer after a failed
+            # activation. Validate and retain the safe fallback target now,
+            # before launchd is stopped.
+            fallback="$(fallback_release)" || return 1
+            printf 'fallback\n%s\n' "$fallback" >"$snapshot/current"
+        fi
+    else
+        snapshot_path "$RIFT_CURRENT_LINK" "$snapshot" "$snapshot/current"
+    fi
+}
+
+restore_current_pointer() {
+    restore_path "$RIFT_CURRENT_LINK" "$1" "$1/current"
+}
+
+snapshot_live_assets() {
+    local snapshot="${1:?snapshot required}"
+    snapshot_path "$RIFT_CONFIG_PATH" "$snapshot" "$snapshot/config"
+    snapshot_path "$RIFT_LAYOUT_PATH" "$snapshot" "$snapshot/layout"
+    snapshot_path "$RIFT_LAUNCH_AGENT_PATH" "$snapshot" "$snapshot/launch-agent"
+    snapshot_path "$RIFT_STATE_DIR/receipt" "$snapshot" "$snapshot/receipt"
+}
+
+restore_live_assets() {
+    local snapshot="${1:?snapshot required}" failures=0
+    if ! restore_path "$RIFT_CONFIG_PATH" "$snapshot" "$snapshot/config"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_LAYOUT_PATH" "$snapshot" "$snapshot/layout"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_LAUNCH_AGENT_PATH" "$snapshot" "$snapshot/launch-agent"; then failures=$((failures + 1)); fi
+    if ! restore_path "$RIFT_STATE_DIR/receipt" "$snapshot" "$snapshot/receipt"; then failures=$((failures + 1)); fi
+    [[ "$failures" -eq 0 ]]
+}
+
+install_tracked_assets() {
+    local temporary
+    if [[ "$RIFT_TRACKED_CONFIG_PATH" != "$RIFT_CONFIG_PATH" ]]; then
+        temporary="$RIFT_CONFIG_PATH.new.$$"
+        mkdir -p "$(dirname "$RIFT_CONFIG_PATH")"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_TRACKED_CONFIG_PATH" "$temporary" || return 1
+        cmp -s "$RIFT_TRACKED_CONFIG_PATH" "$temporary" || return 1
+        mv -f "$temporary" "$RIFT_CONFIG_PATH" || return 1
+    fi
+    if [[ "$RIFT_TRACKED_LAUNCH_AGENT_PATH" != "$RIFT_LAUNCH_AGENT_PATH" ]]; then
+        temporary="$RIFT_LAUNCH_AGENT_PATH.new.$$"
+        mkdir -p "$(dirname "$RIFT_LAUNCH_AGENT_PATH")"
+        "${RIFT_CP_BIN:-/bin/cp}" -p "$RIFT_TRACKED_LAUNCH_AGENT_PATH" "$temporary" || return 1
+        cmp -s "$RIFT_TRACKED_LAUNCH_AGENT_PATH" "$temporary" || return 1
+        mv -f "$temporary" "$RIFT_LAUNCH_AGENT_PATH" || return 1
+    fi
+}
+
+restore_bin_links() {
+    local snapshot="${1:?snapshot required}" name failures=0 path
+    for name in rift rift-cli; do
+        path="$RIFT_BIN_DIR/$name"
+        if ! restore_path "$path" "$snapshot" "$snapshot/$name"; then failures=$((failures + 1)); fi
+    done
+    [[ "$failures" -eq 0 ]]
+}
+
+install_stable_links() {
+    local name target path
+    mkdir -p "$RIFT_BIN_DIR"
+    for name in rift rift-cli; do
+        path="$RIFT_BIN_DIR/$name"; target="$RIFT_ACTIVE_DIR/$name"
+        rm -f "$path"; ln -s "$target" "$path" || return 1
+    done
+}
+
+service_running() {
+    local output launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
+    output="$("$launchctl_bin" print "gui/$(id -u)/$RIFT_LAUNCH_AGENT_LABEL" 2>&1)" || return 1
+    [[ "$output" =~ state[[:space:]]*=[[:space:]]*running ]] ||
+        [[ "$output" =~ pid[[:space:]]*=[[:space:]]*[1-9][0-9]* ]]
+}
+
+service_loaded() {
+    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}"
+    "$launchctl_bin" print "gui/$(id -u)/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1
+}
+
+wait_for_service_running() {
+    local sleep_bin="${RIFT_SLEEP_BIN:-/bin/sleep}" attempt
+    for ((attempt = 1; attempt <= RIFT_SERVICE_READY_ATTEMPTS; attempt++)); do
+        "$sleep_bin" "$RIFT_SERVICE_SETTLE_SECONDS"
+        if service_running && "$RIFT_ACTIVE_DIR/rift-cli" query workspaces >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+write_receipt() {
+    local temporary shasum_bin="${RIFT_SHASUM_BIN:-/usr/bin/shasum}"
+    command -v "$shasum_bin" >/dev/null 2>&1 || return 1
+    temporary="$("${RIFT_MKTEMP_BIN:-mktemp}" "${RIFT_STATE_DIR}/.receipt.XXXXXX")" || return 1
+    {
+        printf 'revision=%s\n' "$RIFT_INSTALLED_REVISION"
+        printf 'release=%s\n' "$RIFT_CANDIDATE_RELEASE"
+        printf 'signing_identity=%s\n' "$RIFT_IDENTITY_NAME"
+        printf 'signing_identity_hash=%s\n' "$RIFT_SIGNING_IDENTITY_HASH"
+        printf 'rift_identifier=%s\n' "$RIFT_BINARY_IDENTIFIER"
+        printf 'rift_cli_identifier=%s\n' "$RIFT_CLI_BINARY_IDENTIFIER"
+        printf 'rift_designated_requirement_sha256=%s\n' \
+            "$(read_designated_requirement "$RIFT_CANDIDATE_RELEASE/rift" | "$shasum_bin" -a 256 | awk '{ print $1 }')"
+        printf 'rift_cli_designated_requirement_sha256=%s\n' \
+            "$(read_designated_requirement "$RIFT_CANDIDATE_RELEASE/rift-cli" | "$shasum_bin" -a 256 | awk '{ print $1 }')"
+        printf 'activated_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    } >"$temporary"
+    mv -f "$temporary" "$RIFT_STATE_DIR/receipt"
+}
+
+activate() {
+    local launchctl_bin="${RIFT_LAUNCHCTL_BIN:-/bin/launchctl}" domain="gui/$(id -u)"
+    local previous_loaded=0 previous_running=0 snapshot
+    [[ -f "$RIFT_TRACKED_CONFIG_PATH" ]] || die "tracked Rift config is missing: $RIFT_TRACKED_CONFIG_PATH"
+    [[ -f "$RIFT_TRACKED_LAUNCH_AGENT_PATH" ]] || die "tracked Rift LaunchAgent is missing: $RIFT_TRACKED_LAUNCH_AGENT_PATH"
+    "$RIFT_CANDIDATE_RELEASE/rift" config check --config "$RIFT_TRACKED_CONFIG_PATH" || die "candidate config failed offline check"
+    # Capture loaded state before stopping anything. A loaded but currently
+    # exited job must still be bootstrapped again during rollback.
+    if service_loaded; then
+        previous_loaded=1
+        service_running && previous_running=1 || true
+    fi
+    snapshot="$("${RIFT_MKTEMP_BIN:-mktemp}" -d "${RIFT_STATE_DIR}/.activation.XXXXXX")" || return 1
+    if ! snapshot_current_pointer "$snapshot" ||
+        ! snapshot_bin_links "$snapshot" ||
+        ! snapshot_active_binaries "$snapshot" ||
+        ! snapshot_live_assets "$snapshot"; then
+        echo "rift-local-install: could not snapshot activation state" >&2
+        rm -rf "$snapshot"
+        return 1
+    fi
+    rollback() {
+        [[ "$RIFT_ROLLBACK_ARMED" -eq 1 && "$RIFT_ROLLBACK_DONE" -eq 0 ]] || return 0
+        RIFT_ROLLBACK_DONE=1
+        RIFT_ROLLBACK_ARMED=0
+        RIFT_ROLLBACK_FAILURES=()
+        # A failed bootstrap can still leave launchd holding an exited job.
+        # Remove that candidate before pointing the LaunchAgent back at the
+        # known-good release.
+        if service_loaded && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+            rollback_failure "could not unload candidate service"
+            echo "rift-local-install: activation snapshot retained for manual recovery: $snapshot" >&2
+            return 1
+        fi
+        if ! restore_active_binaries "$snapshot"; then rollback_failure "could not restore active binaries"; fi
+        if ! restore_current_pointer "$snapshot"; then rollback_failure "could not restore current pointer"; fi
+        if ! restore_bin_links "$snapshot"; then rollback_failure "could not restore stable binary links"; fi
+        if ! restore_live_assets "$snapshot"; then rollback_failure "could not restore live config, layout, LaunchAgent, and receipt"; fi
+        if [[ "$previous_loaded" -eq 1 && "${% raw %}{#RIFT_ROLLBACK_FAILURES[@]}{% endraw %}" -eq 0 ]]; then
+            if ! "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" >/dev/null 2>&1; then
+                rollback_failure "could not restore loaded service"
+            elif [[ "$previous_running" -eq 0 ]] && ! "$launchctl_bin" kill SIGTERM "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+                rollback_failure "could not restore previously stopped service"
+            fi
+        elif service_loaded && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL" >/dev/null 2>&1; then
+            rollback_failure "could not leave service unloaded"
+        fi
+        if [[ "${% raw %}{#RIFT_ROLLBACK_FAILURES[@]}{% endraw %}" -eq 0 ]]; then
+            if rm -rf "$snapshot"; then return 0; fi
+            rollback_failure "could not remove activation snapshot"
+        fi
+        echo "rift-local-install: activation snapshot retained for manual recovery: $snapshot" >&2
+        return 1
+    }
+    RIFT_ROLLBACK_FAILURES=()
+    RIFT_ROLLBACK_ARMED=1
+    RIFT_ROLLBACK_DONE=0
+    trap activation_exit EXIT
+    trap 'activation_signal 130' INT
+    trap 'activation_signal 143' TERM
+    if [[ "$previous_loaded" -eq 1 ]] && ! "$launchctl_bin" bootout "$domain/$RIFT_LAUNCH_AGENT_LABEL"; then
+        # launchctl can report failure after it has already stopped the job.
+        # Use the same idempotent rollback path in either case.
+        if ! rollback; then :; fi
+        return 1
+    fi
+    if ! replace_active_binaries "$RIFT_CANDIDATE_RELEASE" "$snapshot" ||
+        ! atomic_current_pointer "$RIFT_CANDIDATE_RELEASE" || ! install_stable_links || ! install_tracked_assets; then
+        if ! rollback; then :; fi
+        return 1
+    fi
+    if [[ ! -f "$RIFT_LAUNCH_AGENT_PATH" ]]; then
+        echo "rift-local-install: managed Rift LaunchAgent is missing: $RIFT_LAUNCH_AGENT_PATH" >&2
+        if ! rollback; then :; fi
+        return 1
+    fi
+    if ! "$launchctl_bin" bootstrap "$domain" "$RIFT_LAUNCH_AGENT_PATH" || ! wait_for_service_running; then
+        echo "rift-local-install: Rift service did not become queryable after activation" >&2
+        if ! rollback; then :; fi
+        return 1
+    fi
+    if ! write_receipt; then
+        echo "rift-local-install: could not write activation receipt" >&2
+        if ! rollback; then :; fi
+        return 1
+    fi
+    rm -rf "$snapshot"
+    RIFT_ROLLBACK_ARMED=0
+    trap - EXIT INT TERM
+    echo "Activated Rift $RIFT_INSTALLED_REVISION"
+}
+
+main() {
+    local activate_requested=0
+    case "${1:-}" in '') ;; --activate) activate_requested=1 ;; *) die "usage: rift-local-install [--activate]" ;; esac
+    RIFT_INSTALLED_REVISION="" RIFT_SIGNING_IDENTITY_HASH="" RIFT_CANDIDATE_RELEASE=""
+    require_clean_source; resolve_signing_identity; build_stage
+    if [[ "$activate_requested" -eq 1 ]]; then activate; else echo "Staged Rift $RIFT_INSTALLED_REVISION at $RIFT_CANDIDATE_RELEASE"; fi
+}
+
+main "$@"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+open_bin="${AEROSPACE_DEFAULT_WORKSPACES_OPEN_BIN:-/usr/bin/open}"
+exec "${open_bin}" -g 'hammerspoon://aerospace-default-workspaces'

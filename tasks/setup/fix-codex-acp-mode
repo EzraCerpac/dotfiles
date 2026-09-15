@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# MISE description="Repair and verify the selected mise Codex ACP native payload"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+setup_init || exit $?
+if [[ "$SETUP_PROFILE" != workstation || "$(uname -s)" != Darwin ]]; then
+    printf 'Skipped: Codex ACP Darwin payload repair is macOS workstation-only.\n'
+    exit 0
+fi
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != --install-only ) ]]; then
+    setup_error "usage: fix-codex-acp-mode [--install-only]"
+    exit 2
+fi
+
+cli_path="$(setup_mise which codex-acp)" || {
+    setup_error "the selected mise codex-acp package is not installed"
+    exit 1
+}
+if [[ -z "$cli_path" ]]; then
+    setup_error "the selected mise codex-acp package is not installed"
+    exit 1
+fi
+case "$cli_path" in
+    */node_modules/.bin/codex-acp) ;;
+    *)
+        setup_error "unexpected selected codex-acp path: $cli_path"
+        exit 1
+        ;;
+esac
+
+case "$(uname -m)" in
+    arm64) native_arch=arm64 ;;
+    x86_64) native_arch=x64 ;;
+    *)
+        setup_error "unsupported macOS architecture for Codex ACP: $(uname -m)"
+        exit 1
+        ;;
+esac
+node_modules="${cli_path%/.bin/codex-acp}"
+native_binary=""
+for candidate in "$node_modules"/.mise/@zed-industries+codex-acp-darwin-"$native_arch"@*/node_modules/@zed-industries/codex-acp-darwin-"$native_arch"/bin/codex-acp; do
+    [[ -f "$candidate" && ! -L "$candidate" ]] || continue
+    if [[ -n "$native_binary" ]]; then
+        setup_error "multiple selected Codex ACP native payloads found; refusing broad chmod"
+        exit 1
+    fi
+    native_binary="$candidate"
+done
+if [[ -z "$native_binary" ]]; then
+    setup_error "selected mise codex-acp has no native payload at the expected package path"
+    exit 1
+fi
+
+if [[ ! -x "$native_binary" ]]; then
+    chmod 755 "$native_binary"
+    printf 'Repaired executable mode on selected Codex ACP payload.\n'
+fi
+setup_mise exec -- "$cli_path" --help >/dev/null
+printf 'Verified Codex ACP from the selected mise installation.\n'

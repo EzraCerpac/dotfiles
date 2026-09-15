@@ -1,0 +1,25 @@
+# status<TAB>app<TAB>target<TAB>owner<TAB>manual instruction
+deferred	Logic Pro	/Applications/Logic Pro.app	Apple account distribution	The app exists but mas does not recognize its receipt. Use its owning Apple account to update or restore it; preserve its content.
+deferred	de Volkskrant	/Applications/de Volkskrant.app	Apple account distribution	The app exists but mas does not recognize its receipt. Use its owning Apple account to update or restore it.
+pinned	Aegis	/Applications/Aegis.app	local:aegis-local-install	Use the existing local source, signing, and install workflow; keep app state with Aegis.
+pinned	KeyType	/Applications/KeyType.app	project:~/Projects/KeyType	Use the KeyType project build workflow; preserve the local model catalog.
+pinned	KeyType Dev	/Applications/KeyType Dev.app	project:~/Projects/KeyType	Use the project dev-install workflow; keep this development bundle distinct.
+pinned	SoloTrace	/Applications/SoloTrace.app	project:~/Projects/solotrace	Use the SoloTrace project build/install workflow; do not replace its local data.
+pinned	VoiceInk	/Applications/VoiceInk.app	local:voiceink-build	Build and stage with this task; app installation/replacement remains a separate local step.
+pinned	Neovim Automator	/Applications/Neovim.app	local:Automator workflow	Keep the local Automator application workflow; the Neovim CLI is managed separately by mise.
+pinned	vibez	~/.local/bin/vibez	project:~/Projects/Archive/vibez	Use the archived project source only for an intentional local rebuild; this report does not rebuild it.
+deferred	ChatGPT	/Applications/ChatGPT.app	OpenAI app updater	Use the app's vendor update route; package ownership for this bundle remains unresolved.
+deferred	TurboFieldfare Uncensored	~/Applications/TurboFieldfare Uncensored.app	local user app; publisher unknown	No package or source owner is recorded; inspect the installed app's own update route before changing it.
+deferred	BoringNotch	/Applications/boringNotch.app	vendor app; update route unverified	Use the vendor's own update route; no package owner is configured.
+deferred	Edist	/Applications/Edist.app	Jules Le Prince app	Use the vendor's own update route; no package owner is configured.
+deferred	Gateway	/Applications/Gateway.app	Atkinson Advanced Modeling app	Use the vendor's own update route; no package owner is configured.
+deferred	Mapping Tonal Harmony Pro	/Applications/Mapping Tonal Harmony Pro.app	MDECKS Music app	Use the vendor's own update route; preserve its license and user data.
+deferred	Omni	/Applications/Omni.app	Han Xiao app	Use the vendor's own update route; do not confuse it with OmniDiskSweeper.
+deferred	ScreenControl	/Applications/ScreenControl.app	Pushbrands app	Use the vendor's own update route; no package owner is configured.
+deferred	SINE Player	~/Applications/SINE Player.app	Orchestral Tools account	Use the vendor/account update route; keep licensed sample content with SINE Player.
+deferred	TypeSeer	/Applications/TypeSeer.app	vendor app; update route unverified	Use the vendor's own update route; no package owner is configured.
+deferred	Vital	/Applications/Vital.app	Matthew Tytel account	Use the vendor/account update route; preserve presets and licensed content.
+deferred	Xcode	/Applications/Xcode.app	Apple developer distribution	Use Apple's developer distribution/update route; the installed source is unverified.
+deferred	logioptionsplus	/Applications/logioptionsplus.app	Logitech installer	Use Logitech's installer/update route; the tested package parser cannot manage this installer.
+deferred	oMLX	/Applications/oMLX.app	vendor app; update route unverified	Use the app's vendor update route; model files and catalogs remain oMLX-owned.
+deferred	tunnel-client	~/.local/bin/tunnel-client	Proofloom Secure MCP Tunnel vendor client	Use the Proofloom-scoped vendor distribution path when intentionally updating; no source/build task is recorded.

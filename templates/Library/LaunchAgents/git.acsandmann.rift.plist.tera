@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>git.acsandmann.rift</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ env.HOME }}/.local/bin/rift</string>
+        <string>--config</string>
+        <string>{{ env.HOME }}/.config/rift/config.toml</string>
+        <string>--restore</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{ env.HOME }}/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>RUST_LOG</key>
+        <string>error,warn,info</string>
+    </dict>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/rift_{{ env.USER }}.err.log</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/rift_{{ env.USER }}.out.log</string>
+</dict>
+</plist>

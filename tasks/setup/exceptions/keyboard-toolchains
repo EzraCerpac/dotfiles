@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/../../lib/brew-exception.sh"
+for formula in osx-cross/arm/arm-none-eabi-binutils osx-cross/arm/arm-none-eabi-gcc@9 osx-cross/avr/avr-gcc@9; do
+    update_brew_formula_exception "$formula" "${1:-}"
+done

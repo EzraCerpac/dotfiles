@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    printf 'typ2docx installer exception: %s\n' "$1" >&2
+    exit 1
+}
+
+action=update
+if (( $# > 0 )); then
+    [[ $# == 1 && "$1" == --install-only ]] || \
+        fail 'usage: typ2docx [--install-only]'
+    action=install-only
+fi
+
+command -v mise >/dev/null 2>&1 || fail "mise is missing"
+for command_name in uv python3.13 rustc cargo; do
+    command -v "$command_name" >/dev/null 2>&1 || fail "required Mise tool is missing: ${command_name}"
+done
+
+python_path="$(mise which python3.13)" || fail "Mise Python 3.13 is not installed"
+rustc_path="$(mise which rustc)" || fail "Mise Rust is not installed"
+cargo_path="$(mise which cargo)" || fail "Mise Cargo is not installed"
+uv_path="$(mise which uv)" || fail "Mise uv is not installed"
+python_version="$("$python_path" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+[[ "$python_version" == 3.13 ]] || fail "expected Mise Python 3.13, got ${python_version}"
+
+rustc_version="$("$rustc_path" --version)"
+cargo_version="$("$cargo_path" --version)"
+uv_version="$("$uv_path" --version)"
+
+old_uv_tool_dir="$("$uv_path" tool dir)" || fail "could not locate the existing UV tool directory"
+old_uv_tool_dir="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$old_uv_tool_dir")"
+
+mise_data_dir="${MISE_DATA_DIR:-${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}/mise}"
+exception_root="${mise_data_dir}/uv-exceptions/typ2docx"
+exception_root="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$exception_root")"
+launcher="${HOME}/.local/bin/typ2docx"
+launcher_state="absent"
+old_launcher_text=""
+current_run_root=""
+
+if [[ -L "$launcher" ]]; then
+    old_launcher_text="$(readlink "$launcher")"
+    resolved_launcher="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$launcher")"
+    case "$resolved_launcher" in
+        "${old_uv_tool_dir%/}/typ2docx/bin/typ2docx")
+            launcher_state="old-uv-tool"
+            ;;
+        "${exception_root}"/runs/*/bin/typ2docx)
+            launcher_state="prior-typ2docx-exception"
+            launcher_target_path="$old_launcher_text"
+            if [[ "$launcher_target_path" != /* ]]; then
+                launcher_target_path="${HOME}/.local/bin/${launcher_target_path}"
+            fi
+            launcher_target_dir="$("$python_path" -c \
+                'import os, sys; print(os.path.realpath(os.path.dirname(sys.argv[1])))' \
+                "$launcher_target_path")"
+            case "$launcher_target_dir" in
+                "${exception_root}"/runs/*/bin)
+                    current_run_root="${launcher_target_dir%/bin}"
+                    run_id_from_launcher="${current_run_root##*/}"
+                    [[ "${current_run_root%/*}" == "${exception_root}/runs" && \
+                        -n "$run_id_from_launcher" ]] || \
+                        fail "recognized typ2docx launcher has an invalid run path: ${launcher_target_path}"
+                    ;;
+                *)
+                    fail "recognized typ2docx launcher has an unexpected staging path: ${launcher_target_path}"
+                    ;;
+            esac
+            ;;
+        *)
+            fail "refusing to replace unrecognized launcher ${launcher} -> ${resolved_launcher}"
+            ;;
+    esac
+elif [[ -e "$launcher" ]]; then
+    fail "refusing to replace non-symlink launcher ${launcher}"
+fi
+
+if [[ "$action" == install-only && "$launcher_state" == prior-typ2docx-exception ]]; then
+    [[ -x "$launcher" ]] || fail "recognized typ2docx launcher is not executable: ${launcher}"
+    "$launcher" --help >/dev/null || fail "recognized typ2docx launcher failed its --help check"
+    printf 'Already installed and verified typ2docx: %s\n' "$launcher"
+    exit 0
+fi
+
+latest_version="$("$python_path" - <<'PY'
+import json
+import urllib.request
+
+request = urllib.request.Request(
+    "https://pypi.org/pypi/typ2docx/json",
+    headers={"Accept": "application/json", "User-Agent": "typ2docx-setup-exception"},
+)
+with urllib.request.urlopen(request, timeout=15) as response:
+    print(json.load(response)["info"]["version"])
+PY
+)" || fail "could not read the latest typ2docx release from PyPI"
+[[ "$latest_version" =~ ^[0-9A-Za-z][0-9A-Za-z.+_-]*$ ]] || \
+    fail "PyPI returned an invalid typ2docx version: ${latest_version}"
+
+if [[ "$action" == update && "$launcher_state" == prior-typ2docx-exception ]]; then
+    version_file="${current_run_root}/typ2docx-version"
+    installed_version=""
+    if [[ -r "$version_file" ]]; then
+        IFS= read -r installed_version < "$version_file" || true
+    fi
+    if [[ "$installed_version" == "$latest_version" ]]; then
+        [[ -x "$launcher" ]] || fail "recognized typ2docx launcher is not executable: ${launcher}"
+        "$launcher" --help >/dev/null || fail "recognized typ2docx launcher failed its --help check"
+        printf 'Already current typ2docx %s: %s\n' "$installed_version" "$launcher"
+        exit 0
+    fi
+fi
+
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+run_root="${exception_root}/runs/${run_id}"
+tool_dir="${run_root}/tools"
+bin_dir="${run_root}/bin"
+cache_dir="${run_root}/cache"
+cargo_home="${run_root}/cargo"
+cargo_target_dir="${run_root}/cargo-target"
+
+[[ ! -e "$run_root" ]] || fail "install path already exists: ${run_root}"
+umask 077
+mkdir -p "$tool_dir" "$bin_dir" "$cache_dir" "$cargo_home" "$cargo_target_dir" || \
+    fail "could not create isolated install paths"
+
+python_bin_dir="$(dirname "$python_path")"
+rust_bin_dir="$(dirname "$rustc_path")"
+cargo_bin_dir="$(dirname "$cargo_path")"
+uv_bin_dir="$(dirname "$uv_path")"
+build_path="${python_bin_dir}:${rust_bin_dir}:${cargo_bin_dir}:${uv_bin_dir}:${PATH}"
+
+printf 'Installing typ2docx with %s (%s), %s, %s, and %s.\n' \
+    "$python_path" "$python_version" "$rustc_version" "$cargo_version" "$uv_version"
+(
+    cd "$run_root"
+    env \
+        UV_TOOL_DIR="$tool_dir" \
+        UV_TOOL_BIN_DIR="$bin_dir" \
+        UV_CACHE_DIR="$cache_dir" \
+        UV_NO_BUILD=false \
+        CARGO_HOME="$cargo_home" \
+        CARGO_TARGET_DIR="$cargo_target_dir" \
+        PATH="$build_path" \
+        "$uv_path" tool install --python "$python_path" "typ2docx==${latest_version}"
+)
+
+candidate="${bin_dir}/typ2docx"
+[[ -x "$candidate" ]] || fail "UV install produced no executable at ${candidate}"
+"$candidate" --help >/dev/null || fail "new typ2docx executable failed its --help check"
+printf '%s\n' "$latest_version" > "${run_root}/typ2docx-version" || \
+    fail "could not record installed typ2docx version"
+
+printf '\nVerified isolated UV install:\n'
+env UV_TOOL_DIR="$tool_dir" UV_TOOL_BIN_DIR="$bin_dir" UV_CACHE_DIR="$cache_dir" \
+    "$uv_path" tool list --show-paths
+
+mkdir -p "${HOME}/.local/bin"
+temporary_launcher="${HOME}/.local/bin/.typ2docx.new.${run_id}"
+backup_launcher="${HOME}/.local/bin/.typ2docx.uv-backup.${run_id}"
+[[ ! -e "$temporary_launcher" && ! -e "$backup_launcher" ]] || fail "launcher staging path already exists"
+ln -s "$candidate" "$temporary_launcher" || fail "could not stage the stable launcher"
+
+if [[ "$launcher_state" != absent ]]; then
+    ln -s "$old_launcher_text" "$backup_launcher" || fail "could not back up the existing UV launcher"
+fi
+
+"$python_path" - "$temporary_launcher" "$launcher" <<'PY'
+import os
+import sys
+
+os.replace(sys.argv[1], sys.argv[2])
+PY
+
+if ! "$launcher" --help >/dev/null; then
+    if [[ -n "$old_launcher_text" ]]; then
+        restore_launcher="${HOME}/.local/bin/.typ2docx.restore.${run_id}"
+        ln -s "$old_launcher_text" "$restore_launcher"
+        "$python_path" - "$restore_launcher" "$launcher" <<'PY'
+import os
+import sys
+
+os.replace(sys.argv[1], sys.argv[2])
+PY
+    else
+        rm -f "$launcher"
+    fi
+    fail "stable typ2docx launcher failed its --help check; previous command restored"
+fi
+
+printf 'Installed verified typ2docx launcher: %s\n' "$launcher"
+printf 'Installed typ2docx version: %s\n' "$latest_version"
+printf 'Isolated tool directory: %s\n' "$tool_dir"
+if [[ "$launcher_state" != absent ]]; then
+    printf 'Previous launcher backup: %s\n' "$backup_launcher"
+fi

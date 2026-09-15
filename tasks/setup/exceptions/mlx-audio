@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+fail() {
+    printf 'mlx-audio installer exception: %s\n' "$1" >&2
+    exit 1
+}
+
+action=update
+if (( $# > 0 )); then
+    [[ $# == 1 && "$1" == --install-only ]] || \
+        fail 'usage: mlx-audio [--install-only]'
+    action=install-only
+fi
+
+if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
+    printf 'Deferred mlx-audio: this exception is for macOS arm64 only.\n'
+    exit 0
+fi
+
+export MISE_AUTO_INSTALL=0
+command -v mise >/dev/null 2>&1 || fail 'mise is missing'
+for command_name in uv python3.13; do
+    command -v "$command_name" >/dev/null 2>&1 || \
+        fail "required Mise tool is missing: ${command_name}"
+done
+
+python_path="$(mise which python3.13)" || fail 'Mise Python 3.13 is not installed'
+uv_path="$(mise which uv)" || fail 'Mise uv is not installed'
+python_version="$("$python_path" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+[[ "$python_version" == 3.13 ]] || fail "expected Mise Python 3.13, got ${python_version}"
+expected_python_path="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.executable))')"
+
+uv_tool_dir="$("$uv_path" tool dir)" || fail 'could not locate the UV tool directory'
+uv_tool_dir="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$uv_tool_dir")"
+tool_root="${uv_tool_dir}/mlx-audio"
+receipt="${tool_root}/uv-receipt.toml"
+launcher_dir="${HOME:?HOME must be set}/.local/bin"
+entrypoints=(
+    mlx_audio.convert
+    mlx_audio.server
+    mlx_audio.sts.generate
+    mlx_audio.stt.generate
+    mlx_audio.tts.generate
+)
+
+validate_installed_tool() {
+    local check_runtime=false
+    if [[ "${1:-}" == --require-mise-python ]]; then
+        check_runtime=true
+    fi
+
+    [[ -f "$receipt" ]] || fail "UV tool receipt is missing: ${receipt}"
+    "$python_path" - "$receipt" "$launcher_dir" "${entrypoints[@]}" <<'PY'
+import os
+import sys
+import tomllib
+
+receipt_path, launcher_dir, *entrypoints = sys.argv[1:]
+with open(receipt_path, "rb") as stream:
+    receipt = tomllib.load(stream)
+
+requirements = {
+    item["name"].lower().replace("_", "-"): item
+    for item in receipt.get("tool", {}).get("requirements", [])
+}
+mlx_audio = requirements.get("mlx-audio")
+if mlx_audio is None or not {"server", "tts"}.issubset(mlx_audio.get("extras", [])):
+    raise SystemExit("UV receipt does not preserve the mlx-audio[server,tts] requirement")
+
+recorded = {
+    item.get("name"): item.get("install-path")
+    for item in receipt.get("tool", {}).get("entrypoints", [])
+}
+for entrypoint in entrypoints:
+    path = os.path.join(launcher_dir, entrypoint)
+    expected = os.path.realpath(os.path.join(os.path.dirname(receipt_path), "bin", entrypoint))
+    if recorded.get(entrypoint) != path:
+        raise SystemExit(f"UV receipt has an unexpected launcher path for {entrypoint}")
+    if not os.path.isfile(path) or not os.access(path, os.X_OK):
+        raise SystemExit(f"UV launcher is missing or not executable: {path}")
+    if os.path.realpath(path) != expected:
+        raise SystemExit(f"UV launcher has an unexpected owner: {path}")
+PY
+    if [[ "$check_runtime" == true ]]; then
+        [[ -x "${tool_root}/bin/python" ]] || fail "tool environment Python is missing: ${tool_root}/bin/python"
+        "${tool_root}/bin/python" - "$expected_python_path" <<'PY'
+import os
+import sys
+
+expected = os.path.realpath(sys.argv[1])
+actual = os.path.realpath(sys._base_executable)
+if sys.version_info[:2] != (3, 13):
+    raise SystemExit(f"tool environment is not Python 3.13: {sys.version.split()[0]}")
+if actual != expected:
+    raise SystemExit(f"tool environment uses {actual}, expected Mise Python {expected}")
+PY
+    fi
+    for entrypoint in "${entrypoints[@]}"; do
+        "${launcher_dir}/${entrypoint}" --help >/dev/null || \
+            fail "existing ${entrypoint} launcher failed its --help check"
+    done
+}
+
+if [[ -f "$receipt" ]]; then
+    validate_installed_tool || fail 'existing mlx-audio tool failed validation; leaving its environment untouched'
+    if [[ "$action" == install-only ]]; then
+        printf 'Already installed and verified mlx-audio: %s\n' "$tool_root"
+        exit 0
+    fi
+
+    # `uv tool upgrade` reads the installed receipt and retains its original extras.
+    "$uv_path" tool upgrade --python "$python_path" mlx-audio || fail 'uv tool upgrade failed'
+else
+    for entrypoint in "${entrypoints[@]}"; do
+        launcher="${launcher_dir}/${entrypoint}"
+        [[ ! -e "$launcher" && ! -L "$launcher" ]] || \
+            fail "refusing fresh install over an unrecognized launcher: ${launcher}"
+    done
+    mkdir -p "$launcher_dir"
+    "$uv_path" tool install --python "$python_path" 'mlx-audio[server,tts]' || \
+        fail 'uv tool install failed'
+fi
+
+validate_installed_tool --require-mise-python || fail 'installed mlx-audio tool failed validation'
+printf 'Installed and verified mlx-audio: %s\n' "$tool_root"

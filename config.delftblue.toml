@@ -1,0 +1,204 @@
+[vars]
+profile = "delftblue"
+
+[env]
+SETUP_PROFILE = "delftblue"
+
+# Cluster setup applies files only; no tools, packages, or services.
+
+
+[bootstrap.hooks]
+pre-dotfiles = 'export SETUP_PROFILE=delftblue; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/prepare-directories.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/private-permissions.sh" --prepare-source'
+post-dotfiles = 'export SETUP_PROFILE=delftblue; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
+
+# Managed files: individual links preserve application-owned neighbors.
+[dotfiles]
+"~/.DELFTBLUE.md" = { source = "templates/.DELFTBLUE.md.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/atuin/config.toml" = { source = "templates/.config/atuin/config.toml.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/bat/config" = { source = "dotfiles/.config/bat/config", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/bat/themes/Catppuccin Frappe.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Frappe.tmTheme", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/bat/themes/Catppuccin Latte.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Latte.tmTheme", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/bat/themes/Catppuccin Macchiato.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Macchiato.tmTheme", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/bat/themes/Catppuccin Mocha.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Mocha.tmTheme", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/delftblue/jobs/julia_cpu.sbatch" = { source = "templates/.config/delftblue/jobs/julia_cpu.sbatch.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/delftblue/jobs/julia_gpu_smoke.sbatch" = { source = "templates/.config/delftblue/jobs/julia_gpu_smoke.sbatch.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/delftblue/jobs/julia_mpi.sbatch" = { source = "templates/.config/delftblue/jobs/julia_mpi.sbatch.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/delftblue/spack/dev/spack.yaml" = { source = "dotfiles/.config/delftblue/spack/dev/spack.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/diffnav/config.yml" = { source = "dotfiles/.config/diffnav/config.yml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/completions/eza.fish" = { source = "dotfiles/.config/fish/completions/eza.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/completions/ls.fish" = { source = "dotfiles/.config/fish/completions/ls.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/completions/oc.fish" = { source = "dotfiles/.config/fish/completions/oc.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/conf.d/atuin.env.fish" = { source = "dotfiles/.config/fish/conf.d/atuin.env.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/config.fish" = { source = "dotfiles/.config/fish/config.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/functions/fish_user_key_bindings.fish" = { source = "dotfiles/.config/fish/functions/fish_user_key_bindings.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gh/config.yml" = { source = "dotfiles/.config/gh/config.yml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/git/config" = { source = "templates/.config/git/config.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gitui/theme.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gitui/themes/catppuccin-frappe.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-frappe.ron", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gitui/themes/catppuccin-latte.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-latte.ron", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gitui/themes/catppuccin-macchiato.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/gitui/themes/catppuccin-mocha.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-mocha.ron", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/config.toml" = { source = "dotfiles/.config/herdr/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/hunk/config.toml" = { source = "dotfiles/.config/hunk/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/jj-waltz/config.toml" = { source = "dotfiles/.config/jj-waltz/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/jjui/config.toml" = { source = "dotfiles/.config/jjui/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/latexindent/latexindent.yaml" = { source = "dotfiles/.config/latexindent/latexindent.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/lazygit/config.yml" = { source = "dotfiles/.config/lazygit/config.yml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/marksman/config.toml" = { source = "dotfiles/.config/marksman/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/CLAUDE.md" = { source = "dotfiles/.config/nvim/CLAUDE.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/LICENSE" = { source = "dotfiles/.config/nvim/LICENSE", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/README.md" = { source = "dotfiles/.config/nvim/README.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/cheatsheet.txt" = { source = "dotfiles/.config/nvim/cheatsheet.txt", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/.gitignore" = { source = "dotfiles/.config/nvim/.gitignore", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/.neoconf.json" = { source = "dotfiles/.config/nvim/.neoconf.json", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/init.lua" = { source = "dotfiles/.config/nvim/init.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/autocmds.lua" = { source = "dotfiles/.config/nvim/lua/config/autocmds.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/delftblue.lua" = { source = "dotfiles/.config/nvim/lua/config/delftblue.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/keymaps.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/keymaps/jabref.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps/jabref.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/lazy.lua" = { source = "dotfiles/.config/nvim/lua/config/lazy.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/modules/mini-files-git.lua" = { source = "dotfiles/.config/nvim/lua/config/modules/mini-files-git.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/modules/mini-files-km.lua" = { source = "dotfiles/.config/nvim/lua/config/modules/mini-files-km.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/options.lua" = { source = "dotfiles/.config/nvim/lua/config/options.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/config/root-overide.lua" = { source = "dotfiles/.config/nvim/lua/config/root-overide.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/custom/grammarly_bridge.lua" = { source = "dotfiles/.config/nvim/lua/custom/grammarly_bridge.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/custom/latex_to_typst.lua" = { source = "dotfiles/.config/nvim/lua/custom/latex_to_typst.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/custom/typst_guard.lua" = { source = "dotfiles/.config/nvim/lua/custom/typst_guard.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/helpers/julials.jl" = { source = "dotfiles/.config/nvim/lua/helpers/julials.jl", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/component/uvpy/env.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/env.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/component/uvpy/open_list.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/open_list.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/julia/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/init.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/julia/repl.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/repl.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/julia/repl_current_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/repl_current_file.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/julia/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/util.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/typst/compile.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/compile.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/typst/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/init.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/typst/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/util.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/typst/watch.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/watch.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/init.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/pickers.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/pickers.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/util.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_current_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_current_file.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_main_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_main_file.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_current_scene.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_current_scene.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_export.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_export.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_pick_scene.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_pick_scene.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_util.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_module.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_module.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/overseer/template/uvpy/uv_repl.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_repl.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/ai.lua" = { source = "dotfiles/.config/nvim/lua/plugins/ai.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/blink.lua" = { source = "dotfiles/.config/nvim/lua/plugins/blink.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/color-picker.lua" = { source = "dotfiles/.config/nvim/lua/plugins/color-picker.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/colorscheme.lua" = { source = "dotfiles/.config/nvim/lua/plugins/colorscheme.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/compiler.lua" = { source = "dotfiles/.config/nvim/lua/plugins/compiler.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/conform.lua" = { source = "dotfiles/.config/nvim/lua/plugins/conform.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/copilot-native.lua" = { source = "dotfiles/.config/nvim/lua/plugins/copilot-native.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/core.lua" = { source = "dotfiles/.config/nvim/lua/plugins/core.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/csv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/csv.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/delftblue.lua" = { source = "dotfiles/.config/nvim/lua/plugins/delftblue.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/disabled.lua" = { source = "dotfiles/.config/nvim/lua/plugins/disabled.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/explorer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/explorer.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/fzf.lua" = { source = "dotfiles/.config/nvim/lua/plugins/fzf.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/games.lua" = { source = "dotfiles/.config/nvim/lua/plugins/games.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/git.lua" = { source = "dotfiles/.config/nvim/lua/plugins/git.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/grammarly.lua" = { source = "dotfiles/.config/nvim/lua/plugins/grammarly.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/hop.lua" = { source = "dotfiles/.config/nvim/lua/plugins/hop.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/image.lua" = { source = "dotfiles/.config/nvim/lua/plugins/image.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/iron.lua" = { source = "dotfiles/.config/nvim/lua/plugins/iron.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/jujitsu.lua" = { source = "dotfiles/.config/nvim/lua/plugins/jujitsu.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/legendary.lua" = { source = "dotfiles/.config/nvim/lua/plugins/legendary.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/lsp.lua" = { source = "dotfiles/.config/nvim/lua/plugins/lsp.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/markdown.lua" = { source = "dotfiles/.config/nvim/lua/plugins/markdown.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/mini-move.lua" = { source = "dotfiles/.config/nvim/lua/plugins/mini-move.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/multicursor.lua" = { source = "dotfiles/.config/nvim/lua/plugins/multicursor.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/overseer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/overseer.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/project.lua" = { source = "dotfiles/.config/nvim/lua/plugins/project.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/quickfix.lua" = { source = "dotfiles/.config/nvim/lua/plugins/quickfix.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/sidekick-tabout.lua" = { source = "dotfiles/.config/nvim/lua/plugins/sidekick-tabout.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/smart-splits.lua" = { source = "dotfiles/.config/nvim/lua/plugins/smart-splits.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/snacks.lua" = { source = "dotfiles/.config/nvim/lua/plugins/snacks.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/split.lua" = { source = "dotfiles/.config/nvim/lua/plugins/split.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/start.lua" = { source = "dotfiles/.config/nvim/lua/plugins/start.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/surround.lua" = { source = "dotfiles/.config/nvim/lua/plugins/surround.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/tabout.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tabout.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/test.lua" = { source = "dotfiles/.config/nvim/lua/plugins/test.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/tex.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tex.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/tree-sitter.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tree-sitter.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/trouble.lua" = { source = "dotfiles/.config/nvim/lua/plugins/trouble.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/tv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tv.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/ui.lua" = { source = "dotfiles/.config/nvim/lua/plugins/ui.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/undotree.lua" = { source = "dotfiles/.config/nvim/lua/plugins/undotree.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/wakatime.lua" = { source = "dotfiles/.config/nvim/lua/plugins/wakatime.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/which-key.lua" = { source = "dotfiles/.config/nvim/lua/plugins/which-key.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/plugins/yazi.lua" = { source = "dotfiles/.config/nvim/lua/plugins/yazi.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/queries/toml/injections.scm" = { source = "dotfiles/.config/nvim/lua/queries/toml/injections.scm", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/auto-save.lua" = { source = "dotfiles/.config/nvim/lua/unused/auto-save.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/better-escape.lua" = { source = "dotfiles/.config/nvim/lua/unused/better-escape.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/codecompanion.lua" = { source = "dotfiles/.config/nvim/lua/unused/codecompanion.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/copilot.lua" = { source = "dotfiles/.config/nvim/lua/unused/copilot.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/firenvim.lua" = { source = "dotfiles/.config/nvim/lua/unused/firenvim.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/flash.lua" = { source = "dotfiles/.config/nvim/lua/unused/flash.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/learn-vim.lua" = { source = "dotfiles/.config/nvim/lua/unused/learn-vim.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/modules/jj_fzf.lua" = { source = "dotfiles/.config/nvim/lua/unused/modules/jj_fzf.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/modules/jjui.lua" = { source = "dotfiles/.config/nvim/lua/unused/modules/jjui.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/snacks.lua" = { source = "dotfiles/.config/nvim/lua/unused/snacks.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/lua/unused/zellij.lua" = { source = "dotfiles/.config/nvim/lua/unused/zellij.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/nvim/stylua.toml" = { source = "dotfiles/.config/nvim/stylua.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/AGENTS.md" = { source = "dotfiles/.config/opencode/AGENTS.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/opencode.json" = { source = "dotfiles/.config/opencode/opencode.json", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/SKILL.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.config/opencode/skills/jj-waltz/agents/openai.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/codex.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/lifecycle.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/links.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/links.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/jj/agent-config.toml" = { source = "dotfiles/.config/jj/agent-config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/jj/config.toml" = { source = "dotfiles/.config/jj/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/ruff/ruff.toml" = { source = "dotfiles/.config/ruff/ruff.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/television/cable/channels.toml" = { source = "dotfiles/.config/television/cable/channels.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/television/cable/jj-bookmarks.toml" = { source = "dotfiles/.config/television/cable/jj-bookmarks.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/television/cable/jj.toml" = { source = "dotfiles/.config/television/cable/jj.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/television/cable/jw.toml" = { source = "dotfiles/.config/television/cable/jw.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/television/config.toml" = { source = "dotfiles/.config/television/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/tex-fmt/tex-fmt.toml" = { source = "dotfiles/.config/tex-fmt/tex-fmt.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/worktrunk/config.toml" = { source = "dotfiles/.config/worktrunk/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/xonsh/rc.xsh" = { source = "dotfiles/.config/xonsh/rc.xsh", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/yazi/init.lua" = { source = "dotfiles/.config/yazi/init.lua", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/zellij/config.kdl" = { source = "templates/.config/zellij/config.kdl.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.config/zellij/themes/catppuccin.kdl" = { source = "dotfiles/.config/zellij/themes/catppuccin.kdl", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.config/zellij/themes/catppuccin.yaml" = { source = "dotfiles/.config/zellij/themes/catppuccin.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/db-common.sh" = { source = "templates/.local/bin/db-common.sh.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.local/bin/db-spack-env.sh" = { source = "templates/.local/bin/db-spack-env.sh.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.local/bin/dbacct" = { source = "dotfiles/.local/bin/dbacct", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbcpu" = { source = "dotfiles/.local/bin/dbcpu", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbdev-bootstrap" = { source = "templates/.local/bin/dbdev-bootstrap.tera", mode = "template", variants = [{ os = "linux" }] }
+"~/.local/bin/dbdev-install" = { source = "dotfiles/.local/bin/dbdev-install", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbgpusmoke" = { source = "dotfiles/.local/bin/dbgpusmoke", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbjobs" = { source = "dotfiles/.local/bin/dbjobs", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbjulia-mpi-init" = { source = "dotfiles/.local/bin/dbjulia-mpi-init", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dblimits" = { source = "dotfiles/.local/bin/dblimits", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbprojectpull" = { source = "dotfiles/.local/bin/dbprojectpull", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbprojectpush" = { source = "dotfiles/.local/bin/dbprojectpush", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbpull" = { source = "dotfiles/.local/bin/dbpull", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.local/bin/dbpush" = { source = "dotfiles/.local/bin/dbpush", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.markdownlint-cli2.yaml" = { source = "dotfiles/.markdownlint-cli2.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.xonshrc" = { source = "dotfiles/.xonshrc", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.zprofile" = { source = "dotfiles/.zprofile", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.zshenv" = { source = "dotfiles/.zshenv", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.ssh/config" = { source = "templates/.ssh/config.tera", mode = "template", variants = [{ os = "linux" }] }

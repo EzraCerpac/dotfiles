@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "usage: wm-focus [--from-nvim] <left|right|up|down>" >&2
+    exit 2
+}
+
+from_nvim=false
+if [[ "${1:-}" == "--from-nvim" ]]; then
+    from_nvim=true
+    shift
+fi
+
+if [[ $# -ne 1 ]]; then
+    usage
+fi
+
+direction=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+case "$direction" in
+    left|right|up|down) ;;
+    *)
+        echo "wm-focus: unsupported direction '$1'" >&2
+        usage
+        ;;
+esac
+
+AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
+if [[ ! -x "$AEROSPACE_BIN" ]]; then
+    echo "wm-focus: AeroSpace CLI not executable: $AEROSPACE_BIN" >&2
+    exit 1
+fi
+
+HERDR_BIN_PATH=${HERDR_BIN_PATH:-"$HOME/.local/bin/herdr"}
+JQ=${JQ:-jq}
+WINDOW_FORMAT='%{app-bundle-id}%{tab}%{window-title}%{newline}'
+
+focused_window() {
+    "$AEROSPACE_BIN" list-windows --focused --format "$WINDOW_FORMAT" 2>/dev/null
+}
+
+is_herdr_window() {
+    local record bundle title
+    record=$(focused_window) || return 1
+    IFS=$'\t' read -r bundle title <<<"$record"
+    [[ "$bundle" == "com.github.wez.wezterm" && "$title" =~ ^[Hh][Ee][Rr][Dd][Rr]([[:space:]]|$) ]]
+}
+
+is_nvim() {
+    [[ -x "$HERDR_BIN_PATH" ]] || return 1
+    command -v "$JQ" >/dev/null 2>&1 || return 1
+
+    "$HERDR_BIN_PATH" pane process-info --current 2>/dev/null \
+        | "$JQ" -e '
+            .result.process_info.foreground_processes[]?.name
+            | ascii_downcase
+            | test("^g?(view|l?n?vim?x?)(diff)?$")
+        ' >/dev/null
+}
+
+focus_herdr_neighbor() {
+    local neighbor_id
+    neighbor_id=$(
+        "$HERDR_BIN_PATH" pane neighbor --direction "$direction" --current 2>/dev/null \
+            | "$JQ" -r '.result.neighbor.neighbor_pane_id // empty'
+    ) || return 1
+    [[ -n "$neighbor_id" ]] || return 1
+
+    "$HERDR_BIN_PATH" pane focus --direction "$direction" --current >/dev/null
+}
+
+if [[ -x "$HERDR_BIN_PATH" ]] && command -v "$JQ" >/dev/null 2>&1 && is_herdr_window; then
+    if [[ "$from_nvim" == false ]] && is_nvim; then
+        if "$HERDR_BIN_PATH" plugin action invoke "vim-herdr-navigation.$direction" >/dev/null; then
+            exit 0
+        fi
+    elif focus_herdr_neighbor; then
+        exit 0
+    fi
+fi
+
+if ! "$AEROSPACE_BIN" focus --boundaries all-monitors-outer-frame "$direction" >/dev/null; then
+    echo "wm-focus: AeroSpace focus command failed for direction '$direction'" >&2
+    exit 1
+fi

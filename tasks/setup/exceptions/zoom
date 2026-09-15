@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/../../lib/brew-exception.sh"
+update_brew_cask_exception zoom zoom.us "${1:-}"

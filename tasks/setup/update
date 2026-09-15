@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# MISE description="Checkpoint settings and update declared packages, tools, exceptions, editor plugins, and mise"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+setup_init || exit $?
+if [[ "$SETUP_PROFILE" == "delftblue" ]]; then
+    setup_error "setup:update is disabled for delftblue; use its restricted configuration workflow"
+    exit 2
+fi
+
+failures=()
+run_stage() {
+    local label="$1"
+    shift
+    printf '\n== %s ==\n' "$label"
+    if "$@"; then
+        printf 'Result: completed\n'
+    else
+        local result=$?
+        printf 'Result: failed (exit %s)\n' "$result"
+        failures+=("$label")
+    fi
+}
+
+printf 'Saving local settings checkpoint before updates...\n'
+if ! setup_mise bootstrap dotfiles save; then
+    setup_error "pre-update settings checkpoint failed; no updates were started"
+    exit 1
+fi
+
+upgrade_app_store_packages() {
+    if ! sudo -n true >/dev/null 2>&1; then
+        if [[ -t 0 && -t 1 ]]; then
+            if ! sudo -v; then
+                printf 'Deferred: App Store updates need administrator authorization; run setup:update in an interactive terminal.\n'
+                return 0
+            fi
+        else
+            printf 'Deferred: App Store updates need administrator authorization; run setup:update in an interactive terminal.\n'
+            return 0
+        fi
+    fi
+    setup_mise bootstrap packages upgrade --manager mas --yes
+}
+
+if [[ "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+    run_stage "Homebrew formulae" setup_mise bootstrap packages upgrade --manager brew --yes
+    run_stage "Homebrew casks" setup_mise bootstrap packages upgrade --manager brew-cask --yes
+    run_stage "Mac App Store packages" upgrade_app_store_packages
+else
+    run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes
+fi
+run_stage "declared mise tools" setup_mise upgrade --no-prune
+if [[ "$SETUP_PROFILE" == workstation ]]; then
+    run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/tasks/setup/fix-codex-acp-mode"
+fi
+
+run_exception() {
+    local name="$1"
+    local script_path="$2"
+    run_stage "installer exception: $name" setup_mise exec -- "$script_path"
+}
+
+if ! setup_each_exception run_exception; then
+    failures+=("installer exception manifest")
+fi
+
+update_editor_plugins() {
+    local data_home="${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}"
+    local app_name="${NVIM_APPNAME:-nvim}"
+    local lazy_root="$data_home/$app_name/lazy/lazy.nvim"
+    local guard_script
+
+    if [[ ! -d "$lazy_root" ]]; then
+        printf 'Deferred: Lazy.nvim is not installed at %s.\n' "$lazy_root"
+        return 0
+    fi
+
+    guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")" || return 1
+    cat > "$guard_script" <<'LUA'
+local lazy_path = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if vim.fn.isdirectory(lazy_path) == 0 then
+  error("Lazy.nvim is missing; refusing to bootstrap it during setup:update")
+end
+vim.opt.rtp:prepend(lazy_path)
+require("lazy.core.config").defaults.install.missing = false
+LUA
+    chmod 600 "$guard_script"
+    SETUP_LAZY_UPDATE_SCRIPT="$SETUP_ROOT/tasks/setup/lazy-update.lua" \
+        SETUP_LAZY_GUARD_SCRIPT="$guard_script" \
+        setup_mise exec -- nvim --headless \
+            --cmd 'lua dofile(vim.env.SETUP_LAZY_GUARD_SCRIPT)' \
+            -c 'lua dofile(vim.env.SETUP_LAZY_UPDATE_SCRIPT)' -c qa
+    local result=$?
+    rm -f "$guard_script"
+    return "$result"
+}
+
+if [[ "$SETUP_PROFILE" == "workstation" ]]; then
+    run_stage "Neovim plugins" update_editor_plugins
+else
+    printf '\n== Neovim plugins ==\nDeferred: profile %s does not own the workstation editor setup.\n' "$SETUP_PROFILE"
+fi
+
+# Standalone mise updates last. A Homebrew-owned installation will report that
+# self-update is disabled; the migration will switch ownership before relying on it.
+run_stage "standalone mise" setup_mise self-update --yes
+
+printf '\nSaving local settings checkpoint after updates...\n'
+if ! setup_mise bootstrap dotfiles save; then
+    setup_error "post-update settings checkpoint failed"
+    failures+=("post-update settings checkpoint")
+fi
+
+if [[ "${#failures[@]}" -eq 0 ]]; then
+    printf '\nUpdate report: completed; no updater failures.\n'
+    exit 0
+fi
+
+printf '\nUpdate report: failures: '
+printf '%s; ' "${failures[@]}"
+printf '\n'
+exit 1

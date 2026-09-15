@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
+JQ=${JQ:-jq}
+
+resolve_rift_cli() {
+    local candidate
+
+    if [[ -n "${RIFT_CLI:-}" ]]; then
+        if [[ "${RIFT_CLI}" == */* ]]; then
+            [[ -x "${RIFT_CLI}" ]] || return 1
+            printf '%s\n' "${RIFT_CLI}"
+            return 0
+        fi
+        command -v "${RIFT_CLI}" || return 1
+        return 0
+    fi
+
+    for candidate in "${HOME}/.local/bin/rift-cli" /opt/homebrew/bin/rift-cli /usr/local/bin/rift-cli; do
+        if [[ -x "${candidate}" ]]; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+    command -v rift-cli
+}
+
+RIFT_CLI=$(resolve_rift_cli) || {
+    echo "rift-preferred-workspace: could not locate Rift CLI (rift-cli)" >&2
+    exit 1
+}
+
+usage() {
+    echo "usage: rift-preferred-workspace switch INDEX" >&2
+    echo "       rift-preferred-workspace move INDEX [WINDOW_IDX]" >&2
+    echo "       rift-preferred-workspace launch INDEX BUNDLE_ID APP_NAME" >&2
+    exit 2
+}
+
+die() {
+    echo "rift-preferred-workspace: $*" >&2
+    exit 1
+}
+
+require_index() {
+    local index=${1:-}
+    [[ $index =~ ^[0-9]+$ ]] || die "workspace index must be a non-negative integer"
+    ((index < 128)) || die "workspace index must be below 128"
+}
+
+query_displays() {
+    "$RIFT_CLI" query displays
+}
+
+preferred_display_uuid() {
+    local displays=$1
+    "$JQ" -er '
+        def is_external:
+            if has("is_builtin") then
+                .is_builtin == false
+            elif ((.name // "") | test("built-in"; "i")) then
+                false
+            else
+                (.screen_id // 1) != 1
+            end;
+        [ .[]
+          | select(.space != null and is_external and .uuid != null)
+        ] as $external
+        | if ($external | length) > 0 then
+            ($external
+             | max_by([
+                 ((.frame.origin.x // 0) | tonumber? // 0),
+                 ((.frame.origin.y // 0) | tonumber? // 0),
+                 .uuid
+             ])
+             | .uuid)
+          else
+            [ .[] | select(.is_active_context == true and .uuid != null) ]
+            | if length == 1 then .[0].uuid
+              else error("active Rift display is ambiguous")
+              end
+          end
+    ' <<<"$displays"
+}
+
+managed_display_lines() {
+    local displays=$1
+    "$JQ" -r '
+        .[]
+        | select(.space != null and .uuid != null)
+        | [.uuid, (.space | tostring)]
+        | @tsv
+    ' <<<"$displays"
+}
+
+# Return all tracked windows, annotated with the display whose managed native
+# space contains each window. Querying each managed space is intentional: it
+# also lets an explicit WINDOW_IDX be located before changing display focus.
+windows_by_display() {
+    local displays=$1
+    local display_uuid
+    local space_id
+    local windows
+    local -a records=()
+
+    while IFS=$'\t' read -r display_uuid space_id; do
+        [[ -n $display_uuid && -n $space_id ]] || continue
+        windows=$("$RIFT_CLI" query windows --space-id "$space_id")
+        while IFS= read -r record; do
+            [[ -n $record ]] || continue
+            records+=("$record")
+        done < <(
+            "$JQ" -c --arg display_uuid "$display_uuid" --arg space_id "$space_id" \
+                '.[] | . + {__display_uuid: $display_uuid, __space_id: ($space_id | tonumber?) }' \
+                <<<"$windows"
+        )
+    done < <(managed_display_lines "$displays")
+
+    if ((${#records[@]} == 0)); then
+        echo '[]'
+    else
+        printf '%s\n' "${records[@]}" | "$JQ" -s '.'
+    fi
+}
+
+selected_window() {
+    local records=$1
+    local window_idx=${2:-}
+
+    if [[ -n $window_idx ]]; then
+        "$JQ" -cer --arg window_idx "$window_idx" '
+            [ .[] | select(.id.idx != null and (.id.idx | tostring) == $window_idx) ]
+            | if length == 1 then .[0]
+              elif length == 0 then error("Rift window was not found in a managed display space")
+              else error("Rift window index is ambiguous")
+              end
+        ' <<<"$records"
+    else
+        "$JQ" -cer '
+            [ .[] | select(.is_focused == true and .id.idx != null) ]
+            | if length == 1 then .[0]
+              elif length == 0 then error("focused Rift window is not in a managed display space")
+              else error("focused Rift window is ambiguous")
+              end
+        ' <<<"$records"
+    fi
+}
+
+move_to_workspace() {
+    local index=$1
+    local window_idx=$2
+    "$RIFT_CLI" execute workspace move-window "$index" --follow "$window_idx"
+}
+
+move_window_to_preferred_display() {
+    local target_uuid=$1
+    local window=$2
+    local source_uuid
+    local window_idx
+
+    source_uuid=$("$JQ" -er '.__display_uuid' <<<"$window")
+    window_idx=$("$JQ" -er '.id.idx' <<<"$window")
+    if [[ $source_uuid != "$target_uuid" ]]; then
+        "$RIFT_CLI" execute display move-window \
+            --uuid "$target_uuid" --window-id "$window_idx"
+    fi
+    "$RIFT_CLI" execute display focus --uuid "$target_uuid"
+}
+
+choose_launch_window() {
+    local records=$1
+    local bundle_id=$2
+    local app_name=$3
+    "$JQ" -cr --arg bundle_id "$bundle_id" --arg app_name "$app_name" '
+        [ .[]
+          | select(.bundle_id == $bundle_id and .id.idx != null)
+        ] as $matches
+        | if ($matches | length) == 0 then
+            null
+          else
+            ([ $matches[] | select(.is_focused == true) ] | length) as $focused_count
+            | if $focused_count > 1 then
+                error("focused matching window is ambiguous")
+              elif $focused_count == 1 then
+                [ $matches[] | select(.is_focused == true) ][0]
+              else
+                ([ $matches[] | select((.title // "") == $app_name) ]
+                 | if length > 0 then sort_by(.id.idx)[0]
+                   else ($matches | sort_by(.id.idx)[0])
+                   end)
+              end
+          end
+    ' <<<"$records"
+}
+
+switch_workspace() {
+    local index=$1
+    local displays
+    local target_uuid
+
+    displays=$(query_displays)
+    target_uuid=$(preferred_display_uuid "$displays") || die "could not choose a preferred display"
+    "$RIFT_CLI" execute display focus --uuid "$target_uuid"
+    "$RIFT_CLI" execute workspace switch "$index"
+}
+
+move_workspace() {
+    local index=$1
+    local requested_window_idx=${2:-}
+    local displays
+    local target_uuid
+    local records
+    local window
+
+    displays=$(query_displays)
+    target_uuid=$(preferred_display_uuid "$displays") || die "could not choose a preferred display"
+    records=$(windows_by_display "$displays")
+    window=$(selected_window "$records" "$requested_window_idx") || die "could not identify the window to move"
+    move_window_to_preferred_display "$target_uuid" "$window"
+    move_to_workspace "$index" "$("$JQ" -er '.id.idx' <<<"$window")"
+}
+
+launch_workspace() {
+    local index=$1
+    local bundle_id=$2
+    local app_name=$3
+    local displays
+    local target_uuid
+    local records
+    local window
+
+    displays=$(query_displays)
+    target_uuid=$(preferred_display_uuid "$displays") || die "could not choose a preferred display"
+    records=$(windows_by_display "$displays")
+    window=$(choose_launch_window "$records" "$bundle_id" "$app_name") || \
+        die "could not select an existing matching window"
+
+    if [[ $window != null ]]; then
+        move_window_to_preferred_display "$target_uuid" "$window"
+        move_to_workspace "$index" "$("$JQ" -er '.id.idx' <<<"$window")"
+    else
+        "$RIFT_CLI" execute display focus --uuid "$target_uuid"
+        "$RIFT_CLI" execute workspace switch "$index"
+        "$OPEN_BIN" -a "$app_name"
+    fi
+}
+
+main() {
+    local command=${1:-}
+    case "$command" in
+        switch)
+            [[ $# -eq 2 ]] || usage
+            require_index "$2"
+            switch_workspace "$2"
+            ;;
+        move)
+            [[ $# -ge 2 && $# -le 3 ]] || usage
+            require_index "$2"
+            if [[ $# -eq 3 ]]; then
+                [[ $3 =~ ^[1-9][0-9]*$ ]] || die "window index must be a positive integer"
+            fi
+            move_workspace "$2" "${3:-}"
+            ;;
+        launch)
+            [[ $# -eq 4 ]] || usage
+            require_index "$2"
+            [[ -n $3 && -n $4 ]] || usage
+            launch_workspace "$2" "$3" "$4"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+}
+
+main "$@"

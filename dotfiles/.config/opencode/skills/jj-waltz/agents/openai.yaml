@@ -1,0 +1,4 @@
+interface:
+  display_name: "JJ Waltz"
+  short_description: "Manage JJ workspaces with jw"
+  default_prompt: "Use $jj-waltz for this explicit jw or JJ-workspace task: inspect current state, use live command help, act safely, and verify the result."
