@@ -10,7 +10,7 @@ Persist the local setup profile before loading host-specific mise config.
 
 Usage: tasks/bootstrap/profile --profile ROLE --machine-id ID [--origin URL]
 
-ROLE is workstation, nas, or delftblue. The history origin is optional here;
+ROLE is workstation or nas. The history origin is optional here;
 use an SSH URL or credential-helper URL without embedded credentials.
 EOF
 }

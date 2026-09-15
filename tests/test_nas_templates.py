@@ -15,7 +15,7 @@ SHARED_CONFIG = tomllib.loads((ROOT / "config.toml").read_text())
 
 def render_dotfile(profile: str, managed_path: str, scratch: Path) -> str:
     config = {"nas": NAS_CONFIG, "workstation": WORKSTATION_CONFIG}[profile]
-    entry = config["dotfiles"][managed_path]
+    entry = {**SHARED_CONFIG["dotfiles"], **config.get("dotfiles", {})}[managed_path]
     if entry["mode"] != "template":
         raise AssertionError(f"{profile} {managed_path} is not a template")
 
@@ -59,19 +59,20 @@ class NasTemplateTests(unittest.TestCase):
         self.assertIn("Never run `validate all`", rendered)
         self.assertNotIn("{% if", rendered)
 
-    def test_nas_git_config_omits_workstation_tool_dependencies(self):
+    def test_nas_git_config_has_shared_pagers_without_workstation_integrations(self):
         with tempfile.TemporaryDirectory() as temp:
             rendered = render_dotfile(
                 "nas", "~/.config/git/config", Path(temp)
             )
 
+        self.assertIn("pager = hunk pager", rendered)
+        self.assertIn("diff = diffnav --side-by-side", rendered)
+        self.assertIn("show = delta", rendered)
+        self.assertIn("tool = nvimdiff", rendered)
         self.assertIn("local = blue", rendered)
         self.assertIn("defaultBranch = main", rendered)
         for workstation_tool in (
-            "hunk",
             "pycharm",
-            "diffnav",
-            "delta",
             "git-lfs",
             "git.overleaf.com",
         ):
@@ -98,7 +99,7 @@ class NasTemplateTests(unittest.TestCase):
         )
 
     def test_nas_profile_owns_only_its_declared_dotfiles(self):
-        managed = set(NAS_CONFIG["dotfiles"])
+        managed = set(SHARED_CONFIG["dotfiles"]) | set(NAS_CONFIG.get("dotfiles", {}))
         self.assertNotIn("~/.config/herdr/config.toml", managed)
         self.assertNotIn("~/.config/keyboard/corne-qmk/USAGE", managed)
         self.assertNotIn("~/.zshrc", managed)

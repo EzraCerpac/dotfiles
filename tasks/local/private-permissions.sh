@@ -11,13 +11,7 @@ if [[ "${1:-}" == "--prepare-source" ]]; then
         setup_error "usage: $0 [--prepare-source]"
         exit 2
     fi
-    case "$SETUP_PROFILE" in
-        workstation|delftblue) ;;
-        nas)
-            echo "NAS profile has no private SSH or jj dotfile outputs; leaving permissions unchanged."
-            exit 0
-            ;;
-    esac
+    [[ "$SETUP_PROFILE" == workstation ]] || exit 0
 
     ssh_template="${SETUP_ROOT}/templates/.ssh/config.tera"
     if [[ -L "$ssh_template" || ! -f "$ssh_template" ]]; then
@@ -32,13 +26,6 @@ elif [[ "$#" -gt 0 ]]; then
     exit 2
 fi
 
-case "$SETUP_PROFILE" in
-    workstation|delftblue) ;;
-    nas)
-        echo "NAS profile declares no private SSH or jj dotfile outputs; leaving permissions unchanged."
-        exit 0
-        ;;
-esac
 
 ensure_private_directory() {
     local path="${1:?directory path required}"
@@ -78,12 +65,16 @@ secure_private_file() {
     chmod 0600 "$path"
 }
 
-ensure_private_directory "${HOME}/.ssh"
+if [[ "$SETUP_PROFILE" == workstation ]]; then
+    ensure_private_directory "${HOME}/.ssh"
+fi
 ensure_private_directory "${HOME}/.config/jj"
 
 # SSH config is rendered into a regular file. The two jj configs are public
 # source symlinks today; if either is a regular host-local copy, keep it private.
-secure_private_file "${HOME}/.ssh/config"
+if [[ "$SETUP_PROFILE" == workstation ]]; then
+    secure_private_file "${HOME}/.ssh/config"
+fi
 secure_private_file "${HOME}/.config/jj/config.toml" \
     "${SETUP_ROOT}/dotfiles/.config/jj/config.toml"
 secure_private_file "${HOME}/.config/jj/agent-config.toml" \

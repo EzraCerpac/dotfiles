@@ -1,14 +1,15 @@
 # Setup maintenance tasks
 
 The registered tasks call these scripts from the setup root. They require
-`SETUP_PROFILE` (`workstation`, `nas`, or `delftblue`) and optionally use
+`SETUP_PROFILE` (`workstation` or `nas`) and optionally use
 `SETUP_MACHINE_ID` to load the corresponding `host-<id>` environment. Each
 child mise process is pinned to this setup directory and those environments.
 
 `setup:update` saves tracked settings before and after updates. On macOS it runs
 Homebrew formulae, Homebrew casks, and Mac App Store packages as independent
 stages, then updates declared mise tools, named exceptions, editor plugins, and
-standalone mise last. Other profiles use their declared host-package stage.
+standalone mise last. Herdr is deferred while its terminal server is running.
+Kanata and Karabiner remain held for the known input bug. Other profiles use their declared host-package stage.
 Later stages continue after an earlier stage fails; failures are collected and
 make the final task result nonzero once the pre-update save succeeds. The task
 does not prune software, update project dependencies, publish source, or
@@ -16,7 +17,7 @@ restart services.
 
 If the Mac App Store stage has no cached administrator authorization, a
 noninteractive run defers that stage and continues. An interactive
-`mise -C ~/.config/mise run setup:update` can prompt through `sudo -v`. A
+`dots up` can prompt through `sudo -v`. A
 deferred App Store stage is not a task failure.
 
 If a wanted app has no suitable mise package backend, add one executable script

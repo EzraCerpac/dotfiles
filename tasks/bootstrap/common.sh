@@ -32,8 +32,8 @@ bootstrap_init() {
 
 bootstrap_validate_profile() {
     case "${SETUP_PROFILE:-}" in
-        workstation|nas|delftblue) ;;
-        *) bootstrap_error 'profile must be workstation, nas, or delftblue'; return 2 ;;
+        workstation|nas) ;;
+        *) bootstrap_error 'profile must be workstation or nas'; return 2 ;;
     esac
 
     if [[ -z "${SETUP_MACHINE_ID:-}" || ! "$SETUP_MACHINE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then

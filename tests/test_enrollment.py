@@ -210,9 +210,9 @@ printf '%s\\n' "${AGE_TEST_RECIPIENT:?}"
         result = self._run(
             "enroll-history",
             "--profile",
-            "delftblue",
+            "nas",
             "--machine-id",
-            "delftblue",
+            "nas",
             "--identity",
             "~/.config/age/keys.txt",
             "--file",
@@ -486,9 +486,9 @@ printf '%s\\n' "${AGE_TEST_RECIPIENT:?}"
         missing_file = self._run(
             "enroll-history",
             "--profile",
-            "delftblue",
+            "nas",
             "--machine-id",
-            "delftblue",
+            "nas",
             "--identity",
             str(self.identity),
             "--file",

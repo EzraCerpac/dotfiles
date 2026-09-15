@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/../../lib/brew-exception.sh"
-update_brew_cask_exception karabiner-elements Karabiner-Core-Service "${1:-}"
+hold_brew_cask_exception \
+    karabiner-elements \
+    16.0.0 \
+    "/Applications/Karabiner-Elements.app"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/../../lib/brew-exception.sh"
-for formula in felixkratz/formulae/borders modem-dev/tap/hunk dastrobu/tap/mail-mcp ezracerpac/tap/typst-time-machine; do
+for formula in felixkratz/formulae/borders dastrobu/tap/mail-mcp ezracerpac/tap/typst-time-machine; do
     update_brew_formula_exception "$formula" "${1:-}"
 done

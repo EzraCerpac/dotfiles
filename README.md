@@ -1,44 +1,163 @@
 # Dotfiles
 
-Personal dotfiles managed with mise's native `bootstrap dotfiles` workflow. The source checkout is `~/.config/mise`, from `EzraCerpac/dotfiles`. Supports Apple Silicon macOS, Linux workstations, CerpacNAS, and DelftBlue; Intel macOS is intentionally unsupported.
+Your shell, Neovim, pagers, and everyday CLI tools travel with you. The
+workstation profile adds language runtimes, specialist tools, and desktop
+applications. `dots` is
+the short interface to the setup; ordinary `mise` commands still work inside
+individual projects.
 
-## Quick Start
+## Start a new machine
 
-Install mise 2026.9.7 or newer before using the native dotfiles adoption flow. Select the machine role explicitly in the local `~/.config/mise/miserc.toml`: `workstation`, `nas`, or `delftblue`. The role is never inferred from the host name. See the [migration and setup guide](docs/migration.md) for adoption, daily commands, history, and rollback.
-
-The current macOS window workflow is documented in [CONTEXT.md](CONTEXT.md). Herdr's settings and shortcuts live in [its configuration](dotfiles/.config/herdr/config.toml).
-
-For local prose cleanup, see the [humanize-text runbook](docs/humanize-text.md). Run `humanize-text configure` once, then use `humanize-text FILE.typ` or `humanize-clipboard`.
-
-## What's Included
-
-**Shell**: fish, starship prompt, atuin history, zoxide, fzf, carapace completions
-
-**Editor**: neovim (LazyVim)
-
-**Dev Tools**: git, gh, jj/jjui, lazygit, gitui, worktrunk, diffnav, node, rust, uv, delta, ripgrep, fd, bat, eza, jq, yazi, tmux, gum
-
-**macOS**: AeroSpace, Aegis bar and switcher, JankyBorders, Karabiner, Raycast, WezTerm; Rift remains an explicit optional local build.
-
-## Tool and setup management
-
-`~/.config/mise` is the setup root and source checkout. Shared configuration lives in `config.toml`; the explicit role files are `config.workstation.toml`, `config.nas.toml`, and `config.delftblue.toml`. For workstation and NAS, `setup:update` upgrades declared packages and tools without pruning undeclared installations. DelftBlue's update task stays disabled pending its restricted workflow. Use the task entry point for routine setup work:
+From a normal interactive terminal, with Git and curl available:
 
 ```sh
-mise -C ~/.config/mise run setup:status
-mise -C ~/.config/mise run setup:update
+curl -fsSL https://mise.run | sh && "$HOME/.local/bin/mise" -E workstation bootstrap --adopt EzraCerpac/dotfiles
 ```
 
-Dotfile source and private settings history have separate repositories and histories. `EzraCerpac/dotfiles` is ordinary JJ-managed source; native mise history uses a separate private Git repository named `dotfiles-state`. `setup:backup` is the explicit network publication path. `setup:restore` fetches first, restores tracked state, refreshes host enrollment, enforces mode `0600`, and never publishes local defaults.
+This uses the [official mise installer](https://mise.jdx.dev/installing-mise.html),
+clones this repository to `~/.config/mise`, and bootstraps your workstation.
+Homebrew is installed automatically on a Mac when needed; its installer can ask
+for administrator approval. On a pristine Mac, install Apple's Command Line
+Tools if Git prompts for them. Open a new terminal when bootstrap finishes.
 
-The [software inventory](docs/software-ownership.md) records the pre-cutover tools; [migration status](docs/migration.md#mac-cutover-progress) records the live handoff. Custom Homebrew formulae and unsupported casks have named installer exceptions under the same update command. Grok CLI remains pinned to `1.0.4` because the native registry cannot discover its latest release; upgrading requires an intentional pin change.
+Use `workstation` for a normal Mac or Linux development machine. Use `nas` in
+place of `workstation` for the smaller NAS role. The choice is saved locally;
+you do not repeat it during everyday use. CerpacNAS itself has not been cut over
+or tested while its network is unavailable.
 
-For authenticated GitHub downloads, mise reads the existing `gh auth login`
-credential through a credential command. Tokens stay in the system credential
-store. Interactive updates can request administrator authorization for the
-package exceptions; noninteractive runs report those items as deferred.
+Public configuration comes from this repository. Restoring private app settings
+also needs the private history credentials and the machine's age key; see
+[settings recovery](docs/history.md). Existing nonempty setup directories need
+reconciliation before adoption; this command is for a fresh setup.
 
-See [docs/migration.md](docs/migration.md) for recovery steps and current acceptance status.
+## Change Fish, then share the change
+
+Suppose you want `croot` to expand to `cd ~/Projects`. Open your normal
+`~/.config/fish/config.fish` and add:
+
+```fish
+abbr -a croot 'cd ~/Projects'
+```
+
+Save it and open a new terminal tab. Type `croot`, then Space, to try it.
+The live file links into this repository, so saving already changed the source.
+There is no re-add or apply step for an existing linked file. Mac-specific shell
+changes belong in `~/.config/fish/conf.d/10-macos.fish` instead.
+
+When you want another machine to receive the shortcut, go to `~/.config/mise`
+and inspect `jj diff`. Describe the change, push a `wip/` bookmark, then open and
+merge a PR to `main`. For example:
+
+```sh
+jj describe -m "feat(fish): add projects shortcut"
+jj bookmark create wip/fish-shortcut -r @
+jj git push --bookmark wip/fish-shortcut
+```
+
+Open the PR on GitHub, or use `gh pr create --web`. Run `jj new` after publishing
+to leave an empty change for your next edit. Source changes are never pushed
+by the updater or the settings watcher.
+
+On the other already-migrated machine, open its setup checkout and check
+`jj status` first. Preserve and reconcile any local edits. With a clean working
+copy, fetch with `jj git fetch`, inspect `jj diff --from @- --to main@origin`,
+and use `jj new main@origin` when ready to adopt the reviewed revision. The
+linked Fish file changes with that checkout; open a new shell to load it.
+
+If the incoming change adds managed files or updates a template, run `dots apply`
+to create the links and render the templates. `dots apply ~/.ssh/config` limits
+application to that target. It does not upgrade tools. Newly declared tools are
+installed by `dots bootstrap`, which applies the full declared machine setup.
+
+## Update this computer
+
+When you want the installed setup brought up to date, run:
+
+```sh
+dots up
+```
+
+Let it finish and read the result. It checkpoints app-written settings, upgrades
+declared packages and tools, runs the named installer exceptions, updates editor
+plugins, then updates mise. Tools track the latest stable release by default.
+Kanata and Karabiner stay on their known working versions. Herdr is deferred
+while its terminal server is running, to avoid breaking open sessions.
+Python 3.13 and 3.12 remain available for applications that require them; the
+default Python tracks latest. Lockfiles record the installed selections and
+advance with `dots up`; they do not impose permanent version caps. It may request an admin
+password; running applications or unavailable vendor updaters are reported as
+deferred. Close an affected app when convenient and rerun the command.
+
+This does not fetch or publish dotfile source, update project dependencies,
+upgrade the operating system, restart services, or prune software. For a look
+without changes, use `dots status`.
+
+## Add a tool
+
+Suppose you want Watchexec available everywhere you work on this machine. Run:
+
+```sh
+dots add watchexec
+```
+
+Mise selects its preferred backend, installs the latest version, and records it
+in the active profile: `config.workstation.toml` on your main computer, or
+`config.nas.toml` on a NAS. Review the changed manifest and lockfiles in JJ and
+publish them when you want other machines with that role to receive the tool.
+
+If the tool belongs in the everyday toolkit on **every** machine, say
+`dots add --base watchexec`. That targets the shared `config.toml` instead.
+`dots add --profile nas ripgrep` targets the NAS additions without changing this
+machine's role. For an explicit file, use
+`dots add --path ~/other/config.toml watchexec`.
+
+For a global npm command such as Prettier, use `dots add npm:prettier`.
+Mise owns the installation and tracks the latest release. If it is a
+project dependency, add it to that project's package.json instead.
+
+For a Cargo CLI, use `dots add cargo:hexyl`. The `cargo:` prefix selects its
+source; mise still owns installation and updates. Source builds may take longer
+and need a Rust toolchain. The workstation already includes Rust.
+
+For a native Mac library, use `dots add brew:libmagic`; a Mac app looks like
+`dots add brew-cask:firefox`. New Homebrew declarations are restricted to macOS
+automatically, so they do not become Linux requirements. Existing declarations
+keep their options. Unsupported recipes still need a named installer exception;
+`dots` reports a backend failure rather than silently changing package managers.
+
+All these commands select `~/.config/mise` before loading configuration. They
+work from your thesis checkout or any other directory. An explicit `--path` is
+the only way to redirect the write to an arbitrary file. `dots help` explains
+the available actions; ordinary project-local `mise use` is unchanged.
+
+## Choose what belongs on a machine
+
+`config.toml` is the shared base: the shell, navigation/search tools, Git/JJ,
+GitHub CLI, completions, prompt, Neovim, pagers, and their configuration. Every role
+loads it. A NAS therefore receives the same everyday terminal toolkit.
+
+`workstation` adds the full development and desktop setup. It supports Apple
+Silicon macOS and glibc Linux x64/ARM64, with explicit OS restrictions on packages
+and files. Fedora 44 ARM64 is the tested fresh Linux baseline; Intel Macs are
+not supported by this setup.
+
+`nas` adds the NAS-specific configuration and smaller runtime choices. It does
+not own DSM updates, storage, media services, or Compose projects. Actual NAS
+binary and shell compatibility must be checked when the host becomes reachable.
+
+The DelftBlue profile is retired. Its old configuration remains in repository
+history; the cluster and existing SSH access are not changed by this retirement.
+
+## Recover app-written settings
+
+The watcher saves selected app-written files locally in encrypted history.
+When you want to publish those snapshots, run `dots backup`. On a replacement
+machine, configure the private history connection and key, then follow
+[the restore guide](docs/history.md) and use `dots restore`.
+
+This private recovery history is separate from publishing your Fish source or
+tool declarations with JJ. Keep age keys outside both repositories. The older
+migration backups remain available; see [migration and rollback](docs/migration.md).
 
 Review defaults:
 

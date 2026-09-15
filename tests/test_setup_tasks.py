@@ -267,6 +267,7 @@ printf 'SUDO\\t%s\\n' "$*" >> "$SUDO_LOG"
             self.bin / "pgrep",
             """#!/usr/bin/env bash
 printf 'PGREP\\t%s\\n' "$*" >> "$PGREP_LOG"
+[[ "${1:-}" == "-f" ]] && exit 1
 [[ "${1:-}" == "-x" ]] || exit 2
 case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
 """,
@@ -525,6 +526,20 @@ exec "$CODEX_ACP_NATIVE" "$@"
         self.assertIn("Result: failed (exit 44)", result.stdout)
         self.assertIn("Verified Codex ACP", result.stdout)
         self.assertEqual(stat.S_IMODE(selected_payload.stat().st_mode), 0o755)
+
+    def test_update_defers_herdr_with_running_server(self) -> None:
+        self._write_executable(self.bin / "pgrep", "#!/usr/bin/env bash\nexit 0\n")
+        result = self._run("update")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Deferred: Herdr", result.stdout)
+        self.assertIn("upgrade\t--no-prune\t--exclude\therdr", self.log.read_text())
+
+    def test_update_stops_tool_stage_if_process_check_fails(self) -> None:
+        self._write_executable(self.bin / "pgrep", "#!/usr/bin/env bash\nexit 2\n")
+        result = self._run("update")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("could not inspect Herdr", result.stderr)
+        self.assertNotIn("\tupgrade\t--no-prune", self.log.read_text())
 
     def test_update_aggregates_independent_failures_without_broad_upgrades(self) -> None:
         result = self._run("update", extra_env={"SETUP_PROFILE": "nas", "SETUP_MACHINE_ID": "cerpacnas", "FAIL_PACKAGES": "1"})
@@ -845,7 +860,7 @@ exec "$CODEX_ACP_NATIVE" "$@"
     def test_delftblue_update_refuses_before_any_mise_command(self) -> None:
         result = self._run("update", extra_env={"SETUP_PROFILE": "delftblue", "SETUP_MACHINE_ID": "delftblue"})
         self.assertEqual(result.returncode, 2)
-        self.assertIn("disabled for delftblue", result.stderr)
+        self.assertIn("SETUP_PROFILE must be workstation or nas", result.stderr)
         self.assertEqual(self._calls(), [])
 
     def _run_lazy_fixture(self, fail: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:

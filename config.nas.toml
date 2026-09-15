@@ -5,37 +5,20 @@ profile = "nas"
 SETUP_PROFILE = "nas"
 
 [tools]
-# Encrypted enrollment and structured maintenance output.
-age = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-jq = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-# Keep the NAS toolset intentionally small. Architecture/libc compatibility is
-# checked on the host before applying this profile.
-gh = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-jj = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-node = { version = "lts", os = ["linux/x64", "linux/arm64"] }
-ripgrep = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-tmux = { version = "latest", os = ["linux/x64", "linux/arm64"] }
+# Keep the NAS additions intentionally small. The common command-line base is
+# declared in config.toml and remains available alongside these tools.
+node = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 uv = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 
 # DSM remains outside bootstrap package ownership; no native package installs.
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/prepare-directories.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/prepare-directories.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh"'
 post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
-"~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.codex/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.codex/skills/jj-waltz/agents/openai.yaml", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.codex/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/codex.md", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.codex/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/lifecycle.md", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.codex/skills/jj-waltz/references/links.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/links.md", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md" = { source = "dotfiles/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/thesis.AGENTS.md" = { source = "templates/.config/cerpacnas/project-rules/thesis.AGENTS.md.tera", mode = "template", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/projects.toml" = { source = "templates/.config/cerpacnas/projects.toml.tera", mode = "template", variants = [{ os = "linux" }] }
-"~/.config/gh/config.yml" = { source = "dotfiles/.config/gh/config.yml", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.config/git/config" = { source = "templates/.config/git/config.tera", mode = "template", variants = [{ os = "linux" }] }
-"~/.config/jj-waltz/config.toml" = { source = "dotfiles/.config/jj-waltz/config.toml", mode = "symlink", variants = [{ os = "linux" }] }
-"~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink", variants = [{ os = "linux" }] }

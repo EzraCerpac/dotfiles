@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/../../lib/brew-exception.sh"
+hold_brew_formula_exception kanata 1.12.0

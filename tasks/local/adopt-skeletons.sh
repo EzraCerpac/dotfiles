@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/common"
-[[ "$(uname -s)" == Linux && "$SETUP_PROFILE" == workstation ]] || exit 0
+[[ "$(uname -s)" == Linux ]] || exit 0
 
 # A new distro account may already have vendor shell defaults. Only adopt
 # exact /etc/skel copies; independently edited files stay for native conflict review.

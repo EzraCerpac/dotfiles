@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'HELP'
+Your machine setup, from any directory.
+
+  dots up                         Update tools, packages and editor plugins
+  dots status                     Inspect files, tools and backup health
+  dots bootstrap [ARGS...]        Install/apply the full declared machine setup
+  dots apply [TARGET...]          Apply dotfiles and templates
+  dots backup                     Publish encrypted settings snapshots
+  dots restore [ARGS...]          Restore private settings
+  dots add [OPTIONS] TOOL...       Install and record tools or native packages
+
+Examples:
+  dots add watchexec
+  dots add npm:prettier cargo:hexyl
+  dots add brew:libmagic brew-cask:firefox
+  dots add --base watchexec
+  dots add --profile nas ripgrep
+  dots add --path ~/other/config.toml watchexec
+
+Add defaults to the selected machine profile; --base targets shared config.
+Bare tool names use mise's preferred backend and latest version.
+Source publication still uses JJ; backup publishes only private settings.
+HELP
+}
+
+case "${1:-help}" in help|-h|--help) usage; exit 0 ;; esac
+root="${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
+[[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
+root="$(cd "$root" && pwd -P)"
+mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
+[[ -x "$mise_bin" ]] || mise_bin="$(command -v mise)"
+# Select the setup before mise loads any configuration. Discard a project's
+# environment selector; the setup's own miserc selects its role and host.
+unset MISE_ENV
+export MISE_CONFIG_DIR="$root"
+run_mise() { "$mise_bin" -C "$root" "$@"; }
+command_name="$1"
+shift
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+case "$command_name" in
+    up|update|status|backup)
+        [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
+        ;;
+esac
+case "$command_name" in
+    up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
+    status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
+    bootstrap) exec "$mise_bin" -C "$root" bootstrap "$@" ;;
+    apply) exec "$mise_bin" -C "$root" bootstrap dotfiles apply "$@" ;;
+    add) ;;
+    *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
+esac
+
+target=""
+selector_count=0
+tools=()
+packages=()
+while (($#)); do
+    case "$1" in
+        --base) target="$root/config.toml"; selector_count=$((selector_count + 1)); shift ;;
+        --profile)
+            [[ $# -ge 2 ]] || { echo 'dots: --profile needs workstation or nas' >&2; exit 2; }
+            case "$2" in workstation|nas) ;; *) echo 'dots: profile must be workstation or nas' >&2; exit 2 ;; esac
+            target="$root/config.$2.toml"; selector_count=$((selector_count + 1)); shift 2 ;;
+        --path)
+            [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+            case "$2" in /*) target="$2" ;; *) target="$PWD/$2" ;; esac
+            selector_count=$((selector_count + 1)); shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        -*) echo "dots: unknown add option '$1'" >&2; exit 2 ;;
+        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) packages+=("$1"); shift ;;
+        *) tools+=("$1"); shift ;;
+    esac
+done
+[[ "$selector_count" -le 1 ]] || { echo 'dots: choose one of --base, --profile or --path' >&2; exit 2; }
+[[ ${#tools[@]} -gt 0 || ${#packages[@]} -gt 0 ]] || { echo 'dots: add needs at least one tool or package' >&2; exit 2; }
+if [[ -z "$target" ]]; then
+    role="$(run_mise config get --file "$root/config.local.toml" env.SETUP_PROFILE)"
+    case "$role" in
+        workstation|nas) target="$root/config.$role.toml" ;;
+        *) echo 'dots: no supported machine profile; use --base or --profile' >&2; exit 2 ;;
+    esac
+fi
+printf 'Recording in %s\n' "$target"
+if [[ ${#tools[@]} -gt 0 ]]; then
+    run_mise use --path "$target" "${tools[@]}"
+fi
+if [[ ${#packages[@]} -gt 0 ]]; then
+    bash "$root/tasks/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "${packages[@]}"
+fi

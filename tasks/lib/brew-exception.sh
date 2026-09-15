@@ -125,6 +125,61 @@ update_brew_formula_exception() {
         "$brew_bin" upgrade --formula "$token"
 }
 
+# Kanata and Karabiner are held at the versions known to work with the current
+# input setup. Homebrew cannot express a portable cask hold, and mise's Brew
+# updater otherwise replaces a formula with the current bottle. These helpers
+# deliberately inspect and report; they never upgrade held keyboard software.
+hold_brew_formula_exception() {
+    local token="$1" held_version="$2"
+    local brew_bin installed_version
+    if [[ "$token" != kanata ]]; then
+        printf 'Refusing unlisted held Homebrew formula: %s\n' "$token" >&2
+        return 2
+    fi
+    if [[ "$(uname -s)" != Darwin ]]; then
+        printf 'Deferred: %s is macOS-only.\n' "$token"
+        return 0
+    fi
+    brew_bin="$(find_real_brew)" || {
+        printf 'A standard-prefix Homebrew installation is required to inspect held formula %s\n' "$token" >&2
+        return 1
+    }
+    installed_version="$("$brew_bin" list --versions "$token" 2>/dev/null | awk 'NF { print $NF }')"
+    if [[ -z "$installed_version" ]]; then
+        printf 'Manual action required: install %s %s from the keyboard setup instructions; refusing an unpinned Homebrew install.\n' "$token" "$held_version" >&2
+        return 1
+    fi
+    if [[ "$installed_version" != "$held_version" ]]; then
+        printf 'Held: %s is %s, but this setup requires %s; refusing to change it.\n' "$token" "$installed_version" "$held_version" >&2
+        return 1
+    fi
+    printf 'Held: %s %s (keyboard compatibility hold).\n' "$token" "$held_version"
+}
+
+hold_brew_cask_exception() {
+    local token="$1" held_version="$2" app_path="$3"
+    local version_plist installed_version
+    if [[ "$token" != karabiner-elements ]]; then
+        printf 'Refusing unlisted held Homebrew cask: %s\n' "$token" >&2
+        return 2
+    fi
+    if [[ "$(uname -s)" != Darwin ]]; then
+        printf 'Deferred: %s is macOS-only.\n' "$token"
+        return 0
+    fi
+    version_plist="$app_path/Contents/Info.plist"
+    if [[ ! -f "$version_plist" ]]; then
+        printf 'Manual action required: install Karabiner-Elements %s from the keyboard setup instructions; refusing the current Homebrew cask.\n' "$held_version" >&2
+        return 1
+    fi
+    installed_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$version_plist" 2>/dev/null || true)"
+    if [[ "$installed_version" != "$held_version" ]]; then
+        printf 'Held: %s is %s, but this setup requires %s; refusing to change it.\n' "$token" "${installed_version:-unknown}" "$held_version" >&2
+        return 1
+    fi
+    printf 'Held: %s %s (keyboard compatibility hold).\n' "$token" "$held_version"
+}
+
 brew_exception_admin_available() {
     if [[ "$(id -u)" == 0 ]] || { [[ -t 0 ]] && [[ -t 1 ]]; }; then
         return 0

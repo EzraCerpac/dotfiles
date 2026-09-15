@@ -14,17 +14,17 @@ MISE = os.environ.get('SETUP_TEST_MISE', 'mise')
 
 class DotfileFixtures(unittest.TestCase):
     def test_profile_sources_and_native_link_lifecycle(self):
-        for role in ('workstation', 'nas', 'delftblue'):
+        for role in ('workstation', 'nas'):
             with self.subTest(role=role), tempfile.TemporaryDirectory(prefix='mise-dotfiles-') as tmp:
                 fixture = Path(tmp)
                 for directory in ('dotfiles', 'templates'):
                     shutil.copytree(ROOT / directory, fixture / directory, symlinks=True)
-                base = (ROOT / 'config.toml').read_text().split('[tasks.')[0]
+                base = (ROOT / 'config.toml').read_text().split('[tools]')[0]
                 # Shared configuration precedes task/hook declarations.
                 self.assertNotIn('[bootstrap.hooks]', base)
                 base = base.replace('[vars]\n', f'[vars]\nprofile = "{role}"\n')
                 profile = tomllib.loads((ROOT / f'config.{role}.toml').read_text())
-                entries = profile['dotfiles']
+                entries = {**tomllib.loads((ROOT / 'config.toml').read_text()).get('dotfiles', {}), **profile.get('dotfiles', {})}
                 lines = [base, '[dotfiles]']
                 targets = []
                 for target, entry in entries.items():

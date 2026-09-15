@@ -1,5 +1,11 @@
 # mise dotfiles migration
 
+The current daily interface is `dots`; see the [worked examples](../README.md).
+The base now supplies the shared shell, editor, pagers, and CLI configuration.
+Workstation and NAS are additions to that base. The DelftBlue selector is retired
+and rejects bootstrap; the historical rollout notes below describe its earlier
+preservation and tests, not an active supported profile.
+
 The native mise setup is live on the Mac, with acceptance still staged.
 CerpacNAS is unreachable; leave all NAS state unchanged and do not retry until
 network access returns. A fresh Fedora 44 ARM64 bootstrap and reapply passed,
@@ -43,23 +49,23 @@ The final setup root is `~/.config/mise`. Use `tasks/bootstrap/profile` to persi
 Run setup tasks from the setup root so mise reads its configuration and role:
 
 ```sh
-mise -C ~/.config/mise run setup:status
-mise -C ~/.config/mise run setup:update
-mise -C ~/.config/mise run setup:backup
-mise -C ~/.config/mise run setup:restore
+dots status
+dots up
+dots backup
+dots restore
 ```
 
 | Need | Native mise workflow | Effect |
 | --- | --- | --- |
-| Inspect machine setup | `mise -C ~/.config/mise run setup:status` | Reports selected profile, declared packages and tools, dotfiles/history, and installer exceptions. |
-| Update declared setup | `mise -C ~/.config/mise run setup:update` | Saves local settings before and after updates. On Mac, Homebrew formulae, casks, and Mac App Store packages run as independent stages; later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
+| Inspect machine setup | `dots status` | Reports selected profile, declared packages and tools, dotfiles/history, and installer exceptions. |
+| Update declared setup | `dots up` | Saves local settings before and after updates. On Mac, Homebrew formulae, casks, and Mac App Store packages run as independent stages; later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
 | Edit an ordinary linked file | `mise -C ~/.config/mise bootstrap dotfiles edit <target>` | Opens the native linked target, which is the source file. |
 | Edit and apply a template | `mise -C ~/.config/mise bootstrap dotfiles edit --apply <target>` | Edits the Tera template and applies the rendered target. |
 | Add a global symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g <target>` | Adds a link shared across profiles. |
 | Add a profile-specific symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.<profile>.toml <target>` | Writes the entry to that profile's configuration file. Replace `<profile>` with `workstation`, `nas`, or `delftblue`. |
-| Publish private settings | `mise -C ~/.config/mise run setup:backup` | Saves local settings and explicitly publishes native mise history. Network publication is manual. |
-| Restore private settings | `mise -C ~/.config/mise run setup:restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
-| Replace an unconnected local history store | `mise -C ~/.config/mise run setup:restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
+| Publish private settings | `dots backup` | Saves local settings and explicitly publishes native mise history. Network publication is manual. |
+| Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
+| Replace an unconnected local history store | `dots restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
 
 `setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `tasks/bootstrap/enroll-history`.
 
@@ -180,3 +186,12 @@ If rollback is needed, keep package and application ownership intact while resto
 Do not extract either archive broadly over a live home directory: active applications and managers may own paths in the same tree. Keep the protected snapshot until all target machines and the private-history recovery path pass acceptance.
 
 The published tag `legacy/chezmoi-2026-09-14` preserves the initial chezmoi file tree. DelftBlue remains on its existing setup; do not run a cluster `chezmoi update` against the converted `main` branch.
+
+### Shared-base follow-up validation
+
+The short `dots` interface and base/profile composition have focused fixture
+coverage. Fedora 44 ARM64 additionally ran the new locked Hunk 0.22.0,
+Diffnav 0.10.0, Eza 0.23.5, and Delta 0.19.2 binaries; Hunk also displayed a
+synthetic Git diff successfully. This checks the added Linux pager binaries,
+not a fresh full workstation bootstrap or CerpacNAS compatibility. The test
+container was removed and the pre-existing PostgreSQL container was preserved.

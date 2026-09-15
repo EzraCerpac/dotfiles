@@ -3,7 +3,6 @@ set -euo pipefail
 source "$(dirname "$0")/common"
 case "$SETUP_PROFILE" in
     workstation|nas) ;;
-    delftblue) exit 0 ;;
 esac
 # Seed only missing files. Existing application preferences remain authoritative.
 seed_file() {
@@ -20,8 +19,8 @@ seed_file() {
     printf 'Created default configuration: %s\n' "$relative"
 }
 seed_file .codex/config.toml
+seed_file .config/nvim/lazyvim.json
 if [[ "$SETUP_PROFILE" == workstation ]]; then
-    seed_file .config/nvim/lazyvim.json
     seed_file .pi/agent/settings.json
     if [[ "$(uname -s)" == Darwin ]]; then
         seed_file .config/aegis/config.json

@@ -119,7 +119,7 @@ if [[ "$SETUP_PROFILE" == workstation ]]; then
         '~/.pi/agent/settings.json'
     )
 elif [[ "$SETUP_PROFILE" == nas ]]; then
-    files=('~/.codex/config.toml' '~/.config/fish/fish_variables')
+    files=('~/.codex/config.toml' '~/.config/fish/fish_variables' '~/.config/atuin/config.toml' '~/.config/nvim/lazyvim.json' '~/.config/nvim/lazy-lock.json' '~/.config/nvim/spell/en.utf-8.add')
 fi
 if ((${#extra_files[@]})); then
     files+=("${extra_files[@]}")

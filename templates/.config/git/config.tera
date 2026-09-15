@@ -6,6 +6,7 @@
 	excludesfile = {{ env.HOME }}/.gitignore
 	autocrlf = input
 	compression = 9
+	pager = hunk pager
 [init]
 	defaultBranch = main
 [url "git@github.com:"]
@@ -20,6 +21,16 @@
 	remote = yellow
 	upstream = green
 	plain = blue
+[merge]
+    tool = nvimdiff
+[mergetool]
+    keepBackup = false
+[pager]
+    diff = diffnav --side-by-side
+    show = delta --side-by-side --paging=never
+[delta]
+    side-by-side = true
+    navigate = true
 {%- else %}
 	signingkey = D041C1286F71DBDF
 [commit]

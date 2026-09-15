@@ -96,13 +96,13 @@ tasks/bootstrap/enroll-history \
   --recipient age1NAS_PUBLIC_RECIPIENT \
   --refresh
 mise bootstrap dotfiles save
-mise -C ~/.config/mise run setup:backup
+dots backup
 ```
 
 Finally, restore the NAS with its own identity through the fetch-only workflow:
 
 ```sh
-mise -C ~/.config/mise run setup:restore
+dots restore
 ```
 
 That workflow fetches and pulls before importing the selected host checkpoint;
@@ -113,7 +113,7 @@ contains both Mac and NAS public recipients. The private Mac key stays on the
 Mac. When ready to publish the NAS's own variant, use the explicit backup task:
 
 ```sh
-mise -C ~/.config/mise run setup:backup
+dots backup
 ```
 
 The workstation defaults are exact files:
@@ -211,7 +211,7 @@ repository, inspect it first. Pass `--initialize-history` only when choosing to
 replace it. The task validates a staged clone, then moves the old store into a
 protected sibling directory with mode `0700`; keep that backup until the
 recovered history is reviewed. For example, invoke the registered task with
-`mise -C ~/.config/mise run setup:restore --initialize-history`.
+`dots restore --initialize-history`.
 
 Save later edits locally with mise, then publish deliberately with
 `mise bootstrap dotfiles sync` (or the repository's `setup:backup` task).

@@ -22,8 +22,8 @@ setup_init() {
 
     SETUP_PROFILE="${SETUP_PROFILE:-}"
     case "$SETUP_PROFILE" in
-        workstation|nas|delftblue) ;;
-        *) setup_error "SETUP_PROFILE must be workstation, nas, or delftblue"; return 2 ;;
+        workstation|nas) ;;
+        *) setup_error "SETUP_PROFILE must be workstation or nas"; return 2 ;;
     esac
 
     SETUP_MACHINE_ID="${SETUP_MACHINE_ID:-}"
@@ -75,11 +75,11 @@ setup_each_exception() {
 
     while IFS=$'\t' read -r exception_profile name extra || [[ -n "$exception_profile$name$extra" ]]; do
         [[ -z "$exception_profile" || "$exception_profile" == \#* ]] && continue
-        if [[ -n "$extra" || ! "$exception_profile" =~ ^(workstation|nas|delftblue)$ ]]; then
+        if [[ -n "$extra" || ! "$exception_profile" =~ ^(base|workstation|nas)$ ]]; then
             setup_error "invalid installer exception row in $SETUP_EXCEPTION_MANIFEST"
             return 2
         fi
-        [[ "$exception_profile" == "$SETUP_PROFILE" ]] || continue
+        [[ "$exception_profile" == "$SETUP_PROFILE" || "$exception_profile" == base ]] || continue
         script_path="$(setup_exception_path "$name")" || {
             setup_error "invalid installer exception name in $SETUP_EXCEPTION_MANIFEST"
             return 2
@@ -103,11 +103,11 @@ setup_print_exceptions() {
     local any=0
     while IFS=$'\t' read -r exception_profile name extra || [[ -n "$exception_profile$name$extra" ]]; do
         [[ -z "$exception_profile" || "$exception_profile" == \#* ]] && continue
-        if [[ -n "$extra" || ! "$exception_profile" =~ ^(workstation|nas|delftblue)$ ]]; then
+        if [[ -n "$extra" || ! "$exception_profile" =~ ^(base|workstation|nas)$ ]]; then
             setup_error "invalid installer exception row in $SETUP_EXCEPTION_MANIFEST"
             return 2
         fi
-        [[ "$exception_profile" == "$SETUP_PROFILE" ]] || continue
+        [[ "$exception_profile" == "$SETUP_PROFILE" || "$exception_profile" == base ]] || continue
         script_path="$(setup_exception_path "$name")" || return 2
         any=1
         if [[ -x "$script_path" ]]; then
