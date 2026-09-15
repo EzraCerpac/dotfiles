@@ -31,6 +31,7 @@ update_brew_cask_exception() {
     fi
     case "$token" in
         brooklyn) ;;
+        antinote|omnidisksweeper) auto_updates=1 ;;
         mactex-no-gui) requires_admin=1 ;;
         zoom|karabiner-elements|tailscale-app) auto_updates=1; requires_admin=1 ;;
         font-sf-pro) auto_updates=1; requires_admin=1 ;;

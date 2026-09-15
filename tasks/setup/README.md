@@ -98,3 +98,7 @@ publication remains a separate explicit `setup:backup` operation.
 `SETUP_AGE_IDENTITY` or `~/.config/age/keys.txt`. It validates content before
 writing, uses mode `0600`, and refuses differing live files unless the exact
 target is named with `--reconcile`.
+
+Antinote and OmniDiskSweeper use named Homebrew cask exceptions because the
+native mise DMG extractor cannot answer their installer licence prompts. The
+user approved both licences. Their updaters defer while the apps are running.

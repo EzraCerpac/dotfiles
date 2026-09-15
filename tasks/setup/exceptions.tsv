@@ -16,3 +16,5 @@ workstation	qmk
 workstation	keyboard-toolchains
 workstation	tapped-tools
 workstation	peekaboo
+workstation	antinote
+workstation	omnidisksweeper

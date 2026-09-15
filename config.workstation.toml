@@ -242,7 +242,6 @@ url = """https://julialang-s3.julialang.org/bin/mac/aarch64/1.12/julia-{{ versio
 
 # Cask declarations describe the desired owner only. Live transfer still
 # requires the coordinated app-by-app procedure in docs/software-ownership.md.
-"brew-cask:battery" = { os = "macos/arm64" }
 "brew-cask:codexbar" = { os = "macos/arm64" }
 "brew-cask:fujacob/cotabby/cotabby" = { os = "macos/arm64" }
 "brew-cask:crisp" = { os = "macos/arm64" }
@@ -254,10 +253,8 @@ url = """https://julialang-s3.julialang.org/bin/mac/aarch64/1.12/julia-{{ versio
 "brew-cask:jabref" = { os = "macos/arm64" }
 "brew-cask:mattermost" = { os = "macos/arm64" }
 "brew-cask:middleclick" = { os = "macos/arm64" }
-"brew-cask:ollama-app" = { os = "macos/arm64" }
 "brew-cask:orbstack" = { os = "macos/arm64" }
 "brew-cask:raycast" = { os = "macos/arm64" }
-"brew-cask:warp" = { os = "macos/arm64" }
 "brew-cask:wezterm" = { os = "macos/arm64" }
 
 

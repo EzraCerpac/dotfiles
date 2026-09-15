@@ -1,6 +1,4 @@
 # status<TAB>app<TAB>target<TAB>owner<TAB>manual instruction
-deferred	Antinote	/Applications/Antinote.app	pending native mise adoption	Installer licence consent is pending. After acceptance, enroll brew-cask:antinote with adopt=true.
-deferred	OmniDiskSweeper	/Applications/OmniDiskSweeper.app	pending native mise adoption	Installer licence consent is pending. After acceptance, enroll brew-cask:omnidisksweeper with adopt=true.
 deferred	Logic Pro	/Applications/Logic Pro.app	Apple account distribution	The app exists but mas does not recognize its receipt. Use its owning Apple account to update or restore it; preserve its content.
 deferred	de Volkskrant	/Applications/de Volkskrant.app	Apple account distribution	The app exists but mas does not recognize its receipt. Use its owning Apple account to update or restore it.
 pinned	Aegis	/Applications/Aegis.app	local:aegis-local-install	Use the existing local source, signing, and install workflow; keep app state with Aegis.

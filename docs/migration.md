@@ -20,12 +20,7 @@ The public source and native mise history have different jobs and different hist
 
 ## Bootstrap and machine role
 
-The public adoption command below assumes the migration has been reviewed and
-merged into `main`. During this rollout, `main` still contains the legacy layout;
-the Mac uses `wip/mise-migration`. Do not use the default-branch adoption command
-until promotion is complete.
-
-Use mise 2026.9.7 or newer before adopting the source repository. On a fresh machine with no existing setup directory, install Homebrew first on Mac because the workstation exception CLI packages require it. Select the workstation role explicitly:
+Use mise 2026.9.7 or newer before adopting the source repository. On a fresh Mac, run bootstrap from an interactive terminal. Its pre-packages hook installs Homebrew automatically when missing and may request normal macOS administrator approval. A noninteractive run with no Homebrew stops with instructions to retry in a terminal. Select the workstation role explicitly:
 
 ```sh
 mise -E workstation bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git
@@ -97,12 +92,16 @@ and passed launch/signature checks. Hammerspoon also loaded its config and
 reported Accessibility enabled. The user-requested `vibez` VM removal succeeded
 with `orbctl delete --force`; the later OrbStack listing was empty.
 
-Antinote and OmniDiskSweeper are reported as deferred while installer licence
-consent is pending. Blender transferred to 5.2.1 with launch and signature checks.
+Antinote and OmniDiskSweeper use named Homebrew exceptions after explicit
+installer licence approval. The native mise disk-image extractor cannot answer
+their licence prompts; Homebrew handles these installers under `setup:update`.
+Antinote 2.1.2 was adopted, and OmniDiskSweeper was installed at 1.16; both
+passed signature checks and were running successfully. Blender transferred to 5.2.1 with launch and signature checks.
 Logic Pro and de Volkskrant remain Apple-account exceptions because mas does not
 recognize the installed receipts. PyCharm's declaration and helpers were removed; its app remains in the
 private rollback copy and its preferences were left untouched. Battery, Warp,
-and Ollama app bundles were absent, so their ownership awaits user preference.
+and Ollama were removed from the manifest and their stale Homebrew registrations
+retired at the user’s request. Settings and model files remain untouched.
 WezTerm transferred and reattached to its original Herdr server; all 12 shell
 processes survived. Herdr is pinned to 0.8.2 because the 0.9.0 client cannot
 attach to that server's private protocol. Change this pin only during an
@@ -135,7 +134,7 @@ Other named exception stages completed or reported their own deferrals. All 27
 setup tests passed. `setup:status` exited 0 with the local watcher active and 14
 encrypted files tracked; `setup:backup` published successfully. The five thesis
 project manifest files remained unchanged. This updater result does not close
-the pending user-choice or physical checks above.
+the pending physical checks above.
 
 Custom-tap formulas use explicit Homebrew exceptions because the native adapter
 misreads their Python helper modules, macOS requirements, or old dependency
