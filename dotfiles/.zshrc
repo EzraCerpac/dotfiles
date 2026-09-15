@@ -51,6 +51,16 @@ if [ -z "${WAKATIME_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
     unset wakatime_api_key
 fi
 
+# Activate mise before any tool guard below. Fresh shells start without
+# shims on PATH, so guards like `command -v tv` would otherwise skip.
+if command -v mise >/dev/null 2>&1; then
+    eval "$(mise activate zsh --shims)"
+fi
+
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init zsh)"
+fi
+
 # Replace ls with eza
 if command -v eza >/dev/null 2>&1; then
     alias ls='eza --icons=auto --group-directories-first --git'
@@ -93,8 +103,4 @@ gitlogue-menu() {
 # OpenClaw Completion
 if command -v openclaw >/dev/null 2>&1; then
     source <(openclaw completion --shell zsh)
-fi
-
-if command -v mise >/dev/null 2>&1; then
-    eval "$(mise activate zsh --shims)"
 fi

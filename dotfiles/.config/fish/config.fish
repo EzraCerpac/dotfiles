@@ -23,6 +23,13 @@ for path in $portable_paths
     end
 end
 
+# Activate mise before any tool guard below. Fresh login shells (e.g. herdr
+# tabs) start without shims on PATH, so guards like `command -q starship`
+# would otherwise skip everything and only the next nested shell would work.
+if command -q mise
+    mise activate fish | source
+end
+
 # Portable preferences previously stored as fish universal variables.
 set -gx CARAPACE_BRIDGES 'fish,bash,inshellisense'
 set -gx fifc_editor nvim
@@ -127,11 +134,6 @@ function __openclaw_lazy_load --on-event fish_preexec
     string match -q "openclaw*" -- $argv[1]
     and openclaw completion --shell fish 2>/dev/null | source
     and functions --erase __openclaw_lazy_load
-end
-
-# Keep mise activation after all startup setup.
-if command -q mise
-    mise activate fish | source
 end
 
 # Prefer the standalone tools directory over mise-managed executables.
