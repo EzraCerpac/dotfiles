@@ -7,8 +7,8 @@ return {
   config = function()
     require("codecompanion").setup({
       strategies = {
-        chat   = { adapter = "copilot" },
-        inline = { adapter = "copilot" },
+        chat   = { adapter = "codex" },
+        inline = { adapter = "codex" },
       },
     })
     vim.keymap.set({ "n", "v" }, "<C-a>", "<cmd>CodeCompanionActions<cr>", { noremap = true, silent = true })

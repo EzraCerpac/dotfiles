@@ -1,5 +1,15 @@
 return {
   {
+    -- https://github.com/teocns/neocursor.nvim
+    "teocns/neocursor.nvim",
+    event = "InsertEnter",
+    -- pre-warm the sidecar (double quotes so cmd.exe and sh both parse it)
+    build = 'uv run --with "httpx[http2]" python -c "import httpx"',
+    opts = {
+      map_partial = "<M-Tab>",
+    },
+  },
+  {
     "olimorris/codecompanion.nvim",
     event = "VeryLazy",
     dependencies = {
@@ -8,37 +18,6 @@ return {
     },
     opts = {
       adapters = {
-        http = {
-          copilot = function()
-            return require("codecompanion.adapters").extend("copilot", {
-              schema = {
-                model = {
-                  default = "gpt-5.4-mini",
-                },
-                ["reasoning.effort"] = {
-                  mapping = "parameters",
-                  type = "string",
-                  default = "medium",
-                },
-                max_tokens = {
-                  enabled = function()
-                    return false
-                  end,
-                },
-                n = {
-                  enabled = function()
-                    return false
-                  end,
-                },
-                top_p = {
-                  enabled = function()
-                    return false
-                  end,
-                },
-              },
-            })
-          end,
-        },
         acp = {
           codex = function()
             return require("codecompanion.adapters").extend("codex", {
@@ -46,7 +25,7 @@ return {
                 default = {
                   "codex-acp",
                   "-c",
-                  'model="gpt-5.5"',
+                  'model="gpt-6-astra"',
                   "-c",
                   'model_reasoning_effort="low"',
                   "-c",
@@ -58,19 +37,18 @@ return {
               defaults = {
                 auth_method = "chatgpt",
                 session_config_options = {
-                  model = "gpt-5.5",
+                  model = "gpt-6-astra",
                 },
               },
             })
           end,
-          copilot_acp = "copilot_acp",
         },
       },
       interactions = {
         chat = {
           adapter = {
             name = "codex",
-            model = "gpt-5.5",
+            model = "gpt-6-astra",
           },
           tools = {
             ["create_file"] = { opts = { require_approval_before = false } },
@@ -95,9 +73,6 @@ return {
               notify_on_approval = false,
             },
           },
-        },
-        inline = {
-          adapter = "copilot",
         },
         shared = {
           editor_context = {
@@ -143,9 +118,7 @@ return {
         "<cmd>CodeCompanionChat Add<cr>",
         { noremap = true, silent = true, desc = "Add selection to chat" }
       )
-      vim.cmd([[cab cc CodeCompanion adapter=copilot #{buffer}]])
       vim.cmd([[cab ccc CodeCompanionChat adapter=codex]])
-      vim.cmd([[cab ccp CodeCompanionChat adapter=copilot_acp]])
       vim.g.codecompanion_yolo_mode = true
 
       local progress = require("fidget.progress")
