@@ -32,6 +32,15 @@ Use mise 2026.9.7 or newer before adopting the source repository. On a fresh Mac
 mise -E workstation bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git
 ```
 
+On a fresh NAS host (including Intel macOS, where the base tools and brew
+formulae now also cover `macos/x64`), select the nas role explicitly. The
+bootstrap hooks derive `SETUP_PROFILE` from the `-E` selector, so no manual
+export is needed before this first command:
+
+```sh
+mise -E nas bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git
+```
+
 The adoption behavior used by this migration requires that minimum version. Native `--adopt` refuses an existing nonempty `~/.config/mise` unless it is already a Git checkout matching the requested origin. Keep existing package-manager installations during the staged handoff; do not prune undeclared packages as a migration shortcut.
 
 This fresh-machine command is not a command to rerun on the Mac. Its native mise

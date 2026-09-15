@@ -7,8 +7,8 @@ SETUP_PROFILE = "nas"
 [tools]
 # Keep the NAS additions intentionally small. The common command-line base is
 # declared in config.toml and remains available alongside these tools.
-node = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-uv = { version = "latest", os = ["linux/x64", "linux/arm64"] }
+node = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
+uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 
 # DSM remains outside bootstrap package ownership; no native package installs.
 

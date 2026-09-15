@@ -863,6 +863,42 @@ exec "$CODEX_ACP_NATIVE" "$@"
         self.assertIn("SETUP_PROFILE must be workstation or nas", result.stderr)
         self.assertEqual(self._calls(), [])
 
+    def test_mise_env_derives_nas_profile_on_fresh_clone(self) -> None:
+        result = self._run("update", extra_env={"SETUP_PROFILE": None, "MISE_ENV": "nas"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("SETUP_PROFILE must be", result.stderr)
+        self.assertTrue(
+            any(call[-4:] == ["bootstrap", "packages", "upgrade", "--yes"] for call in self._calls()),
+            self._calls(),
+        )
+
+    def test_mise_env_missing_still_refuses_without_profile(self) -> None:
+        result = self._run("update", extra_env={"SETUP_PROFILE": None, "MISE_ENV": None})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("SETUP_PROFILE must be workstation or nas", result.stderr)
+        self.assertEqual(self._calls(), [])
+
+    def test_mise_env_ambiguous_roles_refuse(self) -> None:
+        result = self._run("update", extra_env={"SETUP_PROFILE": None, "MISE_ENV": "workstation,nas"})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("SETUP_PROFILE must be workstation or nas", result.stderr)
+        self.assertEqual(self._calls(), [])
+
+    def test_explicit_profile_wins_over_mise_env(self) -> None:
+        self._write_executable(
+            self.bin / "uname",
+            "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n",
+        )
+        result = self._run("update", extra_env={"MISE_ENV": "nas"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(
+            any(
+                call[-6:] == ["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes"]
+                for call in self._calls()
+            ),
+            self._calls(),
+        )
+
     def _run_lazy_fixture(self, fail: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:
         nvim = shutil.which("nvim")
         if not nvim:

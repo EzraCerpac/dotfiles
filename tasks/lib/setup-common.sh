@@ -21,10 +21,26 @@ setup_init() {
     fi
 
     SETUP_PROFILE="${SETUP_PROFILE:-}"
+    if [[ -z "$SETUP_PROFILE" ]]; then
+        # Fresh clones have no persisted profile yet (miserc.toml and
+        # config.local.toml are gitignored). Derive it from the mise
+        # environment selector, e.g. `mise -E nas bootstrap`.
+        local candidate="" matches=0
+        for candidate in workstation nas; do
+            if [[ ",${MISE_ENV:-}," == *",$candidate,"* ]]; then
+                SETUP_PROFILE="$candidate"
+                ((matches += 1))
+            fi
+        done
+        if ((matches > 1)); then
+            SETUP_PROFILE=""
+        fi
+    fi
     case "$SETUP_PROFILE" in
         workstation|nas) ;;
-        *) setup_error "SETUP_PROFILE must be workstation or nas"; return 2 ;;
+        *) setup_error "SETUP_PROFILE must be workstation or nas (pass -E workstation|nas or export SETUP_PROFILE)"; return 2 ;;
     esac
+    export SETUP_PROFILE
 
     SETUP_MACHINE_ID="${SETUP_MACHINE_ID:-}"
     if [[ -n "$SETUP_MACHINE_ID" && ! "$SETUP_MACHINE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
