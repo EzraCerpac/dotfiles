@@ -337,7 +337,6 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.config/nvim/lua/plugins/colorscheme.lua" = { source = "dotfiles/.config/nvim/lua/plugins/colorscheme.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/compiler.lua" = { source = "dotfiles/.config/nvim/lua/plugins/compiler.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/conform.lua" = { source = "dotfiles/.config/nvim/lua/plugins/conform.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/plugins/copilot-native.lua" = { source = "dotfiles/.config/nvim/lua/plugins/copilot-native.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/core.lua" = { source = "dotfiles/.config/nvim/lua/plugins/core.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/csv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/csv.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/delftblue.lua" = { source = "dotfiles/.config/nvim/lua/plugins/delftblue.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
@@ -359,13 +358,11 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.config/nvim/lua/plugins/overseer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/overseer.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/project.lua" = { source = "dotfiles/.config/nvim/lua/plugins/project.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/quickfix.lua" = { source = "dotfiles/.config/nvim/lua/plugins/quickfix.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/plugins/sidekick-tabout.lua" = { source = "dotfiles/.config/nvim/lua/plugins/sidekick-tabout.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/smart-splits.lua" = { source = "dotfiles/.config/nvim/lua/plugins/smart-splits.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/snacks.lua" = { source = "dotfiles/.config/nvim/lua/plugins/snacks.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/split.lua" = { source = "dotfiles/.config/nvim/lua/plugins/split.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/start.lua" = { source = "dotfiles/.config/nvim/lua/plugins/start.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/surround.lua" = { source = "dotfiles/.config/nvim/lua/plugins/surround.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/plugins/tabout.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tabout.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/test.lua" = { source = "dotfiles/.config/nvim/lua/plugins/test.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/tex.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tex.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/tree-sitter.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tree-sitter.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
@@ -380,7 +377,6 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.config/nvim/lua/unused/auto-save.lua" = { source = "dotfiles/.config/nvim/lua/unused/auto-save.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/unused/better-escape.lua" = { source = "dotfiles/.config/nvim/lua/unused/better-escape.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/unused/codecompanion.lua" = { source = "dotfiles/.config/nvim/lua/unused/codecompanion.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/copilot.lua" = { source = "dotfiles/.config/nvim/lua/unused/copilot.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/unused/firenvim.lua" = { source = "dotfiles/.config/nvim/lua/unused/firenvim.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/unused/flash.lua" = { source = "dotfiles/.config/nvim/lua/unused/flash.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/unused/learn-vim.lua" = { source = "dotfiles/.config/nvim/lua/unused/learn-vim.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
