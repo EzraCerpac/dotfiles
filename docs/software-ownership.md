@@ -1,3 +1,11 @@
+# Current policy
+
+The manifests are authoritative: shared terminal tools, Neovim, and pagers load
+for both roles. Tools track latest releases; Kanata and Karabiner are held for
+the known input bug. Herdr updates defer while its server is running. Older
+Python interpreters are application compatibility dependencies. The inventory
+below records the migration baseline; it is not a list of current version pins.
+
 # Software ownership inventory
 
 Snapshot: 2026-09-14. This pre-cutover inventory uses read-only Homebrew, mise, `npm -g`,
@@ -18,7 +26,7 @@ individual transfer and acceptance check has completed.
 | Native libraries, shell integration, and host utilities | Homebrew formulae in `/opt/homebrew` | `brew:` entries in `[bootstrap.packages]`; `mise bootstrap packages upgrade` |
 | Mac applications and fonts | Homebrew casks and app bundles in `/Applications` | `brew-cask:` entries in `[bootstrap.packages]`, after staged ownership transfer |
 | Global Node applications | `/opt/homebrew/lib/node_modules`, binaries in `/opt/homebrew/bin` | mise `npm:` tools; local project checkouts remain project-owned |
-| Global Python applications | uv tools in `$UV_TOOL_DIR` (currently `$HOME/.local/share/uv/tools`) | Usually mise `pipx:` tools; use a named isolated installer exception when the package needs a custom build or stable launcher |
+| Global Python applications | uv tools in `$UV_TOOL_DIR` (currently `$HOME/.local/share/uv/tools`) | No mise `pipx:` tools are currently declared (the former ones were removed as unwanted); use a named isolated installer exception when the package needs a custom build or stable launcher |
 | Local projects, models, content, and services | Existing project or application | Remain with that owner; migrations and service lifecycle get explicit tasks |
 
 Mise's native package declarations are additive. Do not run `mise bootstrap
@@ -66,7 +74,6 @@ Brew version and new tool name. Homebrew's `git-delta` formula becomes mise's
 | `worktrunk` 0.74.0; `xcodegen` 2.46.0; `yazi` 26.8.15; `yt-dlp` 2026.7.4; `zoxide` 0.10.0 | Same-named Aqua/GitHub tools |
 | `julia` 1.12.6; `rust` 1.97.1; `uv` 0.12.0 | Existing mise ownership is retained; Brew duplicates are pending workflow checks |
 | `python@3.13` 3.13.14_1 | Mise Python 3.13, needed by remctl and global CLI environments |
-| `xonsh` 0.24.2 | `pipx:xonsh` using mise Python 3.13 |
 
 Other installed roots awaiting a consumer audit are `node@22` 22.23.2 and
 `python@3.11` 3.11.15_4. They are intentionally absent from the desired
@@ -147,22 +154,16 @@ invisible to Pi's extension lookup.
 the project remains its owner and its source update stays out of the routine
 dotfiles updater.
 
-uv tools currently live under `$HOME/.local/share/uv/tools`. The declared
-`pipx:` backend gives each supported CLI its own environment and uses mise uv.
-Python 3.13 remains the default; Python 3.12 is also declared for
-`ai-text-detector`. The MLX apps remain restricted to Python 3.13 and Apple
-Silicon. `maturin` uses the upstream GitHub release backend, while `typ2docx`
-uses the named isolated UV exception at `tasks/setup/exceptions/typ2docx`.
+No `pipx:` tools are currently declared. The former `pipx:` CLIs
+(`keymap-drawer`, `mlx-whisper`, `worldlines`, `xonsh`) were removed as
+unwanted, along with their installs, shims, and lock entries. `maturin` uses
+the upstream GitHub release backend, while `typ2docx` uses the named isolated
+UV exception at `tasks/setup/exceptions/typ2docx`.
 
-| Current uv tool | Version | Desired owner |
+| Former uv tool | Version at removal | Replacement owner |
 | --- | --- | --- |
-| `keymap-drawer` | 0.23.0 | `pipx:keymap-drawer` |
 | `maturin` | 1.14.1 | `github:PyO3/maturin` with `filter_bins = "maturin"` |
-| `mlx-audio` | 0.4.4 | `pipx:mlx-audio`, macOS arm64, Python 3.13 |
-| `mlx-vlm` | 0.6.3 | `pipx:mlx-vlm`, macOS arm64, Python 3.13 |
-| `mlx-whisper` | 0.4.3 | `pipx:mlx-whisper`, macOS arm64, Python 3.13 |
 | `typ2docx` | 0.8.0 | Isolated UV exception `tasks/setup/exceptions/typ2docx`; stable launcher at `~/.local/bin/typ2docx` |
-| `worldlines` | 0.2.15 | `pipx:worldlines` |
 
 `mise` documents these backends for global applications: [npm](https://mise.jdx.dev/dev-tools/backends/npm.html)
 and [pipx](https://mise.jdx.dev/dev-tools/backends/pipx.html). The uv tools

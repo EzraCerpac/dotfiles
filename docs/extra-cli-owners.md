@@ -33,10 +33,12 @@ application state; package ownership transfer should preserve it.
 - `portless` is a symlink into its project checkout and remains project-owned.
 - `jw`, `rift`, and `rift-cli` point into the jj-waltz build or the local Rift
   installation. Their build/signing lifecycle remains task-owned.
-- `keymap`, `maturin`, the MLX commands, `neonrp`, `typ2docx`, and `worldlines`
-  map to the `pipx:` tools already declared in `config.workstation.toml`.
-  `osmgemma` and `osmgemma-bench` are entry points from the declared
-  `mlx-vlm` environment.
+- `maturin` maps to the `github:PyO3/maturin` tool declared in
+  `config.workstation.toml`, and `typ2docx` maps to the named isolated UV
+  exception. The former `pipx:` CLIs (`keymap`, `mlx-whisper`, `worldlines`,
+  `xonsh`, including the `osmgemma` entry points from the old `mlx-vlm`
+  environment) and `neonrp` are no longer declared; they were removed as
+  unwanted.
 - `humanize-text` and `humanize-clipboard` point to the source-mapped local
   `humanize-text` script. The `ai-text-detector` source wrapper has the
   shebang `uv run --python 3.12 --script`; `config.workstation.toml` now declares
