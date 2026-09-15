@@ -5,9 +5,17 @@ umask 077
 [[ "$(uname -s)" == Darwin ]] || exit 0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=tasks/local/common
-source "${SCRIPT_DIR}/common"
-require_macos
+SETUP_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
+# NOTE: tasks/local/common is intentionally not sourced here. Bootstrap hooks
+# run before any profile is persisted on fresh clones, so this prerequisite
+# must work without SETUP_PROFILE.
+setup_error() {
+    printf 'setup: %s\n' "$*" >&2
+}
+if [[ "$(uname -s)" != Darwin ]]; then
+    echo "this task requires macOS" >&2
+    exit 1
+fi
 
 # shellcheck source=../lib/brew-exception.sh
 source "${SETUP_ROOT}/tasks/lib/brew-exception.sh"

@@ -40,7 +40,8 @@ rift_signing_identity = "Rift Local Code Signing"
 # workstation-only runtimes and applications in config.workstation.toml.
 [tools]
 age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
-atuin = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
+# Atuin ships no darwin/amd64 builds; keep it off Intel macOS.
+atuin = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 bat = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 carapace = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 delta = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
