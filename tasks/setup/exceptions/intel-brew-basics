@@ -14,9 +14,7 @@ brew_bin="$(find_real_brew)" || {
     echo "A standard-prefix Homebrew installation is required for exception intel-brew-basics" >&2
     exit 1
 }
-HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-    "$brew_bin" tap modem-dev/tap https://github.com/modem-dev/homebrew-tap >/dev/null 2>&1 || true
 
-for formula in fish git modem-dev/tap/diffnav; do
+for formula in fish git diffnav; do
     update_brew_formula_exception "$formula" "${1:-}"
 done

@@ -100,7 +100,7 @@ update_brew_formula_exception() {
         felixkratz/formulae/borders|modem-dev/tap/hunk|dastrobu/tap/mail-mcp|ezracerpac/tap/typst-time-machine) ;;
         # Intel-macOS basics owned by the intel-brew-basics exception: mise's
         # brew bootstrap backend skips darwin/amd64 (upstream jdx/mise#10968).
-        fish|git|modem-dev/tap/diffnav) ;;
+        fish|git|diffnav) ;;
         *) printf 'Refusing unlisted Homebrew formula exception: %s\n' "$token" >&2; return 2 ;;
     esac
     brew_bin="$(find_real_brew)" || { echo "A standard-prefix Homebrew installation is required for exception $token" >&2; return 1; }
