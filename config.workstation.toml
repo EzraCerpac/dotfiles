@@ -23,7 +23,6 @@ python = [
   { version = "3.13", os = ["macos/arm64", "linux/x64", "linux/arm64"] },
   { version = "3.12", os = ["macos/arm64", "linux/x64", "linux/arm64"] },
 ]
-node = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 pnpm = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
 # Installed coding CLIs use their preferred mise registry backends.
@@ -215,6 +214,16 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:wezterm" = { os = "macos/arm64" }
 
 
+[bootstrap.directories]
+"~/Projects" = { mode = "0755" }
+"~/Scripts" = { mode = "0755" }
+"~/.local/bin" = { mode = "0755" }
+"~/.local/share" = { mode = "0755" }
+
+# No ref: bootstrap clones missing sources and leaves existing revisions alone.
+[bootstrap.repos]
+"~/Projects/jj-waltz" = { url = "https://github.com/EzraCerpac/jj-waltz.git" }
+
 [bootstrap.brew.taps]
 "acsandmann/tap" = "https://github.com/acsandmann/homebrew-tap"
 "antoniorodr/memo" = "https://github.com/antoniorodr/homebrew-memo"
@@ -233,11 +242,17 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 
 
 [bootstrap.macos.defaults."com.apple.dock"]
+autohide = true
 static-only = true
 expose-group-apps = true
 enterMissionControlByTopWindowDrag = false
 [bootstrap.macos.defaults."com.apple.screencapture"]
 type = "jpg"
+[bootstrap.macos.defaults.NSGlobalDomain]
+InitialKeyRepeat = 15.0
+KeyRepeat = 2.0
+[bootstrap.macos.defaults."com.apple.AppleMultitouchTrackpad"]
+Clicking = true
 [bootstrap.macos.keyboard]
 fn_state = true
 
@@ -257,7 +272,7 @@ value = true
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/prepare-directories.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/private-permissions.sh" --prepare-source'
+pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/private-permissions.sh" --prepare-source'
 post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
@@ -356,7 +371,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/dbpush" = { source = "dotfiles/.local/bin/dbpush", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/gitlogue-screensaver" = { source = "dotfiles/.local/bin/gitlogue-screensaver", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/gitlogue-select" = { source = "dotfiles/.local/bin/gitlogue-select", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/prdiff-review" = { source = "dotfiles/.local/bin/prdiff-review", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/present" = { source = "dotfiles/.local/bin/present", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/remctl" = { source = "dotfiles/.local/bin/remctl", mode = "symlink", variants = [{ os = "macos" }] }

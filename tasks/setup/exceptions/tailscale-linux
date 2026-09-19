@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$(uname -s)" == Linux ]] || exit 0
+source "$(dirname "$0")/../../lib/setup-common.sh"
+SETUP_CONFIG_ROOT="$(cd "$(dirname "$0")/../../.." && pwd -P)"
+setup_init
+source /etc/os-release
+if [[ "$ID" != fedora ]]; then
+    echo 'Deferred: automatic Tailscale installation is currently verified on Fedora; install the vendor client on this distribution, then rerun dots bootstrap.'
+    exit 0
+fi
+resource="$SETUP_ROOT/resources/tailscale-fedora"
+mise_bin="$(resolve_mise_bin)"
+native() {
+    MISE_CONFIG_DIR="$resource" MISE_ENV='' MISE_TRUSTED_CONFIG_PATHS="$resource" "$mise_bin" -C "$resource" "$@"
+}
+# A pre-existing differently configured vendor repository needs reconciliation.
+if [[ -e /etc/yum.repos.d/tailscale.repo ]] && ! cmp -s "$resource/tailscale.repo" /etc/yum.repos.d/tailscale.repo; then
+    echo 'Refusing to replace an independently configured Tailscale repository.' >&2
+    exit 1
+fi
+native bootstrap files apply --yes
+if [[ "${1:-}" == --install-only ]]; then
+    native bootstrap packages apply --yes
+else
+    native bootstrap packages upgrade --yes
+fi
+if [[ "${1:-}" != --install-only ]]; then
+    exit 0 # Routine updates never start or enable a service.
+elif [[ -d /run/systemd/system ]]; then
+    if ! systemctl is-active --quiet tailscaled; then
+        if [[ "$(id -u)" == 0 ]]; then systemctl enable --now tailscaled;
+        else sudo systemctl enable --now tailscaled; fi
+    fi
+else
+    echo 'Deferred: Tailscale is installed; this host has no running systemd supervisor to start tailscaled.'
+fi

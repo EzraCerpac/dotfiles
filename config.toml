@@ -1,5 +1,5 @@
 # Shared settings. The base is always loaded; select workstation or nas with -E.
-min_version = "2026.9.7"
+min_version = "2026.9.10"
 
 [settings]
 dotfiles.root = "~/.config/mise/dotfiles"
@@ -39,6 +39,8 @@ rift_signing_identity = "Rift Local Code Signing"
 # Small, portable command-line tools available on every managed host. Keep
 # workstation-only runtimes and applications in config.workstation.toml.
 [tools]
+# Bootstrap orchestration and the shared Codex CLI both need Node.
+node = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 # Atuin ships no darwin/amd64 builds; keep it off Intel macOS.
 atuin = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -232,8 +234,9 @@ run = "bash tasks/local/install-exceptions.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 [tasks.bootstrap]
-description = "Install the declared software exceptions after native tools"
-run = "bash tasks/local/install-exceptions.sh"
+description = "Complete private recovery, installation, services, and account enrollment"
+run = "node tasks/bootstrap/complete.mjs"
+raw = true
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 [tasks."local:remctl-install"]
@@ -396,6 +399,7 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/dots" = { source = "dotfiles/.local/bin/dots", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 
 [bootstrap.hooks]
 pre-packages = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/ensure-homebrew-exceptions.sh"'

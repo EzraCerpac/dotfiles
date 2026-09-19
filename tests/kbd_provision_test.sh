@@ -19,6 +19,15 @@ export KBD_KANATA_LOG="${TMP_ROOT}/log/kanata.log"
 export KBD_KANATA_ERR_LOG="${TMP_ROOT}/log/kanata.err.log"
 export KBD_KANATA_LEGACY_AGENT="${TMP_ROOT}/com.kanata.agent.plist"
 export KBD_TCC_DB="${TMP_ROOT}/TCC.db"
+export KBD_KANATA_STAT="${TMP_ROOT}/stat"
+export KBD_KANATA_CONSOLE_DEVICE="${TMP_ROOT}/console"
+export KBD_KANATA_LAUNCHCTL="${TMP_ROOT}/launchctl"
+printf '#!/bin/sh\n[ "$1" = asuser ] || exit 2\nshift 2\nexec "$@"\n' >"${KBD_KANATA_LAUNCHCTL}"
+chmod +x "${KBD_KANATA_LAUNCHCTL}"
+
+printf '501\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+printf '#!/bin/sh\ncat "%s"\n' "${KBD_KANATA_CONSOLE_DEVICE}" >"${KBD_KANATA_STAT}"
+chmod +x "${KBD_KANATA_STAT}"
 
 # shellcheck source=../dotfiles/.local/bin/kbd
 source "${ROOT}/dotfiles/.local/bin/kbd"
@@ -53,7 +62,7 @@ assert_not_contains() {
 
 seed_kanata_runtime_files() {
     mkdir -p "$(dirname "${KBD_KANATA_WRAPPER}")" "$(dirname "${KBD_KANATA_NEWSYSLOG_CONFIG}")" "$(dirname "${KBD_KANATA_PLIST}")"
-    render_kanata_wrapper "${KBD_KANATA_WRAPPER}"
+    render_kanata_wrapper "${KBD_KANATA_WRAPPER}" 501
     render_kanata_newsyslog_config "${KBD_KANATA_NEWSYSLOG_CONFIG}"
     render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
 }
@@ -116,29 +125,51 @@ test_render_runtime_files() {
     local fake_command="${TMP_ROOT}/fake-command"
     local wrapper_status
 
-    render_kanata_wrapper "${wrapper}"
+    render_kanata_wrapper "${wrapper}" 501
     render_kanata_plist "/tmp/a&b/kanata" "${plist}"
     render_kanata_newsyslog_config "${newsyslog}"
 
     assert_contains "$(<"${wrapper}")" "printf '%s\\n' \"\$\$\""
-    assert_contains "$(<"${wrapper}")" 'exec "$@"'
-    assert_not_contains "$(<"${wrapper}")" "release-grab-on-lock"
+    assert_contains "$(<"${wrapper}")" "owner_uid=501"
+    assert_contains "$(<"${wrapper}")" 'asuser "${owner_uid}"'
     assert_contains "$(<"${plist}")" "${KBD_KANATA_WRAPPER}"
     assert_contains "$(<"${plist}")" "/tmp/a&amp;b/kanata"
     assert_contains "$(<"${plist}")" "a&amp;b/config.kbd"
     assert_contains "$(<"${plist}")" "--cfg"
+    assert_contains "$(<"${plist}")" "--release-grab-on-lock"
     assert_contains "$(<"${newsyslog}")" "${KBD_KANATA_LOG} root:wheel 644 3 10240 * J ${KBD_KANATA_PID_FILE} 15"
 
     mkdir -p "$(dirname "${KBD_KANATA_PID_FILE}")"
     printf '#!/bin/sh\nprintf "%%s\\n" "$$" >"%s"\nprintf "%%s\\n" "$@" >"%s"\n' "${TMP_ROOT}/exec.pid" "${TMP_ROOT}/exec.args" >"${fake_command}"
     chmod +x "${wrapper}" "${fake_command}"
     "${wrapper}" "${fake_command}" 'one two' three
-    [[ "$(<"${KBD_KANATA_PID_FILE}")" == "$(<"${TMP_ROOT}/exec.pid")" ]] || exit 1
+    [[ -s "${KBD_KANATA_PID_FILE}" ]] || exit 1
     pass
     assert_contains "$(<"${TMP_ROOT}/exec.args")" $'one two\nthree'
     wrapper_status=0
     "${wrapper}" >/dev/null 2>&1 || wrapper_status=$?
     [[ "${wrapper_status}" == "64" ]] || exit 1
+    pass
+}
+
+test_wrapper_runs_only_for_configured_console_user() {
+    local wrapper="${TMP_ROOT}/user-gated-wrapper"
+    local marker="${TMP_ROOT}/user-gated.marker"
+    local pid
+
+    render_kanata_wrapper "${wrapper}" 501
+    printf '#!/bin/sh\nprintf ok >"%s"\n' "${marker}" >"${TMP_ROOT}/marker-command"
+    chmod +x "${wrapper}" "${TMP_ROOT}/marker-command"
+
+    printf '502\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+    "${wrapper}" "${TMP_ROOT}/marker-command" &
+    pid=$!
+    sleep 0.3
+    [[ ! -e "${marker}" ]] || exit 1
+
+    printf '501\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+    wait "${pid}"
+    [[ -f "${marker}" ]] || exit 1
     pass
 }
 
@@ -162,7 +193,7 @@ test_unchanged_unloaded_daemon_bootstraps() {
 
     cmd_provision_kanata "${FAKE_KANATA}"
     assert_contains "$(<"${calls}")" "bootstrap system ${KBD_KANATA_PLIST}"
-    assert_contains "$(<"${calls}")" "kickstart -k system/com.kanata.daemon"
+    assert_contains "$(<"${calls}")" "kickstart system/com.kanata.daemon"
 }
 
 test_changed_plist_reloads_daemon() {
@@ -223,7 +254,7 @@ test_unchanged_loaded_daemon_skips_bootstrap() {
 
     cmd_provision_kanata "${FAKE_KANATA}"
     assert_not_contains "$(<"${calls}")" "bootstrap"
-    assert_contains "$(<"${calls}")" "kickstart -k system/com.kanata.daemon"
+    assert_contains "$(<"${calls}")" "kickstart system/com.kanata.daemon"
 }
 
 test_missing_runtime_files_install_once() {
@@ -362,6 +393,7 @@ test_missing_virtualhid
 test_driverkit_gate
 test_tcc_gate
 test_render_runtime_files
+test_wrapper_runs_only_for_configured_console_user
 test_unchanged_unloaded_daemon_bootstraps
 test_changed_plist_reloads_daemon
 test_legacy_agent_is_removed

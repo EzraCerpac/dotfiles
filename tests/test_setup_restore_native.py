@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -18,7 +19,7 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.mise = Path(os.environ.get("SETUP_TEST_MISE", DEFAULT_MISE))
-        cls.age = shutil.which("age")
+        cls.age = subprocess.run([str(cls.mise), "which", "age"], text=True, capture_output=True).stdout.strip() or shutil.which("age")
         cls.age_keygen = shutil.which("age-keygen")
         cls.git = shutil.which("git")
         cls.node_bins = sorted(Path.home().glob(".local/share/mise/installs/node/*/bin/node"))
@@ -27,8 +28,9 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
         if not cls.age or not cls.age_keygen or not cls.git or not cls.node_bins:
             raise unittest.SkipTest("native restore test needs age, age-keygen, Git, and an installed Node runtime")
         version = subprocess.run([str(cls.mise), "--version"], text=True, capture_output=True, check=False)
-        if version.returncode != 0 or "2026.9.7" not in version.stdout:
-            raise unittest.SkipTest("native restore integration is pinned to staged mise 2026.9.7")
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", version.stdout)
+        if version.returncode != 0 or not match or tuple(map(int, match.groups())) < (2026, 9, 7):
+            raise unittest.SkipTest("native restore integration needs mise 2026.9.7 or newer")
 
     def _run(self, args: list[str], env: dict[str, str], cwd: Path, *, timeout: int = 60) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=timeout, check=False)
@@ -101,6 +103,9 @@ variants = [{ profile = "host-mac-primary" }]
             node_bin = self.node_bins[-1].parent
             path = os.pathsep.join([str(node_bin), str(Path(self.age).parent), str(Path(self.git).parent), "/opt/homebrew/bin", "/usr/bin", "/bin"])
             common_env = os.environ.copy()
+            for name in list(common_env):
+                if name.startswith('__MISE_'):
+                    common_env.pop(name)
             common_env.update(
                 {
                     "HOME": str(home),

@@ -201,8 +201,9 @@ class NativeHistoryTests(unittest.TestCase):
                 timeout=30,
                 check=False,
             )
-        if version.returncode != 0 or "2026.9.7" not in version.stdout:
-            raise RuntimeError(f"{MISE_ENV_VAR} must point to mise 2026.9.7")
+        match = __import__("re").search(r"(\d+)\.(\d+)\.(\d+)", version.stdout)
+        if version.returncode != 0 or not match or tuple(map(int, match.groups())) < (2026, 9, 7):
+            raise RuntimeError(f"{MISE_ENV_VAR} must point to mise 2026.9.7 or newer")
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="mise-native-history-")

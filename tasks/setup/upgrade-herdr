@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# MISE description="Upgrade mise tools and hand off a running Herdr server"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+setup_init || exit $?
+
+herdr_server_pattern='(^|/)herdr server( |$)'
+server_running=0
+
+if ! command -v pgrep >/dev/null 2>&1; then
+    setup_error 'pgrep is required to inspect the Herdr server; tool upgrades stopped'
+    exit 1
+fi
+
+process_status=0
+pgrep -u "$(id -u)" -f "$herdr_server_pattern" >/dev/null 2>&1 || process_status=$?
+case "$process_status" in
+    0) server_running=1 ;;
+    1) ;;
+    *)
+        setup_error "could not inspect the Herdr server process (pgrep exit $process_status); tool upgrades stopped"
+        exit 1
+        ;;
+esac
+
+# The package manager owns Herdr in this setup. Its direct self-update path can
+# replace a versioned mise binary in place, so only mise may install the new
+# executable.
+upgrade_status=0
+setup_mise upgrade --no-prune || upgrade_status=$?
+
+# A failed upgrade may have left a partial or unchanged installation. Do not
+# replace the executable underneath a running server in that case: let the
+# caller report the failed tool stage and retry once the package manager is
+# healthy again.
+if [[ "$upgrade_status" -ne 0 ]]; then
+    if [[ "$server_running" -eq 1 ]]; then
+        setup_error "Herdr tool upgrade failed (exit $upgrade_status); leaving the running server untouched"
+    fi
+    exit "$upgrade_status"
+fi
+
+if [[ "$server_running" -eq 0 ]]; then
+    printf 'Herdr server is not running; no live handoff needed.\n'
+    exit "$upgrade_status"
+fi
+
+herdr_bin="$(setup_mise which herdr 2>/dev/null || true)"
+if [[ -z "$herdr_bin" || "$herdr_bin" != /* || ! -f "$herdr_bin" || ! -x "$herdr_bin" ]]; then
+    setup_error 'mise did not resolve an executable Herdr binary after upgrade; leaving the running server untouched'
+    exit 1
+fi
+
+herdr_version="$("$herdr_bin" --version 2>/dev/null | awk 'NR == 1 { print $2; exit }')"
+if [[ -z "$herdr_version" || ! "$herdr_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+    setup_error "could not read a valid Herdr version from $herdr_bin; leaving the running server untouched"
+    exit 1
+fi
+
+server_status="$("$herdr_bin" status server 2>/dev/null)" || {
+    setup_error 'could not inspect the current Herdr server after installing tools'
+    exit 1
+}
+server_version="$(awk '$1 == "version:" { print $2; exit }' <<< "$server_status")"
+if [[ -z "$server_version" ]]; then
+    setup_error 'Herdr server status did not include a version; leaving the running server untouched'
+    exit 1
+fi
+if [[ "$server_version" == "$herdr_version" ]]; then
+    printf 'Herdr server already matches client %s; no handoff needed.\n' "$herdr_version"
+    exit "$upgrade_status"
+fi
+printf 'Herdr server detected; handing live panes to %s (version %s).\n' "$herdr_bin" "$herdr_version"
+if "$herdr_bin" server live-handoff \
+    --import-exe "$herdr_bin" \
+    --expected-version "$herdr_version"; then
+    verified_status="$("$herdr_bin" status server)" || exit 1
+    verified_version="$(awk '$1 == "version:" { print $2; exit }' <<< "$verified_status")"
+    [[ "$verified_version" == "$herdr_version" ]] || {
+        setup_error 'Herdr handoff returned, but the server version does not match the selected client'
+        exit 1
+    }
+    printf 'Herdr live handoff completed; server now reports %s.\n' "$herdr_version"
+else
+    result=$?
+    setup_error "Herdr live handoff failed (exit $result); inspect herdr status server before retrying"
+    exit "$result"
+fi
+exit "$upgrade_status"

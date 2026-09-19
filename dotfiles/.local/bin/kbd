@@ -26,6 +26,7 @@ usage: kbd <command> [args]
 
 commands:
   provision
+  activate
   doctor
   sync
   build [--convert-to target] [--left|--right]
@@ -217,6 +218,19 @@ readonly KANATA_ERR_LOG="${KBD_KANATA_ERR_LOG:-/var/log/kanata.err.log}"
 readonly KANATA_LABEL="com.kanata.daemon"
 readonly KANATA_LEGACY_AGENT="${KBD_KANATA_LEGACY_AGENT:-${HOME}/Library/LaunchAgents/com.kanata.agent.plist}"
 readonly TCC_DB="${KBD_TCC_DB:-/Library/Application Support/com.apple.TCC/TCC.db}"
+readonly KANATA_STAT="${KBD_KANATA_STAT:-/usr/bin/stat}"
+readonly KANATA_CONSOLE_DEVICE="${KBD_KANATA_CONSOLE_DEVICE:-/dev/console}"
+readonly KANATA_LAUNCHCTL="${KBD_KANATA_LAUNCHCTL:-/bin/launchctl}"
+
+kanata_console_uid() {
+    local uid
+    uid="$("${KANATA_STAT}" -f '%u' "${KANATA_CONSOLE_DEVICE}" 2>/dev/null || true)"
+    if [[ ! "${uid}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "No logged-in macOS console user is available." >&2
+        return 1
+    fi
+    printf '%s\n' "${uid}"
+}
 
 driverkit_is_active() {
     systemextensionsctl list 2>/dev/null | grep -q "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice.*activated enabled"
@@ -262,9 +276,21 @@ cmd_provision_virtualhid() {
 
 render_kanata_wrapper() {
     local output="${1:?output path required}"
+    local owner_uid="${2:?owner UID required}"
     local quoted_pid_file
+    local quoted_stat
+    local quoted_console_device
+    local quoted_launchctl
+
+    if [[ ! "${owner_uid}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "Kanata owner UID must be a non-root numeric UID: ${owner_uid}" >&2
+        return 1
+    fi
 
     printf -v quoted_pid_file '%q' "${KANATA_PID_FILE}"
+    printf -v quoted_stat '%q' "${KANATA_STAT}"
+    printf -v quoted_console_device '%q' "${KANATA_CONSOLE_DEVICE}"
+    printf -v quoted_launchctl '%q' "${KANATA_LAUNCHCTL}"
 
     cat >"${output}" <<EOF
 #!/bin/sh
@@ -272,7 +298,57 @@ set -eu
 
 [ "\$#" -gt 0 ] || exit 64
 printf '%s\\n' "\$\$" >${quoted_pid_file}
-exec "\$@"
+
+owner_uid=${owner_uid}
+stat_bin=${quoted_stat}
+console_device=${quoted_console_device}
+launchctl_bin=${quoted_launchctl}
+child_pid=''
+trap '[ -z "\${child_pid}" ] || kill "\${child_pid}" 2>/dev/null; exit 0' TERM INT HUP
+
+run_kanata() {
+    # Kanata must remain root on macOS: Karabiner's VirtualHID IPC is exposed
+    # through a root-only socket. The wrapper itself is root-owned and the
+    # console UID gate below limits which logged-in user can activate it.
+    # Keep root's VirtualHID access, but join the owner's GUI bootstrap and
+    # audit session so Kanata's native lock-screen guard sees that session.
+    "\${launchctl_bin}" asuser "\${owner_uid}" "\$@" &
+    child_pid="\$!"
+    child_status=0
+    session_changed=0
+
+    while kill -0 "\${child_pid}" >/dev/null 2>&1; do
+        console_uid="\$("\${stat_bin}" -f '%u' "\${console_device}" 2>/dev/null || true)"
+        if [ "\${console_uid}" != "\${owner_uid}" ]; then
+            # The console moved to loginwindow or another user. This is the
+            # one Kanata child owned by this wrapper; do not kill other jobs.
+            kill "\${child_pid}" >/dev/null 2>&1 || true
+            wait "\${child_pid}" >/dev/null 2>&1 || true
+            session_changed=1
+            return 0
+        fi
+        sleep 0.2
+    done
+
+    wait "\${child_pid}" || child_status=\$?
+    return "\${child_status}"
+}
+
+while :; do
+    console_uid="\$("\${stat_bin}" -f '%u' "\${console_device}" 2>/dev/null || true)"
+    if [ "\${console_uid}" = "\${owner_uid}" ]; then
+        if run_kanata "\$@"; then
+            child_status=0
+        else
+            child_status="\$?"
+        fi
+        [ "\${session_changed}" -eq 1 ] && continue
+        exit "\${child_status}"
+    fi
+    # Keep the root LaunchDaemon alive while loginwindow or another user owns
+    # the console. Kanata starts only after the owner session returns.
+    sleep 1
+done
 EOF
 }
 
@@ -314,6 +390,7 @@ render_kanata_plist() {
         <string>--cfg</string>
         <string>${escaped_config}</string>
         <string>--no-wait</string>
+        <string>--release-grab-on-lock</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -332,12 +409,21 @@ EOF
 
 cmd_provision_kanata() {
     local kanata_bin="${1:?kanata binary required}"
+    local owner_uid
     if [[ ! -f "${KANATA_CONFIG}" ]]; then
         echo "Kanata config is missing: ${KANATA_CONFIG}. Run mise -C ~/.config/mise bootstrap, then rerun: kbd provision" >&2
         return 1
     fi
     if ! "${kanata_bin}" --check --cfg "${KANATA_CONFIG}" >/dev/null 2>&1; then
         echo "Kanata config check failed: ${KANATA_CONFIG}" >&2
+        return 1
+    fi
+    owner_uid="$(kanata_console_uid)" || {
+        echo "Log in as the owner Mac user before running: kbd activate" >&2
+        return 1
+    }
+    if [[ "${owner_uid}" != "$(id -u)" ]]; then
+        echo "Activate Kanata from the logged-in owner's account, without sudo around kbd." >&2
         return 1
     fi
 
@@ -353,9 +439,20 @@ cmd_provision_kanata() {
         tmp_dir="$(mktemp -d)"
         trap 'rm -rf "${tmp_dir}"' EXIT
 
-        render_kanata_wrapper "${tmp_dir}/kanata-daemon"
+        render_kanata_wrapper "${tmp_dir}/kanata-daemon" "${owner_uid}"
         render_kanata_newsyslog_config "${tmp_dir}/kanata.conf"
         render_kanata_plist "${kanata_bin}" "${tmp_dir}/com.kanata.daemon.plist"
+
+        if ! cmp -s "${tmp_dir}/kanata-daemon" "${KANATA_WRAPPER}" || ! cmp -s "${tmp_dir}/com.kanata.daemon.plist" "${KANATA_PLIST}"; then
+            local backup_root backup_dir old_file
+            backup_root="${HOME}/.local/state/mise/kanata-backups"
+            (umask 077; mkdir -p "${backup_root}")
+            backup_dir="$(mktemp -d "${backup_root}/activation.XXXXXX")"
+            for old_file in "${KANATA_WRAPPER}" "${KANATA_PLIST}" "${KANATA_NEWSYSLOG_CONFIG}"; do
+                [[ ! -f "${old_file}" ]] || cp -p "${old_file}" "${backup_dir}/$(basename "${old_file}")"
+            done
+            echo "Previous Kanata service files saved at ${backup_dir}"
+        fi
 
         if [[ ! -f "${KANATA_WRAPPER}" ]] || ! cmp -s "${tmp_dir}/kanata-daemon" "${KANATA_WRAPPER}"; then
             sudo install -d -o root -g wheel -m 755 "$(dirname "${KANATA_WRAPPER}")"
@@ -383,7 +480,7 @@ cmd_provision_kanata() {
     )
 
     sudo launchctl enable "system/${KANATA_LABEL}" >/dev/null 2>&1 || true
-    if ! sudo launchctl kickstart -k "system/${KANATA_LABEL}" >/dev/null 2>&1; then
+    if ! sudo launchctl kickstart "system/${KANATA_LABEL}" >/dev/null 2>&1; then
         echo "Kanata daemon did not start. Inspect: sudo tail -n 50 /var/log/kanata.err.log" >&2
         return 1
     fi
@@ -437,6 +534,25 @@ cmd_provision_runtime() {
     fi
     provision_check_kanata_tcc "${kanata_bin}"
     cmd_provision_kanata "${kanata_bin}"
+}
+
+cmd_activate() {
+    local kanata_bin
+
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+        echo "kbd activate supports macOS only." >&2
+        return 1
+    fi
+
+    kanata_bin="$(resolve_kanata_bin)"
+    if [[ -z "${kanata_bin}" ]]; then
+        echo "Kanata is missing. Run mise -C ~/.config/mise bootstrap, then rerun: kbd activate" >&2
+        return 1
+    fi
+    provision_check_kanata_tcc "${kanata_bin}"
+    sudo -v
+    cmd_provision_kanata "${kanata_bin}"
+    echo "Kanata activated for the current console user only"
 }
 
 cmd_provision() {
@@ -930,6 +1046,9 @@ main() {
     case "${command}" in
         provision)
             cmd_provision "$@"
+            ;;
+        activate)
+            cmd_activate "$@"
             ;;
         doctor)
             cmd_doctor "$@"

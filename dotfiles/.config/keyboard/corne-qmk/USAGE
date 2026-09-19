@@ -2,6 +2,8 @@ Corne QMK workflow (programmatic)
 
 1) Validate tools and provision local keyboard runtime
    kbd provision
+   - On macOS, this records the currently logged-in user's console UID.
+   - `kbd activate` reapplies that user-only activation after a config change.
 
 2) Edit keymap source
    - ~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c

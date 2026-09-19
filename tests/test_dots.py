@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -26,6 +27,10 @@ class DotsTest(unittest.TestCase):
         helper = self.root / 'tasks/lib/dots-package-add.sh'
         helper.parent.mkdir(parents=True)
         helper.write_text('#!/usr/bin/env bash\n"$1" -C "$2" PACKAGE_HELPER "$3" "${@:4}"\n')
+        bootstrap = self.root / 'tasks/bootstrap'
+        bootstrap.mkdir()
+        for name in ('launch', 'remote'):
+            shutil.copy2(SOURCE.parents[3] / 'tasks/bootstrap' / name, bootstrap / name)
         self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), CALL_LOG=str(self.log), MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
 
     def run_dots(self, *args, **env):
@@ -58,6 +63,24 @@ class DotsTest(unittest.TestCase):
         result = self.run_dots('add', '--base', 'brew:libmagic')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[-1]['args'][-3:], ['PACKAGE_HELPER', str(self.root/'config.toml'), 'brew:libmagic'])
+
+    def test_plan_is_rooted_and_remote_keeps_durable_config(self):
+        self.assertEqual(self.run_dots('plan').returncode, 0)
+        self.assertEqual(self.calls()[-1]['args'], ['-C', str(self.root), 'bootstrap', 'plan'])
+        result = self.run_dots('remote', 'new-box', '--profile', 'nas', '--dry-run')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]['args'], ['-C', str(self.root), 'bootstrap', 'remote', '--host', 'new-box', '--adopt', 'EzraCerpac/dotfiles', '--remote-env', 'nas', '--install-mise', '--dry-run'])
+
+    def test_restore_skips_early_services_and_requires_complete_bootstrap(self):
+        result = self.run_dots('bootstrap', '--restore', 'old-mac', '--dry-run')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]['args'][-3:], ['--dry-run', '--skip', 'services'])
+        self.assertNotEqual(self.run_dots('bootstrap', '--restore', 'old-mac', '--only', 'packages').returncode, 0)
+
+    def test_remote_rejects_implicit_roles_and_source_archives(self):
+        self.assertNotEqual(self.run_dots('remote', 'new-box').returncode, 0)
+        self.assertNotEqual(self.run_dots('remote', 'new-box', '--profile', 'nas', '--source', '.').returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_invalid_arguments_do_not_call_mise(self):
         for args in [('add',), ('add','--base','--profile','nas','jq'), ('add','--profile','delftblue','jq'), ('up','--dry-run'), ('add','--path')]:

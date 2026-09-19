@@ -21,6 +21,9 @@ bootstrap_new_machine_id() {
 
 SETUP_PROFILE="${SETUP_PROFILE:-}"
 SETUP_MACHINE_ID="${SETUP_MACHINE_ID:-}"
+if [[ -n "${SETUP_RESTORE_MACHINE_ID:-}" ]]; then
+    SETUP_MACHINE_ID="$SETUP_RESTORE_MACHINE_ID"
+fi
 SETUP_HISTORY_ORIGIN="${SETUP_HISTORY_ORIGIN:-}"
 bootstrap_init
 
@@ -49,6 +52,10 @@ while IFS= read -r selector; do
 done <<< "$miserc_env_values"
 
 if [[ -n "$persisted_role" ]]; then
+    if [[ -n "${SETUP_RESTORE_MACHINE_ID:-}" && -n "$persisted_machine_id" && "$persisted_machine_id" != "$SETUP_RESTORE_MACHINE_ID" ]]; then
+        bootstrap_error 'restore identity differs from this enrolled machine; use a fresh setup for replacement-machine recovery'
+        exit 2
+    fi
     # Keep an existing role. Add a stable host id only when this older profile
     # has none, then make the local task environment agree with that selection.
     SETUP_PROFILE="$persisted_role"

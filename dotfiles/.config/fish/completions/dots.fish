@@ -1,6 +1,11 @@
 complete -c dots -f
-complete -c dots -n 'not __fish_seen_subcommand_from up update status apply bootstrap backup restore add help' -a 'up status apply bootstrap backup restore add help'
+complete -c dots -n 'not __fish_seen_subcommand_from up update status plan remote bundle apply bootstrap backup restore add help' -a 'up status plan remote bundle apply bootstrap backup restore add help'
 complete -c dots -n '__fish_seen_subcommand_from add' -l base -d 'Record in the shared base'
 complete -c dots -n '__fish_seen_subcommand_from add' -l profile -x -a 'workstation nas' -d 'Record in this role'
 complete -c dots -n '__fish_seen_subcommand_from add' -l path -r -d 'Record in an explicit config file'
+complete -c dots -n '__fish_seen_subcommand_from remote' -l profile -x -a 'workstation nas'
+complete -c dots -n '__fish_seen_subcommand_from remote bootstrap' -l dry-run -d 'Preview without applying resources'
+complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l bundle -r -d 'Encrypted bootstrap bundle'
+complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l identity -r -d 'External age identity'
+complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l restore -x -d 'Existing machine identity to restore'
 complete -c dots -s h -l help -d 'Show help'
