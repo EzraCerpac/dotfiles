@@ -72,6 +72,8 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "npm:@openai/codex" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "npm:@zed-industries/codex-acp" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "npm:agent-browser" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+# Requested upstream package; its repository and registry metadata were checked.
+"npm:@lakeday/perch" = { version = "latest", allow_low_downloads = true, os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
 # No pipx tools are declared; the former UV CLIs were removed as unwanted.
 "github:PyO3/maturin" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], filter_bins = "maturin" }
@@ -225,6 +227,8 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # No ref: bootstrap clones missing sources and leaves existing revisions alone.
 [bootstrap.repos]
 "~/Projects/jj-waltz" = { url = "https://github.com/EzraCerpac/jj-waltz.git" }
+"~/Projects/Tools/sift" = { url = "https://github.com/tylergibbs1/sift.git" }
+"~/Projects/Tools/unclutter" = { url = "https://github.com/kitze/unclutter.git" }
 
 [bootstrap.brew.taps]
 "acsandmann/tap" = "https://github.com/acsandmann/homebrew-tap"
@@ -281,6 +285,8 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 [dotfiles]
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py" = { source = "dotfiles/.codex/skills/audio-diarization/scripts/transcribe_diarize.py", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }

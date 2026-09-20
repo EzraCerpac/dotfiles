@@ -1,0 +1,45 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@lakeday/perch':
+        specifier: 0.3.3
+        version: 0.3.3
+
+packages:
+
+  '@lakeday/perch@0.3.3':
+    resolution: {integrity: sha512-Xdfj8DIKku6CulWHyKgKQonbj/Ys9ReYjbCk1723T86oYvuYQnnzODqD2wwtaLE+iF/8mV6IaRYc+W2I5gmxVA==}
+    engines: {node: '>=22'}
+    hasBin: true
+
+  tree-sitter-wasm@2.0.1:
+    resolution: {integrity: sha512-VuJcTK89taP2UrkyW+sTYpIAfwk1pWgqxpTSDT2edCVajLjSOwKe6mVlfpjQckCYKVCm++ZXfS9J1N9S5CB3gg==}
+
+  web-tree-sitter@0.27.0:
+    resolution: {integrity: sha512-XK08gj6RwTMQatAG7uVRP8MunqotL/XC19vHgkSPKmELgbGPBj4ECvB8haHOUnyj6ls2B8t42UTro14zxGgAHg==}
+
+  yaml@2.9.1:
+    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
+snapshots:
+
+  '@lakeday/perch@0.3.3':
+    dependencies:
+      tree-sitter-wasm: 2.0.1
+      web-tree-sitter: 0.27.0
+      yaml: 2.9.1
+
+  tree-sitter-wasm@2.0.1: {}
+
+  web-tree-sitter@0.27.0: {}
+
+  yaml@2.9.1: {}
