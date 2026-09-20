@@ -32,6 +32,11 @@ setup.sh.backup
 node_modules/
 __pycache__/
 *.pyc
+
+# Machine tool resolutions are host-local; project lockfiles remain tracked.
+/mise.lock
+/mise.nas.lock
+/mise.workstation.lock
 *.pyo
 .pytest_cache/
 .coverage

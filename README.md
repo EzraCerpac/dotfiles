@@ -44,7 +44,7 @@ Linux distributions currently need the vendor client installed first. Normal
 updates do not start services.
 
 The final bootstrap step handles private recovery, installer exceptions, local
-builds, history enrollment, and Tailscale. It prints completed, deferred, and failed
+builds, JJ initialization, Atuin enrollment, history enrollment, and Tailscale. It prints completed, deferred, and failed
 steps. Resolve the reported prerequisite and rerun `dots bootstrap`; it keeps
 existing configuration and connected Tailscale identities. It never selects an
 exit node or advertises routes. Without an enrollment key, Tailscale uses its
@@ -68,30 +68,27 @@ Up/Down recall commands entered in this shell session. Ctrl-R searches Atuin's
 persistent history across sessions. To switch an already open shell to local
 recall, run `set -g fish_history ''`; existing saved history is retained.
 
-When you want another machine to receive the shortcut, go to `~/.config/mise`
-and inspect `jj diff`. Describe the change, push a `wip/` bookmark, then open and
-merge a PR to `main`. For example:
+When the shortcut is ready to share, run `dots publish` from any directory.
+It shows the proposed source diff, asks for a short description and confirmation,
+then publishes a `wip/` branch and opens a pull request. Review and merge that PR
+on GitHub. Source publication is always explicit; the settings watcher and
+updater never push your edits.
 
-```sh
-jj describe -m "feat(fish): add projects shortcut"
-jj bookmark create wip/fish-shortcut -r @
-jj git push --bookmark wip/fish-shortcut
-```
+If you are already working on a private JJ stack, select its bookmark explicitly
+with `dots publish --bookmark wip/your-task`. The command will not quietly include
+unrelated unpublished commits in the default flow.
 
-Open the PR on GitHub, or use `gh pr create --web`. Run `jj new` after publishing
-to leave an empty change for your next edit. Source changes are never pushed
-by the updater or the settings watcher.
+On the other machine, run `dots up`. It fetches merged `main`, applies the Fish
+change and other ordinary dotfiles, then updates tools. Open a new shell to load
+the shortcut. If you only want configuration, use `dots sync`; this does not
+upgrade software or activate services. `dots apply ~/.ssh/config` remains useful
+when you want to render one locally edited template.
 
-On the other already-migrated machine, open its setup checkout and check
-`jj status` first. Preserve and reconcile any local edits. With a clean working
-copy, fetch with `jj git fetch`, inspect `jj diff --from @- --to main@origin`,
-and use `jj new main@origin` when ready to adopt the reviewed revision. The
-linked Fish file changes with that checkout; open a new shell to load it.
-
-If the incoming change adds managed files or updates a template, run `dots apply`
-to create the links and render the templates. `dots apply ~/.ssh/config` limits
-application to that target. It does not upgrade tools. Newly declared tools are
-installed by `dots bootstrap`, which applies the full declared machine setup.
+Local edits or unpublished history are preserved. When they prevent a safe
+source advance, `dots up` says “source sync deferred” and still updates tools
+using the current configuration. It returns status 3 for that partial result;
+actual failures return status 1. Review or publish the local changes, then rerun
+it. Neither command stashes, rebases private work, or resolves conflicts for you.
 
 ## Update this computer
 
@@ -101,21 +98,49 @@ When you want the installed setup brought up to date, run:
 dots up
 ```
 
-Let it finish and read the result. It checkpoints app-written settings, upgrades
-declared packages and tools, runs the named installer exceptions, updates editor
-plugins, then updates mise. Tools track the latest stable release by default.
+Let it finish and read the result. It synchronizes the shared source, checkpoints
+app-written settings, installs newly declared packages and tools, runs upgrades
+and named installer exceptions, updates editor plugins, then updates mise. Tools track the latest stable release by default.
 Kanata and Karabiner stay on their known working versions. A running Herdr server
 uses its supported live handoff after mise installs the replacement. A failed
 handoff is reported for attention; the updater does not kill terminal sessions.
 Python 3.13 and 3.12 remain available for applications that require them; the
-default Python tracks latest. Lockfiles record the installed selections and
-advance with `dots up`; they do not impose permanent version caps. It may request an admin
+default Python tracks latest. Setup lockfiles stay local and ignored: they record
+this host’s resolutions without creating source changes after each update. Tool
+choices and intentional version holds remain tracked; project lockfiles are unaffected. It may request an admin
 password; running applications or unavailable vendor updaters are reported as
 deferred. Close an affected app when convenient and rerun the command.
 
-This does not fetch or publish dotfile source, update project dependencies,
+This does not publish dotfile source, update project dependencies,
 upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
+
+
+## Atuin across machines
+
+Atuin uses the same `EzraCerpac` account and history key on the Mac, CerpacNAS,
+and DriehuisNAS. Ctrl-R searches shared history; Up/Down still recall only this
+terminal session. At an empty prompt, `?` opens Atuin AI. Within a command,
+`?` remains a normal character.
+
+Bootstrap uses the separate `encrypted/atuin.json.age` bundle for enrollment.
+Each machine decrypts it with its own age identity; passwords and history keys
+are never passed as command arguments. The initial `dots atuin-bundle` wizard
+accepts authorized public recipients and asks for the password without echoing it.
+It captures the existing history key locally and writes ciphertext only.
+
+A new host must have its own age identity, and an enrolled host must include its
+public recipient in a reviewed replacement bundle before it can decrypt it.
+Keep private age keys outside the repositories. Missing credentials, a wrong key,
+or a required browser/2FA step is reported for follow-up; resolve that step and
+rerun `dots bootstrap`. Existing logins and history are preserved.
+
+`dots status` reports Atuin installation, history login, last synchronization,
+and AI readiness separately. An enabled AI binding does not prove Hub login:
+complete the native Atuin Hub linking/browser flow if it asks for one.
+
+The WakaTime/mail bundle also permits the two authorized NAS keys to decrypt it.
+That permission does not overwrite any existing application configuration.
 
 ## Add a tool
 

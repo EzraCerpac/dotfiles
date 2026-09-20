@@ -5,7 +5,10 @@ usage() {
     cat <<'HELP'
 Your machine setup, from any directory.
 
-  dots up                         Update tools, packages and editor plugins
+  dots up                         Sync configuration, then update tools and plugins
+  dots sync                       Fetch main and apply shared configuration
+  dots publish [--bookmark NAME]   Review source changes and open/update a PR
+  dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
   dots status                     Inspect files, tools and backup health
   dots plan                       Preview the declared machine setup
   dots bootstrap [ARGS...]        Install/apply the full declared machine setup
@@ -45,12 +48,15 @@ command_name="$1"
 shift
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 case "$command_name" in
-    up|update|status|backup|plan)
+    up|update|sync|status|backup|plan)
         [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
         ;;
 esac
 case "$command_name" in
     up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
+    sync) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/lib/source-repo.mjs" sync "$root" ;;
+    publish) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/setup/publish.mjs" "$root" "$@" ;;
+    atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$root/tasks/bootstrap/atuin-bundle" "$@" ;;
     plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
     status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
     bootstrap) exec bash "$root/tasks/bootstrap/launch" "$mise_bin" "$root" "$@" ;;

@@ -109,6 +109,10 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
     record('Private inputs', 'completed', 'No bootstrap bundle requested for this NAS host');
   }
 
+  stage('Source repository', () => requireCommand(
+    ['exec', '--', 'node', path.join(root, 'tasks/lib/source-repo.mjs'), 'init', root],
+    'Source repository initialization needs attention'));
+
   const restoreId = childEnv.SETUP_RESTORE_MACHINE_ID;
   let historyReady = privateReady;
   if (restoreId) {
@@ -136,6 +140,11 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   }
 
   stage('Installer exceptions', () => script('tasks/local/install-exceptions.sh'));
+  stage('Atuin', () => {
+    const result = mise(['exec', '--', 'uv', 'run', '--no-project', 'python', path.join(root, 'tasks/bootstrap/atuin.py'), 'enroll', '--root', root]);
+    if (result.status === 3) throw new Deferred('Atuin enrollment needs credentials or account approval; rerun dots bootstrap after the displayed step');
+    if (result.status !== 0) throw new Error('Atuin enrollment failed; inspect the reported recovery step');
+  });
   if (['workstation', 'nas'].includes(role)) {
     stage('Login shell', () => {
       const result = scriptResult('tasks/local/shell-select.sh');
