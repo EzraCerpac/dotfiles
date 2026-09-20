@@ -99,6 +99,25 @@ local function text_ranges(root, source)
   return ranges
 end
 
+local function number_token(text)
+  local _, finish_at = text:find("^[%+%-]?%d+")
+  if not finish_at then return nil end
+  local cursor = finish_at + 1
+  while (text:sub(cursor, cursor) == "." or text:sub(cursor, cursor) == ",")
+    and text:sub(cursor + 1, cursor + 1):match("%d") do
+    local digits = text:sub(cursor + 1):match("^%d+")
+    finish_at = cursor + #digits
+    cursor = finish_at + 1
+  end
+  local exponent = text:sub(cursor):match("^[eE][%+%-]?%d+")
+  if exponent then
+    finish_at = cursor + #exponent - 1
+    cursor = finish_at + 1
+  end
+  if text:sub(cursor, cursor) == "%" then finish_at = cursor end
+  return text:sub(1, finish_at)
+end
+
 local function editable_ranges(source, ranges)
   local editable = {}
   local function add(start_at, finish_at)
@@ -123,8 +142,7 @@ local function editable_ranges(source, ranges)
         local first = tail:sub(1, 1)
         local second = tail:sub(2, 2)
         if first:match("%d") or ((first == "+" or first == "-") and second:match("%d")) then
-          token = tail:match("^[%+%-]?%d[%d%.,%%]*[eE][%+%-]?%d+")
-            or tail:match("^[%+%-]?%d[%d%.,%%]*")
+          token = number_token(tail)
         end
       end
       if token then
@@ -179,6 +197,49 @@ local function placeholder_ids(text)
     table.insert(ids, tonumber(id))
   end
   return ids
+end
+
+local function guarded_spans(text)
+  local spans, markers, cursor = {}, {}, 1
+  while true do
+    local start_at, finish_at = text:find("⟦TYPST_GUARD_%d+⟧", cursor)
+    if not start_at then
+      table.insert(spans, text:sub(cursor))
+      return spans, markers
+    end
+    table.insert(spans, text:sub(cursor, start_at - 1))
+    table.insert(markers, text:sub(start_at, finish_at))
+    cursor = finish_at + 1
+  end
+end
+
+local function has_text(value)
+  return value:find("%S") ~= nil
+end
+
+local function preserve_span_whitespace(expected, actual)
+  local expected_spans = guarded_spans(expected)
+  local actual_spans, markers = guarded_spans(actual)
+  local pieces = {}
+  for i, expected_span in ipairs(expected_spans) do
+    local actual_span = actual_spans[i] or ""
+    if not has_text(expected_span) then
+      if has_text(actual_span) then
+        return nil, "humanized text crossed a protected Typst boundary; review required"
+      end
+      table.insert(pieces, expected_span)
+    else
+      if not has_text(actual_span) then
+        return nil, "humanized text deleted a Typst prose span; review required"
+      end
+      local leading = expected_span:match("^(%s*)") or ""
+      local trailing = expected_span:match("(%s*)$") or ""
+      local content = actual_span:gsub("^%s+", ""):gsub("%s+$", "")
+      table.insert(pieces, leading .. content .. trailing)
+    end
+    if markers[i] then table.insert(pieces, markers[i]) end
+  end
+  return table.concat(pieces)
 end
 
 function M.prepare(value, paragraph_mode)
@@ -240,6 +301,9 @@ function M.restore(plan, outputs)
     local actual = placeholder_ids(text)
     if #expected ~= #actual then return nil, "protected Typst placeholder mismatch" end
     for n = 1, #expected do if expected[n] ~= actual[n] then return nil, "protected Typst placeholder reordered" end end
+    local normalized, whitespace_error = preserve_span_whitespace(plan.template:sub(span.start, span.finish), text)
+    if not normalized then return nil, whitespace_error end
+    text = normalized
     result = result:sub(1, span.start - 1) .. text .. result:sub(span.finish + 1)
   end
   for id, value in ipairs(plan.protected) do

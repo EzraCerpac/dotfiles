@@ -63,4 +63,74 @@ assert(result and not result_err, result_err)
 assert(result:find('#link("https://example.test")[revised link prose]', 1, true))
 assert(result:find("caption: [A clear *caption* with 3.14 items.]", 1, true))
 
+local boundary_source = "Full24 is used with $x$ inline math and 47. Next."
+local boundary_plan, boundary_chunks = guard.prepare(boundary_source, true)
+assert(boundary_plan and #boundary_chunks == 1)
+local math_marker = nil
+local found_terminal_number = false
+for id, value in ipairs(boundary_plan.protected) do
+  if value:find("$x$", 1, true) then math_marker = string.format("⟦TYPST_GUARD_%04d⟧", id) end
+  if value == "47" then found_terminal_number = true end
+  assert(value ~= "47.", "terminal punctuation must not be part of a protected number")
+end
+assert(math_marker and found_terminal_number)
+local boundary_output = boundary_chunks[1].text:gsub("⟧ ", "⟧")
+boundary_output = boundary_output:gsub(math_marker, " " .. math_marker .. " ", 1)
+local boundary_result, boundary_error = guard.restore(
+  boundary_plan,
+  { { id = boundary_chunks[1].id, text = boundary_output } }
+)
+assert(boundary_result and not boundary_error, boundary_error)
+assert(boundary_result == boundary_source, "guard must restore original whitespace around protected terms")
+
+local deletion_source = "Claim $x$ not @source optional."
+local deletion_plan, deletion_chunks = guard.prepare(deletion_source, true)
+assert(deletion_plan and #deletion_chunks == 1)
+local deletion_output, deletion_count = deletion_chunks[1].text:gsub("not", "", 1)
+assert(deletion_count == 1)
+local deletion_result, deletion_error = guard.restore(
+  deletion_plan,
+  { { id = deletion_chunks[1].id, text = deletion_output } }
+)
+assert(not deletion_result and deletion_error:find("deleted a Typst prose span", 1, true))
+
+local movement_source = "Left side $x$ right side."
+local movement_plan, movement_chunks = guard.prepare(movement_source, true)
+assert(movement_plan and #movement_chunks == 1)
+local movement_marker = nil
+for id, value in ipairs(movement_plan.protected) do
+  if value:find("$x$", 1, true) then movement_marker = string.format("⟦TYPST_GUARD_%04d⟧", id) end
+end
+assert(movement_marker)
+local movement_output, movement_count = movement_chunks[1].text:gsub(
+  "Left side" .. movement_marker .. "right side%.",
+  "Left side right side." .. movement_marker,
+  1
+)
+assert(movement_count == 1)
+local movement_result, movement_error = guard.restore(
+  movement_plan,
+  { { id = movement_chunks[1].id, text = movement_output } }
+)
+assert(not movement_result and movement_error:find("deleted a Typst prose span", 1, true))
+
+local crossing_source = "#stage([Solver trace])"
+local crossing_plan, crossing_chunks = guard.prepare(crossing_source, true)
+assert(crossing_plan and #crossing_chunks == 1)
+local open_marker = nil
+for id, value in ipairs(crossing_plan.protected) do
+  if value:find("#stage([", 1, true) then open_marker = string.format("⟦TYPST_GUARD_%04d⟧", id) end
+end
+assert(open_marker)
+local crossing_output = crossing_chunks[1].text:gsub(
+  open_marker .. "Solver trace",
+  "Solver trajectory" .. open_marker,
+  1
+)
+local crossing_result, crossing_error = guard.restore(
+  crossing_plan,
+  { { id = crossing_chunks[1].id, text = crossing_output } }
+)
+assert(not crossing_result and crossing_error:find("crossed a protected Typst boundary", 1, true))
+
 print("typst guard markup tests passed")
