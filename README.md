@@ -357,9 +357,11 @@ Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for de
 - Tera templates provide small machine-specific values; ordinary linked files remain directly editable
 - The `workstation` or `nas` role must be selected explicitly in local mise configuration
 
-## CerpacNAS Remote Codex
+## Remote Codex and CerpacNAS setup
 
-CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. Coordinate development work through native Codex Remote SSH tasks; the small Mac-side `work-on-cerpacnas` skill describes that coordination. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
+CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
+
+Codex can run tasks on connected remote hosts, including CerpacNAS and DriehuisNAS, in any project available on that host. The `work-on-remote-hosts` skill describes how to coordinate those tasks and check the host and project at task time.
 
 ## DelftBlue Profile
 
