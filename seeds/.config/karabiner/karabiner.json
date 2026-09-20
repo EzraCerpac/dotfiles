@@ -34,7 +34,7 @@
                         ]
                     },
                     {
-                        "description": "Map Corne Globe key to Wispr Fn+F.",
+                        "description": "Map Corne Globe key to VoiceInk Fn+F.",
                         "manipulators": [
                             {
                                 "conditions": [

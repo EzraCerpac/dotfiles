@@ -1,9 +1,0 @@
-{
-  "packages": [
-    "npm:@ollama/pi-web-search",
-    "npm:caveman-pi",
-    "npm:pi-constell-plan",
-    "npm:pi-markdown-preview",
-    "npm:pi-mono-btw"
-  ]
-}
