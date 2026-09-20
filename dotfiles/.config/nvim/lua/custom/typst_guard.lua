@@ -30,8 +30,7 @@ local function serialize_node(node, bufnr)
   return node:type() .. "[" .. table.concat(children, ",") .. "]"
 end
 
-function M.fingerprint(value)
-  local content = source_text(value)
+local function parse_source(content)
   local bufnr = vim.api.nvim_create_buf(false, true)
   vim.bo[bufnr].filetype = "typst"
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.split(content, "\n", { plain = true }))
@@ -46,103 +45,132 @@ function M.fingerprint(value)
     vim.api.nvim_buf_delete(bufnr, { force = true })
     return nil, "Typst syntax contains a parse error"
   end
+  return bufnr, root
+end
+
+function M.fingerprint(value)
+  local content = source_text(value)
+  local bufnr, root = parse_source(content)
+  if not bufnr then return nil, root end
   local result = serialize_node(root, bufnr)
   vim.api.nvim_buf_delete(bufnr, { force = true })
   return result
 end
 
-local function protect_line(line, protected)
-  local spans = {}
-  local function span(start_at, finish_at)
-    table.insert(spans, { start = start_at, finish = finish_at })
+local function line_starts(source)
+  local starts, cursor = { 1 }, 1
+  while true do
+    local newline = source:find("\n", cursor, true)
+    if not newline then break end
+    starts[#starts + 1] = newline + 1
+    cursor = newline + 1
   end
+  return starts
+end
 
-  -- Whole command and delimiter lines are never prose.
-  if line:match("^%s*#")
-    or line:match("^%s*[%[%]%(%){},]+%s*$") then
-    span(1, #line)
-  elseif line:match("^%s*```") then
-    span(1, #line)
-  else
-    local _, heading_end = line:find("^%s*=+%s+")
-    local _, list_end = line:find("^%s*[-+/>]%s+")
-    local _, bracket_start = line:find("^%s*%[")
-    if heading_end then span(1, heading_end) end
-    if list_end then span(1, list_end) end
-    if bracket_start then span(1, bracket_start) end
-    local bracket_finish = line:find("%]%s*,?%s*$")
-    if bracket_finish then span(bracket_finish, #line) end
+local function text_ranges(root, source)
+  local starts = line_starts(source)
+  local ranges = {}
+  local function offset(row, column)
+    return starts[row + 1] + column
+  end
+  local function add_text(node)
+    local start_row, start_column, end_row, end_column = node:range()
+    local start_at, finish_at = offset(start_row, start_column), offset(end_row, end_column)
+    local cursor = start_at
+    for child in node:iter_children() do
+      local child_start_row, child_start_column, child_end_row, child_end_column = child:range()
+      local child_start = offset(child_start_row, child_start_column)
+      local child_finish = offset(child_end_row, child_end_column)
+      if child_start > cursor then table.insert(ranges, { start = cursor, finish = child_start }) end
+      cursor = math.max(cursor, child_finish)
+    end
+    if cursor < finish_at then table.insert(ranges, { start = cursor, finish = finish_at }) end
+  end
+  local function visit(node)
+    if node:type() == "text" then
+      add_text(node)
+      return
+    end
+    for child in node:iter_children() do visit(child) end
+  end
+  visit(root)
+  table.sort(ranges, function(a, b) return a.start < b.start end)
+  return ranges
+end
 
-    local i = 1
-    while i <= #line do
-      local c = line:sub(i, i)
-      if c == "\\" then
-        i = i + 2
-      elseif c == "$" then
-        local j = line:find("$", i + 1, true)
-        if j then
-          span(i, j)
-          i = j + 1
-        else
-          span(i, i)
-          i = i + 1
+local function editable_ranges(source, ranges)
+  local editable = {}
+  local function add(start_at, finish_at)
+    if finish_at > start_at then table.insert(editable, { start = start_at, finish = finish_at }) end
+  end
+  for _, range in ipairs(ranges) do
+    local cursor, prose_start = range.start, range.start
+    while cursor < range.finish do
+      local tail = source:sub(cursor, range.finish - 1)
+      local previous = source:sub(cursor - 1, cursor - 1)
+      local identifier = tail:match("^[%w_][%w_%-]*")
+      local token = nil
+      if (cursor == range.start or not previous:match("[%w_%-]"))
+        and identifier
+        and identifier:match("%d")
+        and identifier:match("[%a_]") then
+        token = identifier
+      end
+      token = token or tail:match("^https?://[^%s%]%)}>,;]+")
+        or tail:match("^10%.%d%d%d%d%d?%d?%d?%d?%d?/[^%s%]%)}>,;]+")
+      if not token then
+        local first = tail:sub(1, 1)
+        local second = tail:sub(2, 2)
+        if first:match("%d") or ((first == "+" or first == "-") and second:match("%d")) then
+          token = tail:match("^[%+%-]?%d[%d%.,%%]*[eE][%+%-]?%d+")
+            or tail:match("^[%+%-]?%d[%d%.,%%]*")
         end
-      elseif c == "`" then
-        local j = line:find("`", i + 1, true)
-        if j then
-          span(i, j)
-          i = j + 1
-        else
-          span(i, i)
-          i = i + 1
-        end
-      elseif c == "*" or c == "_" then
-        local j = line:find(c, i + 1, true)
-        span(i, i)
-        if j then
-          span(j, j)
-          i = j + 1
-        else
-          i = i + 1
-        end
-      elseif c == "<" then
-        local j = line:find(">", i + 1, true)
-        if j then span(i, j); i = j + 1 else i = i + 1 end
-      elseif c == "@" then
-        local j = line:find("[^%w_:-]", i + 1)
-        j = (j and j - 1) or #line
-        span(i, j)
-        i = j + 1
-      elseif line:sub(i):match("^https?://") then
-        local j = line:find("%s", i) or (#line + 1)
-        span(i, j - 1)
-        i = j
-      elseif line:sub(i):match("^10%.%d%d%d%d%d?%d?%d?%d?%d?/") then
-        local token = line:sub(i):match("^10%.%d%d%d%d%d?%d?%d?%d?%d?/[^%s%]%)}>,;]+")
-        span(i, i + #token - 1)
-        i = i + #token
-      elseif line:sub(i):match("^%d[%d%.,%%]*") then
-        local token = line:sub(i):match("^%d[%d%.,%%]*")
-        span(i, i + #token - 1)
-        i = i + #token
+      end
+      if token then
+        add(prose_start, cursor)
+        cursor = cursor + #token
+        prose_start = cursor
       else
-        i = i + 1
+        cursor = cursor + 1
       end
     end
+    add(prose_start, range.finish)
   end
+  return editable
+end
 
-  table.sort(spans, function(a, b) return a.start < b.start end)
-  local result = line
-  local ids = {}
-  for n, item in ipairs(spans) do
-    ids[n] = #protected + 1
-    table.insert(protected, line:sub(item.start, item.finish))
+local function mask_source(source, editable)
+  local protected, pieces = {}, {}
+  local function append(value)
+    if value ~= "" then table.insert(pieces, value) end
   end
-  for n = #spans, 1, -1 do
-    local item, id = spans[n], ids[n]
-    result = result:sub(1, item.start - 1) .. string.format(PLACEHOLDER, id) .. result:sub(item.finish + 1)
+  local function protect(value)
+    if value == "" then return end
+    protected[#protected + 1] = value
+    append(string.format(PLACEHOLDER, #protected))
   end
-  return result
+  local function protect_range(start_at, finish_at)
+    local cursor = start_at
+    while cursor < finish_at do
+      local newline = source:find("\n", cursor, true)
+      if not newline or newline >= finish_at then
+        protect(source:sub(cursor, finish_at - 1))
+        break
+      end
+      protect(source:sub(cursor, newline - 1))
+      append("\n")
+      cursor = newline + 1
+    end
+  end
+  local cursor = 1
+  for _, range in ipairs(editable) do
+    protect_range(cursor, range.start)
+    append(source:sub(range.start, range.finish - 1))
+    cursor = range.finish
+  end
+  protect_range(cursor, #source + 1)
+  return table.concat(pieces), protected
 end
 
 local function placeholder_ids(text)
@@ -158,32 +186,11 @@ function M.prepare(value, paragraph_mode)
   local fingerprint, err = M.fingerprint(source)
   if not fingerprint then return nil, err end
   if source:find("⟦TYPST_GUARD_") then return nil, "source contains a reserved Typst guard placeholder" end
-  local protected = {}
-  local lines = vim.split(source, "\n", { plain = true })
-  local in_fence = false
-  local in_math = false
-  for i, line in ipairs(lines) do
-    if in_fence or line:match("^%s*```") then
-      local closes = line:match("^%s*```") and in_fence
-      local id = #protected + 1
-      protected[id] = line
-      lines[i] = string.format(PLACEHOLDER, id)
-      if in_fence then
-        if closes then in_fence = false end
-      else
-        in_fence = true
-      end
-    elseif in_math or line:match("^%s*%$%s*$") then
-      local delimiter = line:match("^%s*%$%s*$") ~= nil
-      local id = #protected + 1
-      protected[id] = line
-      lines[i] = string.format(PLACEHOLDER, id)
-      if delimiter then in_math = not in_math end
-    else
-      lines[i] = protect_line(line, protected)
-    end
-  end
-  local prepared = table.concat(lines, "\n")
+  local bufnr, root = parse_source(source)
+  if not bufnr then return nil, root end
+  local ranges = editable_ranges(source, text_ranges(root, source))
+  vim.api.nvim_buf_delete(bufnr, { force = true })
+  local prepared, protected = mask_source(source, ranges)
   local chunks, spans = {}, {}
   local function add_chunk(start_at, finish_at)
     if finish_at >= start_at then
@@ -199,9 +206,12 @@ function M.prepare(value, paragraph_mode)
     add_chunk(1, #prepared)
   else
     local start_at, paragraph_start = 1, nil
+    local source_lines = vim.split(source, "\n", { plain = true })
+    local line_number = 0
     for line in (prepared .. "\n"):gmatch("(.-)\n") do
+      line_number = line_number + 1
       local finish_at = start_at + #line - 1
-      if line:match("^%s*$") then
+      if (source_lines[line_number] or ""):match("^%s*$") then
         if paragraph_start then add_chunk(paragraph_start, start_at - 2) end
         paragraph_start = nil
       elseif not paragraph_start then

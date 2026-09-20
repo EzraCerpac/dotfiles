@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -63,6 +64,69 @@ class RunSettings:
     model: str
     intermediate_language: str
     compile_command: tuple[str, ...]
+
+
+class ChunkCache:
+    """Content-addressed cache for validated per-chunk rewrites."""
+
+    def __init__(
+        self,
+        directory: Path,
+        settings: RunSettings,
+        language: str,
+        instructions: str | None = None,
+    ) -> None:
+        self.directory = directory.expanduser()
+        self.identity = {
+            "upstream_commit": UPSTREAM_COMMIT,
+            "language": language,
+            "temperature": settings.temperature,
+            "model": settings.model,
+            "intermediate_language": settings.intermediate_language,
+            "proxy_url": settings.proxy_url,
+        }
+        if instructions:
+            self.identity["instructions"] = instructions
+
+    def path_for(self, source: str) -> Path:
+        payload = json.dumps(
+            {"source": source, "settings": self.identity},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return self.directory / f"{digest}.json"
+
+    def get(self, source: str) -> str | None:
+        try:
+            payload = json.loads(self.path_for(source).read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            return None
+        output = payload.get("output") if isinstance(payload, dict) else None
+        if not isinstance(output, str) or not output.strip():
+            return None
+        try:
+            validate_provider_text(output)
+        except HumanizeError:
+            return None
+        return output
+
+    def put(self, source: str, output: str) -> None:
+        validate_provider_text(output)
+        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        atomic_write(
+            self.path_for(source),
+            json.dumps({"output": output}, ensure_ascii=False) + "\n",
+            refuse_existing=False,
+            mode=0o600,
+        )
+
+    def discard(self, source: str) -> None:
+        try:
+            self.path_for(source).unlink()
+        except FileNotFoundError:
+            pass
 
 
 class ParagraphProgress:
@@ -388,7 +452,25 @@ def validate_provider_text(text: str) -> None:
         raise HumanizeError("Provider returned an error page instead of processed text")
 
 
-def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
+@contextlib.contextmanager
+def custom_system_instructions(llm_rewriter: Any, instructions: str | None) -> Iterator[None]:
+    if not instructions:
+        yield
+        return
+    original_prompt = llm_rewriter.SYSTEM_PROMPT
+    llm_rewriter.SYSTEM_PROMPT = f"{original_prompt}\n\n{instructions}"
+    try:
+        yield
+    finally:
+        llm_rewriter.SYSTEM_PROMPT = original_prompt
+
+
+def make_cloud_rewriter(
+    settings: RunSettings,
+    *,
+    target_language: str = "en",
+    instructions: str | None = None,
+) -> Callable[[str], str]:
     proxy_key = read_proxy_key(settings.proxy_config)
     niutrans_key = read_niutrans_key()
     config = {
@@ -413,9 +495,10 @@ def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
         if not text.strip():
             return text
         try:
+            from src.standard import llm_rewriter as standard_llm_rewriter
             from src.standard import pipeline as standard_pipeline
 
-            language_names = {"en": "English", "fi": "Finnish", "ja": "Japanese"}
+            language_names = {"de": "German", "en": "English", "fi": "Finnish", "ja": "Japanese"}
 
             def translate_with_proxy(value: str, target: str) -> str:
                 return standard_pipeline.llm_rewrite(
@@ -430,13 +513,14 @@ def make_cloud_rewriter(settings: RunSettings) -> Callable[[str], str]:
                     provider="deepseek",
                 )
 
-            with without_upstream_env_overrides():
-                with google_fallback_for_niutrans(
-                    standard_pipeline,
-                    enabled=not niutrans_key,
-                    translation_fallback=translate_with_proxy,
-                ):
-                    result = standard_pipeline.run_standard_pipeline(text, config, target_lang="en")
+            with custom_system_instructions(standard_llm_rewriter, instructions):
+                with without_upstream_env_overrides():
+                    with google_fallback_for_niutrans(
+                        standard_pipeline,
+                        enabled=not niutrans_key,
+                        translation_fallback=translate_with_proxy,
+                    ):
+                        result = standard_pipeline.run_standard_pipeline(text, config, target_lang=target_language)
         except Exception as error:
             frames = traceback.extract_tb(error.__traceback__)
             function = frames[-1].name if frames else "unknown"
@@ -502,11 +586,18 @@ def rewrite_plain(
     rewrite: Callable[[str], str],
     *,
     progress: ParagraphProgress | None = None,
+    cache: ChunkCache | None = None,
 ) -> str:
     if not text.strip():
         raise HumanizeError("Input is empty")
     if not paragraphs:
-        return rewrite(text)
+        cached = cache.get(text) if cache is not None else None
+        if cached is not None:
+            return cached
+        output = rewrite(text)
+        if cache is not None:
+            cache.put(text, output)
+        return output
     parts = split_plain_paragraphs(text)
     total = sum(is_content and bool(part.strip()) for is_content, part in parts)
     reporter = progress or ParagraphProgress(io.StringIO(), enabled=False)
@@ -518,7 +609,12 @@ def rewrite_plain(
             if is_content and part.strip():
                 current += 1
                 reporter.paragraph(current)
-                result.append(rewrite(part))
+                output = cache.get(part) if cache is not None else None
+                if output is None:
+                    output = rewrite(part)
+                    if cache is not None:
+                        cache.put(part, output)
+                result.append(output)
             else:
                 result.append(part)
     except Exception:
@@ -569,6 +665,7 @@ def rewrite_typst(
     guard: Callable[[str, dict[str, Any]], dict[str, Any]] = run_guard,
     progress: ParagraphProgress | None = None,
     validate: Callable[[str], None] | None = None,
+    cache: ChunkCache | None = None,
 ) -> str:
     prepared = guard("prepare", {"source": source, "paragraph_mode": paragraphs})
     chunks = prepared.get("chunks")
@@ -588,10 +685,15 @@ def rewrite_typst(
     try:
         for index, chunk in enumerate(chunks, start=1):
             reporter.paragraph(index)
-            for syntax_attempt in range(3):
+            cached_output = cache.get(chunk["text"]) if cache is not None else None
+            attempts = ([cached_output] if cached_output is not None else []) + [None, None, None]
+            for attempt_index, cached in enumerate(attempts):
+                syntax_attempt = attempt_index - (1 if cached_output is not None else 0)
                 try:
                     expected_placeholders = typst_placeholder_ids(chunk["text"])
-                    if syntax_attempt == 0:
+                    if cached is not None:
+                        output = cached
+                    elif syntax_attempt == 0:
                         output = rewrite(chunk["text"])
                     else:
                         reporter.protect_syntax(index)
@@ -614,10 +716,15 @@ def rewrite_typst(
                     if validate is not None:
                         validate(candidate_source)
                 except HumanizeError as error:
+                    if cached is not None and cache is not None:
+                        cache.discard(chunk["text"])
+                        continue
                     if syntax_attempt == 2:
                         raise HumanizeError(f"Paragraph {index} failed: {error}") from error
                     reporter.syntax_retry(index, syntax_attempt + 1)
                     continue
+                if cache is not None and cached is None:
+                    cache.put(chunk["text"], output)
                 outputs.append({"id": chunk["id"], "text": output})
                 break
         restored = guard("restore", {"plan": plan, "outputs": outputs})
@@ -825,7 +932,25 @@ def make_parser(*, clipboard: bool) -> argparse.ArgumentParser:
     paragraph.add_argument("--whole", dest="paragraphs", action="store_false", help="Process all prose in one request")
     parser.set_defaults(paragraphs=None)
     parser.add_argument("--temperature", type=float, help="Override the preset temperature")
+    parser.add_argument("--language", choices=("en", "de"), default="en", help="Output language (default: en)")
+    parser.add_argument("--cache-dir", type=Path, help="Reuse validated per-chunk outputs from this directory")
+    parser.add_argument("--instructions-file", type=Path, help="Append a file's rewrite rules to the LLM system prompt")
     return parser
+
+
+def read_instructions(path: Path | None) -> str | None:
+    if path is None:
+        return None
+    resolved = path.expanduser()
+    try:
+        instructions = resolved.read_text(encoding="utf-8").strip()
+    except FileNotFoundError as error:
+        raise HumanizeError(f"Instructions file does not exist: {resolved}") from error
+    except UnicodeDecodeError as error:
+        raise HumanizeError("Instructions file must be UTF-8 text") from error
+    if not instructions:
+        raise HumanizeError("Instructions file is empty")
+    return instructions
 
 
 def read_input(args: argparse.Namespace, *, clipboard: bool) -> tuple[str, Path | None, bool]:
@@ -919,7 +1044,13 @@ def run(argv: Sequence[str] | None = None, *, program: str | None = None) -> int
         temperature=args.temperature,
         paragraph_override=args.paragraphs,
     )
-    rewriter = make_cloud_rewriter(settings)
+    instructions = read_instructions(args.instructions_file)
+    rewriter = make_cloud_rewriter(settings, target_language=args.language, instructions=instructions)
+    cache = (
+        ChunkCache(args.cache_dir, settings, args.language, instructions)
+        if args.cache_dir is not None
+        else None
+    )
     progress = ParagraphProgress(sys.stderr, enabled=sys.stderr.isatty())
     if typst:
         validator = None
@@ -928,9 +1059,16 @@ def run(argv: Sequence[str] | None = None, *, program: str | None = None) -> int
                 compile_typst_proposal(target, proposal, settings)
 
             validator = validate_typst
-        result = rewrite_typst(source, settings.paragraphs, rewriter, progress=progress, validate=validator)
+        result = rewrite_typst(
+            source,
+            settings.paragraphs,
+            rewriter,
+            progress=progress,
+            validate=validator,
+            cache=cache,
+        )
     else:
-        result = rewrite_plain(source, settings.paragraphs, rewriter, progress=progress)
+        result = rewrite_plain(source, settings.paragraphs, rewriter, progress=progress, cache=cache)
     publish(result, args=args, clipboard=clipboard, target=target, typst=typst, settings=settings)
     return 0
 
