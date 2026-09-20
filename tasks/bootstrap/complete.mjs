@@ -13,6 +13,8 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   const report = [];
   const local = path.join(root, 'config.local.toml');
   const childEnv = { ...env, HOME: home, MISE_CONFIG_DIR: root };
+  let tailscaleAuthKey = childEnv.SETUP_TAILSCALE_AUTH_KEY;
+  delete childEnv.SETUP_TAILSCALE_AUTH_KEY;
   const invoke = (command, args, capture = false) => run(command, args, {
     cwd: root, env: childEnv, encoding: 'utf8',
     stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
@@ -57,13 +59,17 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   Object.assign(childEnv, { SETUP_PROFILE: role, SETUP_MACHINE_ID: machineId });
   const expand = (value) => value.startsWith('~/') ? path.join(home, value.slice(2)) : path.resolve(value);
   const recoveryIdentity = expand(childEnv.SETUP_AGE_IDENTITY || readLocal('env.SETUP_AGE_IDENTITY') || path.join(home, '.config/age/keys.txt'));
+  const bundleIdentity = expand(childEnv.SETUP_BUNDLE_IDENTITY || readLocal('vars.bootstrap_bundle_identity') || recoveryIdentity);
   const bundle = expand(childEnv.SETUP_BOOTSTRAP_BUNDLE || path.join(root, 'encrypted/bootstrap.json.age'));
   let secrets = {};
   let recipients = [];
   let privateReady = true;
-  if (fs.existsSync(bundle) && fs.existsSync(recoveryIdentity)) {
+  if (fs.existsSync(bundle) && fs.existsSync(bundleIdentity)) {
     privateReady = stage('Unlock private inputs', () => {
-      const unlocked = unlockBundle(bundle, recoveryIdentity, { ageBin: childEnv.SETUP_AGE_BIN || 'age' });
+      const unlocked = unlockBundle(bundle, bundleIdentity, { ageBin: childEnv.SETUP_AGE_BIN || 'age' });
+      // History enrollment selects a host key later. Keep the bundle's
+      // external decryption identity independent across repeated bootstraps.
+      setLocal('vars.bootstrap_bundle_identity', bundleIdentity);
       secrets = unlocked.secrets;
       recipients = unlocked.recipients || [];
       if (secrets.github_token) {
@@ -78,11 +84,11 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
         }
         childEnv.GIT_CONFIG_COUNT = String(count + 2);
       }
-      if (secrets.tailscale_auth_key) childEnv.SETUP_TAILSCALE_AUTH_KEY = secrets.tailscale_auth_key;
+      if (secrets.tailscale_auth_key) tailscaleAuthKey = secrets.tailscale_auth_key;
     });
   } else {
     record('Private inputs', 'deferred', 'Supply the encrypted bundle and an external age identity with dots bootstrap --bundle FILE --identity FILE');
-    if (childEnv.SETUP_BOOTSTRAP_BUNDLE) privateReady = false;
+    if (fs.existsSync(bundle) || childEnv.SETUP_BOOTSTRAP_BUNDLE) privateReady = false;
   }
 
   const restoreId = childEnv.SETUP_RESTORE_MACHINE_ID;
@@ -141,7 +147,7 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
         if (generated.status !== 0 || !generated.stdout.includes('AGE-SECRET-KEY-')) throw new Error('Could not generate this host’s age identity');
         fs.writeFileSync(hostIdentity, generated.stdout, { flag: 'wx', mode: 0o600 });
       }
-      const publicKey = invoke('age-keygen', ['-y', recoveryIdentity], true);
+      const publicKey = invoke('age-keygen', ['-y', fs.existsSync(bundle) ? bundleIdentity : recoveryIdentity], true);
       if (publicKey.status !== 0) throw new Error('Could not read the recovery public recipient');
       recipients = [...new Set([...recipients, ...publicKey.stdout.trim().split(/\s+/)])];
       const origin = readLocal('env.SETUP_HISTORY_ORIGIN') || 'https://github.com/EzraCerpac/dotfiles-state.git';
@@ -163,7 +169,11 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   } else {
     record('Encrypted local history', 'deferred', 'Complete private recovery and provide an age identity before enrollment');
   }
-  const tailscale = invoke('bash', [path.join(root, 'tasks/bootstrap/tailnet')]);
+  const tailscaleEnv = { ...childEnv };
+  if (tailscaleAuthKey) tailscaleEnv.SETUP_TAILSCALE_AUTH_KEY = tailscaleAuthKey;
+  const tailscale = run('bash', [path.join(root, 'tasks/bootstrap/tailnet')], {
+    cwd: root, env: tailscaleEnv, encoding: 'utf8', stdio: 'inherit',
+  });
   const noLinuxSupervisor = process.platform === 'linux' && !fs.existsSync('/run/systemd/system');
   record('Tailscale', tailscale.status === 0 ? 'completed' : tailscale.status === 3 || (tailscale.status === 23 && noLinuxSupervisor) ? 'deferred' : 'failed',
     tailscale.status === 0 ? '' : 'See the enrollment message above; rerun dots bootstrap');

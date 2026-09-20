@@ -19,12 +19,12 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.mise = Path(os.environ.get("SETUP_TEST_MISE", DEFAULT_MISE))
+        if not cls.mise.is_file() or not os.access(cls.mise, os.X_OK):
+            raise unittest.SkipTest("set SETUP_TEST_MISE to an executable mise installation")
         cls.age = subprocess.run([str(cls.mise), "which", "age"], text=True, capture_output=True).stdout.strip() or shutil.which("age")
         cls.age_keygen = shutil.which("age-keygen")
         cls.git = shutil.which("git")
         cls.node_bins = sorted(Path.home().glob(".local/share/mise/installs/node/*/bin/node"))
-        if not cls.mise.is_file() or not os.access(cls.mise, os.X_OK):
-            raise unittest.SkipTest("set SETUP_TEST_MISE to the staged mise 2026.9.7 executable")
         if not cls.age or not cls.age_keygen or not cls.git or not cls.node_bins:
             raise unittest.SkipTest("native restore test needs age, age-keygen, Git, and an installed Node runtime")
         version = subprocess.run([str(cls.mise), "--version"], text=True, capture_output=True, check=False)

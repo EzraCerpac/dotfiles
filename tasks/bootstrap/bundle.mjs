@@ -8,6 +8,11 @@ import { fileURLToPath } from 'node:url';
 const names = new Set(['wakatime_config', 'himalaya_config', 'tailscale_auth_key', 'github_token']);
 const files = { wakatime_config: '.wakatime.cfg', himalaya_config: '.config/himalaya/config.toml' };
 const quote = JSON.stringify;
+const inputEnv = () => {
+  const env = { ...process.env };
+  delete env.SETUP_TAILSCALE_AUTH_KEY;
+  return env;
+};
 
 export function validateBundle(value) {
   if (!value || value.version !== 1 || !value.secrets || typeof value.secrets !== 'object' || Array.isArray(value.secrets)) throw new Error('Expected a version 1 bootstrap bundle with a secrets object');
@@ -21,7 +26,7 @@ export function validateBundle(value) {
 }
 
 export function unlockBundle(bundle, identity, { ageBin = 'age' } = {}) {
-  const result = spawnSync(ageBin, ['--decrypt', '--identity', identity, bundle], { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
+  const result = spawnSync(ageBin, ['--decrypt', '--identity', identity, bundle], { env: inputEnv(), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
   if (result.status !== 0) throw new Error('Cannot decrypt bootstrap bundle; check the bundle and age identity');
   let document;
   try { document = JSON.parse(result.stdout); } catch { throw new Error('Decrypted bootstrap bundle is not valid JSON'); }
@@ -37,7 +42,7 @@ export function writeBundle({ inputPath, document, outputPath, recipient, ageBin
   const recipients = Array.isArray(recipient) ? recipient : [recipient];
   if (!recipients.length || recipients.some(r => typeof r !== 'string' || !/^age1[0-9a-z]+$/.test(r))) throw new Error('Supply at least one age public recipient');
   const args = recipients.flatMap(r => ['--recipient', r]);
-  const encrypted = spawnSync(ageBin, args, { input: JSON.stringify(value), maxBuffer: 4 * 1024 * 1024 });
+  const encrypted = spawnSync(ageBin, args, { env: inputEnv(), input: JSON.stringify(value), maxBuffer: 4 * 1024 * 1024 });
   if (encrypted.status !== 0 || !encrypted.stdout?.length) throw new Error('Could not encrypt the bootstrap bundle');
   if (fs.existsSync(outputPath)) throw new Error('Output already exists; use a new filename and review before replacing the bundle');
   fs.writeFileSync(outputPath, encrypted.stdout, { flag: 'wx', mode: 0o600 });
@@ -65,7 +70,7 @@ export function applyPrivateFiles(secrets, { home, miseBin, root }) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-private-'));
   fs.chmodSync(temp, 0o700);
   try {
-    const env = { ...process.env, HOME: actualHome, MISE_CONFIG_DIR: temp, MISE_ENV: '', MISE_TRUSTED_CONFIG_PATHS: temp,
+    const env = { ...inputEnv(), HOME: actualHome, MISE_CONFIG_DIR: temp, MISE_ENV: '', MISE_TRUSTED_CONFIG_PATHS: temp,
       MISE_STATE_DIR: path.join(temp, 'state'), MISE_CACHE_DIR: path.join(temp, 'cache') };
     delete env.MISE_GLOBAL_CONFIG_FILE;
     for (const name of Object.keys(env)) if (name.startsWith('__MISE_')) delete env[name];

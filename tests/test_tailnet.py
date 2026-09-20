@@ -22,7 +22,11 @@ fi
 [[ $1 == up && $2 == --auth-key=file:* ]] || exit 91
 keyfile=${2#--auth-key=file:}
 [[ $(cat "$keyfile") == tskey-fixture-secret ]] || exit 92
-[[ $(stat -f '%Lp' "$keyfile" 2>/dev/null || stat -c '%a' "$keyfile") == 600 ]] || exit 93
+case $(uname -s) in
+  Darwin) mode=$(stat -f '%Lp' "$keyfile") ;;
+  *) mode=$(stat -c '%a' "$keyfile") ;;
+esac
+[[ $mode == 600 ]] || exit 93
 printf '%s' "$keyfile" > "$KEY_PATH"
 if [[ -n $FAILURE ]]; then printf '%s\\n' "$FAILURE" >&2; exit 1; fi
 ''')

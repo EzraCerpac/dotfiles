@@ -25,7 +25,17 @@ export KBD_KANATA_LAUNCHCTL="${TMP_ROOT}/launchctl"
 printf '#!/bin/sh\n[ "$1" = asuser ] || exit 2\nshift 2\nexec "$@"\n' >"${KBD_KANATA_LAUNCHCTL}"
 chmod +x "${KBD_KANATA_LAUNCHCTL}"
 
-printf '501\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+TEST_UID="$(id -u)"
+# Root containers have no interactive Mac user. Model one for the fixture;
+# production still rejects root as the owner of a GUI keyboard session.
+if [[ "$TEST_UID" == 0 ]]; then
+    TEST_UID=1000
+    id() {
+        if [[ "$*" == -u ]]; then printf '%s\n' "$TEST_UID";
+        else command id "$@"; fi
+    }
+fi
+printf '%s\n' "$TEST_UID" >"${KBD_KANATA_CONSOLE_DEVICE}"
 printf '#!/bin/sh\ncat "%s"\n' "${KBD_KANATA_CONSOLE_DEVICE}" >"${KBD_KANATA_STAT}"
 chmod +x "${KBD_KANATA_STAT}"
 
@@ -62,7 +72,7 @@ assert_not_contains() {
 
 seed_kanata_runtime_files() {
     mkdir -p "$(dirname "${KBD_KANATA_WRAPPER}")" "$(dirname "${KBD_KANATA_NEWSYSLOG_CONFIG}")" "$(dirname "${KBD_KANATA_PLIST}")"
-    render_kanata_wrapper "${KBD_KANATA_WRAPPER}" 501
+    render_kanata_wrapper "${KBD_KANATA_WRAPPER}" "$TEST_UID"
     render_kanata_newsyslog_config "${KBD_KANATA_NEWSYSLOG_CONFIG}"
     render_kanata_plist "${FAKE_KANATA}" "${KBD_KANATA_PLIST}"
 }
@@ -125,12 +135,12 @@ test_render_runtime_files() {
     local fake_command="${TMP_ROOT}/fake-command"
     local wrapper_status
 
-    render_kanata_wrapper "${wrapper}" 501
+    render_kanata_wrapper "${wrapper}" "$TEST_UID"
     render_kanata_plist "/tmp/a&b/kanata" "${plist}"
     render_kanata_newsyslog_config "${newsyslog}"
 
     assert_contains "$(<"${wrapper}")" "printf '%s\\n' \"\$\$\""
-    assert_contains "$(<"${wrapper}")" "owner_uid=501"
+    assert_contains "$(<"${wrapper}")" "owner_uid=$TEST_UID"
     assert_contains "$(<"${wrapper}")" 'asuser "${owner_uid}"'
     assert_contains "$(<"${plist}")" "${KBD_KANATA_WRAPPER}"
     assert_contains "$(<"${plist}")" "/tmp/a&amp;b/kanata"
@@ -157,17 +167,17 @@ test_wrapper_runs_only_for_configured_console_user() {
     local marker="${TMP_ROOT}/user-gated.marker"
     local pid
 
-    render_kanata_wrapper "${wrapper}" 501
+    render_kanata_wrapper "${wrapper}" "$TEST_UID"
     printf '#!/bin/sh\nprintf ok >"%s"\n' "${marker}" >"${TMP_ROOT}/marker-command"
     chmod +x "${wrapper}" "${TMP_ROOT}/marker-command"
 
-    printf '502\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+    printf '%s\n' "$((TEST_UID + 1))" >"${KBD_KANATA_CONSOLE_DEVICE}"
     "${wrapper}" "${TMP_ROOT}/marker-command" &
     pid=$!
     sleep 0.3
     [[ ! -e "${marker}" ]] || exit 1
 
-    printf '501\n' >"${KBD_KANATA_CONSOLE_DEVICE}"
+    printf '%s\n' "$TEST_UID" >"${KBD_KANATA_CONSOLE_DEVICE}"
     wait "${pid}"
     [[ -f "${marker}" ]] || exit 1
     pass

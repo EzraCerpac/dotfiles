@@ -201,6 +201,9 @@ with your recovery key's public recipient. Review and move that ciphertext to
 `encrypted/bootstrap.json.age`; the private key stays outside both repositories.
 On the new machine, run `dots bootstrap --bundle /path/bootstrap.json.age --identity /path/key.txt`.
 Changed private destination files are left for reconciliation.
+The bundle's external identity path is remembered separately from the new
+machine's history key. Keep that external key available when applying the bundle
+again; a missing key defers private setup without replacing existing files.
 
 For unattended account enrollment, the bundle's version-1 JSON `secrets` object
 may also contain `tailscale_auth_key` and `github_token`. Create it from a private

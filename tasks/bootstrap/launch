@@ -11,7 +11,9 @@ while (($#)); do
             [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || { echo "dots: $1 needs a value" >&2; exit 2; }
             case "$1" in
                 --bundle) case "$2" in /*) export SETUP_BOOTSTRAP_BUNDLE="$2" ;; *) export SETUP_BOOTSTRAP_BUNDLE="$PWD/$2" ;; esac ;;
-                --identity) case "$2" in /*) export SETUP_AGE_IDENTITY="$2" ;; *) export SETUP_AGE_IDENTITY="$PWD/$2" ;; esac ;;
+                --identity)
+                    case "$2" in /*) export SETUP_AGE_IDENTITY="$2" ;; *) export SETUP_AGE_IDENTITY="$PWD/$2" ;; esac
+                    export SETUP_BUNDLE_IDENTITY="$SETUP_AGE_IDENTITY" ;;
                 --restore) restore="$2" ;;
             esac
             shift 2
