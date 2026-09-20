@@ -41,6 +41,10 @@ M.setup = function(opts)
       -- Copy the current file or directory to the system clipboard
       -- NOTE: This works only on macOS
       vim.keymap.set("n", keymaps.copy_to_clipboard, function()
+        if vim.fn.has("mac") ~= 1 then
+          vim.notify("Copying files to the system clipboard requires macOS", vim.log.levels.INFO)
+          return
+        end
         -- Get the current entry (file or directory)
         local curr_entry = mini_files.get_fs_entry()
         if curr_entry then
@@ -61,6 +65,10 @@ M.setup = function(opts)
 
       -- ZIP current file or directory and copy to the system clipboard
       vim.keymap.set("n", keymaps.zip_and_copy, function()
+        if vim.fn.has("mac") ~= 1 then
+          vim.notify("Copying files to the system clipboard requires macOS", vim.log.levels.INFO)
+          return
+        end
         local curr_entry = require("mini.files").get_fs_entry()
         if curr_entry then
           local path = curr_entry.path

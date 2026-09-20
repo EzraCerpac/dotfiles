@@ -84,6 +84,9 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # Native packages stay in the Homebrew prefix. Every item is Mac-only, so a
 # Linux workstation never inherits Mac system integration or GUI packages.
 [bootstrap.packages]
+"apt:git" = { os = ["linux/x64", "linux/arm64"] }
+"dnf:git" = { os = ["linux/x64", "linux/arm64"] }
+"pacman:git" = { os = ["linux/x64", "linux/arm64"] }
 # Upstream btop publishes Linux binaries; macOS keeps its native formula.
 "brew:btop" = { os = "macos/arm64" }
 # Existing unmanaged bundles: native adoption keeps matching live apps in place.

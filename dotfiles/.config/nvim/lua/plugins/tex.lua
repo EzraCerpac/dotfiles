@@ -12,10 +12,12 @@ return {
       end,
     })
 
-    vim.g.vimtex_view_method = "skim"
-    vim.g.vimtex_view_skim_sync = 1
-    vim.g.vimtex_view_skim_activate = 1
-    vim.g.vimtex_view_skim_reading_bar = 1
+    if vim.fn.has("mac") == 1 then
+      vim.g.vimtex_view_method = "skim"
+      vim.g.vimtex_view_skim_sync = 1
+      vim.g.vimtex_view_skim_activate = 1
+      vim.g.vimtex_view_skim_reading_bar = 1
+    end
 
     vim.g.vimtex_compiler_latexmk = {
       aux_dir = "./aux",
@@ -24,6 +26,7 @@ return {
 
     -- Fix for returning focus to Neovim after inverse search on macOS with Ghostty
     local function tex_focus_vim()
+      if vim.fn.has("mac") ~= 1 then return end
       -- Use 'open -a' to focus the Ghostty terminal application
       vim.fn.system("open -a Ghostty")
       vim.cmd("redraw!")
