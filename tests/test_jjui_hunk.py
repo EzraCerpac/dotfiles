@@ -38,9 +38,19 @@ run(); assert(#menus == 1 and #calls == 0 and _G.hunk_base == nil)
 choice = "Compare base → highlighted"
 run(); assert(#calls == 0 and messages[#messages]:find("No Hunk base", 1, true))
 
+-- With no checks, the first option reviews the highlighted commit's own diff.
+assert(menus[#menus].options[1] == "Compare with parent")
+choice = "Compare with parent"
+run()
+local parent_call = calls[#calls]
+assert(parent_call[#parent_call - 2] == "diff")
+assert(parent_call[#parent_call - 1] == "-r" and parent_call[#parent_call] == target)
+assert(_G.hunk_base == nil)
+
 -- One check still uses the highlighted revision and the menu.
 ids = {"checked_other"}; choice = "Set base"
 run(); assert(_G.hunk_base == full_id)
+assert(menus[#menus].options[1] == "Set base")
 choice = nil
 run(); assert(menus[#menus].title:find(full_id:sub(1, 12), 1, true))
 target = "def456"; choice = "Compare base → highlighted"
