@@ -756,13 +756,18 @@ def config_status(manifest: Manifest) -> None:
         run(["jj", "-R", str(source), "status"])
         run(["jj", "-R", str(source), "bookmark", "list", "--all-remotes", manifest.host.dotfiles_branch])
     else:
-        print("remote mise source is not JJ-initialized; config update will initialize it")
+        print("remote mise source is not JJ-initialized; config update requires an adopted Git checkout with origin")
     run(["dots", "status"], cwd=source)
 
 
 def config_update(manifest: Manifest) -> None:
     source = manifest.host.remote_home / ".config/mise"
     if not (source / ".jj").is_dir():
+        git_root = run(["git", "-C", str(source), "rev-parse", "--show-toplevel"], capture=True, check=False)
+        origin = run(["git", "-C", str(source), "remote", "get-url", "origin"], capture=True, check=False)
+        if (git_root.returncode != 0 or Path(git_root.stdout.strip()).resolve() != source.resolve()
+                or origin.returncode != 0 or not origin.stdout.strip()):
+            raise NasError("mise source must be an adopted Git checkout with origin before config update")
         run(["jj", "git", "init", "--colocate", str(source)])
     dirty = jj_output(source, "diff", "-r", "@", "--summary")
     if dirty:

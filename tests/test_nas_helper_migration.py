@@ -80,6 +80,15 @@ class NasHelperMigrationTests(unittest.TestCase):
             ],
         )
 
+    def test_config_update_refuses_plain_directory_without_initializing_history(self) -> None:
+        temporary, manifest, source = self.make_manifest()
+        self.addCleanup(temporary.cleanup)
+        (source / ".jj").rmdir()
+        with patch.object(nas, "run", return_value=subprocess.CompletedProcess([], 128, "", "")) as run:
+            with self.assertRaisesRegex(nas.NasError, "adopted Git checkout with origin"):
+                nas.config_update(manifest)
+        self.assertTrue(all(call.args[0][0] == "git" for call in run.call_args_list))
+
     def test_doctor_requires_mise_instead_of_chezmoi(self) -> None:
         temporary, manifest, _source = self.make_manifest()
         self.addCleanup(temporary.cleanup)
