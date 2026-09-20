@@ -113,7 +113,9 @@ function prdiff --description "Review a pull request diff in diffnav"
 end
 # ---------- Completions ----------
 if command -q carapace
-    carapace _carapace 2>/dev/null | source
+    # Carapace cannot infer the shell when stdin is a Fish source pipeline.
+    # Keep the shell explicit so its bridge covers the managed CLI set.
+    command carapace _carapace fish 2>/dev/null | source
 end
 
 if command -q mole
