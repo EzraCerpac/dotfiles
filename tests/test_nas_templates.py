@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import tomllib
 import unittest
@@ -38,7 +39,11 @@ class NasTemplateTests(unittest.TestCase):
             )
 
         self.assertIn("pager = hunk pager", rendered)
-        self.assertIn("diff = diffnav --side-by-side", rendered)
+        pager = subprocess.run(
+            ["git", "config", "--file", "-", "--get", "pager.diff"],
+            input=rendered, text=True, capture_output=True,
+        )
+        self.assertEqual(pager.returncode, 1, pager.stderr)
         self.assertIn("show = delta", rendered)
         self.assertIn("tool = nvimdiff", rendered)
         self.assertIn("local = blue", rendered)

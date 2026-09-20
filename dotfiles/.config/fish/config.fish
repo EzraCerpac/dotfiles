@@ -108,7 +108,7 @@ function wto --description "Create or switch a worktree and launch OpenCode"
     worktree-opencode $argv
 end
 
-function prdiff --description "Review a pull request diff in diffnav"
+function prdiff --description "Review a pull request diff in Hunk"
     prdiff-review $argv
 end
 # ---------- Completions ----------

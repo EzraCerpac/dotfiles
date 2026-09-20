@@ -15,6 +15,6 @@ brew_bin="$(find_real_brew)" || {
     exit 1
 }
 
-for formula in fish git diffnav; do
+for formula in fish git; do
     update_brew_formula_exception "$formula" "${1:-}"
 done
