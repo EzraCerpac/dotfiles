@@ -1,3 +1,13 @@
+function __dots_atuin_question_mark
+    set -l buffer (commandline -b)
+    if test -z "$buffer"
+        _atuin_ai_question_mark
+    else
+        # Atuin's native handler skips insertion with Fish vi bindings.
+        commandline -i '?'
+    end
+end
+
 function fish_user_key_bindings
     # Initialize fzf key bindings first (they may add their own maps)
     if command -q fzf
@@ -34,8 +44,8 @@ function fish_user_key_bindings
     end
 
     if functions -q _atuin_ai_question_mark
-        bind -M default ? _atuin_ai_question_mark
-        bind -M insert ? _atuin_ai_question_mark
+        bind -M default ? __dots_atuin_question_mark
+        bind -M insert ? __dots_atuin_question_mark
     end
 
     if functions -q tv_smart_autocomplete
