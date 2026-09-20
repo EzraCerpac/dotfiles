@@ -53,10 +53,9 @@ delta = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 fd = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 fzf = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 gh = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
-# Hunk and diffnav use native Brew ownership on macOS; these release backends
-# provide the same commands on Linux without pulling in the Mac tap.
+# Hunk uses native Brew ownership on macOS; its release backend provides the
+# same command on Linux without pulling in the Mac tap.
 "aqua:modem-dev/hunk" = { version = "latest", os = ["linux/x64", "linux/arm64"] }
-"aqua:dlvhdr/diffnav" = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 # Keep the full Neovim configuration usable wherever the base is selected.
 "aqua:neovim/neovim" = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 jj = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
@@ -261,7 +260,6 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 # bootstrap backend skips darwin/amd64 (upstream jdx/mise#10968).
 "brew:fish" = { os = "macos/arm64" }
 "brew:git" = { os = "macos/arm64" }
-"brew:diffnav" = { os = "macos/arm64" }
 
 # These files are useful on every workstation and on the NAS. Keep each file
 # as an individual entry so application state beside it remains unmanaged.
@@ -287,7 +285,6 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.config/fish/conf.d/atuin.env.fish" = { source = "dotfiles/.config/fish/conf.d/atuin.env.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/config.fish" = { source = "dotfiles/.config/fish/config.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/functions/fish_user_key_bindings.fish" = { source = "dotfiles/.config/fish/functions/fish_user_key_bindings.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/diffnav/config.yml" = { source = "dotfiles/.config/diffnav/config.yml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/gh/config.yml" = { source = "dotfiles/.config/gh/config.yml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/git/config" = { source = "templates/.config/git/config.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/jj-waltz/config.toml" = { source = "dotfiles/.config/jj-waltz/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

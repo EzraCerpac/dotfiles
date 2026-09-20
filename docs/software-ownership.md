@@ -85,7 +85,7 @@ build task described below.
 
 ## Homebrew packages retained in the workstation profile
 
-These 46 formula roots have no verified portable mise backend in the installed
+These 45 formula roots have no verified portable mise backend in the installed
 registry or belong in the shared host prefix. Their intended native owner is a
 `brew:` package declaration restricted to macOS arm64 in
 `config.workstation.toml`.
@@ -96,7 +96,7 @@ registry or belong in the shared host prefix. Their intended native owner is a
 | `felixkratz/formulae/borders` 1.9.0; `kanata` 1.12.0; `m1ddc` 1.2.0; `xdot` 1.6 | macOS display/input integration; update through setup, then check behavior without restarting services |
 | `btop` 1.4.7 | Native macOS Homebrew owner; the selected Aqua package supports Linux but not Darwin arm64 |
 | `cliproxyapi` 7.2.145 and 7.2.155; `unbound` 1.25.2 | Host services; install/update package separately from service activation, and report any deferred restart |
-| `curl` 8.21.0; `diffnav` 0.12.0; `dos2unix` 7.5.6; `fish` 4.8.1; `gnupg` 2.5.21; `htop` 3.5.3; `rsync` 3.5.0; `sshpass` 1.10; `tree` 2.3.2; `wget` 1.25.0 | Host utilities, shell path, or native integration |
+| `curl` 8.21.0; `dos2unix` 7.5.6; `fish` 4.8.1; `gnupg` 2.5.21; `htop` 3.5.3; `rsync` 3.5.0; `sshpass` 1.10; `tree` 2.3.2; `wget` 1.25.0 | Host utilities, shell path, or native integration |
 | `ffmpeg` 8.1.2_1; `librsvg` 2.62.3; `openfst` 1.8.4; `pillow` 12.3.0; `poppler` 26.08.0; `pulseaudio` 17.0; `tesseract` 5.5.3 | Native libraries/media stack; retain dependency closure in the Homebrew prefix |
 | `gitlogue` 0.10.0; `harper` 2.8.0; `himalaya` 2.0.0; `modem-dev/tap/hunk` 0.17.0 | Existing application CLIs without a registry backend selected here |
 | `antoniorodr/memo/memo` 0.6.0; `dastrobu/tap/mail-mcp` 0.5.0; `mole` 1.48.1; `openai-whisper` 20250625_5; `pdfpc` 4.7.0 | Keep current native recipes pending direct replacement evidence |

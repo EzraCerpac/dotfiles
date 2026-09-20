@@ -36,7 +36,7 @@ On a fresh NAS host (including Intel macOS, where the base tools now also
 cover `macos/x64`), select the nas role explicitly. The bootstrap hooks
 derive `SETUP_PROFILE` from the `-E` selector, so no manual export is needed
 before this first command. On Intel macOS the `brew:` bootstrap backend is
-skipped by mise itself (upstream jdx/mise#10968); fish, git, and diffnav
+skipped by mise itself (upstream jdx/mise#10968); fish and git
 there are owned by the `nas/intel-brew-basics` installer exception instead.
 
 ```sh
@@ -201,8 +201,8 @@ The published tag `legacy/chezmoi-2026-09-14` preserves the initial chezmoi file
 ### Shared-base follow-up validation
 
 The short `dots` interface and base/profile composition have focused fixture
-coverage. Fedora 44 ARM64 additionally ran the new locked Hunk 0.22.0,
-Diffnav 0.10.0, Eza 0.23.5, and Delta 0.19.2 binaries; Hunk also displayed a
+coverage. Fedora 44 ARM64 additionally ran the new locked Hunk 0.22.0, Eza
+0.23.5, and Delta 0.19.2 binaries; Hunk also displayed a
 synthetic Git diff successfully. This checks the added Linux pager binaries,
 not a fresh full workstation bootstrap or CerpacNAS compatibility. The test
 container was removed and the pre-existing PostgreSQL container was preserved.

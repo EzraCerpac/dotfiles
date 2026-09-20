@@ -98,7 +98,7 @@ theme:
             showSeparator: true
             compact: false
 pager:
-    diff: "diffnav --side-by-side"
+    diff: "hunk pager"
 confirmQuit: false
 showAuthorIcons: true
 smartFilteringAtLaunch: true

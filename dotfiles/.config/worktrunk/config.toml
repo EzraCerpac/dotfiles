@@ -1,7 +1,7 @@
 worktree-path = "../{{ repo }}.{{ branch | sanitize }}"
 
 [switch.picker]
-pager = "diffnav --side-by-side"
+pager = "hunk pager"
 
 [commit.generation]
 command = """codex exec -m gpt-5.1-codex-mini -c model_reasoning_effort='low' --sandbox=read-only --json - | jq -sr '[.[] | select(.item.type? == "agent_message")] | last.item.text'"""

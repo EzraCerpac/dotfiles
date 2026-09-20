@@ -10,6 +10,6 @@ require_command() {
 }
 
 require_command gh
-require_command diffnav
+require_command hunk
 
-gh pr diff "$@" | diffnav --side-by-side
+gh pr diff "$@" | hunk patch

@@ -157,7 +157,7 @@ aliases["wto"] = _wto
 
 
 def _prdiff(args):
-    """Review a pull request diff in diffnav."""
+    """Review a pull request diff in Hunk."""
     return _run_streamed(["prdiff-review", *args])
 
 

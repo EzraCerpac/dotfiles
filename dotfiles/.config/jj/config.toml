@@ -13,7 +13,7 @@ merge-editor = "vimdiff"
 diff-editor = ["nvim", "-c", "DiffEditor $left $right $output"]
 
 [aliases]
-d = ["util", "exec", "--", "bash", "-lc", "set -o pipefail; jj diff --git \"$@\" | diffnav --side-by-side", ""]
+d = ["diff"]
 
 [template-aliases]
 "format_short_signature(signature)"= "signature.email().local()"
