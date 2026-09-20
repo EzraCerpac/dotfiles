@@ -306,7 +306,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/gitui/themes/catppuccin-mocha.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-mocha.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/config.toml" = { source = "dotfiles/.config/herdr/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

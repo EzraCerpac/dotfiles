@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { unlockBundle, applyPrivateFiles } from './bundle.mjs';
+import { applyHerdr } from './herdr.mjs';
 
 class Deferred extends Error {}
 
@@ -146,7 +147,9 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
     if (result.status !== 0) throw new Error('Atuin enrollment failed; inspect the reported recovery step');
   });
   if (['workstation', 'nas'].includes(role)) {
-    stage('Login shell', () => {
+    const shellReady = stage('Fish executable', () => script('tasks/local/shell-select.sh', ['--prepare-only']) && 'Validated stable Fish path');
+    const herdrReady = shellReady && stage('Herdr shell', () => applyHerdr({ home, mise, invoke }));
+    if (herdrReady) stage('Login shell', () => {
       const result = scriptResult('tasks/local/shell-select.sh');
       if (result.status === 3) {
         throw new Deferred('Login shell setup needs administrator approval; rerun dots bootstrap after approving it');

@@ -1,0 +1,6 @@
+{% if vars.profile == "workstation" %}
+{{ read_file(path="dotfiles/.config/herdr/config.toml") }}
+{% endif %}
+[terminal]
+default_shell = {{ vars.fish_shell | json_encode() }}
+shell_mode = "auto"

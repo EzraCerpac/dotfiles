@@ -73,6 +73,7 @@ else
 fi
 if run_stage "newly declared mise tools" setup_mise install; then
     run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/tasks/setup/upgrade-herdr" || true
+    run_stage "Herdr shell configuration" setup_mise exec -- node "$SETUP_ROOT/tasks/bootstrap/herdr.mjs" "$SETUP_ROOT" || true
 fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/tasks/setup/fix-codex-acp-mode" || true
