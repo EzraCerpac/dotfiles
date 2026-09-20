@@ -22,3 +22,5 @@ workstation	omnidisksweeper
 base	hunk
 base	intel-brew-basics
 base	kanata
+nas	nas-neovim-source
+nas	nas-modern-git

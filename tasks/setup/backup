@@ -14,8 +14,9 @@ if [[ "$mode" != "manual" ]]; then
     exit 2
 fi
 
-printf 'Saving tracked settings locally...\n'
+history_branch="$(setup_require_history_branch)" || exit $?
+printf 'Saving tracked settings locally on %s...\n' "$history_branch"
 setup_mise bootstrap dotfiles save
-printf 'Publishing private settings history...\n'
+printf 'Publishing private settings history on %s...\n' "$history_branch"
 setup_mise bootstrap dotfiles sync
 printf 'Settings backup published.\n'

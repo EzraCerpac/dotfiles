@@ -137,3 +137,25 @@ setup_print_exceptions() {
 }
 
 setup_read_history_mode() { setup_mise settings get history.sync; }
+
+setup_history_branch() {
+    if [[ -z "${SETUP_MACHINE_ID:-}" || ! "$SETUP_MACHINE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+        setup_error 'SETUP_MACHINE_ID is required to derive the history branch'
+        return 2
+    fi
+    printf 'host-%s\n' "$SETUP_MACHINE_ID"
+}
+
+setup_require_history_branch() {
+    local expected configured
+    expected="$(setup_history_branch)" || return $?
+    configured="$(setup_mise config get --file "$SETUP_ROOT/config.local.toml" history.origin.branch 2>/dev/null)" || {
+        setup_error "history origin branch is not configured as $expected; enroll this host before publishing"
+        return 2
+    }
+    if [[ "$configured" != "$expected" ]]; then
+        setup_error "history origin branch is '$configured', expected '$expected'; refusing to publish"
+        return 2
+    fi
+    printf '%s\n' "$expected"
+}

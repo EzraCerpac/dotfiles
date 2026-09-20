@@ -47,6 +47,10 @@ if [[ "${1:-}" == "settings" && "${2:-}" == "get" ]]; then
     printf '%s\\n' "${MISE_HISTORY_MODE:-manual}"
     exit 0
 fi
+if [[ "${1:-}" == "config" && "${2:-}" == "get" ]]; then
+    printf '%s\\n' "${MISE_HISTORY_BRANCH:-host-${SETUP_MACHINE_ID:-}}"
+    exit 0
+fi
 if [[ "${FAIL_TOOL_STATUS:-0}" == "1" && "${1:-}" == "ls" && "${2:-}" == "--current" ]]; then
     exit 43
 fi
@@ -107,8 +111,8 @@ printf '\\t%s' "$@" >> "$GIT_LOG"
 printf '\\n' >> "$GIT_LOG"
 if [[ "${1:-}" == "clone" ]]; then
     if [[ "${FAIL_CLONE:-0}" == "1" ]]; then exit 31; fi
-    origin="$4"
-    destination="$5"
+    origin="${@: -2:1}"
+    destination="${@: -1}"
     mkdir -p "$destination"
     printf '%s\\n' "$origin" > "$destination/FIXTURE_ORIGIN"
     printf 'fixture-remote-commit\\n' > "$destination/FIXTURE_COMMIT"
@@ -1161,7 +1165,7 @@ return { plugins = plugins }
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self._calls()
         commands = [call[4:] for call in calls]
-        self.assertEqual(commands[0], ["--yes", "bootstrap", "dotfiles", "origin", "set", origin, "--sync", "fetch-only"])
+        self.assertEqual(commands[0], ["--yes", "bootstrap", "dotfiles", "origin", "set", origin, "--branch", "host-mac-primary", "--sync", "fetch-only"])
         self.assertIn(["bootstrap", "dotfiles", "status"], commands)
         self.assertIn(["--yes", "bootstrap", "dotfiles", "pull"], commands)
         self.assertIn(["bootstrap", "dotfiles", "rollback", "--to", "commit:fixture-remote-commit", "--all", "--dry-run"], commands)
@@ -1174,7 +1178,7 @@ return { plugins = plugins }
         self.assertFalse(any(command[1:3] == ["dotfiles", "save"] for command in commands))
         clone_calls = [call for call in self._git_calls() if call and call[0] == "clone"]
         self.assertEqual(len(clone_calls), 1)
-        self.assertEqual(clone_calls[0][1:4], ["--bare", "--single-branch", origin])
+        self.assertEqual(clone_calls[0][1:6], ["--bare", "--single-branch", "--branch", "host-mac-primary", origin])
         self.assertTrue((self._history_store() / "FIXTURE_BARE").exists())
         self.assertEqual(stat.S_IMODE(tracked.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(codex_config.stat().st_mode), 0o600)
@@ -1265,7 +1269,14 @@ return { plugins = plugins }
         result = self._run("backup")
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = [call[4:] for call in self._calls()]
-        self.assertEqual(commands, [["settings", "get", "history.sync"], ["bootstrap", "dotfiles", "save"], ["bootstrap", "dotfiles", "sync"]])
+        self.assertEqual(commands, [["settings", "get", "history.sync"], ["config", "get", "--file", str(self.root.resolve() / "config.local.toml"), "history.origin.branch"], ["bootstrap", "dotfiles", "save"], ["bootstrap", "dotfiles", "sync"]])
+
+    def test_backup_refuses_legacy_default_branch(self) -> None:
+        result = self._run("backup", extra_env={"MISE_HISTORY_BRANCH": "main"})
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("refusing to publish", result.stderr)
+        commands = [call[4:] for call in self._calls()]
+        self.assertEqual(commands, [["settings", "get", "history.sync"], ["config", "get", "--file", str(self.root.resolve() / "config.local.toml"), "history.origin.branch"]])
 
     def test_history_permissions_accepts_an_empty_path_list_under_nounset(self) -> None:
         helper = self.root / "tasks/bootstrap/history-permissions.sh"

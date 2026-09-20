@@ -18,7 +18,7 @@ uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 "~/Projects" = { mode = "0755" }
 "~/Scripts" = { mode = "0755" }
 "~/.local/bin" = { mode = "0755" }
-"~/.local/share" = { mode = "0755" }
+"~/.local/share" = { mode = "0700" }
 
 
 [bootstrap.hooks]

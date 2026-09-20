@@ -49,8 +49,13 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
     const result = mise(args);
     if (result.status !== 0) throw new Error(message);
   };
-  const script = (name, args = []) => requireCommand(
-    ['exec', '--', 'bash', path.join(root, name), ...args], `${name} needs attention; rerun after resolving its message`);
+  const scriptResult = (name, args = []) => mise(
+    ['exec', '--', 'bash', path.join(root, name), ...args]);
+  const script = (name, args = []) => {
+    const result = scriptResult(name, args);
+    if (result.status !== 0) throw new Error(`${name} needs attention; rerun after resolving its message`);
+    return result;
+  };
   const role = childEnv.SETUP_PROFILE || readLocal('env.SETUP_PROFILE');
   const machineId = readLocal('env.SETUP_MACHINE_ID') || childEnv.SETUP_MACHINE_ID;
   if (!['workstation', 'nas'].includes(role) || !/^[a-z0-9][a-z0-9-]*$/.test(machineId || '')) {
@@ -59,8 +64,17 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   Object.assign(childEnv, { SETUP_PROFILE: role, SETUP_MACHINE_ID: machineId });
   const expand = (value) => value.startsWith('~/') ? path.join(home, value.slice(2)) : path.resolve(value);
   const recoveryIdentity = expand(childEnv.SETUP_AGE_IDENTITY || readLocal('env.SETUP_AGE_IDENTITY') || path.join(home, '.config/age/keys.txt'));
-  const bundleIdentity = expand(childEnv.SETUP_BUNDLE_IDENTITY || readLocal('vars.bootstrap_bundle_identity') || recoveryIdentity);
-  const bundle = expand(childEnv.SETUP_BOOTSTRAP_BUNDLE || path.join(root, 'encrypted/bootstrap.json.age'));
+  const persistedBundleIdentity = readLocal('vars.bootstrap_bundle_identity');
+  const explicitBundle = childEnv.SETUP_BOOTSTRAP_BUNDLE || '';
+  const explicitBundleIdentity = childEnv.SETUP_BUNDLE_IDENTITY || '';
+  // Workstation keeps the historical implicit bundle. NAS only considers the
+  // bundle when the caller or an earlier explicit enrollment selected it;
+  // otherwise a workstation-only bundle cannot block NAS history recovery.
+  const bundleRequested = role === 'workstation' || Boolean(explicitBundle || persistedBundleIdentity || explicitBundleIdentity);
+  const bundleIdentityValue = explicitBundleIdentity || persistedBundleIdentity || (bundleRequested ? recoveryIdentity : '');
+  const bundleIdentity = bundleIdentityValue ? expand(bundleIdentityValue) : '';
+  const bundleValue = explicitBundle || (bundleRequested ? path.join(root, 'encrypted/bootstrap.json.age') : '');
+  const bundle = bundleValue ? expand(bundleValue) : '';
   let secrets = {};
   let recipients = [];
   let privateReady = true;
@@ -86,9 +100,13 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
       }
       if (secrets.tailscale_auth_key) tailscaleAuthKey = secrets.tailscale_auth_key;
     });
-  } else {
+  } else if (bundleRequested) {
     record('Private inputs', 'deferred', 'Supply the encrypted bundle and an external age identity with dots bootstrap --bundle FILE --identity FILE');
-    if (fs.existsSync(bundle) || childEnv.SETUP_BOOTSTRAP_BUNDLE) privateReady = false;
+    // An explicit or persisted bundle selection is part of this run's
+    // contract. A missing implicit workstation bundle remains optional.
+    if (childEnv.SETUP_BOOTSTRAP_BUNDLE || childEnv.SETUP_BUNDLE_IDENTITY || persistedBundleIdentity || fs.existsSync(bundle)) privateReady = false;
+  } else {
+    record('Private inputs', 'completed', 'No bootstrap bundle requested for this NAS host');
   }
 
   const restoreId = childEnv.SETUP_RESTORE_MACHINE_ID;
@@ -118,10 +136,16 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   }
 
   stage('Installer exceptions', () => script('tasks/local/install-exceptions.sh'));
-  if (role === 'workstation') {
+  if (['workstation', 'nas'].includes(role)) {
     stage('Login shell', () => {
-      if (!process.stdin.isTTY) throw new Deferred('Run dots bootstrap in a terminal to select Fish as your login shell');
-      script('tasks/local/shell-select.sh');
+      const result = scriptResult('tasks/local/shell-select.sh');
+      if (result.status === 3) {
+        throw new Deferred('Login shell setup needs administrator approval; rerun dots bootstrap after approving it');
+      }
+      if (result.status !== 0) {
+        throw new Error('tasks/local/shell-select.sh needs attention; rerun after resolving its message');
+      }
+      return 'Fish is selected through native mise bootstrap.user settings';
     });
   }
   if (process.platform === 'darwin') {
