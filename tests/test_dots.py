@@ -48,6 +48,21 @@ class DotsTest(unittest.TestCase):
         self.assertEqual(call['root'], str(self.root))
         self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
 
+    def test_source_routes_are_rooted_when_called_from_an_unrelated_project(self):
+        expected = {
+            'sync': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/lib/source-repo.mjs'), 'sync', str(self.root)],
+            'publish': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/setup/publish.mjs'), str(self.root)],
+            'atuin-bundle': ['-C', str(self.root), 'exec', '--', 'bash', str(self.root / 'tasks/bootstrap/atuin-bundle')],
+        }
+        for command, args in expected.items():
+            result = self.run_dots(command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            call = self.calls()[-1]
+            self.assertEqual(call['args'], args)
+            self.assertIsNone(call['env'])
+            self.assertEqual(call['root'], str(self.root))
+        self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
     def test_bare_tool_defaults_to_role_and_native_latest_resolution(self):
         result = self.run_dots('add', 'watchexec')
         self.assertEqual(result.returncode, 0, result.stderr)

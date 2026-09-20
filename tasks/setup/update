@@ -9,6 +9,18 @@ if [[ "$SETUP_PROFILE" == "delftblue" ]]; then
     exit 2
 fi
 
+# Reload after sync so maintenance runs from the newly adopted source.
+if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
+    sync_result=0
+    setup_mise exec -- node "$SETUP_ROOT/tasks/lib/source-repo.mjs" sync "$SETUP_ROOT" || sync_result=$?
+    case "$sync_result" in
+        0|3) ;;
+        *) setup_error 'source synchronization failed; dependent updates stopped'; exit "$sync_result" ;;
+    esac
+    export DOTS_SOURCE_SYNC_DONE=1 DOTS_SOURCE_SYNC_RESULT="$sync_result"
+    exec "$(resolve_mise_bin)" -C "$SETUP_ROOT" -E "$SETUP_ENVIRONMENTS" exec -- bash "$SETUP_ROOT/tasks/setup/update"
+fi
+
 failures=()
 run_stage() {
     local label="$1"
@@ -20,6 +32,7 @@ run_stage() {
         local result=$?
         printf 'Result: failed (exit %s)\n' "$result"
         failures+=("$label")
+        return "$result"
     fi
 }
 
@@ -41,25 +54,34 @@ upgrade_app_store_packages() {
             return 0
         fi
     fi
+    setup_mise bootstrap packages apply --manager mas --yes || return $?
     setup_mise bootstrap packages upgrade --manager mas --yes
 }
 
 if [[ "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
-    run_stage "Homebrew formulae" setup_mise bootstrap packages upgrade --manager brew --yes
-    run_stage "Homebrew casks" setup_mise bootstrap packages upgrade --manager brew-cask --yes
-    run_stage "Mac App Store packages" upgrade_app_store_packages
+    if run_stage "new Homebrew formulae" setup_mise bootstrap packages apply --manager brew --yes; then
+        run_stage "Homebrew formulae" setup_mise bootstrap packages upgrade --manager brew --yes || true
+    fi
+    if run_stage "new Homebrew casks" setup_mise bootstrap packages apply --manager brew-cask --yes; then
+        run_stage "Homebrew casks" setup_mise bootstrap packages upgrade --manager brew-cask --yes || true
+    fi
+    run_stage "Mac App Store packages" upgrade_app_store_packages || true
 else
-    run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes
+    if run_stage "newly declared host packages" setup_mise bootstrap packages apply --yes; then
+        run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes || true
+    fi
 fi
-run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/tasks/setup/upgrade-herdr"
+if run_stage "newly declared mise tools" setup_mise install; then
+    run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/tasks/setup/upgrade-herdr" || true
+fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
-    run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/tasks/setup/fix-codex-acp-mode"
+    run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/tasks/setup/fix-codex-acp-mode" || true
 fi
 
 run_exception() {
     local name="$1"
     local script_path="$2"
-    run_stage "installer exception: $name" setup_mise exec -- "$script_path"
+    run_stage "installer exception: $name" setup_mise exec -- "$script_path" || true
 }
 
 if ! setup_each_exception run_exception; then
@@ -97,11 +119,11 @@ LUA
     return "$result"
 }
 
-run_stage "Neovim plugins" update_editor_plugins
+run_stage "Neovim plugins" update_editor_plugins || true
 
 # Standalone mise updates last. A Homebrew-owned installation will report that
 # self-update is disabled; the migration will switch ownership before relying on it.
-run_stage "standalone mise" setup_mise self-update --yes
+run_stage "standalone mise" setup_mise self-update --yes || true
 
 printf '\nSaving local settings checkpoint after updates...\n'
 if ! setup_mise bootstrap dotfiles save; then
@@ -110,6 +132,10 @@ if ! setup_mise bootstrap dotfiles save; then
 fi
 
 if [[ "${#failures[@]}" -eq 0 ]]; then
+    if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
+        printf '\nUpdate report: tools updated; source sync deferred. Local source changes were preserved.\n'
+        exit 3
+    fi
     printf '\nUpdate report: completed; no updater failures.\n'
     exit 0
 fi

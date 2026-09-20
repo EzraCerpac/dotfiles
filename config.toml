@@ -43,8 +43,9 @@ rift_signing_identity = "Rift Local Code Signing"
 # Bootstrap orchestration and the shared Codex CLI both need Node.
 node = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
-# Atuin ships no darwin/amd64 builds; keep it off Intel macOS.
+# Aqua excludes Intel macOS; use its official release directly on that platform.
 atuin = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+"github:atuinsh/atuin" = { version = "latest", os = ["macos/x64"], asset_pattern = "atuin-x86_64-apple-darwin.tar.gz" }
 bat = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 carapace = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 # Delta ships no darwin/amd64 builds; keep it off Intel macOS.

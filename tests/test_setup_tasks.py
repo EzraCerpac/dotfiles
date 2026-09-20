@@ -57,6 +57,9 @@ fi
 if [[ "${FAIL_TOOL_UPGRADE:-0}" == "1" && "${1:-}" == "upgrade" && "${2:-}" == "--no-prune" ]]; then
     exit 44
 fi
+if [[ "${FAIL_TOOL_INSTALL:-0}" == "1" && "${1:-}" == "install" ]]; then
+    exit 45
+fi
 if [[ "${1:-}" == "which" && "${2:-}" == "ruby" ]]; then
     printf '%s\\n' "${MISE_TEST_RUBY_PATH:-}"
     exit 0
@@ -83,6 +86,22 @@ fi
 if [[ "${1:-}" == "exec" ]]; then
     shift
     [[ "${1:-}" == "--" ]] && shift
+    if [[ "${1:-}" == "node" && "${2:-}" == */tasks/lib/source-repo.mjs ]]; then
+        case "${3:-}" in
+            sync)
+                printf 'fixture source sync\n'
+                exit "${SOURCE_SYNC_RESULT:-0}"
+                ;;
+            status)
+                printf 'fixture source status\n'
+                exit "${SOURCE_STATUS_RESULT:-0}"
+                ;;
+        esac
+    fi
+    if [[ "${1:-}" == "uv" && "${2:-}" == "run" && "${4:-}" == "python" && "${6:-}" == "status" ]]; then
+        printf 'fixture Atuin status\n'
+        exit "${ATUIN_STATUS_RESULT:-0}"
+    fi
     exec "$@"
 fi
 if [[ "${FAIL_PACKAGES:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "upgrade" ]]; then
@@ -351,7 +370,11 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
         self.assertGreaterEqual(len(calls), 2)
         for call in calls:
             self.assertEqual(call[:4], ["-C", str(self.root.resolve()), "-E", "workstation,host-mac-primary"])
-        self.assertIn(["ls", "--current"], [call[4:] for call in calls])
+        commands = [call[4:] for call in calls]
+        resolved_root = self.root.resolve()
+        self.assertIn(["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "status", str(resolved_root)], commands)
+        self.assertIn(["exec", "--", "uv", "run", "--no-project", "python", str(resolved_root / "tasks/bootstrap/atuin.py"), "status"], commands)
+        self.assertIn(["ls", "--current"], commands)
         self.assertIn("Setup profile: workstation", result.stdout)
 
     def test_status_fails_when_declared_tool_listing_fails(self) -> None:
@@ -672,13 +695,106 @@ esac
         commands = [call[4:] for call in calls]
         self.assertIn(["upgrade", "--no-prune"], commands)
         self.assertIn(["self-update", "--yes"], commands)
-        self.assertEqual(commands[0], ["bootstrap", "dotfiles", "save"])
+        self.assertEqual(commands[2], ["bootstrap", "dotfiles", "save"])
         self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
         self.assertLess(commands.index(["self-update", "--yes"]), len(commands) - 1)
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("npm", rendered)
         self.assertNotIn("uv tool upgrade", rendered)
         self.assertNotIn("--prune", [arg for command in commands for arg in command])
+
+    def test_update_syncs_once_then_reloads_the_fresh_updater(self) -> None:
+        result = self._run("update")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [call[4:] for call in self._calls()]
+        source = [
+            command for command in commands
+            if command[:4] == ["exec", "--", "node", str(self.root.resolve() / "tasks/lib/source-repo.mjs")]
+        ]
+        reloads = [
+            command for command in commands
+            if command[:4] == ["exec", "--", "bash", str(self.root.resolve() / "tasks/setup/update")]
+        ]
+        resolved_root = self.root.resolve()
+        self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "sync", str(resolved_root)]])
+        self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "tasks/setup/update")]])
+        self.assertEqual(len(source), 1)
+
+    def test_deferred_source_sync_preserves_source_and_still_updates(self) -> None:
+        marker = self.root / "source-marker"
+        marker.write_text("local source edit\n")
+        result = self._run(
+            "update",
+            extra_env={
+                "SETUP_PROFILE": "nas",
+                "SETUP_MACHINE_ID": "cerpacnas",
+                "SOURCE_SYNC_RESULT": "3",
+            },
+        )
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertEqual(marker.read_text(), "local source edit\n")
+        self.assertIn("source sync deferred", result.stdout)
+        commands = [call[4:] for call in self._calls()]
+        self.assertIn(["bootstrap", "packages", "apply", "--yes"], commands)
+        self.assertIn(["install"], commands)
+        self.assertIn(["upgrade", "--no-prune"], commands)
+
+    def test_source_sync_failure_stops_package_and_tool_updates(self) -> None:
+        result = self._run(
+            "update",
+            extra_env={
+                "SETUP_PROFILE": "nas",
+                "SETUP_MACHINE_ID": "cerpacnas",
+                "SOURCE_SYNC_RESULT": "17",
+            },
+        )
+        self.assertEqual(result.returncode, 17)
+        self.assertIn("source synchronization failed", result.stderr)
+        commands = [call[4:] for call in self._calls()]
+        self.assertEqual(len(commands), 1)
+        resolved_root = self.root.resolve()
+        self.assertEqual(commands[0], ["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "sync", str(resolved_root)])
+        rendered = " ".join(" ".join(command) for command in commands)
+        self.assertNotIn("bootstrap packages", rendered)
+        self.assertNotIn("install", rendered)
+        self.assertNotIn("upgrade --no-prune", rendered)
+
+    def test_update_applies_new_packages_and_installs_new_mise_tools_before_upgrades(self) -> None:
+        result = self._run(
+            "update",
+            extra_env={"SETUP_PROFILE": "nas", "SETUP_MACHINE_ID": "cerpacnas"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [call[4:] for call in self._calls()]
+        package_apply = commands.index(["bootstrap", "packages", "apply", "--yes"])
+        package_upgrade = commands.index(["bootstrap", "packages", "upgrade", "--yes"])
+        tool_install = commands.index(["install"])
+        tool_upgrade = commands.index(["exec", "--", "bash", str(self.root.resolve() / "tasks/setup/upgrade-herdr")])
+        self.assertLess(package_apply, package_upgrade)
+        self.assertLess(package_upgrade, tool_install)
+        self.assertLess(tool_install, tool_upgrade)
+
+    def test_failed_mise_install_skips_herdr_but_keeps_independent_updates(self) -> None:
+        exception = self.root / "tasks/setup/exceptions/fixture-exception"
+        self._write_executable(
+            exception,
+            "#!/usr/bin/env bash\nprintf 'called exception\\n' >> \"$EXCEPTION_LOG\"\n",
+        )
+        (self.root / "tasks/setup/exceptions.tsv").write_text("workstation\tfixture-exception\n")
+        exception_log = self.base / "exception.log"
+        result = self._run(
+            "update",
+            extra_env={
+                "FAIL_TOOL_INSTALL": "1",
+                "EXCEPTION_LOG": str(exception_log),
+            },
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("newly declared mise tools", result.stdout)
+        self.assertIn("Result: failed (exit 45)", result.stdout)
+        self.assertFalse(any("tasks/setup/upgrade-herdr" in arg for call in self._calls() for arg in call))
+        self.assertEqual(exception_log.read_text(), "called exception\n")
+        self.assertIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
 
     def test_macos_update_defers_mas_noninteractively_but_runs_other_managers(self) -> None:
         platform_bin = self.base / "macos-update-bin"
