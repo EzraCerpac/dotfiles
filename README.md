@@ -430,6 +430,23 @@ WezTerm is the terminal window; Herdr owns terminal organization and persistence
 - a **pane** is a visible terminal split inside a tab
 - a Rift workspace is a macOS window-management space and is unrelated to a Herdr workspace
 
+New Herdr panes use Fish on both roles, including saved remote machines. Bootstrap
+validates Fish's stable executable path and records it in ignored local mise
+configuration, then renders Herdr's `terminal.default_shell`. Workstation keeps the
+keybindings and plugins below; NAS gets only the shell settings. This does not
+install Herdr on hosts that do not already use it.
+
+Both bootstrap and `dots up` prepare and apply this setting after tools are installed,
+then reload an already-running Herdr server. Existing installations migrate through
+`dots up`; an account-shell change still belongs to explicit bootstrap.
+Changing your account's login shell does not change an already-running Herdr
+server's inherited `$SHELL`. After applying a changed Herdr configuration, run
+`herdr server reload-config` on that machine (or
+`herdr --machine cerpacnas server reload-config` from the Mac). New splits then use
+the configured shell; existing panes keep running. No server restart is needed.
+If bootstrap reports that the login-shell change needs administrator approval,
+Herdr can still use Fish; finish the account step to make fresh SSH logins use it too.
+
 Closing WezTerm or pressing `Ctrl-B`, then `q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
 
 Useful keys all start with the default `Ctrl-B` prefix:

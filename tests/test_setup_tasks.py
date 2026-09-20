@@ -27,6 +27,7 @@ class SetupTaskTests(unittest.TestCase):
         self.bin = self.base / "bin"
         self.bin.mkdir()
         self.log = self.base / "mise.log"
+        self.herdr_log = self.base / "herdr.log"
         self.git_log = self.base / "git.log"
         self._write_executable(
             self.bin / "mise",
@@ -86,6 +87,9 @@ fi
 if [[ "${1:-}" == "exec" ]]; then
     shift
     [[ "${1:-}" == "--" ]] && shift
+    if [[ "${1:-}" == "node" && "${2:-}" == */tasks/bootstrap/herdr.mjs ]]; then
+        exit "${HERDR_CONFIG_RESULT:-0}"
+    fi
     if [[ "${1:-}" == "node" && "${2:-}" == */tasks/lib/source-repo.mjs ]]; then
         case "${3:-}" in
             sync)
@@ -194,6 +198,7 @@ exit 91
             {
                 "PATH": f"{self.bin}{os.pathsep}{self.env['PATH']}",
                 "MISE_LOG": str(self.log),
+                "HERDR_LOG": str(self.herdr_log),
                 "GIT_LOG": str(self.git_log),
                 "MISE_CONFIG_DIR": "/an/irrelevant/global/config",
                 "SETUP_CONFIG_ROOT": str(self.root),
@@ -773,6 +778,10 @@ esac
         self.assertLess(package_apply, package_upgrade)
         self.assertLess(package_upgrade, tool_install)
         self.assertLess(tool_install, tool_upgrade)
+        herdr_config = commands.index(["exec", "--", "node", str(self.root.resolve() / "tasks/bootstrap/herdr.mjs"), str(self.root.resolve())])
+        self.assertLess(tool_install, herdr_config)
+        self.assertFalse(any(command[:2] == ["bootstrap", "user"] for command in commands))
+
 
     def test_failed_mise_install_skips_herdr_but_keeps_independent_updates(self) -> None:
         exception = self.root / "tasks/setup/exceptions/fixture-exception"
@@ -793,8 +802,18 @@ esac
         self.assertIn("newly declared mise tools", result.stdout)
         self.assertIn("Result: failed (exit 45)", result.stdout)
         self.assertFalse(any("tasks/setup/upgrade-herdr" in arg for call in self._calls() for arg in call))
+        self.assertFalse(any("tasks/bootstrap/herdr.mjs" in arg for call in self._calls() for arg in call))
         self.assertEqual(exception_log.read_text(), "called exception\n")
         self.assertIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
+
+    def test_herdr_configuration_failure_is_reported_without_account_change(self) -> None:
+        result = self._run("update", extra_env={"HERDR_CONFIG_RESULT": "59"})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Herdr shell configuration", result.stdout)
+        self.assertIn("Result: failed (exit 59)", result.stdout)
+        calls = [call[4:] for call in self._calls()]
+        self.assertIn(["self-update", "--yes"], calls)
+        self.assertFalse(any(call[:2] == ["bootstrap", "user"] for call in calls))
 
     def test_macos_update_defers_mas_noninteractively_but_runs_other_managers(self) -> None:
         platform_bin = self.base / "macos-update-bin"

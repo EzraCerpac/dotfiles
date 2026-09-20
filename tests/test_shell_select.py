@@ -58,14 +58,32 @@ while [[ $# -gt 0 ]]; do
 done
 case "${1:-} ${2:-} ${3:-}" in
     'config get --file')
+        file="${@: -2:1}"
         key="${@: -1}"
-        if [[ "$key" == bootstrap.user.login_shell ]] && [[ -f "$SETUP_CONFIG_ROOT/config.local.toml" ]]; then
-            sed -n 's/^bootstrap.user.login_shell = "\\(.*\\)"$/\\1/p' "$SETUP_CONFIG_ROOT/config.local.toml"
+        if [[ "$key" == bootstrap.user.login_shell ]] && [[ -f "$file" ]]; then
+            sed -n 's/^bootstrap.user.login_shell = "\\(.*\\)"$/\\1/p' "$file"
+        elif [[ "$key" == dotfiles.herdr.source ]] && [[ -f "$file" ]]; then
+            sed -n 's/^source = "\\(templates\\/\\.config\\/herdr\\/config\\.tera\\)"$/\\1/p' "$file"
         fi
         ;;
     'config set --file')
+        file="${@: -3:1}"
+        key="${@: -2:1}"
         value="${@: -1}"
-        printf 'bootstrap.user.login_shell = "%s"\\n' "$value" > "$SETUP_CONFIG_ROOT/config.local.toml"
+        temporary="${file}.tmp"
+        awk -v key="$key" -v value="$value" '
+            BEGIN { updated = 0 }
+            $0 ~ ("^" key " = ") {
+                print key " = \\\"" value "\\\""
+                updated = 1
+                next
+            }
+            { print }
+            END {
+                if (!updated) print key " = \\\"" value "\\\""
+            }
+        ' "$file" > "$temporary"
+        mv "$temporary" "$file"
         ;;
     'ls --current --json')
         printf '{"github:fish-shell/fish-shell":[{"active":true,"installed":true,"requested_version":"latest","install_path":"%s"}]}\\n' "$MISE_FISH_INSTALL"
@@ -82,7 +100,7 @@ exit 0
         )
         self._write_executable(
             self.bin / "sudo",
-            "#!/usr/bin/env bash\n[[ \"${SUDO_OK:-0}\" == 1 ]]\n",
+            "#!/usr/bin/env bash\nprintf 'sudo\\t%s\\n' \"$*\" >> \"$SHELL_SELECT_LOG\"\n[[ \"${SUDO_OK:-0}\" == 1 ]]\n",
         )
         self._write_executable(
             self.bin / "id",
@@ -112,13 +130,19 @@ printf 'fish, version 4.9.3\\n'
 """,
         )
 
-    def _run(self, *, profile: str = "nas", extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    def _run(
+        self,
+        *,
+        profile: str = "nas",
+        args: tuple[str, ...] = (),
+        extra_env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         env = self.env.copy()
         env["SETUP_PROFILE"] = profile
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
-            ["bash", str(self.root / "tasks/local/shell-select.sh")],
+            ["bash", str(self.root / "tasks/local/shell-select.sh"), *args],
             env=env,
             text=True,
             capture_output=True,
@@ -305,6 +329,34 @@ printf 'fish, version 4.9.3\\n'
         self.assertFalse(any('bootstrap\tuser\tapply' in call for call in self._calls()))
         self.assertIn("already the configured login shell", result.stdout)
 
+    def test_prepare_only_records_fish_and_herdr_without_sudo_or_account_apply(self) -> None:
+        fish = self.bin / "fish"
+        self._write_fish(fish)
+
+        result = self._run(args=("--prepare-only",), extra_env={"SUDO_OK": "0"})
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        local = self.local.read_text()
+        self.assertIn(f'vars.fish_shell = "{fish}"', local)
+        self.assertIn("[dotfiles.herdr]", local)
+        self.assertIn('source = "templates/.config/herdr/config.tera"', local)
+        self.assertFalse(any(call.startswith("sudo\\t") for call in self._calls()))
+        self.assertFalse(any("bootstrap\\tuser\\tapply" in call for call in self._calls()))
+
+    def test_prepare_only_repeat_does_not_duplicate_herdr_declaration(self) -> None:
+        fish = self.bin / "fish"
+        self._write_fish(fish)
+
+        first = self._run(args=("--prepare-only",))
+        second = self._run(args=("--prepare-only",))
+
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        local = self.local.read_text()
+        self.assertEqual(local.count("[dotfiles.herdr]"), 1)
+        self.assertEqual(local.count('source = "templates/.config/herdr/config.tera"'), 1)
+        self.assertEqual(local.count("vars.fish_shell ="), 1)
+
     def test_existing_fish_account_can_enroll_without_admin(self) -> None:
         self._write_fish(self.bin / "fish")
         result = self._run(extra_env={"FAKE_UID": "501", "SUDO_OK": "0", "MISE_USER_STATUS": "0"})
@@ -329,6 +381,8 @@ printf 'fish, version 4.9.3\\n'
 
         self.assertEqual(result.returncode, 3)
         self.assertIn("administrator approval", result.stderr)
+        self.assertIn(f'vars.fish_shell = "{fish}"', self.local.read_text())
+        self.assertIn("[dotfiles.herdr]", self.local.read_text())
         self.assertIn('bootstrap.user.login_shell', self.local.read_text())
         self.assertFalse(any('bootstrap\tuser\tapply' in call for call in self._calls()))
 
