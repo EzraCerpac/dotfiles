@@ -9,6 +9,7 @@ source "${SCRIPT_DIR}/common"
 deferred_status=3
 
 stable_shell_path="${HOME}/.local/bin/fish"
+mise_data_dir="${MISE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/mise}"
 needs_stable_link=0
 fish_command="$(command -v fish 2>/dev/null || true)"
 if [[ -z "$fish_command" || ! -x "$fish_command" ]]; then
@@ -24,14 +25,14 @@ fi
 
 is_mise_shim_path() {
     case "$1" in
-        */.local/share/mise/shims/*) return 0 ;;
+        "$mise_data_dir"/shims/*) return 0 ;;
         *) return 1 ;;
     esac
 }
 
 is_mise_install_path() {
     case "$1" in
-        */.local/share/mise/installs/*) return 0 ;;
+        "$mise_data_dir"/installs/*) return 0 ;;
         *) return 1 ;;
     esac
 }

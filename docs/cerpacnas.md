@@ -37,5 +37,10 @@ is no longer needed. The old chezmoi checkout is recovery material; do not
 apply it over the mise-owned files.
 
 The user selected the current shared Neovim configuration. Existing app-written
-settings, spelling additions, NAS project entries, and dirty plugin checkouts
+settings, spelling additions, project checkouts, and dirty plugin checkouts
 are retained. A plugin update must report dirty checkouts rather than reset them.
+
+The legacy `nas.py` command and bundled NAS skill are retired. Use `dots` for
+configuration and backups, normal JJ/JW commands for source work, and native
+Codex Remote SSH for remote tasks. Their unused project manifest and rules
+templates are also retired; existing project-owned `AGENTS.md` files are kept.

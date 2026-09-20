@@ -29,38 +29,7 @@ def render_dotfile(profile: str, managed_path: str, scratch: Path) -> str:
 
 
 class NasTemplateTests(unittest.TestCase):
-    def test_nas_project_manifest_renders_root_project_paths(self):
-        with tempfile.TemporaryDirectory() as temp:
-            rendered = render_dotfile(
-                "nas", "~/.config/cerpacnas/projects.toml", Path(temp)
-            )
 
-        manifest = tomllib.loads(rendered)
-        thesis = manifest["projects"]["thesis"]
-        jj_waltz = manifest["projects"]["jj-waltz"]
-        self.assertEqual(thesis["local_path"], "/root/Projects/Thesis/ezra-cerpac")
-        self.assertEqual(
-            thesis["rules_file"],
-            "/root/.config/cerpacnas/project-rules/thesis.AGENTS.md",
-        )
-        self.assertEqual(jj_waltz["local_path"], "/root/Projects/jj-waltz")
-        self.assertIn("home-assistant-config", manifest["projects"])
-        self.assertEqual(manifest["projects"]["home-assistant-config"]["remote_path"],
-                         "/root/Projects/home-assistant-config")
-        self.assertNotIn("{{", rendered)
-
-    def test_nas_thesis_rules_include_the_nas_validation_limits(self):
-        with tempfile.TemporaryDirectory() as temp:
-            rendered = render_dotfile(
-                "nas",
-                "~/.config/cerpacnas/project-rules/thesis.AGENTS.md",
-                Path(temp),
-            )
-
-        self.assertIn("## CerpacNAS validation policy", rendered)
-        self.assertIn("Set `JULIA_NUM_THREADS=1`", rendered)
-        self.assertIn("Never run `validate all`", rendered)
-        self.assertNotIn("{% if", rendered)
 
     def test_nas_git_config_has_shared_pagers_without_workstation_integrations(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -81,25 +50,6 @@ class NasTemplateTests(unittest.TestCase):
         ):
             self.assertNotIn(workstation_tool, rendered)
 
-    def test_workstation_manifest_uses_the_selected_home(self):
-        with tempfile.TemporaryDirectory() as temp:
-            scratch = Path(temp)
-            rendered = render_dotfile(
-                "workstation", "~/.config/cerpacnas/projects.toml", scratch
-            )
-
-        manifest = tomllib.loads(rendered)
-        self.assertEqual(
-            manifest["projects"]["thesis"]["local_path"],
-            str(scratch.resolve() / "home/Projects/Thesis/ezra-cerpac"),
-        )
-        self.assertEqual(
-            manifest["projects"]["thesis"]["rules_file"],
-            str(
-                scratch.resolve()
-                / "home/.config/cerpacnas/project-rules/thesis.AGENTS.md"
-            ),
-        )
 
     def test_nas_profile_owns_only_its_declared_dotfiles(self):
         managed = set(SHARED_CONFIG["dotfiles"]) | set(NAS_CONFIG.get("dotfiles", {}))
@@ -107,7 +57,6 @@ class NasTemplateTests(unittest.TestCase):
         self.assertNotIn("~/.config/keyboard/corne-qmk/USAGE", managed)
         self.assertNotIn("~/.zshrc", managed)
         self.assertIn("~/.codex/AGENTS.md", managed)
-        self.assertIn("~/.config/cerpacnas/projects.toml", managed)
         self.assertIn("~/.config/git/config", managed)
 
 

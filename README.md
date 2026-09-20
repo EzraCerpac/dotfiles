@@ -325,7 +325,7 @@ Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for de
 
 ## CerpacNAS Remote Codex
 
-The explicit `nas` profile describes shared configuration and user-space tools. Coordinate NAS work from a Mac task, with separate worker tasks through native Codex Remote SSH. The local `work-on-cerpacnas` skill in `~/.agents/skills/` describes this workflow. Existing `nas`/`cerpacnas` SSH aliases continue to use root. NAS activation is still pending a reachable host and compatibility checks; this README does not claim the profile has been applied there.
+CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. Coordinate development work through native Codex Remote SSH tasks; the small Mac-side `work-on-cerpacnas` skill describes that coordination. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
 
 ## DelftBlue Profile
 
