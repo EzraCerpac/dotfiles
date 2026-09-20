@@ -53,6 +53,7 @@ class DotsTest(unittest.TestCase):
             'sync': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/lib/source-repo.mjs'), 'sync', str(self.root)],
             'publish': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/setup/publish.mjs'), str(self.root)],
             'atuin-bundle': ['-C', str(self.root), 'exec', '--', 'bash', str(self.root / 'tasks/bootstrap/atuin-bundle')],
+            'atuin-login': ['-C', str(self.root), 'exec', '--', 'uv', 'run', '--no-project', 'python', str(self.root / 'tasks/bootstrap/atuin.py'), 'enroll', '--root', str(self.root)],
         }
         for command, args in expected.items():
             result = self.run_dots(command)
@@ -62,6 +63,16 @@ class DotsTest(unittest.TestCase):
             self.assertIsNone(call['env'])
             self.assertEqual(call['root'], str(self.root))
         self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
+    def test_atuin_identity_is_relative_to_the_callers_directory(self):
+        for flags in (['--identity', 'keys/age.txt'], ['--identity=keys/age.txt']):
+            result = self.run_dots('atuin-login', *flags, '--browser')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.calls()[-1]['args'][-3:],
+                             ['--identity', str(self.project / 'keys/age.txt'), '--browser'])
+        result = self.run_dots('atuin-login', '--identity', '/external/key.txt')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]['args'][-2:], ['--identity', '/external/key.txt'])
 
     def test_bare_tool_defaults_to_role_and_native_latest_resolution(self):
         result = self.run_dots('add', 'watchexec')

@@ -16,7 +16,6 @@ ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
 go = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rust = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-uv = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 # Latest is the default; older interpreters serve existing global application environments.
 python = [
   { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] },

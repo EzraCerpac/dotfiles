@@ -73,6 +73,41 @@ function miseEnvironment(root) {
   return env;
 }
 
+function executable(candidate) {
+  if (!candidate) return false;
+  try {
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function invalidMiseOverride(name, value) {
+  throw new Error(`mise: ${name} is not executable: ${value}`);
+}
+
+export function resolveMiseBin({ env = process.env, home = os.homedir() } = {}) {
+  if (env.DOTS_MISE_BIN) {
+    if (executable(env.DOTS_MISE_BIN)) return env.DOTS_MISE_BIN;
+    invalidMiseOverride('DOTS_MISE_BIN', env.DOTS_MISE_BIN);
+  }
+  if (env.SETUP_MISE_BIN) {
+    if (executable(env.SETUP_MISE_BIN)) return env.SETUP_MISE_BIN;
+    invalidMiseOverride('SETUP_MISE_BIN', env.SETUP_MISE_BIN);
+  }
+  if (env.MISE_BIN && executable(env.MISE_BIN)) return env.MISE_BIN;
+
+  const standalone = path.join(home, '.local', 'bin', 'mise');
+  if (executable(standalone)) return standalone;
+
+  for (const directory of String(env.PATH || '').split(path.delimiter)) {
+    const candidate = path.join(directory || '.', 'mise');
+    if (executable(candidate)) return candidate;
+  }
+  throw new Error('mise: no executable found in DOTS_MISE_BIN, SETUP_MISE_BIN, MISE_BIN, ~/.local/bin, or PATH');
+}
+
 function validateIncoming(root, gitDir, commit, miseBin) {
   const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-preview-'));
   try {
@@ -104,7 +139,10 @@ function validateIncoming(root, gitDir, commit, miseBin) {
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
-export function syncSource(root, { miseBin = process.env.DOTS_MISE_BIN || path.join(os.homedir(), '.local/bin/mise'), expectedRemote } = {}) {
+export function syncSource(root, { miseBin, expectedRemote } = {}) {
+  miseBin ||= resolveMiseBin();
+  if (!executable(miseBin)) invalidMiseOverride('miseBin', miseBin);
+  miseBin = path.resolve(miseBin);
   root = fs.realpathSync(root);
   return withRepositoryLock(root, () => {
     const { gitDir } = ensureRepository(root, { expectedRemote });

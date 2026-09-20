@@ -139,6 +139,29 @@ printf 'fish, version 4.9.3\\n'
         self.assertIn(str(fish), self.local.read_text())
         self.assertTrue(any('bootstrap\tuser\tapply' in call for call in self._calls()))
 
+    def test_host_fish_stable_link_is_not_replaced(self) -> None:
+        host_fish = self.bin / "host-fish"
+        self._write_fish(host_fish)
+        stable = self.home / ".local/bin/fish"
+        stable.parent.mkdir(parents=True)
+        stable.symlink_to(host_fish)
+        data_dir = self.base / "custom-mise-data"
+        install = data_dir / "installs/github-fish-shell-fish-shell/4.9.3"
+        install.mkdir(parents=True)
+        (install.parent / "latest").symlink_to(install.name)
+        self._write_fish(install / "fish")
+
+        result = self._run(
+            extra_env={
+                "MISE_DATA_DIR": str(data_dir),
+                "MISE_FISH_INSTALL": str(install),
+                "PATH": f"{stable.parent}:{self.bin}:{os.environ.get('PATH', '')}",
+            }
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.readlink(stable), str(host_fish))
+
     def test_mise_fish_gets_a_stable_latest_link(self) -> None:
         jq = shutil.which("jq")
         if not jq:
@@ -205,6 +228,69 @@ printf 'fish, version 4.9.3\\n'
         self._assert_custom_mise_data_dir_uses_stable_latest_link(
             data_dir=xdg_data_home / "mise",
             data_env={"XDG_DATA_HOME": str(xdg_data_home)},
+        )
+
+    def _assert_stale_stable_link_is_repointed(
+        self, *, old_data_dir: Path, new_data_dir: Path, data_env: dict[str, str], shim_first: bool = False
+    ) -> None:
+        jq = shutil.which("jq")
+        if not jq:
+            self.skipTest("jq required to check real mise metadata parsing")
+        (self.bin / "jq").unlink()
+        (self.bin / "jq").symlink_to(jq)
+
+        old_install = old_data_dir / "installs/github-fish-shell-fish-shell/4.8.2"
+        old_install.mkdir(parents=True)
+        self._write_fish(old_install / "fish")
+        stable = self.home / ".local/bin/fish"
+        stable.parent.mkdir(parents=True)
+        stable.symlink_to(old_install / "fish")
+
+        new_install = new_data_dir / "installs/github-fish-shell-fish-shell/4.9.3"
+        new_install.mkdir(parents=True)
+        (new_install.parent / "latest").symlink_to(new_install.name)
+        self._write_fish(new_install / "fish")
+        shim = new_data_dir / "shims/fish"
+        shim.parent.mkdir(parents=True)
+        self._write_fish(shim)
+        env = {
+            **data_env,
+            # The existing stable link wins PATH lookup, as it does on an
+            # already-bootstrapped host before a data-directory migration.
+            "PATH": f"{shim.parent if shim_first else stable.parent}:{stable.parent if shim_first else shim.parent}:{self.bin}:{os.environ.get('PATH', '')}",
+            "MISE_FISH_INSTALL": str(new_install),
+        }
+
+        result = self._run(extra_env=env)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(stable.is_symlink())
+        self.assertEqual(os.readlink(stable), str(new_install.parent / "latest/fish"))
+        self.assertIn(str(stable), self.local.read_text())
+
+    def test_stale_default_mise_link_is_repointed_after_custom_data_dir(self) -> None:
+        self._assert_stale_stable_link_is_repointed(
+            old_data_dir=self.home / ".local/share/mise",
+            new_data_dir=self.base / "custom-mise-data",
+            data_env={"MISE_DATA_DIR": str(self.base / "custom-mise-data")},
+        )
+
+    def test_stale_custom_mise_link_is_repointed_after_new_custom_data_dir(self) -> None:
+        old_data_dir = self.base / "old-custom-mise-data"
+        new_data_dir = self.base / "new-custom-mise-data"
+        self._assert_stale_stable_link_is_repointed(
+            old_data_dir=old_data_dir,
+            new_data_dir=new_data_dir,
+            data_env={"MISE_DATA_DIR": str(new_data_dir)},
+        )
+
+    def test_stale_link_is_repointed_when_active_shim_wins_path(self) -> None:
+        target = self.base / "active-mise-data"
+        self._assert_stale_stable_link_is_repointed(
+            old_data_dir=self.base / "previous-mise-data",
+            new_data_dir=target,
+            data_env={"MISE_DATA_DIR": str(target)},
+            shim_first=True,
         )
 
     def test_unchanged_account_skips_native_apply(self) -> None:

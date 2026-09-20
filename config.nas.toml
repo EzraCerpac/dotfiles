@@ -7,7 +7,6 @@ SETUP_PROFILE = "nas"
 [tools]
 # Keep the NAS additions intentionally small. The common command-line base is
 # declared in config.toml and remains available alongside these tools.
-uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 
 # NAS system packages stay outside bootstrap ownership. Preserve the host's
 # existing Git (CerpacNAS uses ~/.local/share/git-modern); Fish is in base.

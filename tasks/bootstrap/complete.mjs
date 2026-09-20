@@ -141,7 +141,7 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
 
   stage('Installer exceptions', () => script('tasks/local/install-exceptions.sh'));
   stage('Atuin', () => {
-    const result = mise(['exec', '--', 'uv', 'run', '--no-project', 'python', path.join(root, 'tasks/bootstrap/atuin.py'), 'enroll', '--root', root]);
+    const result = mise(['exec', '--', 'uv', 'run', '--no-project', 'python', path.join(root, 'tasks/bootstrap/atuin.py'), 'enroll', '--root', root, '--identity', recoveryIdentity]);
     if (result.status === 3) throw new Deferred('Atuin enrollment needs credentials or account approval; rerun dots bootstrap after the displayed step');
     if (result.status !== 0) throw new Error('Atuin enrollment failed; inspect the reported recovery step');
   });
