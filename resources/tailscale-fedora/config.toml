@@ -1,0 +1,8 @@
+# Official stable Fedora repository; both metadata and RPM signatures verified.
+[bootstrap.files."/etc/yum.repos.d/tailscale.repo"]
+mode = "0644"
+phase = "pre-packages"
+source = "tailscale.repo"
+
+[bootstrap.packages]
+"dnf:tailscale" = "latest"

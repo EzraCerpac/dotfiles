@@ -61,6 +61,10 @@ if [[ "${1:-}" == "which" && "${2:-}" == "codex-acp" ]]; then
     printf '%s\\n' "${CODEX_ACP_CLI:-}"
     exit 0
 fi
+if [[ "${1:-}" == "which" && "${2:-}" == "herdr" ]]; then
+    printf '%s\\n' "${HERDR_BIN:-}"
+    exit 0
+fi
 if [[ "${REQUIRE_RUBY_BIN:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "status" ]]; then
     case ":$PATH:" in
         *":$EXPECTED_RUBY_BIN:"*) ;;
@@ -267,7 +271,7 @@ printf 'SUDO\\t%s\\n' "$*" >> "$SUDO_LOG"
             self.bin / "pgrep",
             """#!/usr/bin/env bash
 printf 'PGREP\\t%s\\n' "$*" >> "$PGREP_LOG"
-[[ "${1:-}" == "-f" ]] && exit 1
+[[ "${1:-}" == "-f" || "${1:-}" == "-u" ]] && exit 1
 [[ "${1:-}" == "-x" ]] || exit 2
 case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
 """,
@@ -527,18 +531,128 @@ exec "$CODEX_ACP_NATIVE" "$@"
         self.assertIn("Verified Codex ACP", result.stdout)
         self.assertEqual(stat.S_IMODE(selected_payload.stat().st_mode), 0o755)
 
-    def test_update_defers_herdr_with_running_server(self) -> None:
-        self._write_executable(self.bin / "pgrep", "#!/usr/bin/env bash\nexit 0\n")
-        result = self._run("update")
+    def _prepare_herdr(self, *, server_version: str = "0.8.2", client_version: str = "0.9.1") -> tuple[Path, Path, Path]:
+        herdr = self.base / "herdr"
+        state = self.base / "herdr-server-version"
+        log = self.base / "herdr.log"
+        state.write_text(server_version + "\n")
+        self._write_executable(
+            herdr,
+            """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "$HERDR_LOG"
+case "${1:-}" in
+    --version)
+        printf 'herdr %s\\n' "$HERDR_VERSION"
+        ;;
+    status)
+        [[ "${2:-}" == server ]] || exit 2
+        printf 'version: %s\\n' "$(<"$HERDR_SERVER_STATE")"
+        ;;
+    server)
+        [[ "${2:-}" == live-handoff ]] || exit 2
+        if [[ "${FAIL_HERDR_HANDOFF:-0}" == 1 ]]; then
+            exit 17
+        fi
+        printf '%s\\n' "$HERDR_VERSION" > "$HERDR_SERVER_STATE"
+        ;;
+    *) exit 2 ;;
+esac
+""",
+        )
+        return herdr, state, log
+
+    def test_update_hands_off_running_herdr_to_new_client(self) -> None:
+        herdr, state, log = self._prepare_herdr()
+        result = self._run(
+            "update",
+            extra_env={
+                "WATCHER_ACTIVE": "1",
+                "HERDR_BIN": str(herdr),
+                "HERDR_VERSION": "0.9.1",
+                "HERDR_SERVER_STATE": str(state),
+                "HERDR_LOG": str(log),
+            },
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Deferred: Herdr", result.stdout)
-        self.assertIn("upgrade\t--no-prune\t--exclude\therdr", self.log.read_text())
+        self.assertIn("Herdr live handoff completed; server now reports 0.9.1", result.stdout)
+        self.assertEqual(state.read_text().strip(), "0.9.1")
+        handoffs = log.read_text().splitlines()
+        self.assertIn("server live-handoff --import-exe " + str(herdr) + " --expected-version 0.9.1", handoffs)
+        self.assertIn("upgrade\t--no-prune", self.log.read_text())
+        self.assertNotIn("--exclude", self.log.read_text())
+
+    def test_update_leaves_running_herdr_when_handoff_fails(self) -> None:
+        herdr, state, log = self._prepare_herdr()
+        result = self._run(
+            "update",
+            extra_env={
+                "WATCHER_ACTIVE": "1",
+                "HERDR_BIN": str(herdr),
+                "HERDR_VERSION": "0.9.1",
+                "HERDR_SERVER_STATE": str(state),
+                "HERDR_LOG": str(log),
+                "FAIL_HERDR_HANDOFF": "1",
+            },
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Herdr live handoff failed", result.stderr)
+        self.assertEqual(state.read_text().strip(), "0.8.2")
+
+    def test_update_does_not_handoff_after_failed_herdr_upgrade(self) -> None:
+        herdr, state, log = self._prepare_herdr()
+        result = self._run(
+            "update",
+            extra_env={
+                "WATCHER_ACTIVE": "1",
+                "HERDR_BIN": str(herdr),
+                "HERDR_VERSION": "0.9.1",
+                "HERDR_SERVER_STATE": str(state),
+                "HERDR_LOG": str(log),
+                "FAIL_TOOL_UPGRADE": "1",
+            },
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Herdr tool upgrade failed", result.stderr)
+        self.assertEqual(state.read_text().strip(), "0.8.2")
+        self.assertFalse(log.exists())
+
+    def test_update_skips_herdr_handoff_when_server_is_not_running(self) -> None:
+        herdr, state, log = self._prepare_herdr()
+        result = self._run(
+            "update",
+            extra_env={
+                "HERDR_BIN": str(herdr),
+                "HERDR_VERSION": "0.9.1",
+                "HERDR_SERVER_STATE": str(state),
+                "HERDR_LOG": str(log),
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Herdr server is not running; no live handoff needed", result.stdout)
+        self.assertFalse(log.exists())
+
+    def test_update_skips_herdr_handoff_when_server_already_matches(self) -> None:
+        herdr, state, log = self._prepare_herdr(server_version="0.9.1")
+        result = self._run(
+            "update",
+            extra_env={
+                "WATCHER_ACTIVE": "1",
+                "HERDR_BIN": str(herdr),
+                "HERDR_VERSION": "0.9.1",
+                "HERDR_SERVER_STATE": str(state),
+                "HERDR_LOG": str(log),
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Herdr server already matches client 0.9.1", result.stdout)
+        self.assertNotIn("server live-handoff", log.read_text())
 
     def test_update_stops_tool_stage_if_process_check_fails(self) -> None:
         self._write_executable(self.bin / "pgrep", "#!/usr/bin/env bash\nexit 2\n")
         result = self._run("update")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("could not inspect Herdr", result.stderr)
+        self.assertIn("could not inspect the Herdr", result.stderr)
         self.assertNotIn("\tupgrade\t--no-prune", self.log.read_text())
 
     def test_update_aggregates_independent_failures_without_broad_upgrades(self) -> None:
@@ -621,7 +735,7 @@ exec "$CODEX_ACP_NATIVE" "$@"
         result = self._run("update")
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
-        for token in ("zoom", "karabiner-elements", "tailscale-app", "font-sf-pro"):
+        for token in ("zoom", "tailscale-app", "font-sf-pro"):
             self.assertIn(["outdated", "--cask", "--greedy", "--quiet", token], calls)
             self.assertIn(["upgrade", "--cask", "--greedy", token], calls)
         self.assertFalse(any("--zap" in call or "--prune" in call for call in calls))
@@ -764,7 +878,10 @@ exec "$CODEX_ACP_NATIVE" "$@"
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("is running; close it before upgrading", result.stdout)
+            if token == "karabiner-elements":
+                self.assertIn("Held: karabiner-elements 16.0.0", result.stdout)
+            else:
+                self.assertIn("is running; close it before upgrading", result.stdout)
         calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
         self.assertFalse(any(call and call[0] == "upgrade" for call in calls))
         self.assertFalse(sudo_log.exists())
@@ -795,7 +912,7 @@ exec "$CODEX_ACP_NATIVE" "$@"
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn(f"Already installed: {token}", result.stdout)
+            self.assertIn(f"Held: {token} 16.0.0" if token == "karabiner-elements" else f"Already installed: {token}", result.stdout)
         calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
         self.assertFalse(any(call and call[0] in ("install", "outdated", "upgrade") for call in calls))
         self.assertEqual(sudo_log.read_text(), "")

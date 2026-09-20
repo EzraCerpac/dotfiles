@@ -7,14 +7,21 @@ SETUP_PROFILE = "nas"
 [tools]
 # Keep the NAS additions intentionally small. The common command-line base is
 # declared in config.toml and remains available alongside these tools.
-node = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 
 # DSM remains outside bootstrap package ownership; no native package installs.
 
+# Keep the existing NAS directory layout without a shell hook. These are
+# user-owned directories; NAS services and mounted storage remain untouched.
+[bootstrap.directories]
+"~/Projects" = { mode = "0755" }
+"~/Scripts" = { mode = "0755" }
+"~/.local/bin" = { mode = "0755" }
+"~/.local/share" = { mode = "0755" }
+
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/prepare-directories.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh"'
 post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.

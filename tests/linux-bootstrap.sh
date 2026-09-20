@@ -232,11 +232,11 @@ visudo -c -f /etc/sudoers.d/90-mise-bootstrap-tests
 case "$(uname -m)" in
 x86_64)
     mise_asset='linux-x64'
-    mise_sha256='d479d7c0df37652ddfd6d1887ef92a67a17effc7ec4ac612f46845099f814c6f'
+    mise_sha256='f917e52216924ef0a8b4eca3f7004dfcff3b94665716ac5685fd53006a491eee'
     ;;
 aarch64|arm64)
     mise_asset='linux-arm64'
-    mise_sha256='1227565aeff505b0b0735d91b63109e1e1e44a237c06dc9aa274f2f3bf732af7'
+    mise_sha256='1b46a14314c18f9bbce4bf6f88cc1fb3b31be8dd2b23327a851555f4e144fc61'
     ;;
 *)
     printf 'Unsupported container architecture: %s\n' "$(uname -m)" >&2
@@ -244,7 +244,7 @@ aarch64|arm64)
     ;;
 esac
 
-mise_url="https://github.com/jdx/mise/releases/download/v2026.9.7/mise-v2026.9.7-${mise_asset}"
+mise_url="https://github.com/jdx/mise/releases/download/v2026.9.10/mise-v2026.9.10-${mise_asset}"
 mise_tmp="$(mktemp -d)"
 trap 'rm -rf "$mise_tmp"' EXIT
 curl --fail --silent --show-error --location --retry 3 \
@@ -254,7 +254,7 @@ install -m 0755 "$mise_tmp/mise" /usr/local/bin/mise
 
 mise_output="$(mise --version)"
 printf '%s\n' "$mise_output"
-[[ "$mise_output" == *"2026.9.7"* ]] || {
+[[ "$mise_output" == *"2026.9.10"* ]] || {
     printf 'Unexpected mise version: %s\n' "$mise_output" >&2
     exit 1
 }
@@ -277,10 +277,10 @@ CONTAINER_SETUP
     local root_root='/root/.config/mise'
     docker exec --user 0 "$container_id" mkdir -p "$user_root" "$root_root"
     COPYFILE_DISABLE=1 tar --no-xattrs -C "$SOURCE_ROOT" -cf - \
-        config.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds tasks |
+        config.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds tasks resources |
         docker exec --interactive --user 0 "$container_id" tar -xf - -C "$user_root"
     COPYFILE_DISABLE=1 tar --no-xattrs -C "$SOURCE_ROOT" -cf - \
-        config.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds tasks |
+        config.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds tasks resources |
         docker exec --interactive --user 0 "$container_id" tar -xf - -C "$root_root"
     docker exec --user 0 "$container_id" chown -R workspace-user:workspace-user /workspace-user/.config
 

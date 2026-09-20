@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mise_bin="$1"
+root="$2"
+shift 2
+[[ $# -gt 0 && "$1" != -* ]] || { echo 'usage: dots remote HOST --profile workstation|nas [--dry-run]' >&2; exit 2; }
+host="$1"
+shift
+role=""
+args=()
+while (($#)); do
+    case "$1" in
+        --profile)
+            [[ $# -ge 2 ]] || { echo 'dots: --profile needs workstation or nas' >&2; exit 2; }
+            role="$2"; shift 2 ;;
+        --dry-run|--yes|--github-relay-read-only)
+            args+=("$1"); shift ;;
+        --identity-file|--port|--connect-timeout|--github-relay-repo)
+            [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || { echo "dots: $1 needs a value" >&2; exit 2; }
+            args+=("$1" "$2"); shift 2 ;;
+        *) echo "dots: unsupported remote option '$1'" >&2; exit 2 ;;
+    esac
+done
+case "$role" in workstation|nas) ;; *) echo 'dots: choose --profile workstation or --profile nas' >&2; exit 2 ;; esac
+exec "$mise_bin" -C "$root" bootstrap remote --host "$host" \
+    --adopt EzraCerpac/dotfiles --remote-env "$role" --install-mise "${args[@]}"

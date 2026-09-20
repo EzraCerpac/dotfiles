@@ -30,6 +30,25 @@ also needs the private history credentials and the machine's age key; see
 [settings recovery](docs/history.md). Existing nonempty setup directories need
 reconciliation before adoption; this command is for a fresh setup.
 
+Before applying a changed setup, run `dots plan` to inspect mise's native plan.
+To set up a machine reachable over SSH, use `dots remote my-new-box --profile nas`.
+This installs mise and adopts the repository permanently on that host. Use
+`--profile workstation` for another development computer. SSH must already work;
+Tailscale enrollment cannot provide the initial connection. `--dry-run` still
+connects to the host and stages files.
+
+On Fedora, native mise resources install Tailscale from its signed vendor
+repository and bootstrap starts its service when systemd is available. Other
+Linux distributions currently need the vendor client installed first. Normal
+updates do not start services.
+
+The final bootstrap step handles private recovery, installer exceptions, local
+builds, history enrollment, and Tailscale. It prints completed, deferred, and failed
+steps. Resolve the reported prerequisite and rerun `dots bootstrap`; it keeps
+existing configuration and connected Tailscale identities. It never selects an
+exit node or advertises routes. Without an enrollment key, Tailscale uses its
+interactive browser login.
+
 ## Change Fish, then share the change
 
 Suppose you want `croot` to expand to `cd ~/Projects`. Open your normal
@@ -43,6 +62,10 @@ Save it and open a new terminal tab. Type `croot`, then Space, to try it.
 The live file links into this repository, so saving already changed the source.
 There is no re-add or apply step for an existing linked file. Mac-specific shell
 changes belong in `~/.config/fish/conf.d/10-macos.fish` instead.
+
+Up/Down recall commands entered in this shell session. Ctrl-R searches Atuin's
+persistent history across sessions. To switch an already open shell to local
+recall, run `set -g fish_history ''`; existing saved history is retained.
 
 When you want another machine to receive the shortcut, go to `~/.config/mise`
 and inspect `jj diff`. Describe the change, push a `wip/` bookmark, then open and
@@ -80,8 +103,9 @@ dots up
 Let it finish and read the result. It checkpoints app-written settings, upgrades
 declared packages and tools, runs the named installer exceptions, updates editor
 plugins, then updates mise. Tools track the latest stable release by default.
-Kanata and Karabiner stay on their known working versions. Herdr is deferred
-while its terminal server is running, to avoid breaking open sessions.
+Kanata and Karabiner stay on their known working versions. A running Herdr server
+uses its supported live handoff after mise installs the replacement. A failed
+handoff is reported for attention; the updater does not kill terminal sessions.
 Python 3.13 and 3.12 remain available for applications that require them; the
 default Python tracks latest. Lockfiles record the installed selections and
 advance with `dots up`; they do not impose permanent version caps. It may request an admin
@@ -89,7 +113,7 @@ password; running applications or unavailable vendor updaters are reported as
 deferred. Close an affected app when convenient and rerun the command.
 
 This does not fetch or publish dotfile source, update project dependencies,
-upgrade the operating system, restart services, or prune software. For a look
+upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
 
 ## Add a tool
@@ -138,8 +162,9 @@ loads it. A NAS therefore receives the same everyday terminal toolkit.
 
 `workstation` adds the full development and desktop setup. It supports Apple
 Silicon macOS and glibc Linux x64/ARM64, with explicit OS restrictions on packages
-and files. Fedora 44 ARM64 is the tested fresh Linux baseline; Intel Macs are
-not supported by this setup.
+and files. Intel Mac support has additional backend restrictions and installer
+exceptions; availability is checked per tool. See the bootstrap validation notes
+for what has actually been tested.
 
 `nas` adds the NAS-specific configuration and smaller runtime choices. It does
 not own DSM updates, storage, media services, or Compose projects. Actual NAS
@@ -154,6 +179,45 @@ The watcher saves selected app-written files locally in encrypted history.
 When you want to publish those snapshots, run `dots backup`. On a replacement
 machine, configure the private history connection and key, then follow
 [the restore guide](docs/history.md) and use `dots restore`.
+
+For a fresh replacement, select the old identity on the **first** adoption, before
+the machine receives a new identity. After installing mise with the installer
+above, run:
+
+```sh
+SETUP_RESTORE_MACHINE_ID=mac-primary SETUP_AGE_IDENTITY=/Volumes/Recovery/age-key.txt "$HOME/.local/bin/mise" -E workstation bootstrap --adopt EzraCerpac/dotfiles --skip services
+```
+
+Resume that same restoration with
+`dots bootstrap --restore mac-primary --identity /Volumes/Recovery/age-key.txt`.
+Restoration runs before the history watcher is enabled. A machine already enrolled
+under a different identity refuses this operation. Keep an external backup of the
+recovery key: encrypted history alone cannot recover it.
+
+Bootstrap credentials live in an age-encrypted bundle, separate from settings
+history. To capture your existing WakaTime and Himalaya configuration, use
+`dots bundle create --from-live --output /tmp/bootstrap.json.age --recipient age1...`,
+with your recovery key's public recipient. Review and move that ciphertext to
+`encrypted/bootstrap.json.age`; the private key stays outside both repositories.
+On the new machine, run `dots bootstrap --bundle /path/bootstrap.json.age --identity /path/key.txt`.
+Changed private destination files are left for reconciliation.
+
+For unattended account enrollment, the bundle's version-1 JSON `secrets` object
+may also contain `tailscale_auth_key` and `github_token`. Create it from a private
+JSON file with `dots bundle create --input /private/path/inputs.json --output /tmp/bootstrap.json.age --recipient age1...`.
+Use a fresh one-use Tailscale key when preparing a machine; expired keys require
+replacement or browser login. Do not put private JSON or identities in this repository.
+
+`mise dot` is mise's native dotfile interface. For example,
+`mise dot edit ~/.config/fish/config.fish` opens the managed source, and
+`mise dot add -g --mode symlink ~/.config/new-app/config.toml` registers a new
+hand-edited file. Application-written files use `mise dot track`; configure
+encryption before their first sensitive snapshot. `dots` adds the broader
+machine update, recovery, and bootstrap workflow around these native commands.
+
+The repository already lives at mise's configuration directory, so the documented
+self-managing configuration pattern would add unnecessary links here. Native
+`--adopt` provides the persistent checkout used by both local and remote setup.
 
 This private recovery history is separate from publishing your Fish source or
 tool declarations with JJ. Keep age keys outside both repositories. The older
@@ -180,17 +244,25 @@ Review defaults:
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
 | `tasks/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
 | `tasks/install/` and `tasks/local/` | Explicit install and machine lifecycle tasks |
-| `encrypted/` | Existing age-encrypted WakaTime and Himalaya sources; private settings history is stored separately |
+| `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.
 
 ## Keyboard Workflow (Corne + QMK)
+
+Kanata configuration and its held-version installer belong to base on macOS.
+Use `kbd activate` from your logged-in Mac account to activate only that user's
+session. It requests administrator approval for the root-owned driver service,
+saves the previous service files for rollback, and uses Kanata's lock-screen
+guard. The root wrapper joins your GUI session and stops its child when another
+user takes the console. This is separate from building or flashing a keyboard.
 
 Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `qmk_firmware` checkout at `~/Projects/keyboards/qmk_firmware`.
 
 Commands:
 
 - `kbd provision` → validate setup prerequisites, prepare QMK, activate VirtualHID, and install the Kanata daemon
+- `kbd activate` → refresh the daemon for the currently logged-in Mac user only
 - `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
 - `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
 - `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
@@ -202,6 +274,16 @@ Commands:
 - `kbd open-artifacts` → open UF2 artifact folder in Finder
 
 `kbd provision` is an explicit lifecycle task; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same task; finished stages are safe to repeat.
+
+Kanata remains a root process because the Karabiner VirtualHID socket is
+root-only. Its root-owned supervisor records the non-root console UID when you
+run `kbd activate`, and starts Kanata only while that same user owns the Mac
+console. Locking the screen or switching users releases the keyboard grab;
+another Mac user never inherits your remapping. Kanata's
+`--release-grab-on-lock` option handles the lock/fast-user-switch transition.
+Run `kbd activate` again after changing the Kanata source or switching the
+owner account. The held Kanata 1.12.0 and Karabiner-Elements 16.0.0 versions
+are intentional compatibility choices.
 
 Run keyboard tasks from the setup root so mise loads the selected profile:
 
@@ -227,14 +309,14 @@ mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g ~/.config/new-ap
 mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.workstation.toml ~/.config/new-app/config.yaml
 ```
 
-Change `workstation` to `nas` or `delftblue` for a profile-specific entry. Use `setup:update` for declared package/tool updates; it does not publish source or restart services.
+Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for declared package/tool updates; it does not publish source.
 
 ## Cross-Platform Notes
 
-- Intel macOS is not supported; macOS package declarations target Apple Silicon
+- Native packages and binary backends declare their supported Mac architectures
 - OS and profile variants select the appropriate files and package declarations
 - Tera templates provide small machine-specific values; ordinary linked files remain directly editable
-- The `workstation`, `nas`, or `delftblue` role must be selected explicitly in local mise configuration
+- The `workstation` or `nas` role must be selected explicitly in local mise configuration
 
 ## CerpacNAS Remote Codex
 

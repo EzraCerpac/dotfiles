@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mise_bin="$1"
+root="$2"
+shift 2
+args=(--skip-dirty)
+restore=""
+while (($#)); do
+    case "$1" in
+        --bundle|--identity|--restore)
+            [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || { echo "dots: $1 needs a value" >&2; exit 2; }
+            case "$1" in
+                --bundle) case "$2" in /*) export SETUP_BOOTSTRAP_BUNDLE="$2" ;; *) export SETUP_BOOTSTRAP_BUNDLE="$PWD/$2" ;; esac ;;
+                --identity) case "$2" in /*) export SETUP_AGE_IDENTITY="$2" ;; *) export SETUP_AGE_IDENTITY="$PWD/$2" ;; esac ;;
+                --restore) restore="$2" ;;
+            esac
+            shift 2
+            ;;
+        *) args+=("$1"); shift ;;
+    esac
+done
+if [[ -n "$restore" ]]; then
+    [[ "$restore" =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo 'dots: invalid restore machine identity' >&2; exit 2; }
+    for arg in "${args[@]}"; do
+        [[ "$arg" != --only && "$arg" != --only=* ]] || { echo 'dots: --restore requires a full bootstrap' >&2; exit 2; }
+    done
+    export SETUP_RESTORE_MACHINE_ID="$restore"
+    export SETUP_MACHINE_ID="$restore"
+    # The final setup task restores settings before it enrolls the watcher.
+    args+=(--skip services)
+fi
+exec "$mise_bin" -C "$root" bootstrap "${args[@]}"

@@ -7,8 +7,9 @@ workstation	typ2docx
 workstation	mlx-vlm
 workstation	vendor-apps
 workstation	zoom
-workstation	karabiner-elements
+base	karabiner-elements
 workstation	tailscale-app
+workstation	tailscale-linux
 workstation	font-sf-pro
 workstation	mlx-audio
 workstation	memo
@@ -19,5 +20,5 @@ workstation	peekaboo
 workstation	antinote
 workstation	omnidisksweeper
 base	hunk
-nas	intel-brew-basics
-workstation	kanata
+base	intel-brew-basics
+base	kanata

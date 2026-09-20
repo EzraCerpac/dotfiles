@@ -7,7 +7,10 @@ Your machine setup, from any directory.
 
   dots up                         Update tools, packages and editor plugins
   dots status                     Inspect files, tools and backup health
+  dots plan                       Preview the declared machine setup
   dots bootstrap [ARGS...]        Install/apply the full declared machine setup
+  dots remote HOST --profile ROLE  Bootstrap a machine over existing SSH
+  dots bundle create [ARGS...]     Encrypt private bootstrap inputs
   dots apply [TARGET...]          Apply dotfiles and templates
   dots backup                     Publish encrypted settings snapshots
   dots restore [ARGS...]          Restore private settings
@@ -42,14 +45,17 @@ command_name="$1"
 shift
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 case "$command_name" in
-    up|update|status|backup)
+    up|update|status|backup|plan)
         [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
         ;;
 esac
 case "$command_name" in
     up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
+    plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
     status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
-    bootstrap) exec "$mise_bin" -C "$root" bootstrap "$@" ;;
+    bootstrap) exec bash "$root/tasks/bootstrap/launch" "$mise_bin" "$root" "$@" ;;
+    remote) exec bash "$root/tasks/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
+    bundle) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/bootstrap/bundle.mjs" "$@" ;;
     apply) exec "$mise_bin" -C "$root" bootstrap dotfiles apply "$@" ;;
     add) ;;
     *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
@@ -72,6 +78,8 @@ while (($#)); do
             selector_count=$((selector_count + 1)); shift 2 ;;
         -h|--help) usage; exit 0 ;;
         -*) echo "dots: unknown add option '$1'" >&2; exit 2 ;;
+        brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
+            echo 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead' >&2; exit 2 ;;
         brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) packages+=("$1"); shift ;;
         *) tools+=("$1"); shift ;;
     esac

@@ -51,21 +51,7 @@ if [[ "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Da
 else
     run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes
 fi
-upgrade_tools() {
-    local process_status=0
-    # A newer client may not speak the running server's private protocol.
-    # Keep its current lock resolution until the user closes those sessions.
-    pgrep -f '(^|/)herdr server( |$)' >/dev/null 2>&1 || process_status=$?
-    case "$process_status" in
-        0)
-            printf 'Deferred: Herdr has a running terminal server; close its sessions before upgrading Herdr.\n'
-            setup_mise upgrade --no-prune --exclude herdr
-            ;;
-        1) setup_mise upgrade --no-prune ;;
-        *) setup_error "could not inspect Herdr processes; tool upgrades stopped"; return 1 ;;
-    esac
-}
-run_stage "declared mise tools" upgrade_tools
+run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/tasks/setup/upgrade-herdr"
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/tasks/setup/fix-codex-acp-mode"
 fi

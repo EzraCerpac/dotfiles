@@ -40,6 +40,10 @@ set -g fifc_open_keybinding ctrl-o
 fish_vi_key_bindings
 
 if status is-interactive
+    # Arrow-key recall belongs to this terminal session. Atuin still records
+    # commands persistently and provides cross-session search on Ctrl-R.
+    set -g fish_history ''
+
     # Commands to run in interactive sessions can go here
     if command -q atuin
         atuin init fish --disable-up-arrow | source

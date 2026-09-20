@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/common"
+if [[ -n "${SETUP_RESTORE_MACHINE_ID:-}" ]]; then
+    echo 'Defaults deferred until private settings restoration completes.'
+    exit 0
+fi
 case "$SETUP_PROFILE" in
     workstation|nas) ;;
 esac

@@ -28,29 +28,7 @@ else
     exit 1
 fi
 
-current_shell="${SHELL:-}"
-if [[ "$(uname -s)" == Darwin ]] && command -v dscl >/dev/null 2>&1; then
-    current_shell="$(dscl . -read "/Users/$(id -un)" UserShell 2>/dev/null | awk '{print $2}' || true)"
-elif command -v getent >/dev/null 2>&1; then
-    current_shell="$(getent passwd "$(id -un)" | cut -d: -f7 || true)"
-fi
-
-if ! grep -qF "$target_shell" /etc/shells 2>/dev/null; then
-    echo "Adding ${target_shell} to /etc/shells (sudo may prompt)."
-    if ! printf '%s\n' "$target_shell" | sudo tee -a /etc/shells >/dev/null; then
-        echo "Could not update /etc/shells. Add this line, then rerun: ${target_shell}" >&2
-        exit 1
-    fi
-fi
-
-if [[ "$current_shell" == "$target_shell" ]]; then
-    echo "${shell_name} is already the login shell."
-    exit 0
-fi
-
-if chsh -s "$target_shell"; then
-    echo "Login shell set to ${shell_name} (${target_shell}); open a new login session to use it."
-else
-    echo "Could not change the login shell. Run: chsh -s ${target_shell}" >&2
-    exit 1
-fi
+# Resolve the host's installed path after installer exceptions have run, then
+# let native mise own /etc/shells and the account update.
+setup_mise config set --file "$SETUP_ROOT/config.local.toml" bootstrap.user.login_shell "$target_shell"
+setup_mise bootstrap user apply --yes

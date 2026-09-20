@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Stable entrypoint used by the complete bootstrap wrapper.
+set -euo pipefail
+exec bash "$(dirname "${BASH_SOURCE[0]}")/enroll-tailscale" "$@"
