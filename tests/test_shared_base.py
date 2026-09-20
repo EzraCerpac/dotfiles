@@ -21,9 +21,15 @@ class SharedBaseTests(unittest.TestCase):
             self.assertFalse(base['dotfiles'].keys() & profile.get('dotfiles',{}).keys())
         for path in ('~/.config/fish/config.fish','~/.config/jj/config.toml','~/.config/git/config','~/.config/nvim/init.lua','~/.local/bin/dots'):
             self.assertIn(path, base['dotfiles'])
-        for manager in ('brew','apt','dnf','pacman'):
-            for package in ('fish','git'):
-                self.assertIn(f'{manager}:{package}', base['bootstrap']['packages'])
+        self.assertIn('github:fish-shell/fish-shell', tools)
+        for package in ('fish','git'):
+            self.assertIn(f'brew:{package}', base['bootstrap']['packages'])
+        # NAS maintenance must not acquire ownership of its system packages.
+        self.assertFalse(any(key.startswith(('apt:', 'dnf:', 'pacman:'))
+                             for key in base['bootstrap']['packages']))
+        workstation=tomllib.loads((ROOT/'config.workstation.toml').read_text())
+        for manager in ('apt','dnf','pacman'):
+            self.assertIn(f'{manager}:git', workstation['bootstrap']['packages'])
 
     def test_retired_selector_fails_before_bootstrap_hooks(self):
         with tempfile.TemporaryDirectory() as tmp:

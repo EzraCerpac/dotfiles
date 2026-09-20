@@ -42,6 +42,14 @@ bootstrap_validate_profile() {
     fi
 }
 
+bootstrap_history_branch() {
+    if [[ -z "${SETUP_MACHINE_ID:-}" || ! "$SETUP_MACHINE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+        bootstrap_error 'machine id is required to derive the history branch'
+        return 2
+    fi
+    printf 'host-%s\n' "$SETUP_MACHINE_ID"
+}
+
 bootstrap_toml_quote() {
     local escaped="$1"
     escaped="${escaped//\\/\\\\}"
@@ -276,7 +284,8 @@ bootstrap_append_local() {
 }
 
 bootstrap_persist_local_profile() {
-    local identity_label="${1:-}"
+    local identity_label="${1:-}" history_branch
+    history_branch="$(bootstrap_history_branch)" || return $?
     bootstrap_set_local env.SETUP_PROFILE "$SETUP_PROFILE" || return $?
     bootstrap_set_local env.SETUP_MACHINE_ID "$SETUP_MACHINE_ID" || return $?
     bootstrap_set_local settings.history.sync manual || return $?
@@ -288,6 +297,9 @@ bootstrap_persist_local_profile() {
 
     if [[ -n "${SETUP_HISTORY_ORIGIN:-}" ]]; then
         bootstrap_set_local env.SETUP_HISTORY_ORIGIN "$SETUP_HISTORY_ORIGIN" || return $?
+        # A branch-only origin table is invalid; persist the URL first.
+        bootstrap_set_local history.origin.url "$SETUP_HISTORY_ORIGIN" || return $?
+        bootstrap_set_local history.origin.branch "$history_branch" || return $?
     fi
 }
 

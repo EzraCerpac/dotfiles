@@ -35,6 +35,7 @@ try {
     return { status: 0, stdout: '' };
   };
   const env = { HOME: home, SETUP_PROFILE: 'nas', SETUP_AGE_IDENTITY: externalKey,
+    SETUP_BOOTSTRAP_BUNDLE: path.join(root, 'encrypted/bootstrap.json.age'),
     XDG_STATE_HOME: path.join(home, 'state'), SETUP_TAILSCALE_AUTH_KEY: 'inherited-key' };
   assert.equal(complete({ root, home, miseBin: '/fixture/mise', env, run }), 0);
   const hostKey = local['env.SETUP_AGE_IDENTITY'];

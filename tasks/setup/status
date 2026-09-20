@@ -8,7 +8,7 @@ setup_init || exit $?
 printf 'Setup profile: %s\n' "$SETUP_PROFILE"
 printf 'Machine identity: %s\n' "${SETUP_MACHINE_ID:-not set}"
 if [[ "$SETUP_PROFILE" == "nas" ]]; then
-    printf 'NAS history: use setup:backup for explicit checkpoints; automatic watcher support is not assumed.\n'
+    printf 'NAS history: dots backup saves and publishes this host; watcher health is shown below.\n'
 fi
 
 set +e

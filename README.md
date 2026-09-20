@@ -22,8 +22,9 @@ Tools if Git prompts for them. Open a new terminal when bootstrap finishes.
 
 Use `workstation` for a normal Mac or Linux development machine. Use `nas` in
 place of `workstation` for the smaller NAS role. The choice is saved locally;
-you do not repeat it during everyday use. CerpacNAS itself has not been cut over
-or tested while its network is unavailable.
+you do not repeat it during everyday use. Both roles select Fish as your login
+shell, including new SSH sessions. CerpacNAS uses the NAS role; its older Linux
+compatibility choices and rollback location are in [the NAS guide](docs/cerpacnas.md).
 
 Public configuration comes from this repository. Restoring private app settings
 also needs the private history credentials and the machine's age key; see
@@ -166,9 +167,10 @@ and files. Intel Mac support has additional backend restrictions and installer
 exceptions; availability is checked per tool. See the bootstrap validation notes
 for what has actually been tested.
 
-`nas` adds the NAS-specific configuration and smaller runtime choices. It does
-not own DSM updates, storage, media services, or Compose projects. Actual NAS
-binary and shell compatibility must be checked when the host becomes reachable.
+`nas` adds NAS-specific configuration and smaller runtime choices. It does
+not own operating-system packages, storage, media services, or Compose projects.
+CerpacNAS's Debian 10 compatibility is handled through host-local tool choices;
+see [the NAS guide](docs/cerpacnas.md).
 
 The DelftBlue profile is retired. Its old configuration remains in repository
 history; the cluster and existing SSH access are not changed by this retirement.

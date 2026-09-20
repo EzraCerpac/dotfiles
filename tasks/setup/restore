@@ -33,6 +33,7 @@ if [[ -z "$SETUP_MACHINE_ID" ]]; then
     setup_error 'SETUP_MACHINE_ID is required to restore host-specific private settings'
     exit 2
 fi
+history_branch="$(setup_history_branch)" || exit $?
 
 case "$SETUP_HISTORY_ORIGIN" in
     git@github.com:EzraCerpac/dotfiles-state|git@github.com:EzraCerpac/dotfiles-state.git|\
@@ -229,7 +230,10 @@ if [[ "$pending_restore" -eq 0 && "$store_exists" -eq 1 && "$connected" -eq 0 ]]
         setup_error "could not create a private staging path in $history_dir"
         exit 1
     }
-    if ! history_git clone --bare --single-branch "$SETUP_HISTORY_ORIGIN" "$stage_path"; then
+    # Native mise keeps its local checkpoint ref named main independently of
+    # the selected remote branch. Normalize the cloned ref before mise opens it.
+    if ! history_git clone --bare --single-branch --branch "$history_branch" "$SETUP_HISTORY_ORIGIN" "$stage_path" \
+        || ! history_git "--git-dir=$stage_path" branch -m main; then
         remove_owned_stage "$stage_path" "$history_dir" || true
         setup_error 'could not clone private settings history; the existing local store was left unchanged'
         exit 1
@@ -281,7 +285,8 @@ elif [[ "$pending_restore" -eq 0 && "$store_exists" -eq 0 ]]; then
         setup_error "could not create a private staging path in $history_dir"
         exit 1
     }
-    if ! history_git clone --bare --single-branch "$SETUP_HISTORY_ORIGIN" "$stage_path"; then
+    if ! history_git clone --bare --single-branch --branch "$history_branch" "$SETUP_HISTORY_ORIGIN" "$stage_path" \
+        || ! history_git "--git-dir=$stage_path" branch -m main; then
         remove_owned_stage "$stage_path" "$history_dir" || true
         setup_error 'could not clone private settings history; no local history store was installed'
         exit 1
@@ -308,27 +313,27 @@ elif [[ "$pending_restore" -eq 0 && "$store_exists" -eq 0 ]]; then
 fi
 
 printf 'Connecting to private history in fetch-only mode...\n'
-setup_mise --yes bootstrap dotfiles origin set "$SETUP_HISTORY_ORIGIN" --sync fetch-only
+setup_mise --yes bootstrap dotfiles origin set "$SETUP_HISTORY_ORIGIN" --branch "$history_branch" --sync fetch-only
 printf '\nReviewing fetched settings state:\n'
 setup_mise bootstrap dotfiles status
 printf '\nApplying incoming settings with native conflict checks...\n'
 setup_mise --yes bootstrap dotfiles pull
 
 if [[ "$pending_restore" -eq 1 ]]; then
-    tracking_refs="$(history_git "--git-dir=$history_store" for-each-ref --format='%(refname)' refs/remotes/origin)" || {
-        setup_error 'could not locate the fetched private history branch after connecting'
-        exit 1
-    }
+    # Native mise maps the selected remote branch to its own local tracking
+    # name (origin/setup in 2026.9.10). The staged single-branch clone has no
+    # other remote refs; refuse ambiguity rather than guessing from HEAD.
+    tracking_refs="$(history_git "--git-dir=$history_store" for-each-ref --format='%(refname)' refs/remotes/origin)" || exit 1
     tracking_ref=""
-    extra_ref=""
     while IFS= read -r ref; do
         [[ -n "$ref" ]] || continue
-        if [[ -z "$tracking_ref" ]]; then tracking_ref="$ref"; else extra_ref="$ref"; fi
+        if [[ -n "$tracking_ref" ]]; then
+            setup_error 'expected exactly one fetched history branch; inspect the local store'
+            exit 1
+        fi
+        tracking_ref="$ref"
     done <<< "$tracking_refs"
-    if [[ -z "$tracking_ref" || -n "$extra_ref" ]]; then
-        setup_error 'expected exactly one fetched branch for first restore; inspect the private history repository before retrying'
-        exit 1
-    fi
+    [[ -n "$tracking_ref" ]] || { setup_error 'no fetched history branch found'; exit 1; }
     seed_commit="$(history_git "--git-dir=$history_store" rev-parse --verify "$tracking_ref^{commit}")" || {
         setup_error 'could not resolve the fetched private history commit'
         exit 1

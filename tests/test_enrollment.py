@@ -434,7 +434,7 @@ printf '%s\\n' "${AGE_TEST_RECIPIENT:?}"
 
     def test_persist_selected_generates_and_keeps_a_stable_id(self) -> None:
         self._write_executable(self.bin / "uuidgen", "#!/usr/bin/env bash\nprintf 'AABB-CCDD\\n'\n")
-        first = self._run("persist-selected", extra_env={"SETUP_PROFILE": "nas"})
+        first = self._run("persist-selected", extra_env={"SETUP_PROFILE": "nas", "SETUP_MACHINE_ID": ""})
         self.assertEqual(first.returncode, 0, first.stderr)
         expected = 'env = ["nas", "host-auto-aabbccdd"]\n'
         self.assertEqual((self.config / "miserc.toml").read_text(), expected)

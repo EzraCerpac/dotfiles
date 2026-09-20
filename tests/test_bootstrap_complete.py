@@ -23,6 +23,7 @@ const run = (command, args, options) => {
   if (command === 'age-keygen') return {status:0, stdout:'age1fixturepublicrecipient\n'};
   if (text.includes('dot status --json')) return {status:0, stdout:JSON.stringify({history:{watcher:process.env.WATCHER_STATE || 'running'}})};
   if (text.includes('tasks/setup/restore') && process.env.FAIL_RESTORE) return {status:1};
+  if (text.includes('tasks/local/shell-select.sh')) return {status:Number(process.env.SHELL_SELECT_STATUS || 0)};
   if (text.includes('tasks/bootstrap/tailnet')) return {status:3};
   return {status:0, stdout:''};
 };
@@ -77,6 +78,12 @@ class CompleteTests(unittest.TestCase):
         data, report = self.run_fixture(WATCHER_STATE='stopped')
         self.assertEqual(data['result'], 0)
         self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Encrypted local history'), 'deferred')
+
+    def test_noninteractive_shell_admin_requirement_is_resumable(self):
+        data, report = self.run_fixture(SHELL_SELECT_STATUS='3')
+        self.assertEqual(data['result'], 0)
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Login shell'), 'deferred')
+        self.assertIn('administrator approval', next(s['detail'] for s in report['stages'] if s['stage']=='Login shell'))
 
 
 if __name__ == '__main__':

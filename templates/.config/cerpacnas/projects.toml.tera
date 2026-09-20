@@ -41,3 +41,12 @@ rules_file = "/root/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md"
 {%- else %}
 rules_file = "{{ env.HOME }}/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md"
 {%- endif %}
+
+{%- if vars.profile == "nas" %}
+[projects.home-assistant-config]
+repo = "git@github.com:EzraCerpac/home-assistant-config.git"
+local_path = "{{ env.HOME }}/Projects/home-assistant-config"
+remote_path = "/root/Projects/home-assistant-config"
+remote_name = "origin"
+rules_file = "{{ env.HOME }}/.config/cerpacnas/project-rules/home-assistant-config.AGENTS.md"
+{%- endif %}

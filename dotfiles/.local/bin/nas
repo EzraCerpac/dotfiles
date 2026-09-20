@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script="${HOME}/.codex/skills/work-on-cerpacnas/scripts/nas.py"
+if [[ ! -f "$script" ]]; then
+    echo "CerpacNAS helper is missing: $script" >&2
+    exit 1
+fi
+exec uv run --no-project --python 3 --directory "$HOME" python "$script" "$@"

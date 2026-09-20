@@ -39,6 +39,9 @@ rift_signing_identity = "Rift Local Code Signing"
 # Small, portable command-line tools available on every managed host. Keep
 # workstation-only runtimes and applications in config.workstation.toml.
 [tools]
+# Official standalone Fish avoids old distribution versions and gives every
+# Linux role the same shell without replacing /usr/bin/fish.
+"github:fish-shell/fish-shell" = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 # Bootstrap orchestration and the shared Codex CLI both need Node.
 node = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
@@ -252,21 +255,14 @@ description = "Stage the current locally signed VoiceInk build"
 run = "bash tasks/local/voiceink-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
-# Native shells and Git are installed by the host package manager. These
-# entries are shared by workstation and NAS; a NAS without a supported native
-# package manager must provide them before applying its profile.
+# Native macOS integration. Linux Fish is a user-space tool above; Linux
+# workstation Git packages are declared in config.workstation.toml.
 [bootstrap.packages]
 # Intel macOS gets these through the intel-brew-basics exception: mise's brew
 # bootstrap backend skips darwin/amd64 (upstream jdx/mise#10968).
 "brew:fish" = { os = "macos/arm64" }
 "brew:git" = { os = "macos/arm64" }
 "brew:diffnav" = { os = "macos/arm64" }
-"apt:fish" = { os = ["linux/x64", "linux/arm64"] }
-"apt:git" = { os = ["linux/x64", "linux/arm64"] }
-"dnf:fish" = { os = ["linux/x64", "linux/arm64"] }
-"dnf:git" = { os = ["linux/x64", "linux/arm64"] }
-"pacman:fish" = { os = ["linux/x64", "linux/arm64"] }
-"pacman:git" = { os = ["linux/x64", "linux/arm64"] }
 
 # These files are useful on every workstation and on the NAS. Keep each file
 # as an individual entry so application state beside it remains unmanaged.

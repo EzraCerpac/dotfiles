@@ -23,7 +23,7 @@ only configure its settings link and start its service.
 | `tasks/install/nas-modern-git.sh` | NAS modern Git hook | Checks and installs the pinned micromamba binary, creates or updates the user-space `git>=2.41` environment, and links `~/.local/bin/git` only when that path is free or already owned by this environment. |
 | `tasks/install/herdr-plugins.sh` | Pinned Herdr plugin hook | Installs the four pinned plugins when their current commit differs. Requires Herdr and `jq`. |
 | `tasks/local/antinote-bridge-build.sh` | Antinote bridge build hook | Builds the source in `dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift` and atomically installs its binary. The source fingerprint is kept under `~/.local/state/mise/`. |
-| `tasks/local/shell-select.sh` | Login-shell hook | Adds the selected fish/xonsh path to `/etc/shells` and runs `chsh`. NAS and DelftBlue profiles are left alone. |
+| `tasks/local/shell-select.sh` | Login-shell hook | Resolves a validated Fish executable, then asks native mise to add it to `/etc/shells` and update the account. Workstation and NAS profiles use the same path; a noninteractive run without passwordless administrator access reports a resumable deferral. |
 | `tasks/local/touchid-sudo.sh` | Touch ID hook | Adds `pam_tid.so` to `/etc/pam.d/sudo_local` with `sudo`; it is a no-op when already enabled. |
 | `tasks/local/cliproxy-configure.sh` | CLIProxyAPI configuration hook | Preserves a previous Homebrew config beside the target if needed, then links the user's config. It does not change service state. |
 | `tasks/local/cliproxy-service.sh` | CLIProxyAPI service part | Starts the Homebrew service only when it is stopped. It leaves a running service alone. |
@@ -123,7 +123,7 @@ and `run_after` scripts. Their replacement responsibilities are:
 | `run_after_26-sync-jj-waltz-skill.sh.tmpl` | An explicit task that calls the deployed `codex-sync-jj-waltz` helper. Do not sync it during bootstrap or routine updates. |
 | `run_after_27-install-herdr-plugins.sh.tmpl` | Explicit `install:herdr-plugins`, pinned to the four current commits; install the Herdr binary through its own package owner. |
 | `run_after_30-setup-cliproxyapi.sh.tmpl` | Native CLIProxyAPI package declaration, then separate `local:cliproxy-configure` and `local:cliproxy-service` tasks. |
-| `run_after_setup-shell.sh.tmpl` | Explicit `local:shell-select`; NAS and DelftBlue keep their existing shell. |
+| `run_after_setup-shell.sh.tmpl` | Explicit `local:shell-select`; supported workstation and NAS profiles select Fish through native `bootstrap.user` settings. |
 | `run_once_01-setup-directories.sh.tmpl` | Profile-specific directory setup plus the rendered Git configuration. |
 | `run_once_02-install-package-managers.sh.tmpl` | Standalone mise installation is a bootstrap prerequisite. Homebrew remains the native package manager; ChezMoi is retired. |
 | `run_once_03-install-tools.sh.tmpl` | `[tools]`, `[bootstrap.packages]`, and named installer exceptions. |

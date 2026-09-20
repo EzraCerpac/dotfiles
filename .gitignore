@@ -1,6 +1,7 @@
 # System files
 .DS_Store
 **/.DS_Store
+._*
 Thumbs.db
 desktop.ini
 
@@ -83,3 +84,7 @@ ehthumbs.db
 !seeds/**
 
 /config.host-*.toml
+
+# Generated Python caches also stay out of explicitly included dotfile sources.
+__pycache__/
+*.pyc

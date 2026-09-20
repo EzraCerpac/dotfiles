@@ -180,7 +180,7 @@ fi
 
 # Build an isolated native config variant. Refuse to rewrite a host config
 # that this task does not own, so existing settings remain untouched.
-host_profile="host-$SETUP_MACHINE_ID"
+host_profile="$(bootstrap_history_branch)" || exit $?
 variant_path="$BOOTSTRAP_CONFIG_DIR/config.$host_profile.toml"
 variant_tmp="$(mktemp "$BOOTSTRAP_CONFIG_DIR/.${host_profile}.history.XXXXXX")"
 trap '[[ -z "${variant_tmp:-}" ]] || rm -f "$variant_tmp"' EXIT

@@ -9,7 +9,8 @@ SETUP_PROFILE = "nas"
 # declared in config.toml and remains available alongside these tools.
 uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 
-# DSM remains outside bootstrap package ownership; no native package installs.
+# NAS system packages stay outside bootstrap ownership. Preserve the host's
+# existing Git (CerpacNAS uses ~/.local/share/git-modern); Fish is in base.
 
 # Keep the existing NAS directory layout without a shell hook. These are
 # user-owned directories; NAS services and mounted storage remain untouched.
@@ -17,7 +18,7 @@ uv = { version = "latest", os = ["macos/x64", "linux/x64", "linux/arm64"] }
 "~/Projects" = { mode = "0755" }
 "~/Scripts" = { mode = "0755" }
 "~/.local/bin" = { mode = "0755" }
-"~/.local/share" = { mode = "0755" }
+"~/.local/share" = { mode = "0700" }
 
 
 [bootstrap.hooks]
@@ -26,6 +27,12 @@ post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.confi
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
+"~/.local/bin/nas" = { source = "dotfiles/.local/bin/nas", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/SKILL.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/SKILL.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/agents/openai.yaml" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/agents/openai.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/references/projects-manifest.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/references/projects-manifest.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/references/remote-policy.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/references/remote-policy.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/scripts/nas.py" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/scripts/nas.py", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md" = { source = "dotfiles/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/thesis.AGENTS.md" = { source = "templates/.config/cerpacnas/project-rules/thesis.AGENTS.md.tera", mode = "template", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/projects.toml" = { source = "templates/.config/cerpacnas/projects.toml.tera", mode = "template", variants = [{ os = "linux" }] }

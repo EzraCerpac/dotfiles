@@ -13,6 +13,9 @@ SOURCE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MISE = Path("/Users/ezracerpac/.local/state/mise-migration/tools/mise")
 HISTORY_ORIGIN = "git@github.com:EzraCerpac/dotfiles-state.git"
 PROFILE = "workstation,host-mac-primary"
+NAS_PROFILE = "nas,host-cerpacnas"
+MAC_BRANCH = "host-mac-primary"
+NAS_BRANCH = "host-cerpacnas"
 
 
 class NativeRestoreIntegrationTests(unittest.TestCase):
@@ -47,12 +50,13 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
             codex_config = home / ".codex/config.toml"
             data_dir = base / "data/mise"
             producer_state = base / "producer-state/mise"
+            nas_state = base / "nas-state/mise"
             restore_state = base / "restore-state/mise"
             cache_dir = base / "cache/mise"
             global_git_config = base / "gitconfig"
             remote = base / "dotfiles-state.git"
             key = home / ".age/identity"
-            for path in (config, fixture_dir, codex_config.parent, key.parent, data_dir, producer_state, restore_state, cache_dir):
+            for path in (config, fixture_dir, codex_config.parent, key.parent, data_dir, producer_state, nas_state, restore_state, cache_dir):
                 path.mkdir(parents=True, exist_ok=True)
             shutil.copytree(SOURCE_ROOT / "tasks", config / "tasks")
 
@@ -62,7 +66,12 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
             recipient_result = self._run([self.age_keygen, "-y", str(key)], os.environ.copy(), base)
             recipient = recipient_result.stdout.strip()
             self.assertRegex(recipient, r"^age1[0-9a-z]+$")
+            nas_key = home / ".age/nas-identity"
+            self._run([self.age_keygen, "-o", str(nas_key)], os.environ.copy(), base)
+            nas_recipient = self._run([self.age_keygen, "-y", str(nas_key)], os.environ.copy(), base).stdout.strip()
+            self.assertRegex(nas_recipient, r"^age1[0-9a-z]+$")
             key.chmod(0o600)
+            nas_key.chmod(0o600)
 
             (config / ".gitignore").write_text("config.local.toml\nmiserc.toml\nconfig.host-*.toml\n")
             (config / "config.toml").write_text(
@@ -77,19 +86,24 @@ history.sync = "manual"
 identity_files = ["~/.age/identity"]
 
 [history.encryption]
-recipients = ["{recipient}"]
+recipients = ["{recipient}", "{nas_recipient}"]
 '''
             )
             host_config = config / "config.host-mac-primary.toml"
-            host_config.write_text(
-                '''[dotfiles."~/fixture/private"]
+            host_entry = '''[dotfiles."~/fixture/private"]
 mode = "track"
 encrypt = true
-variants = [{ profile = "host-mac-primary" }]
+variants = [{ profile = "host-mac-primary" }, { profile = "host-cerpacnas" }]
+'''
+            host_config.write_text(host_entry)
+            (config / "config.host-cerpacnas.toml").write_text(host_entry)
+            (config / "config.nas.toml").write_text(
+                '''[settings.age]
+identity_files = ["~/.age/nas-identity"]
 '''
             )
             self._run([self.git, "init", "--initial-branch=main"], os.environ.copy(), config)
-            self._run([self.git, "-C", str(config), "add", ".gitignore", "config.toml"], os.environ.copy(), config)
+            self._run([self.git, "-C", str(config), "add", ".gitignore", "config.toml", "config.nas.toml"], os.environ.copy(), config)
             self._run(
                 [self.git, "-C", str(config), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "commit", "-m", "fixture public source"],
                 os.environ.copy(),
@@ -134,15 +148,43 @@ variants = [{ profile = "host-mac-primary" }]
                 }
             )
 
-            remote_bytes = b"encrypted history restored through native mise\\n"
+            remote_bytes = b"encrypted history restored through native mise\n"
             target.write_bytes(remote_bytes)
             target.chmod(0o600)
             native_prefix = [str(self.mise), "-C", str(config), "-E", PROFILE]
             self._run(native_prefix + ["bootstrap", "dotfiles", "save"], common_env, base)
-            self._run(native_prefix + ["--yes", "bootstrap", "dotfiles", "origin", "set", HISTORY_ORIGIN, "--sync", "manual"], common_env, base)
-            self._run(native_prefix + ["--yes", "bootstrap", "dotfiles", "sync"], common_env, base)
-            self.assertTrue(subprocess.run([self.git, "--git-dir", str(remote), "show-ref", "--verify", "refs/heads/main"], env=common_env, capture_output=True, check=False).returncode == 0)
-            remote_head = self._run([self.git, "--git-dir", str(remote), "rev-parse", "refs/heads/main"], common_env, base).stdout.strip()
+            mac_commit = self._run([self.git, "--git-dir", str(producer_state / "history/repo.git"), "rev-parse", "HEAD"], common_env, base).stdout.strip()
+            self._run([self.git, "--git-dir", str(producer_state / "history/repo.git"), "push", str(remote), f"HEAD:refs/heads/{MAC_BRANCH}"], common_env, base)
+
+            nas_bytes = b"independent NAS branch state\n"
+            target.write_bytes(nas_bytes)
+            target.chmod(0o600)
+            nas_env = common_env.copy()
+            nas_env.update({
+                "SETUP_PROFILE": "nas",
+                "SETUP_MACHINE_ID": "cerpacnas",
+                "SETUP_AGE_IDENTITY": "~/.age/nas-identity",
+                "MISE_STATE_DIR": str(nas_state),
+            })
+            nas_prefix = [str(self.mise), "-C", str(config), "-E", NAS_PROFILE]
+            self._run(nas_prefix + ["bootstrap", "dotfiles", "save"], nas_env, base)
+            nas_commit = self._run([self.git, "--git-dir", str(nas_state / "history/repo.git"), "rev-parse", "HEAD"], nas_env, base).stdout.strip()
+            self.assertNotEqual(mac_commit, nas_commit)
+            self._run([self.git, "--git-dir", str(nas_state / "history/repo.git"), "push", str(remote), f"HEAD:refs/heads/{NAS_BRANCH}"], nas_env, base)
+
+            # This fixture reuses one home for two machines. Native origin
+            # enrollment captures live bytes, so restore each simulated host's
+            # contents before connecting its independent history store.
+            target.write_bytes(remote_bytes)
+            self._run(native_prefix + ["--yes", "bootstrap", "dotfiles", "origin", "set", HISTORY_ORIGIN, "--branch", MAC_BRANCH, "--sync", "manual"], common_env, base)
+            target.write_bytes(nas_bytes)
+            self._run(nas_prefix + ["--yes", "bootstrap", "dotfiles", "origin", "set", HISTORY_ORIGIN, "--branch", NAS_BRANCH, "--sync", "manual"], nas_env, base)
+            mac_remote_head = self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{MAC_BRANCH}"], common_env, base).stdout.strip()
+            nas_remote_head = self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{NAS_BRANCH}"], common_env, base).stdout.strip()
+            self.assertTrue(mac_remote_head)
+            self.assertTrue(nas_remote_head)
+            self.assertNotEqual(mac_remote_head, nas_remote_head)
+            self.assertNotEqual(subprocess.run([self.git, "--git-dir", str(remote), "show-ref", "--verify", "refs/heads/main"], env=common_env, capture_output=True, check=False).returncode, 0)
 
             default_bytes = b"local defaults must be replaced by the saved host state\\n"
             target.write_bytes(default_bytes)
@@ -167,7 +209,9 @@ variants = [{ profile = "host-mac-primary" }]
             self.assertEqual(codex_config.stat().st_mode & 0o777, 0o600)
             self.assertIn("fetch-only", task.stdout)
             self.assertFalse((restore_state / "history/.repo.git.restore-pending").exists())
-            self.assertEqual(self._run([self.git, "--git-dir", str(remote), "rev-parse", "refs/heads/main"], common_env, base).stdout.strip(), remote_head)
+            self.assertEqual(self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{MAC_BRANCH}"], common_env, base).stdout.strip(), mac_remote_head)
+            self.assertEqual(self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{NAS_BRANCH}"], common_env, base).stdout.strip(), nas_remote_head)
+            self.assertNotEqual(subprocess.run([self.git, "--git-dir", str(remote), "show-ref", "--verify", "refs/heads/main"], env=common_env, capture_output=True, check=False).returncode, 0)
 
             self.assertEqual(self._run([self.git, "-C", str(config), "rev-parse", "HEAD"], common_env, config).stdout.strip(), public_head)
             self.assertEqual(self._run([self.git, "-C", str(config), "remote", "get-url", "origin"], common_env, config).stdout.strip(), public_origin)

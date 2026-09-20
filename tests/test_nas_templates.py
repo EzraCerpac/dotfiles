@@ -44,6 +44,9 @@ class NasTemplateTests(unittest.TestCase):
             "/root/.config/cerpacnas/project-rules/thesis.AGENTS.md",
         )
         self.assertEqual(jj_waltz["local_path"], "/root/Projects/jj-waltz")
+        self.assertIn("home-assistant-config", manifest["projects"])
+        self.assertEqual(manifest["projects"]["home-assistant-config"]["remote_path"],
+                         "/root/Projects/home-assistant-config")
         self.assertNotIn("{{", rendered)
 
     def test_nas_thesis_rules_include_the_nas_validation_limits(self):
