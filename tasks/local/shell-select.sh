@@ -37,24 +37,64 @@ is_mise_install_path() {
     esac
 }
 
-if is_mise_shim_path "$fish_command" || is_mise_install_path "$fish_real"; then
+resolve_mise_fish_install() {
+    command -v jq >/dev/null 2>&1 || return 0
+    { setup_mise ls --current --json 2>/dev/null || true; } |
+        jq -r '
+            to_entries[]
+            | select((.key | ascii_downcase | contains("fish-shell")) or .key == "fish")
+            | .value[]
+            | select(.active == true and .installed == true)
+            | if .requested_version == "latest"
+              then .install_path | sub("/[^/]+$"; "/latest")
+              else .install_path end
+        ' 2>/dev/null | head -n 1
+}
+
+mise_fish_install=""
+if [[ -L "$stable_shell_path" ]]; then
+    # A stable link can outlive a MISE_DATA_DIR/XDG_DATA_HOME change. Resolve
+    # the active Fish metadata before deciding whether the link is managed;
+    # otherwise an old target looks like a host-package Fish and is never
+    # repaired.
+    mise_fish_install="$(resolve_mise_fish_install)"
+fi
+
+mise_fish_candidate=""
+for candidate in "$mise_fish_install/fish" "$mise_fish_install/bin/fish"; do
+    if [[ -n "$mise_fish_install" && -x "$candidate" ]]; then
+        mise_fish_candidate="$candidate"
+        break
+    fi
+done
+mise_fish_real="$(realpath "$mise_fish_candidate" 2>/dev/null || true)"
+
+mise_fish_identity() {
+    local install_path="${1#*/installs/}"
+    [[ "$install_path" != "$1" && "$install_path" == */*/fish ]] || return 1
+    printf '%s/%s\n' "${install_path%%/*}" "${install_path##*/}"
+}
+
+stable_link_is_mise=0
+stable_link_real="$(realpath "$stable_shell_path" 2>/dev/null || true)"
+if [[ -n "$mise_fish_real" && -L "$stable_shell_path" && -n "$stable_link_real" ]]; then
+    # Compare the backend/executable identity from active metadata while
+    # allowing the installed version and data-directory prefix to change.
+    existing_identity="$(mise_fish_identity "$stable_link_real" 2>/dev/null || true)"
+    active_identity="$(mise_fish_identity "$mise_fish_real" 2>/dev/null || true)"
+    if [[ -n "$existing_identity" && "$existing_identity" == "$active_identity" ]]; then
+        stable_link_is_mise=1
+    fi
+fi
+
+if is_mise_shim_path "$fish_command" || is_mise_install_path "$fish_real" ||
+    [[ "$fish_command" == "$stable_shell_path" && "$stable_link_is_mise" -eq 1 ]]; then
     needs_stable_link=1
     # A mise shim is not a valid login-shell target: it can re-enter mise while
     # mise is constructing the login environment. Find the active install
     # without depending on a backend name or a versioned install directory.
-    fish_install=""
-    if command -v jq >/dev/null 2>&1; then
-        fish_install="$({ setup_mise ls --current --json 2>/dev/null || true; } |
-            jq -r '
-                to_entries[]
-                | select((.key | ascii_downcase | contains("fish-shell")) or .key == "fish")
-                | .value[]
-                | select(.active == true and .installed == true)
-                | if .requested_version == "latest"
-                  then .install_path | sub("/[^/]+$"; "/latest")
-                  else .install_path end
-            ' 2>/dev/null | head -n 1)"
-    fi
+    fish_install="$mise_fish_install"
+    [[ -n "$fish_install" ]] || fish_install="$(resolve_mise_fish_install)"
 
     target_candidate=""
     for candidate in "$fish_install/fish" "$fish_install/bin/fish"; do
@@ -81,7 +121,10 @@ if is_mise_shim_path "$fish_command" || is_mise_install_path "$fish_real"; then
     fi
     if [[ -L "$stable_shell_path" && -e "$stable_shell_path" ]]; then
         existing_real="$(realpath "$stable_shell_path" 2>/dev/null || true)"
-        if [[ -z "$existing_real" ]] || ! is_mise_install_path "$existing_real"; then
+        if [[ -z "$existing_real" ]] || {
+            ! is_mise_install_path "$existing_real" &&
+            [[ "$stable_link_is_mise" -ne 1 ]];
+        }; then
             echo "Cannot replace stable Fish login path: '$stable_shell_path' is not a mise-managed Fish link." >&2
             exit 1
         fi

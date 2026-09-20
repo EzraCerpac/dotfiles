@@ -9,6 +9,7 @@ Your machine setup, from any directory.
   dots sync                       Fetch main and apply shared configuration
   dots publish [--bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
+  dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
   dots status                     Inspect files, tools and backup health
   dots plan                       Preview the declared machine setup
   dots bootstrap [ARGS...]        Install/apply the full declared machine setup
@@ -57,6 +58,28 @@ case "$command_name" in
     sync) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/lib/source-repo.mjs" sync "$root" ;;
     publish) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/setup/publish.mjs" "$root" "$@" ;;
     atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$root/tasks/bootstrap/atuin-bundle" "$@" ;;
+    atuin-login)
+        login_args=(enroll --root "$root")
+        while (($#)); do
+            case "$1" in
+                --identity|--identity=*)
+                    if [[ "$1" == --identity=* ]]; then
+                        identity="${1#--identity=}"
+                    else
+                        shift
+                        [[ $# -gt 0 ]] || { echo 'dots: --identity needs a key path' >&2; exit 2; }
+                        identity="$1"
+                    fi
+                    [[ -n "$identity" ]] || { echo 'dots: --identity needs a key path' >&2; exit 2; }
+                    case "$identity" in /*|"~/"*) ;; *) identity="$PWD/$identity" ;; esac
+                    login_args+=(--identity "$identity")
+                    ;;
+                *) login_args+=("$1") ;;
+            esac
+            shift
+        done
+        exec "$mise_bin" -C "$root" exec -- uv run --no-project python "$root/tasks/bootstrap/atuin.py" "${login_args[@]}"
+        ;;
     plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
     status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
     bootstrap) exec bash "$root/tasks/bootstrap/launch" "$mise_bin" "$root" "$@" ;;

@@ -3,6 +3,9 @@ from __future__ import annotations
 import base64
 import json
 import os
+import io
+import importlib.util
+from unittest.mock import patch
 import shutil
 import stat
 import subprocess
@@ -91,7 +94,7 @@ elif args == ["sync"]:
     if (state / "fail-sync").exists():
         raise SystemExit(1)
     print("Sync complete")
-elif args == ["login", "--username", "EzraCerpac"]:
+elif args in (["login", "--username", "EzraCerpac"], ["login"]):
     def input_line(prompt):
         sys.stdout.write(prompt)
         sys.stdout.flush()
@@ -118,19 +121,30 @@ elif args == ["login", "--username", "EzraCerpac"]:
         input_line("Please enter encryption key [blank to use existing key file]: ")
         time.sleep(30)
         raise SystemExit(1)
-    supplied_password = hidden_tty_line("Please enter password: ")
-    (state / "login-input.json").write_text(json.dumps({
-        "key_ok": supplied_key == history_key,
-        "password_ok": supplied_password == password,
-        "password_length": len(supplied_password),
-    }))
-    if supplied_password != password:
-        print("invalid credentials")
-        raise SystemExit(1)
-    if (state / "two-factor").exists():
-        print("Please enter two-factor code:", flush=True)
-        time.sleep(30)
-        raise SystemExit(1)
+    if args == ["login"]:
+        print("Open this URL to continue authenticating with Atuin Hub:", flush=True)
+        print("https://hub.atuin.sh/cli/login?code=fixture-auth", flush=True)
+        for _ in range(100):
+            if (state / "browser-approved").exists():
+                break
+            time.sleep(0.02)
+        else:
+            raise SystemExit(1)
+        (state / "hub-auth").touch()
+    else:
+        supplied_password = hidden_tty_line("Please enter password: ")
+        (state / "login-input.json").write_text(json.dumps({
+            "key_ok": supplied_key == history_key,
+            "password_ok": supplied_password == password,
+            "password_length": len(supplied_password),
+        }))
+        if supplied_password != password:
+            print("invalid credentials")
+            raise SystemExit(1)
+        if (state / "two-factor").exists():
+            supplied_code = input_line("Please enter two-factor code: ")
+            if supplied_code != "654321":
+                raise SystemExit(1)
     (state / "account").write_text("EzraCerpac")
     print("Successfully authenticated")
 else:
@@ -394,6 +408,58 @@ class AtuinEnrollmentTests(unittest.TestCase):
         result = self.enroll()
         self.assertEqual(result.returncode, 3)
         self.assertIn("two-factor", result.stderr)
+        self.assertFalse((self.fake_state / "account").exists())
+
+    def login_module(self):
+        spec = importlib.util.spec_from_file_location("atuin_enrollment_fixture", HELPER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_two_factor_can_complete_without_disclosing_the_code(self) -> None:
+        module = self.login_module()
+        (self.fake_state / "two-factor").touch()
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+        terminal = Terminal()
+        with patch.dict(os.environ, self.env), patch.object(module.sys, "stdin", terminal), \
+                patch.object(module.sys, "stderr", terminal), \
+                patch.object(module.getpass, "getpass", return_value="654321") as prompt:
+            module.native_login(HISTORY_KEY, PASSWORD)
+        prompt.assert_called_once()
+        self.assertEqual((self.fake_state / "account").read_text(), "EzraCerpac")
+        for secret in (PASSWORD, HISTORY_KEY, "654321"):
+            self.assertNotIn(secret, terminal.getvalue())
+        self.assertFalse(any(call["secret_env_or_argv"] for call in self.calls()))
+
+    def test_browser_login_waits_for_approval_and_keeps_bundled_key_private(self) -> None:
+        module = self.login_module()
+        approval = self.fake_state / "browser-approved"
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+            def write(self, value):
+                if "https://hub.atuin.sh/cli/login?code=fixture-auth" in value:
+                    approval.touch()
+                return super().write(value)
+        terminal = Terminal()
+        with patch.dict(os.environ, self.env), patch.object(module.sys, "stdin", terminal), \
+                patch.object(module.sys, "stderr", terminal):
+            module.native_login(HISTORY_KEY, PASSWORD, browser=True)
+        self.assertTrue(approval.exists())
+        self.assertEqual((self.fake_state / "account").read_text(), "EzraCerpac")
+        for secret in (PASSWORD, HISTORY_KEY):
+            self.assertNotIn(secret, terminal.getvalue())
+        self.assertFalse(any(call["secret_env_or_argv"] for call in self.calls()))
+
+    def test_browser_login_without_terminal_gives_a_concrete_resume_command(self) -> None:
+        self.write_bundle()
+        result = self.run_helper("enroll", "--root", str(self.root), "--identity", str(self.identity), "--browser")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("dots atuin-login", result.stderr)
+        self.assertIn("--browser", result.stderr)
+        self.assertIn(str(self.identity), result.stderr)
         self.assertFalse((self.fake_state / "account").exists())
 
     def test_configure_uses_native_settings_and_preserves_unrelated_values(self) -> None:

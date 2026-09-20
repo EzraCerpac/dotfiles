@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, SourceDeferred, syncSource, withRepositoryLock } from '../tasks/lib/source-repo.mjs';
+import { ensureRepository, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../tasks/lib/source-repo.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
 const jjConfig = path.join(testState, 'jj.toml');
@@ -190,6 +190,40 @@ repoTest('clean remote fast-forward syncs through the fake mise validation and a
     assert.match(fs.readFileSync(fixture.fakeMise.log, 'utf8'), /config ls --json/);
     assert.match(fs.readFileSync(fixture.fakeMise.log, 'utf8'), /bootstrap dotfiles save/);
     assert.match(fs.readFileSync(fixture.fakeMise.log, 'utf8'), /bootstrap dotfiles apply --yes/);
+  } finally { fixture.close(); }
+});
+
+repoTest('sync resolves MISE_BIN and PATH when the standalone binary is absent', () => {
+  const fixture = makeFixture();
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+    const pathBin = path.join(fixture.state, 'path-bin');
+    fs.mkdirSync(pathBin);
+    fs.copyFileSync(fixture.fakeMise.bin, path.join(pathBin, 'mise'));
+    fs.chmodSync(path.join(pathBin, 'mise'), 0o755);
+
+    withEnvironment({ HOME: fixture.state, FAKE_MISE_LOG: fixture.fakeMise.log, MISE_BIN: fixture.fakeMise.bin }, () => {
+      assert.equal(resolveMiseBin(), fixture.fakeMise.bin);
+      syncSource(fixture.root, { expectedRemote: fixture.expectedRemote });
+    });
+    assert.equal(parentRevision(fixture), git(fixture.seed, 'rev-parse', 'HEAD'));
+
+    const second = makeFixture();
+    try {
+      ensureRepository(second.root, { expectedRemote: second.expectedRemote });
+      updateRemote(second, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      withEnvironment({
+        HOME: second.state,
+        FAKE_MISE_LOG: second.fakeMise.log,
+        MISE_BIN: undefined,
+        PATH: `${pathBin}${path.delimiter}${process.env.PATH}`,
+      }, () => {
+        assert.equal(resolveMiseBin(), path.join(pathBin, 'mise'));
+        syncSource(second.root, { expectedRemote: second.expectedRemote });
+      });
+      assert.equal(parentRevision(second), git(second.seed, 'rev-parse', 'HEAD'));
+    } finally { second.close(); }
   } finally { fixture.close(); }
 });
 

@@ -205,8 +205,11 @@ export function publish({
     let description = descriptionFor(run, root, revision);
     if (!description && explicit) throw new Error(`the ${revision} change has no description; describe it before publishing`);
     const changes = proposedChanges(run, root, revision);
-    outputText(output, `Proposed diff for ${revision}, commit by commit (from main@origin):\n`);
     if (!changes.length) throw new Error(`${revision} has no unpublished commits above main@origin`);
+    if (!changes.some(change => change.diff.trim())) {
+      throw new Error(`${revision} has no actual file changes above main@origin`);
+    }
+    outputText(output, `Proposed diff for ${revision}, commit by commit (from main@origin):\n`);
     for (const change of changes) {
       outputText(output, `\nCommit ${change.commit.slice(0, 12)} — ${change.description || '(no description)'}\n`);
       outputText(output, `${change.diff}${change.diff.endsWith('\n') ? '' : '\n'}`);
