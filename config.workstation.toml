@@ -294,8 +294,11 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/delftblue/jobs/julia_mpi.sbatch" = { source = "templates/.config/delftblue/jobs/julia_mpi.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/delftblue/spack/dev/spack.yaml" = { source = "dotfiles/.config/delftblue/spack/dev/spack.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/fish/functions/__mise_source_yazi_completion.fish" = { source = "dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/fish/completions/ya.fish" = { source = "dotfiles/.config/fish/completions/ya.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/fish/completions/yazi.fish" = { source = "dotfiles/.config/fish/completions/yazi.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/ghostty/config" = { source = "dotfiles/.config/ghostty/config", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/ghostty/themes/catppccin-mocha" = { source = "dotfiles/.config/ghostty/themes/catppccin-mocha", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

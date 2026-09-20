@@ -1,7 +1,7 @@
 # CerpacNAS policy
 
 - Existing root SSH access is intentional. Use native Codex Remote SSH tasks and exact project/workspace paths.
-- Configuration crosses through dotfiles `dev` plus targeted review before apply.
+- Configuration crosses through dotfiles `main` plus targeted review before apply.
 
 ## For thesis work:
 

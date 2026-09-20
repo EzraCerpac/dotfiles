@@ -27,6 +27,12 @@ post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.confi
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
+"~/.local/bin/nas" = { source = "dotfiles/.local/bin/nas", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/SKILL.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/SKILL.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/agents/openai.yaml" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/agents/openai.yaml", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/references/projects-manifest.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/references/projects-manifest.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/references/remote-policy.md" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/references/remote-policy.md", mode = "symlink", variants = [{ os = "linux" }] }
+"~/.codex/skills/work-on-cerpacnas/scripts/nas.py" = { source = "dotfiles/.codex/skills/work-on-cerpacnas/scripts/nas.py", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md" = { source = "dotfiles/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md", mode = "symlink", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/project-rules/thesis.AGENTS.md" = { source = "templates/.config/cerpacnas/project-rules/thesis.AGENTS.md.tera", mode = "template", variants = [{ os = "linux" }] }
 "~/.config/cerpacnas/projects.toml" = { source = "templates/.config/cerpacnas/projects.toml.tera", mode = "template", variants = [{ os = "linux" }] }

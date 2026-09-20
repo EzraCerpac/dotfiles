@@ -213,11 +213,13 @@ def run(
     capture: bool = False,
     check: bool = True,
     tty: bool = False,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     kwargs: dict[str, object] = {
         "cwd": cwd,
         "text": True,
         "check": check,
+        "env": env,
     }
     if capture:
         kwargs["stdout"] = subprocess.PIPE
@@ -752,7 +754,7 @@ def config_status(manifest: Manifest) -> None:
     source = manifest.host.remote_home / ".config/mise"
     if (source / ".jj").is_dir():
         run(["jj", "-R", str(source), "status"])
-        run(["jj", "-R", str(source), "bookmark", "list", "--all", manifest.host.dotfiles_branch])
+        run(["jj", "-R", str(source), "bookmark", "list", "--all-remotes", manifest.host.dotfiles_branch])
     else:
         print("remote mise source is not JJ-initialized; config update will initialize it")
     run(["dots", "status"], cwd=source)
@@ -764,9 +766,9 @@ def config_update(manifest: Manifest) -> None:
         run(["jj", "git", "init", "--colocate", str(source)])
     dirty = jj_output(source, "diff", "-r", "@", "--summary")
     if dirty:
-        raise NasError("remote chezmoi source has local changes; refusing update")
+        raise NasError("remote mise source has local changes; refusing update")
     branch = manifest.host.dotfiles_branch
-    run(["jj", "-R", str(source), "git", "fetch", "--remote", "origin"])
+    run(["jj", "-R", str(source), "git", "fetch", "--remote", "origin", "--branch", branch])
     remote_revision = f"{branch}@origin"
     run(["jj", "-R", str(source), "bookmark", "set", branch, "-r", remote_revision])
     run(["jj", "-R", str(source), "new", branch])
@@ -856,8 +858,14 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
     if remote_side:
         if Path.home() != manifest.host.remote_home:
             raise NasError(f"remote home mismatch: expected {manifest.host.remote_home}, got {Path.home()}")
-        run(["gh", "auth", "status"])
-        headers = output(["gh", "api", "-i", "user"])
+        github_env = os.environ.copy()
+        if not (github_env.get("GH_TOKEN") or github_env.get("GITHUB_TOKEN")):
+            helper = Path.home() / ".config/mise/tasks/lib/github-credential.sh"
+            credential = run(["sh", str(helper)], capture=True, check=False)
+            if credential.returncode != 0 or not credential.stdout.strip():
+                raise NasError("GitHub credential unavailable; configure gh or the Git credential helper")
+            github_env["GH_TOKEN"] = credential.stdout.strip()
+        headers = run(["gh", "api", "-i", "user"], capture=True, env=github_env).stdout
         oauth_scopes = github_oauth_scopes(headers)
         if oauth_scopes:
             print(
@@ -865,7 +873,7 @@ def doctor(manifest: Manifest, *, remote_side: bool) -> None:
                 file=sys.stderr,
             )
         for project in manifest.projects.values():
-            run(["gh", "api", f"repos/{github_slug(project.repo)}", "--jq", ".full_name"])
+            run(["gh", "api", f"repos/{github_slug(project.repo)}", "--jq", ".full_name"], env=github_env)
 
 
 def build_parser() -> argparse.ArgumentParser:

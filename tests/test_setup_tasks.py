@@ -135,6 +135,10 @@ if [[ "${1:-}" == --git-dir=* ]]; then
             [[ -f "$store/FIXTURE_COMMIT" ]] || exit 1
             cat "$store/FIXTURE_COMMIT"
             ;;
+        'branch -m')
+            [[ "${3:-}" == main ]] || exit 9
+            exit 0
+            ;;
         'for-each-ref --format=%(refname)')
             [[ -f "$store/FIXTURE_COMMIT" ]] || exit 1
             printf 'refs/remotes/origin/setup\\n'

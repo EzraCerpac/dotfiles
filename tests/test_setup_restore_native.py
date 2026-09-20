@@ -172,7 +172,12 @@ identity_files = ["~/.age/nas-identity"]
             self.assertNotEqual(mac_commit, nas_commit)
             self._run([self.git, "--git-dir", str(nas_state / "history/repo.git"), "push", str(remote), f"HEAD:refs/heads/{NAS_BRANCH}"], nas_env, base)
 
+            # This fixture reuses one home for two machines. Native origin
+            # enrollment captures live bytes, so restore each simulated host's
+            # contents before connecting its independent history store.
+            target.write_bytes(remote_bytes)
             self._run(native_prefix + ["--yes", "bootstrap", "dotfiles", "origin", "set", HISTORY_ORIGIN, "--branch", MAC_BRANCH, "--sync", "manual"], common_env, base)
+            target.write_bytes(nas_bytes)
             self._run(nas_prefix + ["--yes", "bootstrap", "dotfiles", "origin", "set", HISTORY_ORIGIN, "--branch", NAS_BRANCH, "--sync", "manual"], nas_env, base)
             mac_remote_head = self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{MAC_BRANCH}"], common_env, base).stdout.strip()
             nas_remote_head = self._run([self.git, "--git-dir", str(remote), "rev-parse", f"refs/heads/{NAS_BRANCH}"], common_env, base).stdout.strip()
