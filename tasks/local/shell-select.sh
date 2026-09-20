@@ -6,6 +6,13 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=tasks/local/common
 source "${SCRIPT_DIR}/common"
 
+prepare_only=0
+case "${1:-}" in
+    --prepare-only) prepare_only=1 ;;
+    "") ;;
+    *) echo "Usage: shell-select.sh [--prepare-only]" >&2; exit 2 ;;
+esac
+
 deferred_status=3
 
 stable_shell_path="${HOME}/.local/bin/fish"
@@ -168,6 +175,27 @@ fi
 local_file="$SETUP_ROOT/config.local.toml"
 # Recording a declaration needs no administrator access. Check the real account
 # before requesting privileges, including first enrollment of an existing Fish user.
+setup_mise config set --file "$local_file" vars.fish_shell "$target_shell"
+# Register only after Fish exists: native bootstrap applies ordinary dotfiles
+# before installing tools. Relative source paths also work in source-sync previews.
+herdr_source="$(setup_mise config get --file "$local_file" dotfiles.herdr.source 2>/dev/null || true)"
+if [[ -z "$herdr_source" ]]; then
+    cat >> "$local_file" <<'HERDR'
+
+[dotfiles.herdr]
+source = "templates/.config/herdr/config.tera"
+mode = "template"
+variants = [{ os = "macos", target = "~/.config/herdr/config.toml" }, { os = "linux", target = "~/.config/herdr/config.toml" }]
+HERDR
+elif [[ "$herdr_source" != templates/.config/herdr/config.tera ]]; then
+    echo "Herdr has a different local source; reconcile dotfiles.herdr before continuing." >&2
+    exit 1
+fi
+chmod 600 "$local_file"
+if [[ "$prepare_only" -eq 1 ]]; then
+    echo "Prepared Fish for Herdr: $target_shell"
+    exit 0
+fi
 setup_mise config set --file "$local_file" bootstrap.user.login_shell "$target_shell"
 if setup_mise bootstrap user status --missing >/dev/null 2>&1; then
     echo "Fish is already the configured login shell for the ${SETUP_PROFILE} profile."

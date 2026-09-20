@@ -23,7 +23,17 @@ const run = (command, args, options) => {
   if (command === 'age-keygen') return {status:0, stdout:'age1fixturepublicrecipient\n'};
   if (text.includes('dot status --json')) return {status:0, stdout:JSON.stringify({history:{watcher:process.env.WATCHER_STATE || 'running'}})};
   if (text.includes('tasks/setup/restore') && process.env.FAIL_RESTORE) return {status:1};
-  if (text.includes('tasks/local/shell-select.sh')) return {status:Number(process.env.SHELL_SELECT_STATUS || 0)};
+  if (text.includes('tasks/local/shell-select.sh')) {
+    const prepare = args.at(-1) === '--prepare-only';
+    return {status:Number(process.env[prepare ? 'SHELL_PREPARE_STATUS' : 'SHELL_SELECT_STATUS'] || 0)};
+  }
+  if (text.includes('bootstrap dotfiles apply')) return {status:Number(process.env.HERDR_APPLY_STATUS || 0)};
+  if (command === 'herdr' && text === 'status server') {
+    if (process.env.HERDR_STATUS === 'running') return {status:0, stdout:'status: running\n'};
+    if (process.env.HERDR_STATUS === 'stopped') return {status:0, stdout:'status: stopped\n'};
+    return {status:1, error:{code:'ENOENT'}};
+  }
+  if (command === 'herdr' && text === 'server reload-config') return {status:Number(process.env.HERDR_RELOAD_STATUS || 0)};
   if (text.includes('tasks/bootstrap/tailnet')) return {status:3};
   return {status:0, stdout:''};
 };
@@ -83,10 +93,64 @@ class CompleteTests(unittest.TestCase):
         self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Encrypted local history'), 'deferred')
 
     def test_noninteractive_shell_admin_requirement_is_resumable(self):
-        data, report = self.run_fixture(SHELL_SELECT_STATUS='3')
+        data, report = self.run_fixture(SHELL_PREPARE_STATUS='0', SHELL_SELECT_STATUS='3')
         self.assertEqual(data['result'], 0)
+        calls = [' '.join(c['args']) for c in data['calls']]
+        prepare = next(i for i, call in enumerate(calls) if 'tasks/local/shell-select.sh' in call and '--prepare-only' in call)
+        herdr = next(i for i, call in enumerate(calls) if 'bootstrap dotfiles apply' in call)
+        login = next(i for i, call in enumerate(calls) if 'tasks/local/shell-select.sh' in call and '--prepare-only' not in call)
+        self.assertLess(prepare, herdr)
+        self.assertLess(herdr, login)
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Fish executable'), 'completed')
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Herdr shell'), 'completed')
         self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Login shell'), 'deferred')
         self.assertIn('administrator approval', next(s['detail'] for s in report['stages'] if s['stage']=='Login shell'))
+
+    def test_failed_shell_preparation_skips_herdr_and_login(self):
+        data, report = self.run_fixture(SHELL_PREPARE_STATUS='1')
+        self.assertEqual(data['result'], 1)
+        calls = [' '.join(c['args']) for c in data['calls']]
+        self.assertEqual(sum('tasks/local/shell-select.sh' in call for call in calls), 1)
+        self.assertTrue(any('--prepare-only' in call for call in calls if 'tasks/local/shell-select.sh' in call))
+        self.assertFalse(any('bootstrap dotfiles apply' in call for call in calls))
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Fish executable'), 'failed')
+        self.assertFalse(any(s['stage'] == 'Herdr shell' for s in report['stages']))
+        self.assertFalse(any(s['stage'] == 'Login shell' for s in report['stages']))
+
+    def test_running_herdr_reloads_after_native_apply(self):
+        data, report = self.run_fixture(HERDR_STATUS='running')
+        calls = [' '.join(c['args']) for c in data['calls']]
+        apply = next(i for i, call in enumerate(calls) if 'bootstrap dotfiles apply' in call)
+        status = next(i for i, call in enumerate(calls) if call == 'status server')
+        reload_config = next(i for i, call in enumerate(calls) if call == 'server reload-config')
+        self.assertLess(apply, status)
+        self.assertLess(status, reload_config)
+        herdr_stage = next(s for s in report['stages'] if s['stage'] == 'Herdr shell')
+        self.assertEqual(herdr_stage['status'], 'completed')
+        self.assertIn('Reloaded configuration', herdr_stage['detail'])
+
+    def test_failed_herdr_apply_does_not_reload_or_change_account(self):
+        data, report = self.run_fixture(HERDR_APPLY_STATUS='1', HERDR_STATUS='running')
+        self.assertEqual(data['result'], 1)
+        calls = [' '.join(c['args']) for c in data['calls']]
+        self.assertFalse(any(call == 'server reload-config' for call in calls))
+        self.assertEqual(sum('tasks/local/shell-select.sh' in call for call in calls), 1)
+        self.assertFalse(any(s['stage'] == 'Login shell' for s in report['stages']))
+
+    def test_stopped_herdr_does_not_reload(self):
+        data, report = self.run_fixture(HERDR_STATUS='stopped')
+        calls = [' '.join(c['args']) for c in data['calls']]
+        self.assertFalse(any(call == 'server reload-config' for call in calls))
+        herdr_stage = next(s for s in report['stages'] if s['stage'] == 'Herdr shell')
+        self.assertEqual(herdr_stage['status'], 'completed')
+        self.assertIn('next Herdr server start', herdr_stage['detail'])
+
+    def test_herdr_reload_failure_is_reported(self):
+        data, report = self.run_fixture(HERDR_STATUS='running', HERDR_RELOAD_STATUS='1')
+        self.assertEqual(data['result'], 1)
+        herdr_stage = next(s for s in report['stages'] if s['stage'] == 'Herdr shell')
+        self.assertEqual(herdr_stage['status'], 'failed')
+        self.assertIn('reload-config', herdr_stage['detail'])
 
 
 if __name__ == '__main__':
