@@ -15,8 +15,6 @@ auto_update = true
 [vars]
 name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
-nas_dotfiles_branch = "main"
-nas_host_alias = "nas"
 nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"
 nas_jj_waltz_version = "0.3.1"
 delftblue_default_cpu_partition = "compute-p2"

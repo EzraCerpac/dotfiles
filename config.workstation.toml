@@ -286,9 +286,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md" = { source = "dotfiles/.config/cerpacnas/project-rules/jj-waltz.AGENTS.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/cerpacnas/project-rules/thesis.AGENTS.md" = { source = "templates/.config/cerpacnas/project-rules/thesis.AGENTS.md.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/cerpacnas/projects.toml" = { source = "templates/.config/cerpacnas/projects.toml.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/delftblue/jobs/julia_cpu.sbatch" = { source = "templates/.config/delftblue/jobs/julia_cpu.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/delftblue/jobs/julia_gpu_smoke.sbatch" = { source = "templates/.config/delftblue/jobs/julia_gpu_smoke.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/delftblue/jobs/julia_mpi.sbatch" = { source = "templates/.config/delftblue/jobs/julia_mpi.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }

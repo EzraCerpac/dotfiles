@@ -40,6 +40,8 @@ class ShellSelectTests(unittest.TestCase):
             MISE_USER_STATUS="1",
             MISE_APPLY_STATUS="0",
         )
+        self.env.pop("MISE_DATA_DIR", None)
+        self.env.pop("XDG_DATA_HOME", None)
         self._write_executable(
             self.bin / "mise",
             """#!/usr/bin/env bash
@@ -161,6 +163,49 @@ printf 'fish, version 4.9.3\\n'
         self.assertTrue(stable.is_symlink())
         self.assertEqual(os.readlink(stable), str(install.parent / "latest/fish"))
         self.assertIn(str(stable), self.local.read_text())
+
+    def _assert_custom_mise_data_dir_uses_stable_latest_link(
+        self, *, data_dir: Path, data_env: dict[str, str]
+    ) -> None:
+        jq = shutil.which("jq")
+        if not jq:
+            self.skipTest("jq required to check real mise metadata parsing")
+        (self.bin / "jq").unlink()
+        (self.bin / "jq").symlink_to(jq)
+        install = data_dir / "installs/github-fish-shell-fish-shell/4.9.3"
+        install.mkdir(parents=True)
+        (install.parent / "latest").symlink_to(install.name)
+        fish = install / "fish"
+        self._write_fish(fish)
+        shim = data_dir / "shims/fish"
+        shim.parent.mkdir(parents=True)
+        self._write_fish(shim)
+        env = {
+            **data_env,
+            "PATH": f"{shim.parent}:{self.bin}:{os.environ.get('PATH', '')}",
+            "MISE_FISH_INSTALL": str(install),
+        }
+
+        result = self._run(extra_env=env)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        stable = self.home / ".local/bin/fish"
+        self.assertTrue(stable.is_symlink())
+        self.assertEqual(os.readlink(stable), str(install.parent / "latest/fish"))
+        self.assertIn(str(stable), self.local.read_text())
+
+    def test_mise_fish_honors_custom_data_dir(self) -> None:
+        data_dir = self.base / "custom-mise-data"
+        self._assert_custom_mise_data_dir_uses_stable_latest_link(
+            data_dir=data_dir, data_env={"MISE_DATA_DIR": str(data_dir)}
+        )
+
+    def test_mise_fish_honors_xdg_data_home(self) -> None:
+        xdg_data_home = self.base / "xdg-data"
+        self._assert_custom_mise_data_dir_uses_stable_latest_link(
+            data_dir=xdg_data_home / "mise",
+            data_env={"XDG_DATA_HOME": str(xdg_data_home)},
+        )
 
     def test_unchanged_account_skips_native_apply(self) -> None:
         fish = self.bin / "fish"
