@@ -10,6 +10,8 @@ FISH = shutil.which('fish')
 CARAPACE = shutil.which('carapace')
 HERDR = shutil.which('herdr')
 TINY_MIST = shutil.which('tinymist')
+YAZI = shutil.which('yazi')
+YA = shutil.which('ya')
 
 
 @unittest.skipUnless(FISH and HERDR, 'Fish and Herdr required')
@@ -44,6 +46,25 @@ class FishCompletionTests(unittest.TestCase):
             )
         self.assertIn('completion', result.stdout)
         self.assertIn('preview', result.stdout)
+
+    @unittest.skipUnless(FISH and YAZI and YA, 'Fish and Yazi required')
+    def test_yazi_uses_bundled_fish_providers(self):
+        helper = ROOT / 'dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish'
+        yazi_completion = ROOT / 'dotfiles/.config/fish/completions/yazi.fish'
+        ya_completion = ROOT / 'dotfiles/.config/fish/completions/ya.fish'
+        with tempfile.TemporaryDirectory() as directory:
+            env = dict(os.environ, HOME=directory)
+            result = subprocess.run(
+                [FISH, '--no-config', '-c',
+                 f'source {helper}; source {yazi_completion}; source {ya_completion}; '
+                 'complete -C "yazi --"; complete -C "ya "'],
+                env=env,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+        self.assertIn('--cwd-file', result.stdout)
+        self.assertIn('emit', result.stdout)
 
     @unittest.skipUnless(CARAPACE, 'Carapace required')
     def test_carapace_is_generated_for_fish(self):

@@ -11,6 +11,13 @@ completion is first requested, so upgrades do not require checked-in generated
 files. Herdr is verified with `herdr completion fish`; Tinymist is verified
 with `tinymist completion fish`.
 
+Yazi is different: its release archive ships `completions/yazi.fish` and
+`completions/ya.fish` beside the active binaries, but the binary does not
+provide a usable stdout generator. The tracked `yazi` and `ya` shims locate
+the active `yazi` binary with `command -s` (falling back to `mise which`) and
+source those sibling files. This follows mise version changes without copying
+generated provider files into the repository.
+
 The audit of the installed development tools found these working providers:
 
 - Carapace covers the common managed tools, including `age`, `atuin`, `bat`,
@@ -22,13 +29,16 @@ The audit of the installed development tools found these working providers:
 - Native Fish generators were checked for `rclone`, `typst`, `starship`, and
   `deno`; Carapace already provides their interactive command completions, so
   no duplicate generated files are tracked.
+- The installed release payload also contains Fish files for `bat`, `fd`,
+  `glow`, `gum`, `ripgrep`, and `zoxide`; their Carapace or existing shell
+  integration already covers them.
 
 Some installed tools do not provide a usable Fish provider and are left
 explicitly unsupported: `opencode` currently emits a Bash-only yargs script
-even when passed `fish`; `yazi`/`ya`, `jjui`, `typstyle`, `xcodegen`,
-`swiftformat`, `swiftlint`, and `sccache` expose neither a working Fish
-generator nor a Carapace spec in this installation. They retain normal
-filename completion where Fish can provide it.
+even when passed `fish`; `jjui`, `typstyle`, `xcodegen`, `swiftformat`,
+`swiftlint`, and `sccache` expose neither a working Fish generator nor a
+Carapace spec in this installation. They retain normal filename completion
+where Fish can provide it.
 
 Validate the integration with:
 
@@ -36,4 +46,6 @@ Validate the integration with:
 fish -n ~/.config/fish/config.fish ~/.config/fish/completions/herdr.fish
 fish -i -c 'complete -C "herdr "'
 fish -i -c 'complete -C "tinymist "'
+fish -i -c 'complete -C "yazi --"'
+fish -i -c 'complete -C "ya "'
 ```
