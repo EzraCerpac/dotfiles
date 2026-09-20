@@ -49,8 +49,13 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
     const result = mise(args);
     if (result.status !== 0) throw new Error(message);
   };
-  const script = (name, args = []) => requireCommand(
-    ['exec', '--', 'bash', path.join(root, name), ...args], `${name} needs attention; rerun after resolving its message`);
+  const scriptResult = (name, args = []) => mise(
+    ['exec', '--', 'bash', path.join(root, name), ...args]);
+  const script = (name, args = []) => {
+    const result = scriptResult(name, args);
+    if (result.status !== 0) throw new Error(`${name} needs attention; rerun after resolving its message`);
+    return result;
+  };
   const role = childEnv.SETUP_PROFILE || readLocal('env.SETUP_PROFILE');
   const machineId = readLocal('env.SETUP_MACHINE_ID') || childEnv.SETUP_MACHINE_ID;
   if (!['workstation', 'nas'].includes(role) || !/^[a-z0-9][a-z0-9-]*$/.test(machineId || '')) {
@@ -118,10 +123,16 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   }
 
   stage('Installer exceptions', () => script('tasks/local/install-exceptions.sh'));
-  if (role === 'workstation') {
+  if (['workstation', 'nas'].includes(role)) {
     stage('Login shell', () => {
-      if (!process.stdin.isTTY) throw new Deferred('Run dots bootstrap in a terminal to select Fish as your login shell');
-      script('tasks/local/shell-select.sh');
+      const result = scriptResult('tasks/local/shell-select.sh');
+      if (result.status === 3) {
+        throw new Deferred('Login shell setup needs administrator approval; rerun dots bootstrap after approving it');
+      }
+      if (result.status !== 0) {
+        throw new Error('tasks/local/shell-select.sh needs attention; rerun after resolving its message');
+      }
+      return 'Fish is selected through native mise bootstrap.user settings';
     });
   }
   if (process.platform === 'darwin') {
