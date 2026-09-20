@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import pty
 import re
 import select
+import shlex
 import shutil
 import signal
 import stat
@@ -18,6 +20,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 ACCOUNT = "EzraCerpac"
@@ -260,12 +263,17 @@ def hub_authenticated() -> bool:
     return False
 
 
-def native_login(history_key: str, password: str) -> None:
+def native_login(history_key: str, password: str, *, browser: bool = False,
+                 resume_command: str = "dots atuin-login") -> None:
     cli = executable("atuin")
+    interactive = sys.stdin.isatty() and sys.stderr.isatty()
+    if browser and not interactive:
+        raise AtuinError(f"Browser login needs a terminal; run {resume_command} --browser", EXIT_DEFERRED)
     pid, master = pty.fork()
     if pid == 0:
         try:
-            os.execve(cli, [cli, "login", "--username", ACCOUNT], clean_env())
+            args = [cli, "login"] if browser else [cli, "login", "--username", ACCOUNT]
+            os.execve(cli, args, clean_env())
         except BaseException:
             os._exit(127)
 
@@ -277,6 +285,8 @@ def native_login(history_key: str, password: str) -> None:
     rejected = False
     pending_error: AtuinError | None = None
     returncode: int | None = None
+    factor_attempts = 0
+    browser_shown = False
 
     def poll_child() -> int | None:
         waited, child_status = os.waitpid(pid, os.WNOHANG)
@@ -329,6 +339,46 @@ def native_login(history_key: str, password: str) -> None:
                 os.write(master, password.encode() + b"\n")
                 sent_password = True
                 transcript.clear()
+            elif "please enter two-factor code" in lower:
+                if not interactive:
+                    deferred = True
+                    stop_child()
+                    break
+                if factor_attempts >= 3:
+                    rejected = True
+                    stop_child()
+                    break
+                # Read the one-time code from the user's controlling terminal,
+                # never from argv/environment or a captured bootstrap log.
+                try:
+                    code = getpass.getpass("Atuin two-factor code: ")
+                except (EOFError, KeyboardInterrupt):
+                    pending_error = AtuinError("Atuin authorization cancelled", EXIT_DEFERRED)
+                    stop_child()
+                    break
+                if not re.fullmatch(r"[0-9]{6,8}", code):
+                    pending_error = AtuinError("Expected a six- or eight-digit two-factor code", EXIT_DEFERRED)
+                    stop_child()
+                    break
+                os.write(master, code.encode() + b"\n")
+                code = ""
+                factor_attempts += 1
+                deadline = time.monotonic() + LOGIN_TIMEOUT
+                transcript.clear()
+            elif browser and "open this url" in lower:
+                # Only expose the native Hub authorization link. Never relay
+                # the PTY transcript: it can contain the echoed history key.
+                candidates = re.findall(r"https://[^\s\x1b<>]+", transcript.decode(errors="ignore"))
+                links = []
+                for candidate in candidates:
+                    parsed = urlsplit(candidate)
+                    if (parsed.netloc == "hub.atuin.sh" and parsed.scheme == "https"
+                            and not any(secret and secret in candidate for secret in (history_key, password))):
+                        links.append(candidate)
+                if links and not browser_shown:
+                    print(f"Sign in as {ACCOUNT} to finish Atuin authorization:\n{links[-1]}", file=sys.stderr, flush=True)
+                    browser_shown = True
+                    deadline = time.monotonic() + 300
             elif any(marker in lower for marker in ("totp", "two-factor", "two factor", "2fa", "open your browser", "open this url", "visit http")):
                 deferred = True
                 stop_child()
@@ -360,12 +410,12 @@ def native_login(history_key: str, password: str) -> None:
     if pending_error:
         raise pending_error
     if deferred:
-        raise AtuinError("Atuin needs a browser or two-factor step; rerun enrollment in a terminal", EXIT_DEFERRED)
+        raise AtuinError(f"Atuin needs a browser or two-factor step; run {resume_command} in a terminal. For Hub browser login, add --browser", EXIT_DEFERRED)
     if rejected:
         raise AtuinError("Atuin rejected the account password or history key", EXIT_AUTH)
     if returncode != 0:
         raise AtuinError("Atuin rejected the account password or history key", EXIT_AUTH)
-    if not sent_key or not sent_password:
+    if not sent_key or (not browser and not sent_password) or (browser and not browser_shown):
         raise AtuinError("Atuin login prompts changed; rerun after updating the enrollment helper", EXIT_DEFERRED)
 
 
@@ -383,7 +433,7 @@ def configure() -> None:
     print("Atuin sync, global search, and AI settings are configured.")
 
 
-def enroll(root: Path, identity: Path | None) -> None:
+def enroll(root: Path, identity: Path | None, *, browser: bool = False) -> None:
     executable("atuin")
     root = root.expanduser()
     bundle_path = root / "encrypted/atuin.json.age"
@@ -396,7 +446,7 @@ def enroll(root: Path, identity: Path | None) -> None:
 
     configure()
 
-    if username == ACCOUNT:
+    if username == ACCOUNT and (not browser or hub_authenticated()):
         try:
             current_key()
         except AtuinError:
@@ -410,7 +460,11 @@ def enroll(root: Path, identity: Path | None) -> None:
         if not expanded_identity.exists() and not expanded_identity.is_symlink():
             raise AtuinError("settings are configured; login deferred because the age identity is missing", EXIT_DEFERRED)
         secrets = decrypt_bundle(bundle_path, identity_path)
-        native_login(secrets["history_key"], secrets["password"])
+        resume_command = "dots atuin-login"
+        if identity:
+            resume_command += f" --identity {shlex.quote(str(identity.expanduser()))}"
+        native_login(secrets["history_key"], secrets["password"], browser=browser,
+                     resume_command=resume_command)
         verified_username, _, verified_state = remote_state()
         if verified_state != "ready" or verified_username != ACCOUNT:
             raise AtuinError("Atuin login did not produce the expected account", EXIT_AUTH)
@@ -464,6 +518,7 @@ def parser() -> argparse.ArgumentParser:
     enroll_parser = commands.add_parser("enroll", help="decrypt the bundle and enroll this machine")
     enroll_parser.add_argument("--root", required=True, type=Path)
     enroll_parser.add_argument("--identity", type=Path)
+    enroll_parser.add_argument("--browser", action="store_true", help="use native Hub browser login, supplying the bundled history key privately")
     commands.add_parser("status", help="print sanitized Atuin readiness")
     bundle_parser = commands.add_parser("bundle", help="encrypt the existing Atuin key and stdin password")
     bundle_parser.add_argument("--output", required=True, type=Path)
@@ -477,7 +532,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "configure":
             configure()
         elif args.command == "enroll":
-            enroll(args.root, args.identity)
+            enroll(args.root, args.identity, browser=args.browser)
         elif args.command == "status":
             status()
         elif args.command == "bundle":

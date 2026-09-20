@@ -28,7 +28,7 @@ const run = (command, args, options) => {
   return {status:0, stdout:''};
 };
 const result = complete({root:process.env.TEST_ROOT,home:process.env.HOME,miseBin:'/fixture/mise',env:process.env,run});
-console.log('RESULT_JSON='+JSON.stringify({result,calls}));
+console.log('RESULT_JSON='+JSON.stringify({result,calls,identity: process.env.SETUP_AGE_IDENTITY}));
 '''
 
 
@@ -62,8 +62,11 @@ class CompleteTests(unittest.TestCase):
         restore = next(i for i,c in enumerate(calls) if 'tasks/setup/restore' in c)
         enroll = next(i for i,c in enumerate(calls) if 'tasks/bootstrap/enroll-history' in c)
         services = next(i for i,c in enumerate(calls) if 'bootstrap services apply' in c)
+        atuin = next(c for c in data['calls'] if 'tasks/bootstrap/atuin.py' in ' '.join(c['args']))
         self.assertLess(restore, enroll)
         self.assertLess(enroll, services)
+        self.assertIn('--identity', atuin['args'])
+        self.assertEqual(atuin['args'][atuin['args'].index('--identity') + 1], data['identity'])
         self.assertFalse(any('dot sync' in c or 'dotfiles sync' in c for c in calls))
         self.assertEqual(data['result'], 0)
         self.assertEqual(report['stages'][-1]['status'], 'deferred')

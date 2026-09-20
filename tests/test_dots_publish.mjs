@@ -113,6 +113,30 @@ test('default publication previews main@origin, prompts for an undescribed chang
   } finally { cleanup(fixture); }
 });
 
+test('default publication rejects an empty child above main@origin before prompting or mutating JJ', () => {
+  const fixture = setupRepository({ stack: 0 });
+  try {
+    const before = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim();
+    let confirmed = false;
+    let prompted = false;
+    const state = publisher(fixture, {
+      confirm: () => { confirmed = true; return true; },
+      descriptionPrompt: () => { prompted = true; return 'Should not publish'; },
+    });
+    assert.throws(() => publish(state.options), /no actual file changes above main@origin/);
+    assert.equal(fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim(), before);
+    assert.equal(fixture.jj('log', '--no-graph', '-r', '@', '-T', 'description').trim(), '');
+    assert(!confirmed);
+    assert(!prompted);
+    assert(!hasCall(state.calls, 'jj', 'describe'));
+    assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
+    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+    assert(!hasCall(state.calls, 'gh', 'list'));
+    assert(!hasCall(state.calls, 'gh', 'create'));
+    assert(!hasCall(state.calls, 'gh', 'edit'));
+  } finally { cleanup(fixture); }
+});
+
 test('default publication refuses a private stack above main@origin', () => {
   const fixture = setupRepository({ stack: 2 });
   try {

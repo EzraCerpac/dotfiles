@@ -11,8 +11,9 @@ class SharedBaseTests(unittest.TestCase):
     def test_everyday_tools_and_editor_are_shared_without_compiler(self):
         base = tomllib.loads((ROOT/'config.toml').read_text())
         tools = base['tools']
-        expected = {'age','atuin','bat','carapace','delta','fd','fzf','gh','jj','jq','ripgrep','starship','tmux','zoxide','aqua:neovim/neovim','aqua:modem-dev/hunk','vfox:jdx/vfox-eza'}
+        expected = {'age','atuin','bat','carapace','delta','fd','fzf','gh','jj','jq','ripgrep','starship','tmux','uv','zoxide','aqua:neovim/neovim','aqua:modem-dev/hunk','vfox:jdx/vfox-eza'}
         self.assertTrue(expected <= tools.keys())
+        self.assertEqual(tools['uv'], {'version': 'latest', 'os': ['macos/arm64', 'macos/x64', 'linux/x64', 'linux/arm64']})
         self.assertNotIn('rust', tools)
         self.assertFalse(any(key.startswith('cargo:') for key in tools))
         for role in ('workstation','nas'):
