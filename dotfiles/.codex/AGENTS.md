@@ -36,13 +36,4 @@ discussion posts—begin the message with exactly this disclosure:
 > [!NOTE]
 > **<model>** is writing on behalf of Ezra.
 
-In Code Mode, when current-stage checks are already known to be independent,
-read-only, and conflict-free, batch them in one exec and run them concurrently.
-Use Promise.allSettled when useful partial results should be preserved and inspect
-every result; use Promise.all only when any failure should abort the batch. Keep
-dependent, state-changing, approval-sensitive, adaptive, and waiting operations
-serial.
-Do not poll a running process at short fixed intervals; use a wait window
-appropriate to its expected duration. Do not repeat completed checks unless
-relevant state has changed or explicit re-verification is needed. Do not expand
-task or verification scope merely because additional checks can be batched.
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
