@@ -6,7 +6,7 @@ workstation	typ2docx
 workstation	mlx-vlm
 workstation	vendor-apps
 workstation	zoom
-base	karabiner-elements
+workstation	karabiner-elements
 workstation	tailscale-app
 workstation	tailscale-linux
 workstation	font-sf-pro
@@ -20,6 +20,6 @@ workstation	antinote
 workstation	omnidisksweeper
 base	hunk
 base	intel-brew-basics
-base	kanata
+workstation	kanata
 nas	nas-neovim-source
 nas	nas-modern-git

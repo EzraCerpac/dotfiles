@@ -5,6 +5,14 @@ set -euo pipefail
 source "$(dirname "$0")/../lib/setup-common.sh"
 setup_init || exit $?
 
+# The NAS profile does not own Herdr. Upgrade its declared mise tools without
+# trying to replace a Herdr server started by another installation.
+if [[ "$SETUP_PROFILE" == nas ]]; then
+    setup_mise upgrade --no-prune
+    printf 'Herdr live handoff skipped for the NAS profile.\n'
+    exit 0
+fi
+
 herdr_server_pattern='(^|/)herdr server( |$)'
 server_running=0
 
