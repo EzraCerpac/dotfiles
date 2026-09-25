@@ -33,9 +33,9 @@ class SetupTaskTests(unittest.TestCase):
             self.bin / "mise",
             """#!/usr/bin/env bash
 set -u
-printf 'CALL' >> "$MISE_LOG"
-printf '\\t%s' "$@" >> "$MISE_LOG"
-printf '\\n' >> "$MISE_LOG"
+call='CALL'
+for arg in "$@"; do call+=$'\\t'"$arg"; done
+printf '%s\\n' "$call" >> "$MISE_LOG"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -C|-E|--cd|--env) shift 2 ;;
@@ -121,6 +121,31 @@ if [[ "${1:-}" == "bootstrap" && "${2:-}" == "dotfiles" && "${3:-}" == "paths" ]
         printf '%s' "${SETUP_HISTORY_PATHS:-}"
     fi
     exit 0
+fi
+if [[ "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "status" && "${4:-}" == "--json" ]]; then
+    [[ "${FAIL_CASK_STATUS:-0}" != 1 ]] || exit 46
+    printf '%s' "$MISE_CASK_STATUS_JSON"
+    exit 0
+fi
+if [[ "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "apply" && "${5:-}" == "mas" && -n "${MAS_START_MARKER:-}" ]]; then
+    touch "$MAS_START_MARKER"
+    for ((i = 0; i < 100; i++)); do
+        [[ -e "$CASK_START_MARKER" && -e "$TOOLS_START_MARKER" ]] && break
+        sleep 0.01
+    done
+    [[ -e "$CASK_START_MARKER" && -e "$TOOLS_START_MARKER" ]] || exit 47
+    touch "$MAS_FINISH_MARKER"
+fi
+if [[ "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "apply" && "${5:-}" == "brew-cask" && -n "${MAS_START_MARKER:-}" ]]; then
+    for ((i = 0; i < 30; i++)); do
+        [[ -e "$MAS_START_MARKER" ]] && break
+        sleep 0.01
+    done
+    [[ -e "$MAS_START_MARKER" && ! -e "$MAS_FINISH_MARKER" ]] || exit 48
+    touch "$CASK_START_MARKER"
+fi
+if [[ "${1:-}" == "install" && -n "${TOOLS_START_MARKER:-}" ]]; then
+    touch "$TOOLS_START_MARKER"
 fi
 exit 0
 """,
@@ -208,6 +233,18 @@ exit 91
                 "HOME": str(self.base / "home"),
                 "XDG_DATA_HOME": str(self.base / "home/.local/share"),
                 "MISE_STATE_DIR": str(self.base / "state/mise"),
+                "MISE_CASK_STATUS_JSON": json.dumps(
+                    {
+                        "brew": {"packages": [
+                            {"package": "mas", "state": "installed"},
+                            {"package": "fish", "state": "installed"},
+                        ]},
+                        "brew-cask": {"packages": [
+                            {"package": "rustdesk", "state": "installed"},
+                            {"package": "google-chrome", "state": "installed", "auto_updates": True},
+                        ]},
+                    }
+                ),
             }
         )
         Path(self.env["HOME"]).mkdir()
@@ -390,7 +427,7 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
     def test_macos_aggregate_status_uses_selected_mise_ruby_without_leaking_path(self) -> None:
         platform_bin = self.base / "darwin-bin"
         platform_bin.mkdir()
-        self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\nprintf 'Darwin\\n'\n")
+        self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
         ruby_bin = self.base / "selected-ruby/bin"
         ruby_bin.mkdir(parents=True)
         ruby_path = ruby_bin / "ruby"
@@ -845,11 +882,51 @@ esac
         self.assertEqual(sudo_log.read_text(), "-n true\n")
 
         commands = [call[4:] for call in self._calls()]
-        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes"], commands)
-        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew-cask", "--yes"], commands)
+        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:mas"], commands)
+        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:fish"], commands)
+        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew-cask", "--yes", "brew-cask:rustdesk"], commands)
+        self.assertFalse(any("brew-cask:google-chrome" in command for command in commands))
         self.assertNotIn(["bootstrap", "packages", "upgrade", "--manager", "mas", "--yes"], commands)
         self.assertIn(["upgrade", "--no-prune"], commands)
         self.assertIn(["self-update", "--yes"], commands)
+
+    def test_mas_overlaps_formula_cask_and_tool_stages(self) -> None:
+        platform_bin = self.base / "macos-update-bin"
+        platform_bin.mkdir()
+        self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        self._write_executable(platform_bin / "sudo", "#!/usr/bin/env bash\nexit 0\n")
+        result = self._run("update", extra_env={
+            "PATH": f"{platform_bin}{os.pathsep}{self.env['PATH']}",
+            "MAS_START_MARKER": str(self.base / "mas-started"),
+            "MAS_FINISH_MARKER": str(self.base / "mas-finished"),
+            "CASK_START_MARKER": str(self.base / "cask-started"),
+            "TOOLS_START_MARKER": str(self.base / "tools-started"),
+        })
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.base / "mas-finished").exists())
+        self.assertIn("Waiting for Mac App Store updates", result.stdout)
+
+    def test_cask_upgrade_skips_empty_selection_and_fails_closed_on_bad_status(self) -> None:
+        platform_bin = self.base / "macos-update-bin"
+        platform_bin.mkdir()
+        self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        path = f"{platform_bin}{os.pathsep}{self.env['PATH']}"
+        auto_only = json.dumps({
+            "brew": {"packages": [{"package": "mas", "state": "installed"}]},
+            "brew-cask": {"packages": [
+                {"package": "google-chrome", "state": "installed", "auto_updates": True},
+            ]},
+        })
+        result = self._run("update", extra_env={"PATH": path, "MISE_CASK_STATUS_JSON": auto_only})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("No ordinary Homebrew casks", result.stdout)
+        self.assertFalse(any(call[4:7] == ["bootstrap", "packages", "upgrade"] and "brew-cask" in call for call in self._calls()))
+
+        self.log.unlink()
+        result = self._run("update", extra_env={"PATH": path, "MISE_CASK_STATUS_JSON": "{bad json"})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Homebrew casks", result.stdout)
+        self.assertFalse(any(call[4:7] == ["bootstrap", "packages", "upgrade"] and "brew-cask" in call for call in self._calls()))
 
     def test_update_runs_only_named_exception_script(self) -> None:
         exception = self.root / "tasks/setup/exceptions/herdr-npm"
@@ -864,23 +941,28 @@ esac
         self.assertEqual(len(exception_calls), 1)
         self.assertIn(str(exception.resolve()), exception_calls[0])
 
-    def test_auto_update_cask_exceptions_use_named_greedy_only(self) -> None:
+    def test_self_updating_cask_exceptions_are_install_only_during_update(self) -> None:
         brew_log, _, _ = self._prepare_brew_exceptions(
-            outdated="zoom karabiner-elements tailscale-app font-sf-pro",
+            installed="zoom karabiner-elements tailscale-app font-sf-pro antinote omnidisksweeper",
+            outdated="zoom karabiner-elements tailscale-app font-sf-pro antinote omnidisksweeper",
         )
         (self.root / "tasks/setup/exceptions.tsv").write_text(
             "workstation\tzoom\n"
             "workstation\tkarabiner-elements\n"
             "workstation\ttailscale-app\n"
             "workstation\tfont-sf-pro\n"
+            "workstation\tantinote\n"
+            "workstation\tomnidisksweeper\n"
         )
 
         result = self._run("update")
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
-        for token in ("zoom", "tailscale-app", "font-sf-pro"):
-            self.assertIn(["outdated", "--cask", "--greedy", "--quiet", token], calls)
-            self.assertIn(["upgrade", "--cask", "--greedy", token], calls)
+        for token in ("zoom", "tailscale-app", "antinote", "omnidisksweeper"):
+            self.assertIn(["list", "--cask", token], calls)
+            self.assertFalse(any(call[0] in {"outdated", "upgrade"} and call[-1] == token for call in calls))
+        self.assertIn(["outdated", "--cask", "--greedy", "--quiet", "font-sf-pro"], calls)
+        self.assertIn(["upgrade", "--cask", "--greedy", "font-sf-pro"], calls)
         self.assertFalse(any("--zap" in call or "--prune" in call for call in calls))
 
         refused = subprocess.run(
@@ -1003,6 +1085,37 @@ esac
         )
         self.assertEqual(refused.returncode, 2)
         self.assertIn("Refusing unlisted Homebrew formula exception", refused.stderr)
+
+    def test_intel_nas_btop_installs_when_missing_and_skips_when_present(self) -> None:
+        brew_log, _, _ = self._prepare_brew_exceptions(installed="fish git")
+        self._write_executable(
+            self.bin / "uname",
+            "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'x86_64\\n' || printf 'Darwin\\n'\n",
+        )
+        script = self.root / "tasks/setup/exceptions/intel-brew-basics"
+        env = dict(self.env, SETUP_PROFILE="nas")
+        result = subprocess.run([str(script)], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
+        self.assertIn(["install", "--formula", "btop"], calls)
+
+        brew_log.write_text("")
+        env["BREW_INSTALLED"] = "fish git btop"
+        result = subprocess.run([str(script), "--install-only"], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
+        self.assertIn(["list", "--formula", "btop"], calls)
+        self.assertFalse(any(call[0] in {"install", "outdated", "upgrade"} for call in calls))
+
+        brew_log.write_text("")
+        result = subprocess.run(
+            [str(script), "--install-only"],
+            env=dict(env, SETUP_PROFILE="workstation", BREW_INSTALLED="fish git"),
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("btop", brew_log.read_text())
 
     def test_brew_cask_exceptions_defer_busy_or_unauthorized_installs(self) -> None:
         brew_log, sudo_log, _ = self._prepare_brew_exceptions(
@@ -1153,7 +1266,7 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(
             any(
-                call[-6:] == ["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes"]
+                call[-7:] == ["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:mas"]
                 for call in self._calls()
             ),
             self._calls(),

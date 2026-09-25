@@ -24,11 +24,6 @@ python = [
 ]
 pnpm = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
-# Installed coding CLIs use their preferred mise registry backends.
-"aqua:anthropics/claude-code" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-grok = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-"aqua:google-antigravity/antigravity-cli" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-
 # Portable release-backed tools. `delta` is the command name; Homebrew calls
 # its formula `git-delta`.
 btop = { version = "latest", os = ["linux/x64", "linux/arm64"] }
@@ -40,7 +35,6 @@ btop = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 "cargo:https://github.com/typst/package-check" = { version = "rev:d1bd0af255d688ce568be3c254efbdb002dc247a", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"] }
 "cargo:cargo-audit" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"] }
 "aqua:Kitware/CMake" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-"copilot-cli" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "core:deno" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "git-lfs" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -64,14 +58,13 @@ worktrunk = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64
 xcodegen = { version = "latest", os = ["macos/arm64"] }
 yazi = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-"github:openclaw/remindctl" = { version = "latest", os = ["macos/arm64"] }
 
-# Global npm CLIs currently installed with npm -g. portless is a local
-# checkout symlink and stays owned by its project instead.
-"npm:@earendil-works/pi-coding-agent" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-"npm:@openai/codex" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+# Global npm CLIs. portless is a local checkout symlink and stays owned by
+# its project; the Codex CLI uses the native base-profile `codex` tool.
 "npm:@zed-industries/codex-acp" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "npm:agent-browser" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+# Requested upstream package; its repository and registry metadata were checked.
+"npm:@lakeday/perch" = { version = "latest", allow_low_downloads = true, os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
 # No pipx tools are declared; the former UV CLIs were removed as unwanted.
 "github:PyO3/maturin" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], filter_bins = "maturin" }
@@ -83,6 +76,7 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # Native packages stay in the Homebrew prefix. Every item is Mac-only, so a
 # Linux workstation never inherits Mac system integration or GUI packages.
 [bootstrap.packages]
+"brew:terminal-notifier" = { os = "macos/arm64" }
 "apt:git" = { os = ["linux/x64", "linux/arm64"] }
 "dnf:git" = { os = ["linux/x64", "linux/arm64"] }
 "pacman:git" = { os = ["linux/x64", "linux/arm64"] }
@@ -90,14 +84,8 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew:btop" = { os = "macos/arm64" }
 # Existing unmanaged bundles: native adoption keeps matching live apps in place.
 # Antinote adoption waits for explicit installer licence consent; see vendor-apps.tsv.
-"brew-cask:blender" = { os = "macos/arm64", adopt = true }
 "brew-cask:cotypist" = { os = "macos/arm64", adopt = true }
-"brew-cask:crossover" = { os = "macos/arm64", adopt = true }
 "brew-cask:google-chrome" = { os = "macos/arm64", adopt = true }
-"brew-cask:grammarly-desktop" = { os = "macos/arm64", adopt = true }
-"brew-cask:raycast-glaze" = { os = "macos/arm64", adopt = true }
-"brew-cask:helium-browser" = { os = "macos/arm64", adopt = true }
-"brew-cask:megasync" = { os = "macos/arm64", adopt = true }
 "brew-cask:mathpix-snipping-tool" = { os = "macos/arm64", adopt = true }
 # OmniDiskSweeper adoption waits for explicit installer licence consent.
 "brew-cask:orion" = { os = "macos/arm64", adopt = true }
@@ -108,7 +96,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:steam" = { os = "macos/arm64", adopt = true }
 "brew-cask:t3-code@nightly" = { os = "macos/arm64", adopt = true }
 "brew-cask:transmission" = { os = "macos/arm64", adopt = true }
-"brew-cask:wispr-flow" = { os = "macos/arm64", adopt = true }
 # App Store receipts remain owned by the Mac App Store; use mas by numeric ID.
 "brew:mas" = { os = "macos/arm64" }
 "mas:640199958" = { os = "macos/arm64" } # Apple Developer
@@ -201,7 +188,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # Cask declarations describe the desired owner only. Live transfer still
 # requires the coordinated app-by-app procedure in docs/software-ownership.md.
 "brew-cask:codexbar" = { os = "macos/arm64" }
-"brew-cask:fujacob/cotabby/cotabby" = { os = "macos/arm64" }
 "brew-cask:crisp" = { os = "macos/arm64" }
 "brew-cask:font-fira-code-nerd-font" = { os = "macos/arm64" }
 "brew-cask:font-hack-nerd-font" = { os = "macos/arm64" }
@@ -209,7 +195,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:hammerspoon" = { os = "macos/arm64" }
 "brew-cask:homerow" = { os = "macos/arm64" }
 "brew-cask:jabref" = { os = "macos/arm64" }
-"brew-cask:mattermost" = { os = "macos/arm64" }
 "brew-cask:middleclick" = { os = "macos/arm64" }
 "brew-cask:orbstack" = { os = "macos/arm64" }
 "brew-cask:raycast" = { os = "macos/arm64" }
@@ -225,6 +210,8 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # No ref: bootstrap clones missing sources and leaves existing revisions alone.
 [bootstrap.repos]
 "~/Projects/jj-waltz" = { url = "https://github.com/EzraCerpac/jj-waltz.git" }
+"~/Projects/Tools/sift" = { url = "https://github.com/tylergibbs1/sift.git" }
+"~/Projects/Tools/unclutter" = { url = "https://github.com/kitze/unclutter.git" }
 
 [bootstrap.brew.taps]
 "acsandmann/tap" = "https://github.com/acsandmann/homebrew-tap"
@@ -232,7 +219,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "dastrobu/tap" = "https://github.com/dastrobu/homebrew-tap"
 "ezracerpac/tap" = "https://github.com/EzraCerpac/homebrew-tap"
 "felixkratz/formulae" = "https://github.com/felixkratz/homebrew-formulae"
-"fujacob/cotabby" = "https://github.com/FuJacob/homebrew-cotabby"
 "jundot/omlx" = "https://github.com/jundot/omlx"
 "manaflow-ai/cmux" = "https://github.com/manaflow-ai/homebrew-cmux"
 "nikitabobko/tap" = "https://github.com/nikitabobko/homebrew-tap"
@@ -281,6 +267,8 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 [dotfiles]
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py" = { source = "dotfiles/.codex/skills/audio-diarization/scripts/transcribe_diarize.py", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }

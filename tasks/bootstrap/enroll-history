@@ -116,7 +116,6 @@ if [[ "$SETUP_PROFILE" == workstation ]]; then
         '~/.config/goose/config.yaml'
         '~/.wakatime.cfg'
         '~/.config/himalaya/config.toml'
-        '~/.pi/agent/settings.json'
     )
 elif [[ "$SETUP_PROFILE" == nas ]]; then
     files=('~/.codex/config.toml' '~/.config/fish/fish_variables' '~/.config/atuin/config.toml' '~/.config/nvim/lazyvim.json' '~/.config/nvim/lazy-lock.json' '~/.config/nvim/spell/en.utf-8.add')

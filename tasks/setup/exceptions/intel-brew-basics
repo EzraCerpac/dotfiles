@@ -3,8 +3,8 @@ set -euo pipefail
 source "$(dirname "$0")/../../lib/brew-exception.sh"
 
 # Intel macOS only: mise's brew bootstrap backend skips darwin/amd64
-# (upstream jdx/mise#10968), so these base formulae need an explicit owner
-# there. Other hosts get them through [bootstrap.packages] or not at all.
+# (upstream jdx/mise#10968), so these formulae need an explicit owner there.
+# btop belongs to NAS hosts only; other hosts get their declared packages.
 if [[ "$(uname -s)" != Darwin || "$(uname -m)" != x86_64 ]]; then
     printf 'Deferred: intel-brew-basics applies to Intel macOS only.\n'
     exit 0
@@ -15,6 +15,9 @@ brew_bin="$(find_real_brew)" || {
     exit 1
 }
 
-for formula in fish git diffnav; do
+for formula in fish git; do
     update_brew_formula_exception "$formula" "${1:-}"
 done
+if [[ "${SETUP_PROFILE:-}" == nas ]]; then
+    update_brew_formula_exception btop "${1:-}"
+fi

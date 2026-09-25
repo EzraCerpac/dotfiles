@@ -6,22 +6,22 @@ registry metadata, and limited project README/package metadata for two local
 executables. It did not read credentials or print environment values, and made
 no system changes.
 
-## Native mise owners added
+## Tools formerly managed by mise
 
-These installed developer CLIs now have explicit Aqua owners in
-`config.workstation.toml`. All three are limited to the workstation matrix:
-macOS arm64, Linux x64, and Linux arm64. Their Aqua registry definitions are
-linked below for review.
+At the time of this audit, these installed developer CLIs had explicit Aqua
+owners in `config.workstation.toml`. Their package declarations and executable
+installs have since been removed. The recorded locations and registry details
+below are historical audit evidence, not current binaries or management
+declarations.
 
-| Installed command | Current location | Mise owner |
+| Installed command | Location recorded during audit | Former mise owner |
 | --- | --- | --- |
 | `claude` | `~/.local/bin/claude` → `~/.local/share/claude/versions/2.1.233` | `aqua:anthropics/claude-code`; registry supports Darwin and Linux. [Registry definition](https://raw.githubusercontent.com/aquaproj/aqua-registry/main/pkgs/anthropics/claude-code/registry.yaml) |
 | `grok`, `agent` | `~/.local/bin/grok` and `~/.local/bin/agent` → Grok's bundled release under `~/.grok` | `aqua:x.ai/cli/grok`; the package definition exports both names and maps macOS/architecture asset names. [Registry definition](https://raw.githubusercontent.com/aquaproj/aqua-registry/main/pkgs/x.ai/cli/grok/registry.yaml) |
 | `agy` | `~/.local/bin/agy` (standalone macOS arm64 executable) | `aqua:google-antigravity/antigravity-cli`; release assets use OS/architecture names. [Registry definition](https://raw.githubusercontent.com/aquaproj/aqua-registry/main/pkgs/google-antigravity/antigravity-cli/registry.yaml) |
 
-The Grok registry package declares both executables, so one mise tool entry
-owns both `grok` and `agent`. The existing vendor directory may still contain
-application state; package ownership transfer should preserve it.
+The Grok registry package declared both executables, so one mise tool entry
+owned both `grok` and `agent`. Both recorded executables were later uninstalled.
 
 ## Already accounted for
 

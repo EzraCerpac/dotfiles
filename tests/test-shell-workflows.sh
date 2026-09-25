@@ -43,13 +43,13 @@ fi
 printf 'rendered diff\n'
 EOF
 
-cat >"${FAKE_BIN}/diffnav" <<'EOF'
+cat >"${FAKE_BIN}/hunk" <<'EOF'
 #!/usr/bin/env bash
 input="$(cat)"
-printf 'diffnav <%s>' "$input" >>"${CALLS}"
+printf 'hunk <%s>' "$input" >>"${CALLS}"
 printf ' <%s>' "$@" >>"${CALLS}"
 printf '\n' >>"${CALLS}"
-exit "${DIFFNAV_FAIL:-0}"
+exit "${HUNK_FAIL:-0}"
 EOF
 
 cat >"${FAKE_BIN}/git" <<'EOF'
@@ -110,7 +110,7 @@ assert_calls() {
 reset_case() {
     : >"${CALLS}"
     : >"${FZF_QUEUE}"
-    unset DIFFNAV_FAIL FZF_CANCEL GH_FAIL GIT_FAIL GITLOGUE_FAIL WT_FAIL
+    unset HUNK_FAIL FZF_CANCEL GH_FAIL GIT_FAIL GITLOGUE_FAIL WT_FAIL
 }
 
 run_worktree_opencode() {
@@ -158,7 +158,7 @@ set -e
 
 reset_case
 run_prdiff_review 42 --color=always
-assert_calls $'gh <pr> <diff> <42> <--color=always>\ndiffnav <rendered diff> <--side-by-side>'
+assert_calls $'gh <pr> <diff> <42> <--color=always>\nhunk <rendered diff> <patch>'
 
 reset_case
 export GH_FAIL=7
@@ -169,7 +169,7 @@ set -e
 [[ ${status} -eq 7 ]] || fail "prdiff-review returned ${status}, expected 7"
 
 reset_case
-export DIFFNAV_FAIL=6
+export HUNK_FAIL=6
 set +e
 run_prdiff_review 42
 status=$?

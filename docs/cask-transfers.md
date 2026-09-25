@@ -16,6 +16,11 @@ and no service, package, configuration, receipt, or Homebrew tap had been
 changed for this inventory. A filtered copy of the metadata is in the private scratch file
 `~/.local/state/mise-migration/work/casks/cask-artifacts.tsv`.
 
+After this snapshot, the planned Copilot CLI transfer to mise was canceled.
+The `copilot-cli` cask and CLI were removed from package configuration and the
+Mac, so no ownership transfer to Aqua occurred. The Copilot entries below are
+historical inventory and planning details.
+
 A private recovery snapshot is now prepared at
 `~/.local/state/mise-migration/work/casks/cask-backups-20260914/`. It contains
 the 22 candidate caskroom trees and receipts, installed app bundles, selected
@@ -92,9 +97,9 @@ for current status.
    `~/Library/Fonts` and have no app processes or custom uninstall hooks.
 2. Transfer `battery`, `cotabby`, `copilot-cli`, `jabref`, `mattermost`, and
    `warp` one by one. `font-sf-pro` is parser-compatible but is a licensed
-   Apple pkg; keep its account/license source available. `copilot-cli` is slated
-   for mise Aqua ownership rather than `brew-cask`; check the CLI identity
-   before removing the cask.
+   Apple pkg; keep its account/license source available. The proposed
+   `copilot-cli` Aqua transfer was later canceled; its cask and CLI were
+   removed from package configuration and the Mac.
 3. Schedule `codexbar`, `crisp`, `hammerspoon`, `homerow`, `middleclick`,
    `raycast`, and `wezterm` only after their running processes can be closed
    safely. At the inventory snapshot these apps were running. Keep terminal
@@ -128,7 +133,7 @@ Do not copy large model or VM stores unless a measured backup plan calls for it.
 | `battery` 1.4.0 | `/Applications/battery.app`; app may install `/usr/local/bin/smc` on first use. `auto_updates: true`. | Uninstall explicitly deletes `/usr/local/bin/smc`. Candidate data: `~/.battery`, `~/Library/Application Support/battery`, and `~/Library/Preferences/{co.palokaj.battery,org.mentor.Battery}.plist`. |
 | `brooklyn` 2.1.0 | `~/Library/Screen Savers/Brooklyn.saver`; `screen_saver` artifact. | Not supported by the v2026.9.7 cask parser. Keep Brew ownership. `zap` would remove the saver file. |
 | `codexbar` 0.55.1 | `/Applications/CodexBar.app`; CLI `/opt/homebrew/bin/codexbar`. | Running. Uninstall has `quit`. Candidate data: `~/.codexbar`, `~/Library/Application Support/CodexBar`, `~/Library/Application Support/com.steipete.codexbar`, and `~/Library/Preferences/com.steipete.codexbar.plist`. |
-| `copilot-cli` 1.0.41 | Binary `/opt/homebrew/bin/copilot`; generated shell completions; `auto_updates: true`. | No cask `zap` state. Intended destination is mise Aqua; verify the Aqua package is the same CLI before removing this cask. |
+| `copilot-cli` 1.0.41 | At audit, binary `/opt/homebrew/bin/copilot`; generated shell completions; `auto_updates: true`. | No cask `zap` state. The proposed Aqua destination was not used; the cask and CLI were later removed from package configuration and the Mac. |
 | `crisp` 1.5.0 | `/Applications/Crisp.app`; helper CLI `/opt/homebrew/bin/crispctl`; `auto_updates: true`. | Running. Uninstall quits Crisp and removes its login item. Candidate data: `~/Library/Application Support/Crisp`, `~/Library/Preferences/com.crisp.app.plist`. |
 | `cotabby` 0.6.2-beta | `/Applications/Cotabby.app`; tap `fujacob/cotabby`. | No declared `zap` or custom uninstall hook. Add its GitHub tap source to mise before a later transfer. |
 | `font-fira-code-nerd-font` 3.4.0 | Font files under `~/Library/Fonts/FiraCodeNerdFont*.ttf`, `FiraCodeNerdFontMono*.ttf`, and `FiraCodeNerdFontPropo*.ttf`. | Font-only; files are reproducible and no personal app state is listed. |

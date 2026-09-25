@@ -25,7 +25,6 @@ seed_file() {
 seed_file .codex/config.toml
 seed_file .config/nvim/lazyvim.json
 if [[ "$SETUP_PROFILE" == workstation ]]; then
-    seed_file .pi/agent/settings.json
     if [[ "$(uname -s)" == Darwin ]]; then
         seed_file .config/aegis/config.json
         seed_file .config/karabiner/karabiner.json

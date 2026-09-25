@@ -4,7 +4,7 @@ Offer useful suggestions. If have a good idea, stop and tell Ezra. Even if he gi
 
 Before saying done, run the smallest check that matches the task's risk and the user's actual success criterion. Normal tests or direct inspection are enough unless the task changes a browser UI, physical device, deployed service, performance claim, or other boundary the user will rely on. Do not add evidence packages, provenance tracking, receipts, digests, independent review, fresh replications, or extra acceptance gates unless the user requests them or they are necessary for publication, deployment, security, destructive work, or scientific claims being promoted as final evidence. Report material checks that remain open.
 
-Use jj for history and jw for JJ workspace lifecycle. Read the jj-waltz skill for workspace work and Codex checkout routing. Prefer JJ workspaces for isolated agent work; a Codex-owned Git worktree is not a JJ workspace. Use `jw context` to inspect identity before routing. Run every command in the selected workspace explicitly. Changing a shell directory does not retarget Codex's native Git panels; when they show another checkout, report the actual JJ workspace and use JJ output for task status.
+Use jj for history and jw for JJ workspace lifecycle. Read the jj-waltz skill for workspace work and Codex checkout routing. Prefer JJ workspaces for isolated agent work; a Codex-owned Git worktree is not a JJ workspace. Use `jw context` to inspect identity before routing. Run every command in the selected workspace explicitly. Changing a shell directory does not retarget Codex's native Git panels; when they show another checkout, report the actual JJ workspace and use JJ output for task status. Make sure to clean up workspaces and bookmarks!
 
 Make short, one-line commits. Describe a change before creating children. Squash incremental private work and rebase private task commits when that clarifies the stack; prefer merges for shared history. Serialize history-changing commands within a repository, including across workspaces. Move only the task's bookmark to the completed, described change, then leave the working copy on an empty child. Never move main as task cleanup. Preserve unrelated bookmarks and externally owned worktrees; clean up only task-owned resources when appropriate. Push only to GitHub within the user's authorized publishing scope. Use `gh stack` only for actual stacked PR work after checking checkout compatibility.
 
@@ -12,7 +12,7 @@ During authorized coding work, agents may recover inspected pre-existing mutable
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
-Use subagents for well-scoped work that can be parallelized. Keep planning, architectural decisions, integration, and final review in the main thread. Prefer several narrowly scoped Luna agents over doing straightforward implementation or exploration yourself. Run independent tasks in parallel where possible. Luna is extremely cheap and should be used aggressively as "leaf" agents. For more complex tasks, Astra/Sol/Terra can be used. Instruct it to use it's own Luna leaf agents in that scenario. Tell subagents to report back concisely, caveman-mode. For big standalone tasks, spawn a new thread with Astra (probably light/medium reasoning is sufficient and always: `"environment": { "type": "local" }`). Also only use Astra for academic writing or do it yourself.
+Use gpt-6 subagents for well-scoped work that can be parallelized. Keep planning, architectural decisions, integration, and final review in the main thread. Prefer several narrowly scoped Luna agents over doing straightforward implementation or exploration yourself. Run independent tasks in parallel where possible. Luna is extremely cheap and should be used aggressively as "leaf" agents (use thirty if you want; it's practically free). For more complex tasks, Astra/Sol can be used. Instruct it to use it's own Luna leaf agents in that scenario. Tell subagents to report back concisely, caveman-mode. For big standalone tasks, spawn a new thread with Astra/Sol (always: `"environment": { "type": "local" }`). Also only use Astra/Sol for academic writing or do it yourself. Feel free to diverge, but use gpt-6-luna around xhigh, gpt-6-sol around high, and gpt-6-astra around light reasoning modes.
 
 AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
@@ -28,6 +28,8 @@ Backwards compatibility never main concern, prefer simplicity and overall best d
 
 For file and directory discovery, prefer fd over find.
 
+Prefer using the in-app browser over external browsers.
+
 When sending a question, make sure to wait for a response before completing your turn or the question disappears.
 
 Whenever you write user-facing prose on GitHub on Ezra's behalf—including
@@ -36,13 +38,4 @@ discussion posts—begin the message with exactly this disclosure:
 > [!NOTE]
 > **<model>** is writing on behalf of Ezra.
 
-In Code Mode, when current-stage checks are already known to be independent,
-read-only, and conflict-free, batch them in one exec and run them concurrently.
-Use Promise.allSettled when useful partial results should be preserved and inspect
-every result; use Promise.all only when any failure should abort the batch. Keep
-dependent, state-changing, approval-sensitive, adaptive, and waiting operations
-serial.
-Do not poll a running process at short fixed intervals; use a wait window
-appropriate to its expected duration. Do not repeat completed checks unless
-relevant state has changed or explicit re-verification is needed. Do not expand
-task or verification scope merely because additional checks can be batched.
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.

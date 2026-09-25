@@ -263,13 +263,14 @@ migration backups remain available; see [migration and rollback](docs/migration.
 
 Review defaults:
 
-- `git diff` opens in `diffnav --side-by-side`
+- `git diff` opens through the shared `hunk pager`
 - `git show` and embedded diff views use `delta --side-by-side --paging=never`
+- In `jjui`, `\ h` compares exactly two checked revisions, lower graph row → upper row. With nothing checked, the first menu option compares the highlighted revision with its parent. With zero or one checked, the menu also lets you set, compare, or clear a session-only base; more than two shows an error. Normal `d` reviews the highlighted revision.
 - `wt` is declared in the workstation profile and initialized in fish
 - `jw` is built from the local `~/Projects/jj-waltz` checkout and shell-initialized in fish and zsh
 - `jj-waltz` skill content is linked from this source checkout to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
 - `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
-- `prdiff [pr]` opens `gh pr diff` output in `diffnav`
+- `prdiff [pr]` opens `gh pr diff` output in Hunk
 - `glf [git-log-args...]` selects a commit and replays it in `gitlogue`
 - `gitlogue-menu` selects a Gitlogue mode, author, date range, commit, or theme
 
@@ -356,9 +357,11 @@ Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for de
 - Tera templates provide small machine-specific values; ordinary linked files remain directly editable
 - The `workstation` or `nas` role must be selected explicitly in local mise configuration
 
-## CerpacNAS Remote Codex
+## Remote Codex and CerpacNAS setup
 
-CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. Coordinate development work through native Codex Remote SSH tasks; the small Mac-side `work-on-cerpacnas` skill describes that coordination. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
+CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
+
+Codex can run tasks on connected remote hosts, including CerpacNAS and DriehuisNAS, in any project available on that host. The `work-on-remote-hosts` skill describes how to coordinate those tasks and check the host and project at task time.
 
 ## DelftBlue Profile
 

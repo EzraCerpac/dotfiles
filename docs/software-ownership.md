@@ -13,6 +13,13 @@ and `uv tool list` output. Homebrew queries used `HOMEBREW_NO_AUTO_UPDATE=1`;
 no package was installed, upgraded, uninstalled, or pruned for this inventory.
 For later Mac state, see [Mac cutover progress](migration.md#mac-cutover-progress).
 
+Later package removals supersede affected rows in this snapshot: Remindctl,
+Copilot CLI, Pi, and the global npm Codex CLI were removed from package
+configuration and the Mac. Claude Code, Grok, and Antigravity CLI were also
+removed from package configuration and their executable installs were
+uninstalled. The native base-profile `codex` tool remains; the ChatGPT app's
+embedded executable remains app-owned.
+
 The profile files show the declarations used to plan this migration. This
 snapshot does not establish current ownership after later cutover batches. For
 bundles that are still pending, keep the current installation until its
@@ -47,8 +54,8 @@ and [Homebrew manager docs](https://mise.jdx.dev/bootstrap/packages/brew.html).
 | ripgrep | mise shim falls through to Homebrew ripgrep 15.2.0 | No separate mise install is active | New owner is mise Aqua `ripgrep`; confirm `rg` resolution after profile activation before removing Brew |
 | Neovim | mise vfox tool 0.12.4 | No Homebrew formula root | Keep exact version 0.12.4 and switch the new declaration to Aqua; this backend change needs an install and editor check |
 | Python | Homebrew Python 3.13.14 is the current interpreter used by the remctl wrapper | Homebrew Python 3.11.15 also installed | Declare mise Python 3.13. Keep 3.11 until absolute-path and consumer scans show it is unused; the setup wrapper is being changed to `mise -C <setup> exec python@3.13 -- …` |
-| Codex CLI | `codex` resolves to the global npm package at `/opt/homebrew/bin/codex` (0.153.4) | ChatGPT.app also contains a bundled `codex` executable | Manage the CLI with mise `npm:@openai/codex`; retain the ChatGPT app and its embedded executable as app-owned state |
-| remindctl | Installed Homebrew binary reports 0.3.4; the tap formula points to official upstream v0.3.7 | New owner is mise `github:openclaw/remindctl`, locked to v0.3.6 because v0.3.7 is still inside the configured release-age window; the universal archive has an official checksum and a verified signed tag | Keep the replacement as the only declared owner. Retire the old formula only after backup and a read-only permission-status check; never request or change Reminders access during package migration |
+| Codex CLI | At audit, `codex` resolved to global npm package 0.153.4 at `/opt/homebrew/bin/codex` | ChatGPT.app also contained a bundled `codex` executable | The npm CLI was later removed from config and the Mac. The native base-profile `codex` tool remains; ChatGPT.app's executable remains app-owned. |
+| remindctl | At audit, the installed Homebrew binary reported 0.3.4; the tap formula pointed to official upstream v0.3.7 | The migration tested mise `github:openclaw/remindctl` v0.3.6 | Remindctl was later removed from config and the Mac. Its removal did not change Reminders access. |
 
 The 2026-09-14 pre-cutover inventory recorded 99 Homebrew formulae installed on
 request. Since then, 43 redundant formulae were retired after fresh Fish
@@ -85,7 +92,7 @@ build task described below.
 
 ## Homebrew packages retained in the workstation profile
 
-These 46 formula roots have no verified portable mise backend in the installed
+These 45 formula roots have no verified portable mise backend in the installed
 registry or belong in the shared host prefix. Their intended native owner is a
 `brew:` package declaration restricted to macOS arm64 in
 `config.workstation.toml`.
@@ -96,7 +103,7 @@ registry or belong in the shared host prefix. Their intended native owner is a
 | `felixkratz/formulae/borders` 1.9.0; `kanata` 1.12.0; `m1ddc` 1.2.0; `xdot` 1.6 | macOS display/input integration; update through setup, then check behavior without restarting services |
 | `btop` 1.4.7 | Native macOS Homebrew owner; the selected Aqua package supports Linux but not Darwin arm64 |
 | `cliproxyapi` 7.2.145 and 7.2.155; `unbound` 1.25.2 | Host services; install/update package separately from service activation, and report any deferred restart |
-| `curl` 8.21.0; `diffnav` 0.12.0; `dos2unix` 7.5.6; `fish` 4.8.1; `gnupg` 2.5.21; `htop` 3.5.3; `rsync` 3.5.0; `sshpass` 1.10; `tree` 2.3.2; `wget` 1.25.0 | Host utilities, shell path, or native integration |
+| `curl` 8.21.0; `dos2unix` 7.5.6; `fish` 4.8.1; `gnupg` 2.5.21; `htop` 3.5.3; `rsync` 3.5.0; `sshpass` 1.10; `tree` 2.3.2; `wget` 1.25.0 | Host utilities, shell path, or native integration |
 | `ffmpeg` 8.1.2_1; `librsvg` 2.62.3; `openfst` 1.8.4; `pillow` 12.3.0; `poppler` 26.08.0; `pulseaudio` 17.0; `tesseract` 5.5.3 | Native libraries/media stack; retain dependency closure in the Homebrew prefix |
 | `gitlogue` 0.10.0; `harper` 2.8.0; `himalaya` 2.0.0; `modem-dev/tap/hunk` 0.17.0 | Existing application CLIs without a registry backend selected here |
 | `antoniorodr/memo/memo` 0.6.0; `dastrobu/tap/mail-mcp` 0.5.0; `mole` 1.48.1; `openai-whisper` 20250625_5; `pdfpc` 4.7.0 | Keep current native recipes pending direct replacement evidence |
@@ -125,29 +132,26 @@ App Store IDs were skipped because `mas` was unavailable. The original baseline
 also has four cask exceptions: pinned AeroSpace, Brooklyn, MacTeX, and Copilot
 CLI.
 
-## Global npm and Python applications
+## Global npm and Python applications at audit time
 
-The npm listing came from `/opt/homebrew/lib/node_modules`. Executable CLIs move
-to mise's native npm backend with floating `latest` requests, matching their
-currently unpinned global installs. Mise's npm backend uses its embedded
-installer by default; it does not change project manifests. Five Pi extensions
-have no executable and remain owned by Pi's package manager at the stable
-`~/.pi/agent/npm` root. Their exact `npm:<package>` references stay in Pi's user
-settings and the named `tasks/setup/exceptions/pi-plugins` updater. They are
-not mise npm tools because mise's isolated npm package directories are
-invisible to Pi's extension lookup.
+The npm listing came from `/opt/homebrew/lib/node_modules`. The audit proposed
+moving executable CLIs to mise's native npm backend with floating `latest`
+requests. Pi was removed from the Mac and package configuration later, along
+with the npm Codex CLI; the native `codex` tool remains. The proposed Pi plugin
+updater is no longer part of the current setup. Plugin rows below preserve
+audit-time package details and do not assert a current install or updater.
 
-| Current global npm package | Current version | Desired owner |
+| Global npm package at audit | Version at audit | Audit-time owner or later disposition |
 | --- | --- | --- |
-| `@earendil-works/pi-coding-agent` | 0.80.3 | `npm:@earendil-works/pi-coding-agent` |
-| `@ollama/pi-web-search` | 0.0.5 | Pi package exception; exact ref in Pi settings and stable `~/.pi/agent/npm` root |
-| `@openai/codex` | 0.153.4 | `npm:@openai/codex` |
+| `@earendil-works/pi-coding-agent` | 0.80.3 | Pi CLI; later removed from config and the Mac |
+| `@ollama/pi-web-search` | 0.0.5 | Pi plugin recorded in audit-time settings; current install status is not established here |
+| `@openai/codex` | 0.153.4 | npm CLI later removed from config and the Mac; native `codex` retained |
 | `@zed-industries/codex-acp` | 0.16.0 | `npm:@zed-industries/codex-acp` |
 | `agent-browser` | 0.25.3 | `npm:agent-browser` |
-| `caveman-pi` | 1.0.0 | Pi package exception; exact ref in Pi settings and stable `~/.pi/agent/npm` root |
-| `pi-constell-plan` | 0.1.8 | Pi package exception; exact ref in Pi settings and stable `~/.pi/agent/npm` root |
-| `pi-markdown-preview` | 0.10.0 | Pi package exception; exact ref in Pi settings and stable `~/.pi/agent/npm` root |
-| `pi-mono-btw` | 1.7.4 | Pi package exception; exact ref in Pi settings and stable `~/.pi/agent/npm` root |
+| `caveman-pi` | 1.0.0 | Pi plugin recorded in audit-time settings; current install status is not established here |
+| `pi-constell-plan` | 0.1.8 | Pi plugin recorded in audit-time settings; current install status is not established here |
+| `pi-markdown-preview` | 0.10.0 | Pi plugin recorded in audit-time settings; current install status is not established here |
+| `pi-mono-btw` | 1.7.4 | Pi plugin recorded in audit-time settings; current install status is not established here |
 
 `npm` 11.19.0 remains supplied by the selected mise Node tool. `portless`
 0.15.6 is a symlink to a local project checkout rather than a registry install;
@@ -200,8 +204,9 @@ Cargo binary remains an inert duplicate. The Cargo-installed `ttm` came from
 
 The pre-cutover baseline contained 25 Homebrew cask receipts. At that snapshot,
 the profile declared 42 casks: 21 ordinary existing Homebrew casks and 21
-unmanaged app bundles marked for native adoption. Copilot CLI moves to a mise
-tool; 21 casks were candidates for native ownership transfer. For later Mac status, see
+unmanaged app bundles marked for native adoption. Copilot CLI was proposed for
+a mise tool, but that transfer was later canceled and the CLI and cask were
+removed from package configuration and the Mac. For later Mac status, see
 [Mac cutover progress](migration.md#mac-cutover-progress). AeroSpace remains the
 pinned local PR2245/Hyper build. Brooklyn and MacTeX stay with named Homebrew
 installer exceptions because their artifacts are unsupported by mise 2026.9.7.
@@ -217,7 +222,7 @@ Homebrew cask ownership. Ruby 4 is now a declared mise tool for tap evaluation.
 | `battery` | 1.4.0 | `brew-cask`; low-impact app |
 | `brooklyn` | 2.1.0 | Named Homebrew exception: unsupported screensaver artifact |
 | `codexbar` | 0.55.1 | `brew-cask`; low-impact app |
-| `copilot-cli` | 1.0.41 | mise Aqua `copilot-cli`; verify cask and CLI represent the same tool before transfer |
+| `copilot-cli` | 1.0.41 | Audit-time proposed Aqua transfer; later canceled, then removed from config and the Mac |
 | `cotabby` | 0.6.2-beta | `brew-cask`; low-impact app |
 | `crisp` | 1.5.0 | `brew-cask`; low-impact app |
 | `font-fira-code-nerd-font` | 3.4.0 | `brew-cask`; font |
@@ -295,8 +300,8 @@ applying that profile.
 - Herdr uses the native mise registry backend, pinned to 0.8.2. The 0.9.0
   client cannot attach to the preserved 0.8.2 server. Upgrade this pin only
   when existing terminal sessions can be restarted deliberately.
-- Five Pi plugin packages have no CLI binaries. They must use Pi's package
-  store through an explicit installer task, rather than isolated mise npm
-  installs that Pi cannot discover. The Pi application itself remains a mise tool.
+- The audit found five Pi plugin packages without CLI binaries and proposed an
+  explicit Pi package-store updater. Pi was later removed from config and the
+  Mac, and that updater is no longer part of the current setup.
 - Apple's Git remains OS-owned on the Mac; Linux workstation Git is installed
   through its native package manager. NAS keeps its user-space Git recipe.

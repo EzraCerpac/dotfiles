@@ -142,12 +142,13 @@ printf '%s\\n' "${AGE_TEST_RECIPIENT:?}"
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Prepared 4 encrypted file paths", result.stdout)
+        self.assertIn("Prepared 3 encrypted file paths", result.stdout)
         self.assertNotIn("AGE-SECRET-IDENTITY-FIXTURE", result.stdout + result.stderr)
         self.assertNotIn(self.recipient, result.stdout + result.stderr)
         self.assertNotIn("FIXTURE_PRIVATE_CONFIGURATION_SENTINEL", result.stdout + result.stderr)
-        for path in (codex_config, fish_variables, wakatime_config, pi_settings):
+        for path in (codex_config, fish_variables, wakatime_config):
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(pi_settings.stat().st_mode), 0o644)
         self.assertEqual(stat.S_IMODE(self.identity.stat().st_mode), 0o640)
 
         miserc = (self.config / "miserc.toml").read_text()
@@ -164,10 +165,10 @@ printf '%s\\n' "${AGE_TEST_RECIPIENT:?}"
             "~/.codex/config.toml",
             "~/.config/fish/fish_variables",
             "~/.wakatime.cfg",
-            "~/.pi/agent/settings.json",
         ):
             self.assertIn(f'[dotfiles."{path}"]', variant)
-        self.assertEqual(variant.count('encrypt = true'), 4)
+        self.assertNotIn('~/.pi/agent/settings.json', variant)
+        self.assertEqual(variant.count('encrypt = true'), 3)
         self.assertIn('variants = [{ profile = "host-mac-primary" }]', variant)
         self.assertNotIn("age1", variant)
         self.assertNotIn(str(self.identity), variant)

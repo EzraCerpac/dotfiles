@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
 agenda_bin="$HOME/.local/libexec/agenda/agenda"
-
 if [[ ! -x "$agenda_bin" ]]; then
     echo "agenda is not installed at $agenda_bin" >&2
     exit 1
 fi
 
-exec "$agenda_bin" "$@"
+# Metadata commands need no Calendar access. Calendar operations run with the
+# native executable as launchd's responsible process, including from mise jobs.
+case "${1:-}" in
+    --version|--help|describe) exec "$agenda_bin" "$@" ;;
+esac
+export AGENDA_CALLER_CWD="$PWD"
+project="$HOME/Projects/personal-concierge"
+exec "$HOME/.local/bin/mise" -C "$project" exec -- python "$project/tasks/agenda_background.py" "$@"

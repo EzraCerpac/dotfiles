@@ -29,7 +29,7 @@ Treat a bundle as mise-owned only after native package status confirms it.
 The v2026.9.7 `adopt=true` path is for a matching unmanaged app without Homebrew
 metadata; a matching name or path alone does not establish ownership.
 
-## Supported native cask candidates
+## Native cask candidates in the 2026-09-14 snapshot
 
 These direct vendor bundles have a matching current Homebrew cask artifact.
 At the snapshot date, the 21 `brew-cask:` targets below were declared in
@@ -69,9 +69,23 @@ path needs no `--greedy` flag or config override
 | Wispr Flow 1.5.530 | Vendor direct, inferred | `brew-cask:wispr-flow` | Vendor updater may run |
 
 The cask metadata marks all but Blender and RustDesk with `auto_updates: true`.
-Those 19 casks can still be upgraded by mise when the pinned eligibility checks
-pass. A configured package is not proof of adoption or of an upgrade; use
-native package status for current ownership and update results.
+This describes the cask metadata and declarations at the snapshot date; it is
+not the current `dots up` upgrade policy. Current routine updates install
+missing declared casks and skip upgrades for casks marked `auto_updates: true`.
+Use native package status for current ownership and update results.
+
+## Later management changes
+
+After this snapshot, Blender, CrossOver, Helium Browser, MEGAsync, Mattermost,
+Grammarly Desktop, and Cotabby were removed from the workstation declarations.
+They remain installed on the Mac and are no longer installed or updated by
+`dots`. Their rows and receipts above/below are retained as historical evidence
+from the 2026-09-14 inventory. Cotabby's receipt remains part of the historical
+25-receipt inventory; it is not a current mise declaration.
+
+Raycast Glaze and Wispr Flow were removed from the Mac and from the current
+workstation declarations after the snapshot. Their rows above record the
+previous installed versions and cask targets only.
 
 ## App Store, local, and vendor exceptions
 
@@ -139,9 +153,10 @@ healthy. `Deferred` records an app or vendor update path that remains manual.
 The report checks only whether each declared target path exists, prints its
 owner and next step, and never runs an updater or launches an app.
 
-Existing Homebrew-owned app bundles—including CodexBar, Cotabby, Crisp,
-Hammerspoon, Homerow, JabRef, Karabiner-Elements and its helper, Mattermost,
-MiddleClick, OrbStack, Raycast, Tailscale, WezTerm, and Zoom—remain in the 25
-cask receipt inventory. The installed Homebrew receipts for apps not present in
-`/Applications` also remain documented there. This inventory does not mark any
-unlisted application as unwanted.
+At the snapshot date, Homebrew-owned app bundles—including CodexBar, Cotabby,
+Crisp, Hammerspoon, Homerow, JabRef, Karabiner-Elements and its helper,
+Mattermost, MiddleClick, OrbStack, Raycast, Tailscale, WezTerm, and Zoom—were
+present in the 25 cask receipt inventory. Cotabby and Mattermost remain
+installed but are no longer declared by `dots`. The installed Homebrew receipts
+for apps not present in `/Applications` also remain documented there. This
+inventory does not mark any unlisted application as unwanted.

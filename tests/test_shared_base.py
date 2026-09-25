@@ -11,7 +11,7 @@ class SharedBaseTests(unittest.TestCase):
     def test_everyday_tools_and_editor_are_shared_without_compiler(self):
         base = tomllib.loads((ROOT/'config.toml').read_text())
         tools = base['tools']
-        expected = {'age','atuin','bat','carapace','delta','fd','fzf','gh','jj','jq','ripgrep','starship','tmux','uv','zoxide','aqua:neovim/neovim','aqua:modem-dev/hunk','aqua:dlvhdr/diffnav','vfox:jdx/vfox-eza'}
+        expected = {'age','atuin','bat','carapace','delta','fd','fzf','gh','jj','jq','ripgrep','starship','tmux','uv','zoxide','aqua:neovim/neovim','aqua:modem-dev/hunk','vfox:jdx/vfox-eza'}
         self.assertTrue(expected <= tools.keys())
         self.assertEqual(tools['uv'], {'version': 'latest', 'os': ['macos/arm64', 'macos/x64', 'linux/x64', 'linux/arm64']})
         self.assertNotIn('rust', tools)
@@ -31,6 +31,8 @@ class SharedBaseTests(unittest.TestCase):
         workstation=tomllib.loads((ROOT/'config.workstation.toml').read_text())
         for manager in ('apt','dnf','pacman'):
             self.assertIn(f'{manager}:git', workstation['bootstrap']['packages'])
+        nas=tomllib.loads((ROOT/'config.nas.toml').read_text())
+        self.assertEqual(nas['tools']['btop'], {'version': 'latest', 'os': ['linux/x64']})
 
     def test_retired_selector_fails_before_bootstrap_hooks(self):
         with tempfile.TemporaryDirectory() as tmp:

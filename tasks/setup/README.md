@@ -5,11 +5,17 @@ The registered tasks call these scripts from the setup root. They require
 `SETUP_MACHINE_ID` to load the corresponding `host-<id>` environment. Each
 child mise process is pinned to this setup directory and those environments.
 
-`setup:update` saves tracked settings before and after updates. On macOS it runs
-Homebrew formulae, Homebrew casks, and Mac App Store packages as independent
-stages, then updates declared mise tools, named exceptions, editor plugins, and
-standalone mise last. Herdr is deferred while its terminal server is running.
-Kanata and Karabiner remain held for the known input bug. Other profiles use their declared host-package stage.
+`setup:update` saves tracked settings before and after updates. On macOS it
+prepares the Homebrew `mas` formula first, then runs App Store updates alongside
+other Homebrew formulae, casks, mise tools, named exceptions, and editor plugins.
+It waits for App Store updates before updating standalone mise and saving the
+final checkpoint. The cask stage installs missing declared casks, then
+upgrades only casks without `auto_updates: true`; self-updating casks are left
+to their vendor updaters. Zoom, Tailscale, Antinote, and OmniDiskSweeper use
+named cask exceptions: routine updates install them if missing and skip their
+upgrades. Herdr is deferred while its terminal server is running. Kanata and
+Karabiner remain held for the known input bug. Other profiles use their declared
+host-package stage.
 Later stages continue after an earlier stage fails; failures are collected and
 make the final task result nonzero once the pre-update save succeeds. The task
 does not prune software, update project dependencies, publish source, or
@@ -33,13 +39,14 @@ command. Do not use blanket `npm update -g`, `uv tool upgrade --all`, or other
 whole-environment operations. Keep apps declared to native mise tools/packages
 out of this list.
 
-Zoom, Karabiner Elements, Tailscale, and SF Pro stay with their Homebrew
-receipts because mise 2026.9.7 skips their package-only auto-updating casks or
-the `latest` SF Pro version. `setup:update` runs their named Brew exceptions;
-each checks and updates only its own cask with `brew outdated --cask --greedy`
-and `brew upgrade --cask --greedy`. Existing receipts make `--install-only` a
-no-op. Updates defer while Zoom, Karabiner Core Service, or Tailscale is
-running. If one of these exceptions needs administrator access and no access is
+Zoom and Tailscale stay with their Homebrew receipts because their casks use
+vendor self-updaters. Antinote and OmniDiskSweeper use named Homebrew cask
+exceptions because the native mise DMG extractor cannot answer their installer
+licence prompts. Routine `setup:update` installs these four only when missing;
+it does not run their cask upgrades. Karabiner Elements remains held for the
+known input bug, and SF Pro keeps its existing `latest` behavior. Updates for
+Zoom, Karabiner Core Service, and Tailscale defer while those apps or services
+are running. If a named exception needs administrator access and no access is
 cached, a noninteractive run prints
 `sudo -v && mise -C ~/.config/mise run setup:update`; in an interactive
 terminal, Homebrew can request authorization. These commands disable Homebrew
@@ -100,6 +107,5 @@ publication remains a separate explicit `setup:backup` operation.
 writing, uses mode `0600`, and refuses differing live files unless the exact
 target is named with `--reconcile`.
 
-Antinote and OmniDiskSweeper use named Homebrew cask exceptions because the
-native mise DMG extractor cannot answer their installer licence prompts. The
-user approved both licences. Their updaters defer while the apps are running.
+The user approved Antinote and OmniDiskSweeper licences. Their cask exceptions
+can install a missing app; routine updates leave upgrades to each app's updater.

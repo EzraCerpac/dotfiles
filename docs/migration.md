@@ -36,8 +36,9 @@ On a fresh NAS host (including Intel macOS, where the base tools now also
 cover `macos/x64`), select the nas role explicitly. The bootstrap hooks
 derive `SETUP_PROFILE` from the `-E` selector, so no manual export is needed
 before this first command. On Intel macOS the `brew:` bootstrap backend is
-skipped by mise itself (upstream jdx/mise#10968); fish, git, and diffnav
-there are owned by the `nas/intel-brew-basics` installer exception instead.
+skipped by mise itself (upstream jdx/mise#10968); fish and git
+there are owned by the `intel-brew-basics` installer exception instead. On an
+Intel Mac using the NAS role, that exception also installs btop.
 
 ```sh
 mise -E nas bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git
@@ -69,7 +70,7 @@ dots restore
 | Need | Native mise workflow | Effect |
 | --- | --- | --- |
 | Inspect machine setup | `dots status` | Reports selected profile, declared packages and tools, dotfiles/history, and installer exceptions. |
-| Update declared setup | `dots up` | Saves local settings before and after updates. On Mac, Homebrew formulae, casks, and Mac App Store packages run as independent stages; later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
+| Update declared setup | `dots up` | Saves local settings before and after updates. On Mac, the `mas` formula is prepared first; App Store updates then overlap other package and tool stages. Later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
 | Edit an ordinary linked file | `mise -C ~/.config/mise bootstrap dotfiles edit <target>` | Opens the native linked target, which is the source file. |
 | Edit and apply a template | `mise -C ~/.config/mise bootstrap dotfiles edit --apply <target>` | Edits the Tera template and applies the rendered target. |
 | Add a global symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g <target>` | Adds a link shared across profiles. |
@@ -80,8 +81,8 @@ dots restore
 
 `setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `tasks/bootstrap/enroll-history`.
 
-The Mac update runs Homebrew formulae, Homebrew casks, and Mac App Store packages
-independently, then declared mise tools and named exceptions. With no cached
+The Mac update prepares the `mas` formula, then overlaps App Store updates with
+other formulae, casks, tools, and exceptions. With no cached
 administrator authorization, a noninteractive run defers the Mac App Store
 stage and continues. An interactive run can prompt through `sudo -v`. A deferred
 stage is not a failure; updater failures are collected and make the final task
@@ -157,8 +158,9 @@ Custom-tap formulas use explicit Homebrew exceptions because the native adapter
 misreads their Python helper modules, macOS requirements, or old dependency
 aliases. This covers Memo, QMK, Peekaboo, the three pinned keyboard toolchains,
 Borders, Hunk, mail-mcp, and typst-time-machine. Each exception updates only its
-listed formula. Remindctl moved to the native GitHub backend and retained its
-existing Reminders access. Mise uses the existing GitHub CLI credential via a
+listed formula. Remindctl moved to the native GitHub backend during migration,
+then was removed from the Mac and package configuration. Its removal did not
+change Reminders access. Mise uses the existing GitHub CLI credential via a
 credential command; it does not store the token in this checkout.
 
 The [direct app inventory](direct-apps.md),
@@ -179,7 +181,8 @@ This table reports observed readiness separately from the intended workflows abo
 | Private mise history | Mac exact-file enrollment, backup, and private push are complete; the local automatic watcher and edit capture passed checks. NAS history setup is deferred. Use `--initialize-history` only for a reviewed, unconnected local store. |
 | Source/profile fixtures | JJ identity is fixed, and all three profile fixture apply/reapply checks pass. Fixture results do not establish DelftBlue cluster deployment. |
 | Mac inventories | The pre-cutover snapshot recorded 99 Homebrew formula receipts; 44 redundant formulae have since been retired. The [direct app inventory](direct-apps.md) remains the dated bundle snapshot. |
-| Grok CLI | Explicitly pinned to `1.0.4` because native registry latest-version discovery is unavailable; release changes require an intentional pin update. |
+| Grok CLI | The `1.0.4` pin was used during the native mise migration because registry latest-version discovery was unavailable. Grok was later removed from package configuration and its executable installs were uninstalled. |
+| Removed CLI packages | Claude Code, Grok, Antigravity CLI, Remindctl, Copilot CLI, Pi, and the npm Codex CLI were removed from package configuration and the Mac. The native base-profile `codex` tool remains. |
 | Host identity | Mac role, stable ID, and encrypted enrollment are complete. NAS host enrollment is deferred while it is unreachable. |
 | Rollback snapshot | Protected local snapshot is available at `~/.local/state/mise-migration/latest/`. |
 
@@ -201,8 +204,8 @@ The published tag `legacy/chezmoi-2026-09-14` preserves the initial chezmoi file
 ### Shared-base follow-up validation
 
 The short `dots` interface and base/profile composition have focused fixture
-coverage. Fedora 44 ARM64 additionally ran the new locked Hunk 0.22.0,
-Diffnav 0.10.0, Eza 0.23.5, and Delta 0.19.2 binaries; Hunk also displayed a
+coverage. Fedora 44 ARM64 additionally ran the new locked Hunk 0.22.0, Eza
+0.23.5, and Delta 0.19.2 binaries; Hunk also displayed a
 synthetic Git diff successfully. This checks the added Linux pager binaries,
 not a fresh full workstation bootstrap or CerpacNAS compatibility. The test
 container was removed and the pre-existing PostgreSQL container was preserved.

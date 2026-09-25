@@ -22,6 +22,75 @@ SPEC.loader.exec_module(MODULE)
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_parser_defaults_to_english_and_accepts_german_with_cache(self) -> None:
+        parser = MODULE.make_parser(clipboard=False)
+        defaults = parser.parse_args(["--text", "hello"])
+        selected = parser.parse_args(["--language", "de", "--cache-dir", "/tmp/humanize", "--text", "hallo"])
+        self.assertEqual(defaults.language, "en")
+        self.assertEqual(selected.language, "de")
+        self.assertEqual(selected.cache_dir, Path("/tmp/humanize"))
+
+    def test_instructions_file_is_read_as_utf8_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rules.txt"
+            path.write_text("  Keep claims unchanged.\n", encoding="utf-8")
+            self.assertEqual(MODULE.read_instructions(path), "Keep claims unchanged.")
+
+    def test_cloud_rewriter_passes_selected_target_language(self) -> None:
+        calls = []
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=lambda *args, **kwargs: "rewritten",
+            niutrans_translate=lambda *args, **kwargs: "translated",
+            google_translate=lambda *args, **kwargs: "translated",
+            run_standard_pipeline=lambda text, config, target_lang: calls.append(target_lang) or {"result": "Ergebnis"},
+        )
+        standard = types.ModuleType("src.standard")
+        standard.pipeline = pipeline
+        standard.llm_rewriter = types.SimpleNamespace(SYSTEM_PROMPT="base")
+        src = types.ModuleType("src")
+        src.standard = standard
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with (
+            patch.dict(sys.modules, {"src": src, "src.standard": standard}),
+            patch.object(MODULE, "read_proxy_key", return_value=None),
+            patch.object(MODULE, "read_niutrans_key", return_value=None),
+        ):
+            rewrite = MODULE.make_cloud_rewriter(settings, target_language="de")
+            self.assertEqual(rewrite("source"), "Ergebnis")
+        self.assertEqual(calls, ["de"])
+
+    def test_cloud_rewriter_appends_and_restores_custom_system_instructions(self) -> None:
+        prompts = []
+        llm_rewriter = types.SimpleNamespace(SYSTEM_PROMPT="upstream prompt")
+
+        def llm_rewrite(*args, **kwargs):
+            prompts.append(llm_rewriter.SYSTEM_PROMPT)
+            return "rewritten"
+
+        pipeline = types.SimpleNamespace(
+            llm_rewrite=llm_rewrite,
+            niutrans_translate=lambda *args, **kwargs: "translated",
+            google_translate=lambda *args, **kwargs: "translated",
+        )
+        pipeline.run_standard_pipeline = lambda text, config, target_lang: {
+            "result": pipeline.llm_rewrite(text)
+        }
+        standard = types.ModuleType("src.standard")
+        standard.pipeline = pipeline
+        standard.llm_rewriter = llm_rewriter
+        src = types.ModuleType("src")
+        src.standard = standard
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with (
+            patch.dict(sys.modules, {"src": src, "src.standard": standard}),
+            patch.object(MODULE, "read_proxy_key", return_value=None),
+            patch.object(MODULE, "read_niutrans_key", return_value="configured"),
+        ):
+            rewrite = MODULE.make_cloud_rewriter(settings, instructions="Keep claims unchanged.")
+            self.assertEqual(rewrite("source"), "rewritten")
+        self.assertEqual(prompts, ["upstream prompt\n\nKeep claims unchanged."])
+        self.assertEqual(llm_rewriter.SYSTEM_PROMPT, "upstream prompt")
+
     def test_local_config_overrides_defaults_and_cli_wins(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -233,6 +302,90 @@ compile_command = []
 
 
 class RewritingTests(unittest.TestCase):
+    def test_chunk_cache_reuses_output_without_storing_source_or_settings(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MODULE.ChunkCache(Path(directory), settings, "en")
+            calls = []
+
+            def rewrite(text):
+                calls.append(text)
+                return text.upper()
+
+            result = MODULE.rewrite_plain("same\n\nsame", True, rewrite, cache=cache)
+            self.assertEqual(result, "SAME\n\nSAME")
+            self.assertEqual(calls, ["same"])
+            payload = json.loads(next(Path(directory).iterdir()).read_text(encoding="utf-8"))
+            self.assertEqual(payload, {"output": "SAME"})
+
+    def test_chunk_cache_key_includes_language_and_instruction_content(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        with tempfile.TemporaryDirectory() as directory:
+            english = MODULE.ChunkCache(Path(directory), settings, "en")
+            german = MODULE.ChunkCache(Path(directory), settings, "de")
+            instructed = MODULE.ChunkCache(Path(directory), settings, "en", "Keep claims unchanged.")
+            self.assertNotEqual(english.path_for("same"), german.path_for("same"))
+            self.assertNotEqual(english.path_for("same"), instructed.path_for("same"))
+
+    def test_invalid_cached_provider_output_is_rewritten(self) -> None:
+        settings = MODULE.RunSettings(1.0, False, "url", Path("proxy"), "model", "fi", ())
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MODULE.ChunkCache(Path(directory), settings, "en")
+            cache.path_for("source").write_text(
+                json.dumps({"output": "Error 500 (Server Error). That's an error. That's all we know."}),
+                encoding="utf-8",
+            )
+            self.assertEqual(MODULE.rewrite_plain("source", False, lambda _text: "safe", cache=cache), "safe")
+            self.assertEqual(cache.get("source"), "safe")
+
+    def test_typst_cache_hit_still_runs_restore_and_validation(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        validations = []
+
+        def guard(operation, payload):
+            if operation == "prepare":
+                return {"plan": {}, "chunks": [{"id": "p1", "text": "original"}]}
+            return {"source": payload["outputs"][0]["text"]}
+
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MODULE.ChunkCache(Path(directory), settings, "en")
+            cache.put("original", "cached")
+            result = MODULE.rewrite_typst(
+                "source",
+                True,
+                lambda _text: self.fail("cache miss"),
+                guard=guard,
+                validate=validations.append,
+                cache=cache,
+            )
+        self.assertEqual(result, "cached")
+        self.assertEqual(validations, ["cached", "cached"])
+
+    def test_invalid_typst_cache_hit_is_discarded_before_fresh_rewrite(self) -> None:
+        settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
+        rewrites = []
+
+        def guard(operation, payload):
+            if operation == "prepare":
+                return {"plan": {}, "chunks": [{"id": "p1", "text": "original"}]}
+            output = payload["outputs"][0]["text"]
+            if output == "bad #syntax":
+                raise MODULE.HumanizeError("Typst syntax contains a parse error")
+            return {"source": output}
+
+        with tempfile.TemporaryDirectory() as directory:
+            cache = MODULE.ChunkCache(Path(directory), settings, "en")
+            cache.put("original", "bad #syntax")
+
+            def rewrite(text):
+                rewrites.append(text)
+                return "fresh"
+
+            result = MODULE.rewrite_typst("source", True, rewrite, guard=guard, cache=cache)
+            self.assertEqual(cache.get("original"), "fresh")
+        self.assertEqual(result, "fresh")
+        self.assertEqual(rewrites, ["original"])
+
     def test_progress_is_tty_only_and_never_prints_source(self) -> None:
         visible = io.StringIO()
         progress = MODULE.ParagraphProgress(visible, enabled=True)

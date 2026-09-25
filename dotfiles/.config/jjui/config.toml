@@ -2,13 +2,14 @@
 name = "revisions.diff"
 desc = "diff"
 lua = '''
-local id = context.change_id()
+local id = context.commit_id()
 if not id then
   flash({ text = "No change selected", error = true })
   return
 end
 
-jj_interactive("diff", "-r", id)
+jj_interactive("--config", 'ui.pager=["hunk", "pager"]', "--config", 'ui.diff-formatter=":git"',
+  "--config", 'ui.paginate="auto"', "diff", "-r", id)
 '''
 
 [[actions]]
@@ -278,3 +279,79 @@ action = "jw-add-at-change"
 seq = ["\\", "w", "n"]
 scope = "revisions"
 desc = "jw add --at"
+
+[[actions]]
+name = "hunk"
+desc = "Hunk comparison"
+lua = '''
+local function compare(base, target)
+  jj_interactive("--config", 'ui.pager=["hunk", "pager"]', "--config", 'ui.diff-formatter=":git"',
+    "--config", 'ui.paginate="auto"', "diff", "--from", base, "--to", target)
+end
+
+local checked = context.checked_commit_ids()
+if #checked == 2 then
+  -- jjui returns checked revisions in graph order, from top to bottom.
+  compare(checked[2], checked[1])
+  return
+elseif #checked > 2 then
+  flash({ text = "Select exactly two revisions to compare.", error = true })
+  return
+end
+
+local base = _G.hunk_base
+local title = "Hunk — base: " .. (base and base:sub(1, 12) or "not set")
+local options = { "Set base", "Compare base → highlighted", "Clear base" }
+if #checked == 0 then
+  table.insert(options, 1, "Compare with parent")
+end
+local action = choose({
+  title = title,
+  ordered = true,
+  options = options,
+})
+if not action then return end
+
+if action == "Clear base" then
+  _G.hunk_base = nil
+  flash("Hunk base cleared")
+  return
+end
+
+local target = context.commit_id()
+if not target then
+  flash({ text = "No revision highlighted", error = true })
+  return
+end
+
+if action == "Compare with parent" then
+  -- Match normal d, including JJ's merged-parent behavior for merge commits.
+  jj_interactive("--config", 'ui.pager=["hunk", "pager"]', "--config", 'ui.diff-formatter=":git"',
+    "--config", 'ui.paginate="auto"', "diff", "-r", target)
+elseif action == "Set base" then
+  -- Resolve any display abbreviation once, retaining this exact commit.
+  local id, err = jj("log", "--no-graph", "--color", "never", "-r", target, "-T", "commit_id")
+  if err then
+    flash({ text = err, error = true })
+    return
+  end
+  _G.hunk_base = id:match("^%s*(%x+)%s*$")
+  if not _G.hunk_base then
+    flash({ text = "Could not resolve Hunk base", error = true })
+    return
+  end
+  flash("Hunk base: " .. _G.hunk_base:sub(1, 12))
+elseif action == "Compare base → highlighted" then
+  if not base then
+    flash({ text = "No Hunk base; choose Set base first", error = true })
+    return
+  end
+  compare(base, target)
+end
+'''
+
+[[bindings]]
+action = "hunk"
+seq = ["\\", "h"]
+scope = "revisions"
+desc = "Hunk: compare selection or base menu"

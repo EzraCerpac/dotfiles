@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve from the setup, then run in the caller's directory.
+setup_root="${HOME:?}/.config/mise"
+mise_bin="$HOME/.local/bin/mise"
+[[ -x "$mise_bin" ]] || mise_bin="$(command -v mise)"
+perch_bin="$(MISE_AUTO_INSTALL=0 "$mise_bin" -C "$setup_root" which perch)"
+node_bin="$(MISE_AUTO_INSTALL=0 "$mise_bin" -C "$setup_root" which node)"
+if [[ -z "${PERCH_API_KEY:-}" && -r "$HOME/.config/jev/api-key" ]]; then
+    PERCH_API_KEY="$(< "$HOME/.config/jev/api-key")"
+    export PERCH_API_KEY
+fi
+# The installed 0.3.x release still uses the old name; newer releases use PERCH_API_KEY.
+if [[ -n "${PERCH_API_KEY:-}" ]]; then
+    export TYPESAFE_API_KEY="$PERCH_API_KEY"
+fi
+export PATH="$(dirname "$node_bin"):$PATH"
+exec "$perch_bin" "$@"
