@@ -665,6 +665,26 @@ esac
         self.assertIn("Herdr live handoff skipped for the NAS profile", result.stdout)
         self.assertNotIn("which\therdr", self.log.read_text())
 
+    def test_nas_exception_wrappers_find_their_installers(self) -> None:
+        env = dict(self.env, SETUP_PROFILE="nas", SETUP_NAS_NEOVIM_BUILD="1")
+        env.pop("SETUP_CONFIG_ROOT", None)
+        git = Path(env["HOME"]) / ".local/share/git-modern/bin/git"
+        git.parent.mkdir(parents=True)
+        self._write_executable(git, "#!/bin/sh\nexit 0\n")
+        for name in ("nas-neovim-source", "nas-modern-git"):
+            self._write_executable(
+                self.root / "tasks/install" / f"{name}.sh",
+                f"#!/bin/sh\nprintf '%s\\n' {name}\n",
+            )
+            result = subprocess.run(
+                ["bash", str(self.root / "tasks/setup/exceptions" / name)],
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), name)
+
     def test_update_leaves_running_herdr_when_handoff_fails(self) -> None:
         herdr, state, log = self._prepare_herdr()
         result = self._run(
