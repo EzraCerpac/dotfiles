@@ -37,7 +37,8 @@ cover `macos/x64`), select the nas role explicitly. The bootstrap hooks
 derive `SETUP_PROFILE` from the `-E` selector, so no manual export is needed
 before this first command. On Intel macOS the `brew:` bootstrap backend is
 skipped by mise itself (upstream jdx/mise#10968); fish and git
-there are owned by the `nas/intel-brew-basics` installer exception instead.
+there are owned by the `intel-brew-basics` installer exception instead. On an
+Intel Mac using the NAS role, that exception also installs btop.
 
 ```sh
 mise -E nas bootstrap --adopt https://github.com/EzraCerpac/dotfiles.git

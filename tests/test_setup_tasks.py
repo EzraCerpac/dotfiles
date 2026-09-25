@@ -1086,6 +1086,37 @@ esac
         self.assertEqual(refused.returncode, 2)
         self.assertIn("Refusing unlisted Homebrew formula exception", refused.stderr)
 
+    def test_intel_nas_btop_installs_when_missing_and_skips_when_present(self) -> None:
+        brew_log, _, _ = self._prepare_brew_exceptions(installed="fish git")
+        self._write_executable(
+            self.bin / "uname",
+            "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'x86_64\\n' || printf 'Darwin\\n'\n",
+        )
+        script = self.root / "tasks/setup/exceptions/intel-brew-basics"
+        env = dict(self.env, SETUP_PROFILE="nas")
+        result = subprocess.run([str(script)], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
+        self.assertIn(["install", "--formula", "btop"], calls)
+
+        brew_log.write_text("")
+        env["BREW_INSTALLED"] = "fish git btop"
+        result = subprocess.run([str(script), "--install-only"], env=env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
+        self.assertIn(["list", "--formula", "btop"], calls)
+        self.assertFalse(any(call[0] in {"install", "outdated", "upgrade"} for call in calls))
+
+        brew_log.write_text("")
+        result = subprocess.run(
+            [str(script), "--install-only"],
+            env=dict(env, SETUP_PROFILE="workstation", BREW_INSTALLED="fish git"),
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("btop", brew_log.read_text())
+
     def test_brew_cask_exceptions_defer_busy_or_unauthorized_installs(self) -> None:
         brew_log, sudo_log, _ = self._prepare_brew_exceptions(
             outdated="zoom karabiner-elements tailscale-app font-sf-pro",

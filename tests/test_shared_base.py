@@ -31,6 +31,8 @@ class SharedBaseTests(unittest.TestCase):
         workstation=tomllib.loads((ROOT/'config.workstation.toml').read_text())
         for manager in ('apt','dnf','pacman'):
             self.assertIn(f'{manager}:git', workstation['bootstrap']['packages'])
+        nas=tomllib.loads((ROOT/'config.nas.toml').read_text())
+        self.assertEqual(nas['tools']['btop'], {'version': 'latest', 'os': ['linux/x64']})
 
     def test_retired_selector_fails_before_bootstrap_hooks(self):
         with tempfile.TemporaryDirectory() as tmp:

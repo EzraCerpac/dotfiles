@@ -19,6 +19,8 @@ The ignored `config.local.toml` records this host's compatibility choices:
   mise-managed CMake, builds with two jobs, and switches `current` only after
   a successful configuration-free startup. Old versions remain for rollback.
 - OpenCode remains declared locally, preserving the existing NAS tool.
+- btop is declared by the NAS profile as a mise Linux tool. After source sync,
+  `dots up` installs it without changing the system package set.
 
 Private snapshots use `host-cerpacnas` in `EzraCerpac/dotfiles-state`.
 The watcher saves locally; `dots backup` explicitly publishes them.
