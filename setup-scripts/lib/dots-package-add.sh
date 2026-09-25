@@ -52,6 +52,12 @@ toml_quote() {
 write_isolated_config() {
     local file="$1" key="$2" declaration="$3" taps="$4"
     {
+        # The isolated config cannot see the setup's global settings.  Keep
+        # GitHub auth available for third-party Homebrew taps without copying
+        # a token into the temporary file.
+        printf '[settings.github]\ncredential_command = '
+        toml_quote "sh \"$setup_root/setup-scripts/lib/github-credential.sh\""
+        printf '\n\n'
         if [[ -n "$taps" ]]; then
             printf '[bootstrap.brew.taps]\n%s\n\n' "$taps"
         fi

@@ -111,6 +111,11 @@ if "bootstrap" in args and "packages" in args and "use" in args:
 if "bootstrap" in args and "packages" in args and "apply" in args:
     content = (effective_cwd / "mise.toml").read_text()
     log_call(args, content)
+    if os.environ.get("DOTS_REQUIRE_CREDENTIAL_COMMAND"):
+        settings = tomllib.loads(content).get("settings", {})
+        if not settings.get("github", {}).get("credential_command"):
+            print("isolated install has no GitHub credential command", file=sys.stderr)
+            raise SystemExit(41)
     raise SystemExit(int(os.environ.get("DOTS_PACKAGE_APPLY_STATUS", "0")))
 
 log_call(args)
@@ -206,6 +211,15 @@ class DotsPackageTest(unittest.TestCase):
         self.assertIn('adopt = true', content)
         self.assertNotIn("brew:other", content)
         self.assertFalse(any("set" in call["args"] or "use" in call["args"] for call in self.calls()))
+
+    def test_isolated_install_can_use_setup_github_credentials(self):
+        result = self.run_helper("brew:existing", DOTS_REQUIRE_CREDENTIAL_COMMAND="1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = tomllib.loads(self.apply_calls()[0]["content"])["settings"]
+        self.assertEqual(
+            settings["github"]["credential_command"],
+            f'sh "{self.root}/setup-scripts/lib/github-credential.sh"',
+        )
 
     def test_non_homebrew_pin_keeps_mise_version_value(self):
         result = self.run_helper("apt:curl@8.5.0-2")

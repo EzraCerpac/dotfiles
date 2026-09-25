@@ -1,5 +1,8 @@
 # Jev tools on this Mac
 
+> [!NOTE]
+> Orion is superseded by Search. But these jev browser tools where not up to standards yet. They should be removed from the repo on next pass.
+
 Perch is a workstation mise tool. Sift and Unclutter are local source builds
 loaded into Orion. Each extension has its own settings and local API-key copy.
 

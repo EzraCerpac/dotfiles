@@ -88,7 +88,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:google-chrome" = { os = "macos/arm64", adopt = true }
 "brew-cask:mathpix-snipping-tool" = { os = "macos/arm64", adopt = true }
 # OmniDiskSweeper adoption waits for explicit installer licence consent.
-"brew-cask:orion" = { os = "macos/arm64", adopt = true }
 "brew-cask:plex" = { os = "macos/arm64", adopt = true }
 "brew-cask:qlmarkdown" = { os = "macos/arm64", adopt = true }
 "brew-cask:rustdesk" = { os = "macos/arm64", adopt = true }
@@ -199,6 +198,9 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:orbstack" = { os = "macos/arm64" }
 "brew-cask:raycast" = { os = "macos/arm64" }
 "brew-cask:wezterm" = { os = "macos/arm64" }
+
+[bootstrap.packages."brew-cask:driceroland/tap/search"]
+os = "macos/arm64"
 
 
 [bootstrap.directories]
