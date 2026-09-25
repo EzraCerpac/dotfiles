@@ -19,7 +19,10 @@ class KeyboardHoldTests(unittest.TestCase):
         karabiner = (ROOT / "setup-scripts/setup/exceptions/karabiner-elements").read_text()
 
         self.assertNotIn('"brew:kanata"', workstation)
-        self.assertIn("base\tkanata", exceptions)
+        self.assertIn("workstation\tkanata", exceptions)
+        self.assertIn("workstation\tkarabiner-elements", exceptions)
+        self.assertNotIn("base\tkanata", exceptions)
+        self.assertNotIn("base\tkarabiner-elements", exceptions)
         self.assertIn("hold_brew_formula_exception kanata 1.12.0", kanata)
         self.assertIn("hold_brew_cask_exception", karabiner)
         self.assertNotIn("update_brew_cask_exception", karabiner)
