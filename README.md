@@ -78,6 +78,13 @@ If you are already working on a private JJ stack, select its bookmark explicitly
 with `dots publish --bookmark wip/your-task`. The command will not quietly include
 unrelated unpublished commits in the default flow.
 
+Use `dots publish --all` to put every unpublished commit leading to the current
+checkout into one PR. It skips an empty working child and leaves other local
+heads alone. If `main` advanced, it previews the stack and asks before merging
+`main` into it. A conflicted merge stays local for you to resolve; no branch is
+pushed until a later run shows and confirms the full final diff. Repeating
+`--all` updates the open aggregate PR when one exists.
+
 On the other machine, run `dots up`. It fetches merged `main`, applies the Fish
 change and other ordinary dotfiles, then updates tools. Open a new shell to load
 the shortcut. If you only want configuration, use `dots sync`; this does not

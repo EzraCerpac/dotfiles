@@ -7,7 +7,7 @@ Your machine setup, from any directory.
 
   dots up                         Sync configuration, then update tools and plugins
   dots sync                       Fetch main and apply shared configuration
-  dots publish [--bookmark NAME]   Review source changes and open/update a PR
+  dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
   dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
   dots status                     Inspect files, tools and backup health
