@@ -7,7 +7,8 @@ setup_error() {
 }
 
 setup_init() {
-    local script_path="${BASH_SOURCE[1]}"
+    # Resolve from this library; callers can sit at different depths.
+    local script_path="${BASH_SOURCE[0]}"
     local script_dir
     script_dir="$(cd "$(dirname "$script_path")" && pwd -P)" || return 1
 
