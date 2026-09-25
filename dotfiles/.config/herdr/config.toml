@@ -41,6 +41,12 @@ command = "herdr-picker-plus.open"
 description = "search Herdr"
 
 [[keys.command]]
+key = "prefix+shift+p"
+type = "plugin_action"
+command = "ray.plugin-manager.open"
+description = "open plugin manager"
+
+[[keys.command]]
 key = "prefix+a"
 type = "plugin_action"
 command = "ezracerpac.jj-waltz.new"
