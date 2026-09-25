@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$script_dir/common.sh"
+
+usage() {
+    cat <<'EOF'
+Prepare encrypted, exact-file mise history tracking for one host.
+
+Usage: setup-scripts/bootstrap/enroll-history --profile ROLE --machine-id ID \
+       --identity PATH [--origin URL] [--recipient AGE-RECIPIENT]... \
+       [--file PATH]... [--refresh]
+
+The task writes local profile settings and a host-specific tracking config.
+It does not save a checkpoint, create a history repository, or contact a remote.
+Use --refresh to append newly present files without replacing that host config.
+EOF
+}
+
+SETUP_PROFILE=""
+SETUP_MACHINE_ID=""
+SETUP_HISTORY_ORIGIN="${SETUP_HISTORY_ORIGIN:-}"
+identity_arg=""
+refresh=0
+extra_recipients=()
+extra_files=()
+
+while (($#)); do
+    case "$1" in
+        --profile) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_PROFILE="$2"; shift 2 ;;
+        --machine-id) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_MACHINE_ID="$2"; shift 2 ;;
+        --identity) (($# >= 2)) || { usage >&2; exit 2; }; identity_arg="$2"; shift 2 ;;
+        --origin) (($# >= 2)) || { usage >&2; exit 2; }; SETUP_HISTORY_ORIGIN="$2"; shift 2 ;;
+        --recipient) (($# >= 2)) || { usage >&2; exit 2; }; extra_recipients+=("$2"); shift 2 ;;
+        --file) (($# >= 2)) || { usage >&2; exit 2; }; extra_files+=("$2"); shift 2 ;;
+        --refresh) refresh=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) bootstrap_error "unknown argument: $1"; usage >&2; exit 2 ;;
+    esac
+done
+
+bootstrap_validate_profile
+if [[ -z "$identity_arg" ]]; then
+    bootstrap_error '--identity is required'
+    usage >&2
+    exit 2
+fi
+bootstrap_init
+
+case "$identity_arg" in
+    "~/"*) identity_path="$BOOTSTRAP_HOME/${identity_arg#\~/}"; identity_label="$identity_arg" ;;
+    "$HOME"/*)
+        identity_path="$identity_arg"
+        identity_label="~/${identity_arg#"$HOME"/}"
+        ;;
+    /*) identity_path="$identity_arg"; identity_label="$identity_arg" ;;
+    *) bootstrap_error 'identity path must be absolute or begin with ~/'; exit 2 ;;
+esac
+
+if [[ ! -f "$identity_path" || ! -r "$identity_path" ]]; then
+    bootstrap_error 'age identity must be a readable regular file'
+    exit 2
+fi
+case "$identity_path" in
+    "$BOOTSTRAP_CONFIG_DIR"|"$BOOTSTRAP_CONFIG_DIR"/*)
+        bootstrap_error 'keep the private age identity outside the mise config directory'
+        exit 2
+        ;;
+esac
+if ! command -v age-keygen >/dev/null 2>&1; then
+    bootstrap_error 'age-keygen is required to read the public recipient from the identity'
+    exit 2
+fi
+
+recipient_text="$(age-keygen -y "$identity_path" 2>/dev/null)" || {
+    bootstrap_error 'could not read an age recipient from the identity file'
+    exit 2
+}
+recipients=()
+while IFS= read -r recipient; do
+    [[ -n "$recipient" ]] || continue
+    if [[ ! "$recipient" =~ ^age1[0-9a-z]+$ ]]; then
+        bootstrap_error 'age-keygen returned an invalid public recipient'
+        exit 2
+    fi
+    recipients+=("$recipient")
+done <<< "$recipient_text"
+if ((${#recipients[@]} == 0)); then
+    bootstrap_error 'age identity has no public recipients'
+    exit 2
+fi
+
+for ((i = 0; i < ${#extra_recipients[@]}; i++)); do
+    recipient="${extra_recipients[$i]}"
+    if [[ ! "$recipient" =~ ^age1[0-9a-z]+$ ]]; then
+        bootstrap_error 'each --recipient must be a public age1 recipient'
+        exit 2
+    fi
+    recipients+=("$recipient")
+done
+
+files=()
+if [[ "$SETUP_PROFILE" == workstation ]]; then
+    files=(
+        '~/.codex/config.toml'
+        '~/.config/aegis/config.json'
+        '~/.config/karabiner/karabiner.json'
+        '~/.config/atuin/config.toml'
+        '~/.config/gitlogue-saver/config.toml'
+        '~/.config/nvim/lazyvim.json'
+        '~/.config/nvim/lazy-lock.json'
+        '~/.config/nvim/spell/en.utf-8.add'
+        '~/.config/fish/fish_variables'
+        '~/.cli-proxy-api/config.yaml'
+        '~/.config/goose/config.yaml'
+        '~/.wakatime.cfg'
+        '~/.config/himalaya/config.toml'
+    )
+elif [[ "$SETUP_PROFILE" == nas ]]; then
+    files=('~/.codex/config.toml' '~/.config/fish/fish_variables' '~/.config/atuin/config.toml' '~/.config/nvim/lazyvim.json' '~/.config/nvim/lazy-lock.json' '~/.config/nvim/spell/en.utf-8.add')
+fi
+if ((${#extra_files[@]})); then
+    files+=("${extra_files[@]}")
+fi
+
+selected_paths=()
+selected_targets=()
+for ((file_index = 0; file_index < ${#files[@]}; file_index++)); do
+    file="${files[$file_index]}"
+    case "$file" in
+        "~/"*) target="$BOOTSTRAP_HOME/${file#\~/}" ;;
+        "$HOME"/*) target="$file" ;;
+        /*) bootstrap_error '--file must be inside HOME or use ~/ syntax'; exit 2 ;;
+        *) bootstrap_error '--file must be absolute or begin with ~/'; exit 2 ;;
+    esac
+    if [[ "$file" == *$'\n'* || "$file" == *$'\r'* || "$file" == *$'\t'* ]]; then
+        bootstrap_error 'file paths cannot contain control characters'
+        exit 2
+    fi
+    required=0
+    for ((i = 0; i < ${#extra_files[@]}; i++)); do
+        explicit_file="${extra_files[$i]}"
+        [[ "$file" == "$explicit_file" ]] && required=1
+    done
+    if [[ ! -e "$target" && "$required" -eq 1 ]]; then
+        bootstrap_error "requested file does not exist: $file"
+        exit 2
+    fi
+    [[ -f "$target" ]] || continue
+    if [[ -L "$target" ]]; then
+        bootstrap_error "refusing symlink history path: $file"
+        exit 2
+    fi
+
+    parent_dir="$(cd "$(dirname "$target")" && pwd -P)" || exit 2
+    case "$parent_dir/" in
+        "$BOOTSTRAP_HOME"/*) ;;
+        *) bootstrap_error 'file resolves outside HOME'; exit 2 ;;
+    esac
+    normalized="$parent_dir/$(basename "$target")"
+    key="~/${normalized#"$BOOTSTRAP_HOME"/}"
+
+    duplicate=0
+    for ((prior_index = 0; prior_index < ${#selected_paths[@]}; prior_index++)); do
+        prior="${selected_paths[$prior_index]}"
+        [[ "$prior" == "$key" ]] && duplicate=1
+    done
+    if [[ "$duplicate" -eq 0 ]]; then
+        selected_paths+=("$key")
+        selected_targets+=("$normalized")
+    fi
+done
+
+if ((${#selected_paths[@]} == 0)); then
+    bootstrap_error 'no existing regular files selected; use --file for this host'
+    exit 2
+fi
+
+# Build an isolated native config variant. Refuse to rewrite a host config
+# that this task does not own, so existing settings remain untouched.
+host_profile="$(bootstrap_history_branch)" || exit $?
+variant_path="$BOOTSTRAP_CONFIG_DIR/config.$host_profile.toml"
+variant_tmp="$(mktemp "$BOOTSTRAP_CONFIG_DIR/.${host_profile}.history.XXXXXX")"
+trap '[[ -z "${variant_tmp:-}" ]] || rm -f "$variant_tmp"' EXIT
+bootstrap_append_history_entries() {
+    local config_file="$1" new_key quoted_key
+    for new_key in "${selected_paths[@]}"; do
+        quoted_key="$(bootstrap_toml_quote "$new_key")"
+        if [[ -f "$config_file" ]] && grep -Fqx "[dotfiles.$quoted_key]" "$config_file"; then
+            continue
+        fi
+        printf '\n[dotfiles.%s]\n' "$quoted_key" >> "$config_file"
+        printf 'mode = "track"\nencrypt = true\nvariants = [{ profile = "%s" }]\n' "$host_profile" >> "$config_file"
+    done
+}
+
+bootstrap_validate_existing_history_variant() {
+    local config_file="$1"
+    bootstrap_mise config get --file "$config_file" >/dev/null || return $?
+    awk '
+        function finish_entry() {
+            if (in_entry && (!tracked || !encrypted)) invalid = 1
+        }
+        /^\[\[dotfiles\./ { next }
+        /^\[dotfiles\./ {
+            finish_entry()
+            in_entry = 1
+            tracked = 0
+            encrypted = 0
+            next
+        }
+        /^\[/ {
+            finish_entry()
+            in_entry = 0
+            next
+        }
+        in_entry && /^[[:space:]]*mode[[:space:]]*=[[:space:]]*["\047]track["\047][[:space:]]*($|#)/ { tracked = 1 }
+        in_entry && /^[[:space:]]*encrypt[[:space:]]*=[[:space:]]*true[[:space:]]*($|#)/ { encrypted = 1 }
+        END {
+            finish_entry()
+            if (invalid) exit 1
+        }
+    ' "$config_file" || {
+        bootstrap_error "existing history declarations must all be encrypted: $config_file"
+        return 2
+    }
+}
+
+if [[ -e "$variant_path" || -L "$variant_path" ]]; then
+    if [[ -L "$variant_path" || ! -f "$variant_path" ]]; then
+        bootstrap_error "refusing non-regular host config: $variant_path"
+        exit 2
+    fi
+    if [[ "$refresh" -ne 1 ]]; then
+        {
+            printf '# Encrypted exact-file history entries for %s.\n' "$host_profile"
+            for key in "${selected_paths[@]}"; do
+                quoted_key="$(bootstrap_toml_quote "$key")"
+                printf '\n[dotfiles.%s]\n' "$quoted_key"
+                printf 'mode = "track"\nencrypt = true\nvariants = [{ profile = "%s" }]\n' "$host_profile"
+            done
+        } > "$variant_tmp"
+        if ! cmp -s "$variant_tmp" "$variant_path"; then
+            bootstrap_error "refusing to replace existing host config: $variant_path"
+            bootstrap_error 'rerun with --refresh to append newly present exact files'
+            exit 2
+        fi
+        rm -f "$variant_tmp"
+        variant_tmp=""
+    else
+        bootstrap_validate_existing_history_variant "$variant_path"
+        cp "$variant_path" "$variant_tmp"
+        printf '\n' >> "$variant_tmp"
+        bootstrap_append_history_entries "$variant_tmp"
+        chmod 644 "$variant_tmp"
+    fi
+else
+    printf '# Encrypted exact-file history entries for %s.\n' "$host_profile" > "$variant_tmp"
+    bootstrap_append_history_entries "$variant_tmp"
+    chmod 644 "$variant_tmp"
+fi
+
+# Persist profile and local identity before the next mise config load. Add all
+# public recipients locally; never put recipients or private-key paths in the
+# public host variant.
+bootstrap_persist_profile "$identity_label"
+for recipient in "${recipients[@]}"; do
+    bootstrap_append_local history.encryption.recipients "$recipient" list
+done
+
+if [[ -n "$variant_tmp" ]]; then
+    mv "$variant_tmp" "$variant_path"
+    variant_tmp=""
+fi
+
+# Parse and validate the declarations without creating a history checkpoint.
+bootstrap_mise bootstrap dotfiles paths >/dev/null
+printf '%s\n' "${selected_targets[@]}" | bash "$script_dir/history-permissions.sh" >/dev/null
+printf 'Prepared %d encrypted file paths for host %s (%s). No history checkpoint was saved.\n' \
+    "${#selected_paths[@]}" "$SETUP_MACHINE_ID" "$SETUP_PROFILE"

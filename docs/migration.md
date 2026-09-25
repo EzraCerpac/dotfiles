@@ -52,9 +52,9 @@ Keep remaining app transfers staged and individually reviewed. Do not run
 `--adopt` over the existing setup, run a broad bootstrap, or transfer casks as
 part of a source replacement.
 
-The final setup root is `~/.config/mise`. Use `tasks/bootstrap/profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
+The final setup root is `~/.config/mise`. Use `setup-scripts/bootstrap/profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
 
-`tasks/bootstrap/enroll-history` prepares encrypted exact-file tracking locally. It does not create a checkpoint or contact the private remote; review the selected paths and recipients before the first save.
+`setup-scripts/bootstrap/enroll-history` prepares encrypted exact-file tracking locally. It does not create a checkpoint or contact the private remote; review the selected paths and recipients before the first save.
 
 ## Intended daily workflows
 
@@ -79,7 +79,7 @@ dots restore
 | Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
 | Replace an unconnected local history store | `dots restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
 
-`setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `tasks/bootstrap/enroll-history`.
+`setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `setup-scripts/bootstrap/enroll-history`.
 
 The Mac update prepares the `mas` formula, then overlaps App Store updates with
 other formulae, casks, tools, and exceptions. With no cached

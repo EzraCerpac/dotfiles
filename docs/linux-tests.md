@@ -20,9 +20,9 @@ Only check its package prerequisites and mise binary:
 tests/linux-bootstrap.sh --distro fedora --prepare-only
 ```
 
-Full tests copy only `config.toml`, `config.workstation.toml`,
+Full tests copy only `config.toml`, `setup-tasks.toml`, `config.workstation.toml`,
 `mise.workstation.lock`, `locks/`, `dotfiles/`, `templates/`, `seeds/`,
-and `tasks/` into each container. They create the ordinary account
+and `setup-scripts/` into each container. They create the ordinary account
 `workspace-user` at
 `/workspace-user`, including the distribution's normal `/etc/skel` files, then
 run the workstation bootstrap twice as that user with passwordless `sudo` for

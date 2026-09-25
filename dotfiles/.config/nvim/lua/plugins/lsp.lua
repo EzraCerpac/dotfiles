@@ -40,18 +40,17 @@ return {
             diagnosticSeverity = "hint",
             isolateEnglish = false,
             maxFileLength = 120000,
-            excludePatterns = { "**/abstract-de.typ" },
+            excludePatterns = {},
             linters = {
               SpellCheck = true,
               SpelledNumbers = true,
               AnA = true,
               SentenceCapitalization = false,
               UnclosedQuotes = true,
-              WrongQuotes = false,
+              WrongApostrophe = false,
               LongSentences = true,
               RepeatedWords = true,
               Spaces = true,
-              Matcher = true,
               CorrectNumberSuffix = true,
               SplitWords = false,
               EllipsisLength = false,
@@ -70,6 +69,33 @@ return {
           },
         }),
       })
+      local previous_harper_init = opts.servers.harper_ls.on_init
+      opts.servers.harper_ls.on_init = function(client, result)
+        if previous_harper_init then previous_harper_init(client, result) end
+        local root = client.root_dir or ""
+        if root:match("/ezra%-cerpac[^/]*/manuscript$") then
+          local settings = client.settings or {}
+          local config = settings["harper-ls"] or {}
+          config.workspaceDictPath = ".harper-dictionary.txt"
+          config.isolateEnglish = true
+          config.excludePatterns = { "**/frontmatter.typ", "**/archive/**", "**/build/**" }
+          config.linters = config.linters or {}
+          for _, rule in ipairs({
+            "AnA", "AvoidAndAlso", "Beforehand", "CommaFixes", "CompoundNouns",
+            "DiscourseMarkers", "DisjointPrefixes", "ExpandConfiguration", "FillerWords",
+            "HowTo", "InflectedVerbAfterTo", "ItsContraction", "LongSentences",
+            "MassNouns", "MergeWords", "MissingDeterminer", "MissingPreposition",
+            "MissingTo", "NounVerbConfusion", "Overall", "OxfordComma",
+            "PersonalAddress", "PronounInflectionBe", "RepeatedWords", "RoadMap",
+            "Spaces", "SpelledNumbers", "WrongNegative",
+          }) do
+            config.linters[rule] = false
+          end
+          settings["harper-ls"] = config
+          client.settings = settings
+          client:notify("workspace/didChangeConfiguration", { settings = settings })
+        end
+      end
       opts.setup = opts.setup or {}
       opts.setup.julials = function(_, sopts)
         -- critical: do NOT let Mason manage Julia LS

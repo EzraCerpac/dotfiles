@@ -58,7 +58,7 @@ class NativeRestoreIntegrationTests(unittest.TestCase):
             key = home / ".age/identity"
             for path in (config, fixture_dir, codex_config.parent, key.parent, data_dir, producer_state, nas_state, restore_state, cache_dir):
                 path.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(SOURCE_ROOT / "tasks", config / "tasks")
+            shutil.copytree(SOURCE_ROOT / "setup-scripts", config / "setup-scripts")
 
             self._run([self.git, "init", "--bare", "--initial-branch=main", str(remote)], os.environ.copy(), base)
             self._run([self.git, "config", "--file", str(global_git_config), "--add", f"url.file://{remote}.insteadOf", HISTORY_ORIGIN], os.environ.copy(), base)
@@ -195,7 +195,7 @@ identity_files = ["~/.age/nas-identity"]
             task_env = common_env.copy()
             task_env.update({"SETUP_CONFIG_ROOT": str(config), "SETUP_GIT_BIN": self.git})
             task = subprocess.run(
-                [str(SOURCE_ROOT / "tasks/setup/restore")],
+                [str(SOURCE_ROOT / "setup-scripts/setup/restore")],
                 cwd=base,
                 env=task_env,
                 text=True,

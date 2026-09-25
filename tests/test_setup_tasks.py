@@ -20,10 +20,10 @@ class SetupTaskTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.root = self.base / "setup-root"
-        shutil.copytree(SOURCE_ROOT / "tasks", self.root / "tasks")
+        shutil.copytree(SOURCE_ROOT / "setup-scripts", self.root / "setup-scripts")
         # Each test owns its exception set; live profile exceptions may require
         # app data or a running app that deliberately does not exist in fixtures.
-        (self.root / "tasks/setup/exceptions.tsv").write_text("")
+        (self.root / "setup-scripts/setup/exceptions.tsv").write_text("")
         self.bin = self.base / "bin"
         self.bin.mkdir()
         self.log = self.base / "mise.log"
@@ -87,10 +87,10 @@ fi
 if [[ "${1:-}" == "exec" ]]; then
     shift
     [[ "${1:-}" == "--" ]] && shift
-    if [[ "${1:-}" == "node" && "${2:-}" == */tasks/bootstrap/herdr.mjs ]]; then
+    if [[ "${1:-}" == "node" && "${2:-}" == */setup-scripts/bootstrap/herdr.mjs ]]; then
         exit "${HERDR_CONFIG_RESULT:-0}"
     fi
-    if [[ "${1:-}" == "node" && "${2:-}" == */tasks/lib/source-repo.mjs ]]; then
+    if [[ "${1:-}" == "node" && "${2:-}" == */setup-scripts/lib/source-repo.mjs ]]; then
         case "${3:-}" in
             sync)
                 printf 'fixture source sync\n'
@@ -367,7 +367,7 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                 else:
                     env[key] = value
         return subprocess.run(
-            [str(self.root / "tasks" / "setup" / task), *args],
+            [str(self.root / "setup-scripts" / "setup" / task), *args],
             cwd=cwd or self.base,
             env=env,
             text=True,
@@ -414,8 +414,8 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
             self.assertEqual(call[:4], ["-C", str(self.root.resolve()), "-E", "workstation,host-mac-primary"])
         commands = [call[4:] for call in calls]
         resolved_root = self.root.resolve()
-        self.assertIn(["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "status", str(resolved_root)], commands)
-        self.assertIn(["exec", "--", "uv", "run", "--no-project", "python", str(resolved_root / "tasks/bootstrap/atuin.py"), "status"], commands)
+        self.assertIn(["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "status", str(resolved_root)], commands)
+        self.assertIn(["exec", "--", "uv", "run", "--no-project", "python", str(resolved_root / "setup-scripts/bootstrap/atuin.py"), "status"], commands)
         self.assertIn(["ls", "--current"], commands)
         self.assertIn("Setup profile: workstation", result.stdout)
 
@@ -508,7 +508,7 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                     env.pop(key, None)
                 else:
                     env[key] = value
-            script = 'source "$1/tasks/bootstrap/common.sh"; bootstrap_init || exit $?; printf "%s\\n" "$BOOTSTRAP_MISE_BIN"'
+            script = 'source "$1/setup-scripts/bootstrap/common.sh"; bootstrap_init || exit $?; printf "%s\\n" "$BOOTSTRAP_MISE_BIN"'
             result = subprocess.run(
                 ["bash", "-c", script, "bootstrap-path-probe", str(self.root)],
                 cwd=self.base,
@@ -673,11 +673,11 @@ esac
         self._write_executable(git, "#!/bin/sh\nexit 0\n")
         for name in ("nas-neovim-source", "nas-modern-git"):
             self._write_executable(
-                self.root / "tasks/install" / f"{name}.sh",
+                self.root / "setup-scripts/install" / f"{name}.sh",
                 f"#!/bin/sh\nprintf '%s\\n' {name}\n",
             )
             result = subprocess.run(
-                ["bash", str(self.root / "tasks/setup/exceptions" / name)],
+                ["bash", str(self.root / "setup-scripts/setup/exceptions" / name)],
                 env=env,
                 capture_output=True,
                 text=True,
@@ -781,15 +781,15 @@ esac
         commands = [call[4:] for call in self._calls()]
         source = [
             command for command in commands
-            if command[:4] == ["exec", "--", "node", str(self.root.resolve() / "tasks/lib/source-repo.mjs")]
+            if command[:4] == ["exec", "--", "node", str(self.root.resolve() / "setup-scripts/lib/source-repo.mjs")]
         ]
         reloads = [
             command for command in commands
-            if command[:4] == ["exec", "--", "bash", str(self.root.resolve() / "tasks/setup/update")]
+            if command[:4] == ["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/setup/update")]
         ]
         resolved_root = self.root.resolve()
-        self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "sync", str(resolved_root)]])
-        self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "tasks/setup/update")]])
+        self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)]])
+        self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
 
     def test_deferred_source_sync_preserves_source_and_still_updates(self) -> None:
@@ -825,7 +825,7 @@ esac
         commands = [call[4:] for call in self._calls()]
         self.assertEqual(len(commands), 1)
         resolved_root = self.root.resolve()
-        self.assertEqual(commands[0], ["exec", "--", "node", str(resolved_root / "tasks/lib/source-repo.mjs"), "sync", str(resolved_root)])
+        self.assertEqual(commands[0], ["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)])
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("bootstrap packages", rendered)
         self.assertNotIn("install", rendered)
@@ -841,22 +841,22 @@ esac
         package_apply = commands.index(["bootstrap", "packages", "apply", "--yes"])
         package_upgrade = commands.index(["bootstrap", "packages", "upgrade", "--yes"])
         tool_install = commands.index(["install"])
-        tool_upgrade = commands.index(["exec", "--", "bash", str(self.root.resolve() / "tasks/setup/upgrade-herdr")])
+        tool_upgrade = commands.index(["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/setup/upgrade-herdr")])
         self.assertLess(package_apply, package_upgrade)
         self.assertLess(package_upgrade, tool_install)
         self.assertLess(tool_install, tool_upgrade)
-        herdr_config = commands.index(["exec", "--", "node", str(self.root.resolve() / "tasks/bootstrap/herdr.mjs"), str(self.root.resolve())])
+        herdr_config = commands.index(["exec", "--", "node", str(self.root.resolve() / "setup-scripts/bootstrap/herdr.mjs"), str(self.root.resolve())])
         self.assertLess(tool_install, herdr_config)
         self.assertFalse(any(command[:2] == ["bootstrap", "user"] for command in commands))
 
 
     def test_failed_mise_install_skips_herdr_but_keeps_independent_updates(self) -> None:
-        exception = self.root / "tasks/setup/exceptions/fixture-exception"
+        exception = self.root / "setup-scripts/setup/exceptions/fixture-exception"
         self._write_executable(
             exception,
             "#!/usr/bin/env bash\nprintf 'called exception\\n' >> \"$EXCEPTION_LOG\"\n",
         )
-        (self.root / "tasks/setup/exceptions.tsv").write_text("workstation\tfixture-exception\n")
+        (self.root / "setup-scripts/setup/exceptions.tsv").write_text("workstation\tfixture-exception\n")
         exception_log = self.base / "exception.log"
         result = self._run(
             "update",
@@ -868,8 +868,8 @@ esac
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("newly declared mise tools", result.stdout)
         self.assertIn("Result: failed (exit 45)", result.stdout)
-        self.assertFalse(any("tasks/setup/upgrade-herdr" in arg for call in self._calls() for arg in call))
-        self.assertFalse(any("tasks/bootstrap/herdr.mjs" in arg for call in self._calls() for arg in call))
+        self.assertFalse(any("setup-scripts/setup/upgrade-herdr" in arg for call in self._calls() for arg in call))
+        self.assertFalse(any("setup-scripts/bootstrap/herdr.mjs" in arg for call in self._calls() for arg in call))
         self.assertEqual(exception_log.read_text(), "called exception\n")
         self.assertIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
 
@@ -959,10 +959,10 @@ esac
         self.assertFalse(any(call[4:7] == ["bootstrap", "packages", "upgrade"] and "brew-cask" in call for call in self._calls()))
 
     def test_update_runs_only_named_exception_script(self) -> None:
-        exception = self.root / "tasks/setup/exceptions/herdr-npm"
+        exception = self.root / "setup-scripts/setup/exceptions/herdr-npm"
         exception.parent.mkdir(parents=True, exist_ok=True)
         self._write_executable(exception, "#!/usr/bin/env bash\nprintf 'called herdr\\n' >> \"$EXCEPTION_LOG\"\n")
-        (self.root / "tasks/setup/exceptions.tsv").write_text("workstation\therdr-npm\n")
+        (self.root / "setup-scripts/setup/exceptions.tsv").write_text("workstation\therdr-npm\n")
         result = self._run("update", extra_env={"EXCEPTION_LOG": str(self.base / "exception.log"), "SETUP_PROFILE": "workstation"})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.base / "exception.log").read_text(), "called herdr\n")
@@ -976,7 +976,7 @@ esac
             installed="zoom karabiner-elements tailscale-app font-sf-pro antinote omnidisksweeper",
             outdated="zoom karabiner-elements tailscale-app font-sf-pro antinote omnidisksweeper",
         )
-        (self.root / "tasks/setup/exceptions.tsv").write_text(
+        (self.root / "setup-scripts/setup/exceptions.tsv").write_text(
             "workstation\tzoom\n"
             "workstation\tkarabiner-elements\n"
             "workstation\ttailscale-app\n"
@@ -1001,7 +1001,7 @@ esac
                 "-c",
                 'source "$1"; update_brew_cask_exception unlisted-cask ""',
                 "brew-exception-test",
-                str(self.root / "tasks/lib/brew-exception.sh"),
+                str(self.root / "setup-scripts/lib/brew-exception.sh"),
             ],
             cwd=self.base,
             env=self.env,
@@ -1016,7 +1016,7 @@ esac
         brew_log, _, _ = self._prepare_brew_exceptions(outdated="zoom")
         self.env["BREW_OUTDATED_STATUS"] = "1"
         result = subprocess.run(
-            [str(self.root / "tasks/setup/exceptions/zoom")],
+            [str(self.root / "setup-scripts/setup/exceptions/zoom")],
             cwd=self.base,
             env=self.env,
             text=True,
@@ -1030,7 +1030,7 @@ esac
         brew_log.write_text("")
         self.env["BREW_OUTDATED"] = ""
         result = subprocess.run(
-            [str(self.root / "tasks/setup/exceptions/zoom")],
+            [str(self.root / "setup-scripts/setup/exceptions/zoom")],
             cwd=self.base,
             env=self.env,
             text=True,
@@ -1044,7 +1044,7 @@ esac
         self.env["BREW_OUTDATED"] = "zoom"
         self.env["BREW_OUTDATED_STATUS"] = "2"
         result = subprocess.run(
-            [str(self.root / "tasks/setup/exceptions/zoom")],
+            [str(self.root / "setup-scripts/setup/exceptions/zoom")],
             cwd=self.base,
             env=self.env,
             text=True,
@@ -1067,7 +1067,7 @@ esac
         self.env["BREW_OUTDATED_STATUS"] = "1"
         for exception, formula in formulas.items():
             result = subprocess.run(
-                [str(self.root / "tasks/setup/exceptions" / exception)],
+                [str(self.root / "setup-scripts/setup/exceptions" / exception)],
                 cwd=self.base,
                 env=self.env,
                 text=True,
@@ -1087,7 +1087,7 @@ esac
         brew_log.write_text("")
         for exception, formula in formulas.items():
             result = subprocess.run(
-                [str(self.root / "tasks/setup/exceptions" / exception), "--install-only"],
+                [str(self.root / "setup-scripts/setup/exceptions" / exception), "--install-only"],
                 cwd=self.base,
                 env=self.env,
                 text=True,
@@ -1105,7 +1105,7 @@ esac
                 "-c",
                 'source "$1"; update_brew_formula_exception unlisted-formula',
                 "brew-formula-test",
-                str(self.root / "tasks/lib/brew-exception.sh"),
+                str(self.root / "setup-scripts/lib/brew-exception.sh"),
             ],
             cwd=self.base,
             env=self.env,
@@ -1122,7 +1122,7 @@ esac
             self.bin / "uname",
             "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'x86_64\\n' || printf 'Darwin\\n'\n",
         )
-        script = self.root / "tasks/setup/exceptions/intel-brew-basics"
+        script = self.root / "setup-scripts/setup/exceptions/intel-brew-basics"
         env = dict(self.env, SETUP_PROFILE="nas")
         result = subprocess.run([str(script)], env=env, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -1153,7 +1153,7 @@ esac
             busy="zoom.us Karabiner-Core-Service Tailscale",
             sudo_ok="0",
         )
-        scripts = self.root / "tasks/setup/exceptions"
+        scripts = self.root / "setup-scripts/setup/exceptions"
         for token in ("zoom", "karabiner-elements", "tailscale-app"):
             result = subprocess.run(
                 [str(scripts / token)],
@@ -1228,7 +1228,7 @@ esac
         master, slave = pty.openpty()
         try:
             process = subprocess.Popen(
-                [str(self.root / "tasks/setup/exceptions/zoom")],
+                [str(self.root / "setup-scripts/setup/exceptions/zoom")],
                 cwd=self.base,
                 env=self.env,
                 stdin=slave,
@@ -1375,7 +1375,7 @@ return { plugins = plugins }
                 "XDG_STATE_HOME": str(fixture / "state"),
                 "XDG_CACHE_HOME": str(fixture / "cache"),
                 "SETUP_TEST_LUA_PATH": str(lua),
-                "SETUP_TEST_SCRIPT": str(SOURCE_ROOT / "tasks/setup/lazy-update.lua"),
+                "SETUP_TEST_SCRIPT": str(SOURCE_ROOT / "setup-scripts/setup/lazy-update.lua"),
                 "CLEAN_PLUGIN": str(clean),
                 "DIRTY_PLUGIN": str(dirty),
                 "PINNED_PLUGIN": str(pinned),
@@ -1561,7 +1561,7 @@ return { plugins = plugins }
         self.assertEqual(commands, [["settings", "get", "history.sync"], ["config", "get", "--file", str(self.root.resolve() / "config.local.toml"), "history.origin.branch"]])
 
     def test_history_permissions_accepts_an_empty_path_list_under_nounset(self) -> None:
-        helper = self.root / "tasks/bootstrap/history-permissions.sh"
+        helper = self.root / "setup-scripts/bootstrap/history-permissions.sh"
         result = subprocess.run(
             ["bash", str(helper)],
             cwd=self.base,

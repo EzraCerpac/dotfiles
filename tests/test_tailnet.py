@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import unittest
 
-TASK = Path(__file__).resolve().parents[1] / 'tasks/bootstrap/enroll-tailscale'
+TASK = Path(__file__).resolve().parents[1] / 'setup-scripts/bootstrap/enroll-tailscale'
 
 class TailnetTests(unittest.TestCase):
     def fixture(self, state, failure=''):

@@ -1,0 +1,211 @@
+# Included only when mise runs in the setup checkout.
+["setup:status"]
+description = "Inspect setup health"
+run = "bash setup-scripts/setup/status"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["setup:update"]
+description = "Update the machine setup"
+raw = true
+run = "bash setup-scripts/setup/update"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["setup:backup"]
+description = "Backup the machine setup"
+run = "bash setup-scripts/setup/backup"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["setup:restore"]
+description = "Restore the machine setup"
+run = "bash setup-scripts/setup/restore"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["setup:secrets"]
+description = "Deploy encrypted private configuration"
+run = "bash setup-scripts/setup/secrets"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["jev:save-key"]
+description = "Save a Jev API key privately and encrypt it with age"
+run = "bash setup-scripts/setup/jev-secret save"
+raw = true
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["jev:restore-key"]
+description = "Restore the private Jev key from its age-encrypted copy"
+run = "bash setup-scripts/setup/jev-secret restore"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["jev:sift-build"]
+description = "Rebuild the current Sift checkout with locked dependencies"
+dir = "{{ env.HOME }}/Projects/Tools/sift"
+run = ["npm ci", "npm run build"]
+
+["jev:unclutter-build"]
+description = "Rebuild the current Unclutter Chromium extension"
+dir = "{{ env.HOME }}/Projects/Tools/unclutter"
+run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build"]
+
+["jev:unclutter-firefox-build"]
+description = "Build the alternate Unclutter Firefox extension"
+dir = "{{ env.HOME }}/Projects/Tools/unclutter"
+run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build:firefox"]
+
+
+["install:herdr-plugins"]
+description = "Herdr plugins"
+run = "bash setup-scripts/install/herdr-plugins.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["install:jw-build-install"]
+description = "Jw build install"
+run = "bash setup-scripts/install/jw-build-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["install:jw-nas-release"]
+description = "Jw nas release"
+run = "bash setup-scripts/install/jw-nas-release.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["install:nas-modern-git"]
+description = "Nas modern git"
+run = "bash setup-scripts/install/nas-modern-git.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:aegis-local-install"]
+description = "Aegis local install"
+run = "bash setup-scripts/local/aegis-local-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:aegis-signing-setup"]
+description = "Aegis signing setup"
+run = "bash setup-scripts/local/aegis-signing-setup.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:antinote-bridge-build"]
+description = "Antinote bridge build"
+run = "bash setup-scripts/local/antinote-bridge-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:cliproxy-configure"]
+description = "Cliproxy configure"
+run = "bash setup-scripts/local/cliproxy-configure.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:cliproxy-service"]
+description = "Cliproxy service"
+run = "bash setup-scripts/local/cliproxy-service.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:rift-local-install"]
+description = "Rift local install"
+run = "bash setup-scripts/local/rift-local-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:rift-signing-setup"]
+description = "Rift signing setup"
+run = "bash setup-scripts/local/rift-signing-setup.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:shell-select"]
+description = "Shell select"
+run = "bash setup-scripts/local/shell-select.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:touchid-sudo"]
+description = "Touchid sudo"
+run = "bash setup-scripts/local/touchid-sudo.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+[kbd_provision]
+description = "Provision Corne QMK and macOS keyboard runtime"
+run = "./dotfiles/.local/bin/kbd provision"
+
+[kbd_sync]
+description = "Sync keymap + regenerate images + reload HUD"
+run = "./dotfiles/.local/bin/kbd sync"
+
+[kbd_build]
+description = "Build default UF2"
+run = "./dotfiles/.local/bin/kbd build"
+
+[kbd_build_all]
+description = "Build all UF2 variants"
+run = "./dotfiles/.local/bin/kbd build-all"
+
+[kbd_build_left]
+description = "Build left-hand tagged UF2 artifact"
+run = "./dotfiles/.local/bin/kbd build --left"
+
+[kbd_build_right]
+description = "Build right-hand tagged UF2 artifact"
+run = "./dotfiles/.local/bin/kbd build --right"
+
+[kbd_flash_left]
+description = "Flash LEFT half and set EE_HANDS left"
+depends = ["kbd_build_left"]
+run = "./dotfiles/.local/bin/kbd flash left"
+
+[kbd_flash_right]
+description = "Flash RIGHT half and set EE_HANDS right"
+depends = ["kbd_build_right"]
+run = "./dotfiles/.local/bin/kbd flash right"
+
+[kbd_hud]
+description = "Reload Hammerspoon HUD"
+run = "./dotfiles/.local/bin/kbd hud-reload"
+
+[kbd_images]
+description = "Regenerate keymap images"
+run = "./dotfiles/.local/bin/kbd layout-images"
+
+["local:seed-configs"]
+run = "bash setup-scripts/local/seed-configs.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:finish-dotfiles"]
+run = "bash setup-scripts/local/finish-dotfiles.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:private-permissions"]
+run = "bash setup-scripts/local/private-permissions.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:sync-skills"]
+run = "bash dotfiles/.local/bin/codex-sync-jj-waltz"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+
+["setup:profile"]
+run = "bash setup-scripts/bootstrap/profile"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["setup:enroll-history"]
+run = "bash setup-scripts/bootstrap/enroll-history"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:aerospace-local-build"]
+run = "bash setup-scripts/local/aerospace-local-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:install-exceptions"]
+run = "bash setup-scripts/local/install-exceptions.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+[bootstrap]
+description = "Complete private recovery, installation, services, and account enrollment"
+run = "node setup-scripts/bootstrap/complete.mjs"
+raw = true
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:remctl-install"]
+run = "bash setup-scripts/local/remctl-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:agenda-build-install"]
+run = "bash setup-scripts/local/agenda-build-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:voiceink-build"]
+description = "Stage the current locally signed VoiceInk build"
+run = "bash setup-scripts/local/voiceink-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"

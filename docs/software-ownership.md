@@ -162,12 +162,12 @@ No `pipx:` tools are currently declared. The former `pipx:` CLIs
 (`keymap-drawer`, `mlx-whisper`, `worldlines`, `xonsh`) were removed as
 unwanted, along with their installs, shims, and lock entries. `maturin` uses
 the upstream GitHub release backend, while `typ2docx` uses the named isolated
-UV exception at `tasks/setup/exceptions/typ2docx`.
+UV exception at `setup-scripts/setup/exceptions/typ2docx`.
 
 | Former uv tool | Version at removal | Replacement owner |
 | --- | --- | --- |
 | `maturin` | 1.14.1 | `github:PyO3/maturin` with `filter_bins = "maturin"` |
-| `typ2docx` | 0.8.0 | Isolated UV exception `tasks/setup/exceptions/typ2docx`; stable launcher at `~/.local/bin/typ2docx` |
+| `typ2docx` | 0.8.0 | Isolated UV exception `setup-scripts/setup/exceptions/typ2docx`; stable launcher at `~/.local/bin/typ2docx` |
 
 `mise` documents these backends for global applications: [npm](https://mise.jdx.dev/dev-tools/backends/npm.html)
 and [pipx](https://mise.jdx.dev/dev-tools/backends/pipx.html). The uv tools

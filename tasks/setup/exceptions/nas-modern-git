@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-source "$(dirname "$0")/../../lib/setup-common.sh"
-setup_init
-if [[ ! -x "$HOME/.local/share/git-modern/bin/git" ]]; then
-    printf 'This host does not use the CerpacNAS user-space Git prefix.\n'
-    exit 0
-fi
-exec bash "$SETUP_ROOT/tasks/install/nas-modern-git.sh"

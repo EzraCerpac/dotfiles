@@ -78,6 +78,13 @@ If you are already working on a private JJ stack, select its bookmark explicitly
 with `dots publish --bookmark wip/your-task`. The command will not quietly include
 unrelated unpublished commits in the default flow.
 
+Use `dots publish --all` to put every unpublished commit leading to the current
+checkout into one PR. It skips an empty working child and leaves other local
+heads alone. If `main` advanced, it previews the stack and asks before merging
+`main` into it. A conflicted merge stays local for you to resolve; no branch is
+pushed until a later run shows and confirms the full final diff. Repeating
+`--all` updates the open aggregate PR when one exists.
+
 On the other machine, run `dots up`. It fetches merged `main`, applies the Fish
 change and other ordinary dotfiles, then updates tools. Open a new shell to load
 the shortcut. If you only want configuration, use `dots sync`; this does not
@@ -278,11 +285,12 @@ Review defaults:
 
 | Path | Purpose |
 | --- | --- |
-| `config.toml` and `config.<role>.toml` | Shared mise configuration, tasks, and explicit machine profiles |
+| `config.toml` and `config.<role>.toml` | Global mise settings, tools, bootstrap declarations, and machine profiles |
+| `setup-tasks.toml` and `setup-scripts/` | Setup tasks, available with `mise -C ~/.config/mise run` without adding them to project task lists |
 | `dotfiles/` | Native symlink sources; editing a linked target edits this source |
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
-| `tasks/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
-| `tasks/install/` and `tasks/local/` | Explicit install and machine lifecycle tasks |
+| `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
+| `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
 | `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.

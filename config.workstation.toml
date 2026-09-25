@@ -88,7 +88,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:google-chrome" = { os = "macos/arm64", adopt = true }
 "brew-cask:mathpix-snipping-tool" = { os = "macos/arm64", adopt = true }
 # OmniDiskSweeper adoption waits for explicit installer licence consent.
-"brew-cask:orion" = { os = "macos/arm64", adopt = true }
 "brew-cask:plex" = { os = "macos/arm64", adopt = true }
 "brew-cask:qlmarkdown" = { os = "macos/arm64", adopt = true }
 "brew-cask:rustdesk" = { os = "macos/arm64", adopt = true }
@@ -200,6 +199,9 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "brew-cask:raycast" = { os = "macos/arm64" }
 "brew-cask:wezterm" = { os = "macos/arm64" }
 
+[bootstrap.packages."brew-cask:driceroland/tap/search"]
+os = "macos/arm64"
+
 
 [bootstrap.directories]
 "~/Projects" = { mode = "0755" }
@@ -260,8 +262,8 @@ value = true
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/private-permissions.sh" --prepare-source'
-post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
+post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]

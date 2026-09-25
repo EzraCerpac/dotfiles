@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../tasks/lib/source-repo.mjs';
+import { ensureRepository, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
 const jjConfig = path.join(testState, 'jj.toml');

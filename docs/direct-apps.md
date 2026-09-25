@@ -147,7 +147,7 @@ item-specific check of app state, permissions, update behavior, and uninstall
 effects.
 
 The registered `vendor-apps` exception in `setup:update` reads the named entries
-in [`tasks/setup/vendor-apps.tsv`](../tasks/setup/vendor-apps.tsv). `Pinned`
+in [`setup-scripts/setup/vendor-apps.tsv`](../setup-scripts/setup/vendor-apps.tsv). `Pinned`
 records a local/project owner; it does not say the app is current, tested, or
 healthy. `Deferred` records an app or vendor update path that remains manual.
 The report checks only whether each declared target path exists, prints its

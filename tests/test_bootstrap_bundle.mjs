@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { writeBundle, unlockBundle, applyPrivateFiles } from '../tasks/bootstrap/bundle.mjs';
+import { writeBundle, unlockBundle, applyPrivateFiles } from '../setup-scripts/bootstrap/bundle.mjs';
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-bundle-test-'));
 const miseBin = process.env.SETUP_MISE_BIN || path.join(os.homedir(), '.local/bin/mise');
