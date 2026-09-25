@@ -655,6 +655,16 @@ esac
         self.assertIn("upgrade\t--no-prune", self.log.read_text())
         self.assertNotIn("--exclude", self.log.read_text())
 
+    def test_nas_upgrades_tools_without_herdr_handoff(self) -> None:
+        result = self._run(
+            "update",
+            extra_env={"SETUP_PROFILE": "nas", "WATCHER_ACTIVE": "1"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("upgrade\t--no-prune", self.log.read_text())
+        self.assertIn("Herdr live handoff skipped for the NAS profile", result.stdout)
+        self.assertNotIn("which\therdr", self.log.read_text())
+
     def test_update_leaves_running_herdr_when_handoff_fails(self) -> None:
         herdr, state, log = self._prepare_herdr()
         result = self._run(
