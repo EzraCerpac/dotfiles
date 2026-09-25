@@ -16,7 +16,7 @@ from pathlib import Path
 
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
-HELPER = SOURCE_ROOT / "tasks/bootstrap/atuin.py"
+HELPER = SOURCE_ROOT / "setup-scripts/bootstrap/atuin.py"
 PASSWORD = "fixture-password-value"
 HISTORY_KEY = "fixture-history-key-value"
 RECIPIENT = "age1fixturefixturefixturefixturefixturefixturefixture"

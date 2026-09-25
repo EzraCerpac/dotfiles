@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, withRepositoryLock } from '../tasks/lib/source-repo.mjs';
-import { DISCLOSURE, publish } from '../tasks/setup/publish.mjs';
+import { ensureRepository, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
+import { DISCLOSURE, publish } from '../setup-scripts/setup/publish.mjs';
 
 function command(root, bin, args) {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8' });

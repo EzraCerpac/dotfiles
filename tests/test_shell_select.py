@@ -17,8 +17,8 @@ class ShellSelectTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.root = self.base / "setup-root"
-        shutil.copytree(ROOT / "tasks", self.root / "tasks")
-        (self.root / "tasks/setup/exceptions.tsv").write_text("")
+        shutil.copytree(ROOT / "setup-scripts", self.root / "setup-scripts")
+        (self.root / "setup-scripts/setup/exceptions.tsv").write_text("")
         self.home = self.base / "home"
         self.home.mkdir()
         self.bin = self.base / "bin"
@@ -142,7 +142,7 @@ printf 'fish, version 4.9.3\\n'
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
-            ["bash", str(self.root / "tasks/local/shell-select.sh"), *args],
+            ["bash", str(self.root / "setup-scripts/local/shell-select.sh"), *args],
             env=env,
             text=True,
             capture_output=True,

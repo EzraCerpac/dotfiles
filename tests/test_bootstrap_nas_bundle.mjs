@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { complete } from '../tasks/bootstrap/complete.mjs';
-import { writeBundle } from '../tasks/bootstrap/bundle.mjs';
+import { complete } from '../setup-scripts/bootstrap/complete.mjs';
+import { writeBundle } from '../setup-scripts/bootstrap/bundle.mjs';
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-nas-bundle-'));
 try {
@@ -41,7 +41,7 @@ try {
     if (text.includes('config set')) local[args.at(-2)] = args.at(-1);
     if (command === 'age-keygen') return { status: 0, stdout: 'age1fixturepublicrecipient\n' };
     if (text.includes('dot status --json')) return { status: 0, stdout: '{"history":{"watcher":"running"}}' };
-    if (text.includes('tasks/bootstrap/tailnet')) return { status: 3 };
+    if (text.includes('setup-scripts/bootstrap/tailnet')) return { status: 3 };
     return { status: 0, stdout: '' };
   };
   const env = {
@@ -51,7 +51,7 @@ try {
     XDG_STATE_HOME: path.join(home, 'state'),
   };
   assert.equal(complete({ root, home, miseBin: '/fixture/mise', env, run }), 0);
-  assert(calls.some(({ args }) => args.some((arg) => arg.endsWith('/tasks/bootstrap/enroll-history'))),
+  assert(calls.some(({ args }) => args.some((arg) => arg.endsWith('/setup-scripts/bootstrap/enroll-history'))),
     'NAS history enrollment should proceed without the implicit workstation bundle');
   assert(!calls.some(({ args }) => args.includes('workstation-only-fixture')),
     'workstation bundle contents must not enter NAS bootstrap');

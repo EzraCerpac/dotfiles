@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# MISE description="Inspect selected setup profile, packages, tools, files, history, and installer exceptions"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+setup_init || exit $?
+
+printf 'Setup profile: %s\n' "$SETUP_PROFILE"
+printf 'Machine identity: %s\n' "${SETUP_MACHINE_ID:-not set}"
+if [[ "$SETUP_PROFILE" == "nas" ]]; then
+    printf 'NAS history: dots backup saves and publishes this host; watcher health is shown below.\n'
+fi
+
+set +e
+printf '\nSource repository:\n'
+setup_mise exec -- node "$SETUP_ROOT/setup-scripts/lib/source-repo.mjs" status "$SETUP_ROOT"
+source_result=$?
+printf '\nAtuin:\n'
+setup_mise exec -- uv run --no-project python "$SETUP_ROOT/setup-scripts/bootstrap/atuin.py" status
+atuin_result=$?
+printf '\nDeclared setup state:\n'
+setup_mise bootstrap status
+status_result=$?
+printf '\nDeclared tool state:\n'
+setup_mise ls --current
+tools_result=$?
+printf '\nDotfile and history state:\n'
+setup_mise bootstrap dotfiles status
+history_result=$?
+printf '\n'
+setup_print_exceptions
+exceptions_result=$?
+set -e
+
+if [[ ( "$source_result" -ne 0 && "$source_result" -ne 3 ) || ( "$atuin_result" -ne 0 && "$atuin_result" -ne 3 ) || "$status_result" -ne 0 || "$tools_result" -ne 0 || "$history_result" -ne 0 || "$exceptions_result" -ne 0 ]]; then
+    setup_error "status inspection reported a failure"
+    exit 1
+fi

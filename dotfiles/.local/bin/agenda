@@ -14,4 +14,4 @@ case "${1:-}" in
 esac
 export AGENDA_CALLER_CWD="$PWD"
 project="$HOME/Projects/personal-concierge"
-exec "$HOME/.local/bin/mise" -C "$project" exec -- python "$project/tasks/agenda_background.py" "$@"
+exec "$HOME/.local/bin/mise" -C "$project" exec -- python "$project/setup-scripts/agenda_background.py" "$@"

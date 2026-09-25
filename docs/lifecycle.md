@@ -9,7 +9,7 @@ mise -C ~/.config/mise run <task>
 ```
 
 The parent setup configuration registers the task names. The task scripts live
-under `tasks/local/` and `tasks/install/`.
+under `setup-scripts/local/` and `setup-scripts/install/`.
 
 Install native packages through the selected profile's mise package bootstrap
 before running their app configuration or service tasks. For example, the
@@ -18,24 +18,24 @@ only configure its settings link and start its service.
 
 | Task script | Replaces | What it does |
 | --- | --- | --- |
-| `tasks/install/jw-build-install.sh` | Local jj-waltz build hook | Builds `~/Projects/jj-waltz` with Cargo's lockfile and installs the verified `jw` binary in `~/.local/bin`. |
-| `tasks/install/jw-nas-release.sh` | NAS jj-waltz release branch | Downloads the pinned static x86-64 Linux release, checks its SHA-256 and version, then installs it. |
-| `tasks/install/nas-modern-git.sh` | NAS modern Git hook | Checks and installs the pinned micromamba binary, creates or updates the user-space `git>=2.41` environment, and links `~/.local/bin/git` only when that path is free or already owned by this environment. |
-| `tasks/install/herdr-plugins.sh` | Pinned Herdr plugin hook | Installs the four pinned plugins when their current commit differs. Requires Herdr and `jq`. |
-| `tasks/local/antinote-bridge-build.sh` | Antinote bridge build hook | Builds the source in `dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift` and atomically installs its binary. The source fingerprint is kept under `~/.local/state/mise/`. |
-| `tasks/local/shell-select.sh` | Login-shell hook | Resolves a validated Fish executable, then asks native mise to add it to `/etc/shells` and update the account. Workstation and NAS profiles use the same path; a noninteractive run without passwordless administrator access reports a resumable deferral. |
-| `tasks/local/touchid-sudo.sh` | Touch ID hook | Adds `pam_tid.so` to `/etc/pam.d/sudo_local` with `sudo`; it is a no-op when already enabled. |
-| `tasks/local/cliproxy-configure.sh` | CLIProxyAPI configuration hook | Preserves a previous Homebrew config beside the target if needed, then links the user's config. It does not change service state. |
-| `tasks/local/cliproxy-service.sh` | CLIProxyAPI service part | Starts the Homebrew service only when it is stopped. It leaves a running service alone. |
-| `tasks/local/aegis-local-install.sh` | Aegis local build/install helper | Calls the deployed `~/.local/bin/aegis-local-install` helper. That helper can quit/reopen Aegis and write its updater defaults, so run it only when intentionally installing the local build. |
-| `tasks/local/aegis-signing-setup.sh` | Aegis signing setup helper | Calls the deployed signing helper when a local signing identity needs setup. |
-| `tasks/local/rift-local-install.sh` | Rift local build/install helper | Calls the deployed helper. By default it builds and stages only; `--activate` is the explicit service/manager handoff. |
-| `tasks/local/rift-signing-setup.sh` | Rift signing setup helper | Calls the deployed signing helper when needed. |
-| `tasks/local/aerospace-local-build.sh` | Preserve the active AeroSpace local build | Builds the pinned clean source revision with SwiftPM and Xcode into a versioned staging directory. It never replaces the active app or CLI. |
-| `tasks/local/voiceink-build.sh` | VoiceInk local-build owner exception | Builds the current clean VoiceInk source with its local updater guard and stable Apple Development signature, then stages the app without installing or launching it. |
-| `tasks/local/ensure-homebrew-exceptions.sh` | Brooklyn and MacTeX prerequisites | On workstation macOS only, installs Homebrew if absent using a checksum-pinned official installer; it does not install or update packages. |
-| `tasks/local/finish-dotfiles.sh` | Post-dotfiles permissions | Verifies private modes after file application; workstation and DelftBlue only. |
-| `tasks/local/private-permissions.sh` | SSH template preparation and explicit permission repair | Before dotfile apply, sets the SSH template source to `0600` so mise renders `~/.ssh/config` with the same mode and reports it as applied. After apply, sets `~/.ssh` and `~/.config/jj` to `0700`, the rendered SSH config to `0600`, and regular jj config copies to `0600`. It skips declared public-source symlinks and refuses directory or SSH-target symlinks. |
+| `setup-scripts/install/jw-build-install.sh` | Local jj-waltz build hook | Builds `~/Projects/jj-waltz` with Cargo's lockfile and installs the verified `jw` binary in `~/.local/bin`. |
+| `setup-scripts/install/jw-nas-release.sh` | NAS jj-waltz release branch | Downloads the pinned static x86-64 Linux release, checks its SHA-256 and version, then installs it. |
+| `setup-scripts/install/nas-modern-git.sh` | NAS modern Git hook | Checks and installs the pinned micromamba binary, creates or updates the user-space `git>=2.41` environment, and links `~/.local/bin/git` only when that path is free or already owned by this environment. |
+| `setup-scripts/install/herdr-plugins.sh` | Pinned Herdr plugin hook | Installs the four pinned plugins when their current commit differs. Requires Herdr and `jq`. |
+| `setup-scripts/local/antinote-bridge-build.sh` | Antinote bridge build hook | Builds the source in `dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift` and atomically installs its binary. The source fingerprint is kept under `~/.local/state/mise/`. |
+| `setup-scripts/local/shell-select.sh` | Login-shell hook | Resolves a validated Fish executable, then asks native mise to add it to `/etc/shells` and update the account. Workstation and NAS profiles use the same path; a noninteractive run without passwordless administrator access reports a resumable deferral. |
+| `setup-scripts/local/touchid-sudo.sh` | Touch ID hook | Adds `pam_tid.so` to `/etc/pam.d/sudo_local` with `sudo`; it is a no-op when already enabled. |
+| `setup-scripts/local/cliproxy-configure.sh` | CLIProxyAPI configuration hook | Preserves a previous Homebrew config beside the target if needed, then links the user's config. It does not change service state. |
+| `setup-scripts/local/cliproxy-service.sh` | CLIProxyAPI service part | Starts the Homebrew service only when it is stopped. It leaves a running service alone. |
+| `setup-scripts/local/aegis-local-install.sh` | Aegis local build/install helper | Calls the deployed `~/.local/bin/aegis-local-install` helper. That helper can quit/reopen Aegis and write its updater defaults, so run it only when intentionally installing the local build. |
+| `setup-scripts/local/aegis-signing-setup.sh` | Aegis signing setup helper | Calls the deployed signing helper when a local signing identity needs setup. |
+| `setup-scripts/local/rift-local-install.sh` | Rift local build/install helper | Calls the deployed helper. By default it builds and stages only; `--activate` is the explicit service/manager handoff. |
+| `setup-scripts/local/rift-signing-setup.sh` | Rift signing setup helper | Calls the deployed signing helper when needed. |
+| `setup-scripts/local/aerospace-local-build.sh` | Preserve the active AeroSpace local build | Builds the pinned clean source revision with SwiftPM and Xcode into a versioned staging directory. It never replaces the active app or CLI. |
+| `setup-scripts/local/voiceink-build.sh` | VoiceInk local-build owner exception | Builds the current clean VoiceInk source with its local updater guard and stable Apple Development signature, then stages the app without installing or launching it. |
+| `setup-scripts/local/ensure-homebrew-exceptions.sh` | Brooklyn and MacTeX prerequisites | On workstation macOS only, installs Homebrew if absent using a checksum-pinned official installer; it does not install or update packages. |
+| `setup-scripts/local/finish-dotfiles.sh` | Post-dotfiles permissions | Verifies private modes after file application; workstation and DelftBlue only. |
+| `setup-scripts/local/private-permissions.sh` | SSH template preparation and explicit permission repair | Before dotfile apply, sets the SSH template source to `0600` so mise renders `~/.ssh/config` with the same mode and reports it as applied. After apply, sets `~/.ssh` and `~/.config/jj` to `0700`, the rendered SSH config to `0600`, and regular jj config copies to `0600`. It skips declared public-source symlinks and refuses directory or SSH-target symlinks. |
 
 ## Operational boundaries
 
@@ -103,7 +103,7 @@ directory, without starting another mise process from the hook:
 
 ```toml
 [bootstrap.hooks]
-post-dotfiles = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
+post-dotfiles = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 ```
 
 Mise runs this hook after dotfile apply, including during `mise bootstrap`, and

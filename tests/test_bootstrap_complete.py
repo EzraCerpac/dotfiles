@@ -22,8 +22,8 @@ const run = (command, args, options) => {
   }
   if (command === 'age-keygen') return {status:0, stdout:'age1fixturepublicrecipient\n'};
   if (text.includes('dot status --json')) return {status:0, stdout:JSON.stringify({history:{watcher:process.env.WATCHER_STATE || 'running'}})};
-  if (text.includes('tasks/setup/restore') && process.env.FAIL_RESTORE) return {status:1};
-  if (text.includes('tasks/local/shell-select.sh')) {
+  if (text.includes('setup-scripts/setup/restore') && process.env.FAIL_RESTORE) return {status:1};
+  if (text.includes('setup-scripts/local/shell-select.sh')) {
     const prepare = args.at(-1) === '--prepare-only';
     return {status:Number(process.env[prepare ? 'SHELL_PREPARE_STATUS' : 'SHELL_SELECT_STATUS'] || 0)};
   }
@@ -34,7 +34,7 @@ const run = (command, args, options) => {
     return {status:1, error:{code:'ENOENT'}};
   }
   if (command === 'herdr' && text === 'server reload-config') return {status:Number(process.env.HERDR_RELOAD_STATUS || 0)};
-  if (text.includes('tasks/bootstrap/tailnet')) return {status:3};
+  if (text.includes('setup-scripts/bootstrap/tailnet')) return {status:3};
   return {status:0, stdout:''};
 };
 const result = complete({root:process.env.TEST_ROOT,home:process.env.HOME,miseBin:'/fixture/mise',env:process.env,run});
@@ -54,7 +54,7 @@ class CompleteTests(unittest.TestCase):
             identity.parent.mkdir()
             identity.write_text('fixture identity')
             env = dict(os.environ, HOME=str(home), TEST_ROOT=str(root),
-                       COMPLETE_MODULE=(ROOT / 'tasks/bootstrap/complete.mjs').as_uri(),
+                       COMPLETE_MODULE=(ROOT / 'setup-scripts/bootstrap/complete.mjs').as_uri(),
                        SETUP_PROFILE='nas', SETUP_RESTORE_MACHINE_ID='fixture-host',
                        SETUP_AGE_IDENTITY=str(identity), XDG_STATE_HOME=str(home / 'state'))
             env.pop('SETUP_BOOTSTRAP_BUNDLE', None)
@@ -69,10 +69,10 @@ class CompleteTests(unittest.TestCase):
     def test_restore_precedes_enrollment_and_watcher(self):
         data, report = self.run_fixture()
         calls = [' '.join(c['args']) for c in data['calls']]
-        restore = next(i for i,c in enumerate(calls) if 'tasks/setup/restore' in c)
-        enroll = next(i for i,c in enumerate(calls) if 'tasks/bootstrap/enroll-history' in c)
+        restore = next(i for i,c in enumerate(calls) if 'setup-scripts/setup/restore' in c)
+        enroll = next(i for i,c in enumerate(calls) if 'setup-scripts/bootstrap/enroll-history' in c)
         services = next(i for i,c in enumerate(calls) if 'bootstrap services apply' in c)
-        atuin = next(c for c in data['calls'] if 'tasks/bootstrap/atuin.py' in ' '.join(c['args']))
+        atuin = next(c for c in data['calls'] if 'setup-scripts/bootstrap/atuin.py' in ' '.join(c['args']))
         self.assertLess(restore, enroll)
         self.assertLess(enroll, services)
         self.assertIn('--identity', atuin['args'])
@@ -96,9 +96,9 @@ class CompleteTests(unittest.TestCase):
         data, report = self.run_fixture(SHELL_PREPARE_STATUS='0', SHELL_SELECT_STATUS='3')
         self.assertEqual(data['result'], 0)
         calls = [' '.join(c['args']) for c in data['calls']]
-        prepare = next(i for i, call in enumerate(calls) if 'tasks/local/shell-select.sh' in call and '--prepare-only' in call)
+        prepare = next(i for i, call in enumerate(calls) if 'setup-scripts/local/shell-select.sh' in call and '--prepare-only' in call)
         herdr = next(i for i, call in enumerate(calls) if 'bootstrap dotfiles apply' in call)
-        login = next(i for i, call in enumerate(calls) if 'tasks/local/shell-select.sh' in call and '--prepare-only' not in call)
+        login = next(i for i, call in enumerate(calls) if 'setup-scripts/local/shell-select.sh' in call and '--prepare-only' not in call)
         self.assertLess(prepare, herdr)
         self.assertLess(herdr, login)
         self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Fish executable'), 'completed')
@@ -110,8 +110,8 @@ class CompleteTests(unittest.TestCase):
         data, report = self.run_fixture(SHELL_PREPARE_STATUS='1')
         self.assertEqual(data['result'], 1)
         calls = [' '.join(c['args']) for c in data['calls']]
-        self.assertEqual(sum('tasks/local/shell-select.sh' in call for call in calls), 1)
-        self.assertTrue(any('--prepare-only' in call for call in calls if 'tasks/local/shell-select.sh' in call))
+        self.assertEqual(sum('setup-scripts/local/shell-select.sh' in call for call in calls), 1)
+        self.assertTrue(any('--prepare-only' in call for call in calls if 'setup-scripts/local/shell-select.sh' in call))
         self.assertFalse(any('bootstrap dotfiles apply' in call for call in calls))
         self.assertEqual(next(s['status'] for s in report['stages'] if s['stage']=='Fish executable'), 'failed')
         self.assertFalse(any(s['stage'] == 'Herdr shell' for s in report['stages']))
@@ -134,7 +134,7 @@ class CompleteTests(unittest.TestCase):
         self.assertEqual(data['result'], 1)
         calls = [' '.join(c['args']) for c in data['calls']]
         self.assertFalse(any(call == 'server reload-config' for call in calls))
-        self.assertEqual(sum('tasks/local/shell-select.sh' in call for call in calls), 1)
+        self.assertEqual(sum('setup-scripts/local/shell-select.sh' in call for call in calls), 1)
         self.assertFalse(any(s['stage'] == 'Login shell' for s in report['stages']))
 
     def test_stopped_herdr_does_not_reload(self):

@@ -9,8 +9,16 @@ idiomatic_version_file_enable_tools = ["rust"]
 history.sync = "manual"
 # Maintenance must be able to inspect a partially installed setup.
 task.run_auto_install = false
-github.credential_command = 'sh "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/lib/github-credential.sh"'
+github.credential_command = 'sh "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/lib/github-credential.sh"'
 auto_update = true
+
+# Files in this config directory load globally, and a tasks/ directory here is
+# discovered from projects under HOME. Include setup tasks only at the setup root.
+[task_config]
+includes = [
+    "{% if cwd == get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') %}{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}/setup-tasks.toml{% else %}/__mise_setup_tasks_disabled__{% endif %}",
+    "{% if cwd == get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') %}{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}/setup-scripts{% else %}/__mise_setup_tasks_disabled__{% endif %}",
+]
 
 [vars]
 name = "Ezra Cerpac"
@@ -68,217 +76,6 @@ tmux = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "lin
 zoxide = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
-
-[tasks."setup:status"]
-description = "Inspect setup health"
-run = "bash tasks/setup/status"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."setup:update"]
-description = "Update the machine setup"
-raw = true
-run = "bash tasks/setup/update"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."setup:backup"]
-description = "Backup the machine setup"
-run = "bash tasks/setup/backup"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."setup:restore"]
-description = "Restore the machine setup"
-run = "bash tasks/setup/restore"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."setup:secrets"]
-description = "Deploy encrypted private configuration"
-run = "bash tasks/setup/secrets"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."jev:save-key"]
-description = "Save a Jev API key privately and encrypt it with age"
-run = "bash tasks/setup/jev-secret save"
-raw = true
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."jev:restore-key"]
-description = "Restore the private Jev key from its age-encrypted copy"
-run = "bash tasks/setup/jev-secret restore"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."jev:sift-build"]
-description = "Rebuild the current Sift checkout with locked dependencies"
-dir = "{{ env.HOME }}/Projects/Tools/sift"
-run = ["npm ci", "npm run build"]
-
-[tasks."jev:unclutter-build"]
-description = "Rebuild the current Unclutter Chromium extension"
-dir = "{{ env.HOME }}/Projects/Tools/unclutter"
-run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build"]
-
-[tasks."jev:unclutter-firefox-build"]
-description = "Build the alternate Unclutter Firefox extension"
-dir = "{{ env.HOME }}/Projects/Tools/unclutter"
-run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build:firefox"]
-
-
-[tasks."install:herdr-plugins"]
-description = "Herdr plugins"
-run = "bash tasks/install/herdr-plugins.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."install:jw-build-install"]
-description = "Jw build install"
-run = "bash tasks/install/jw-build-install.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."install:jw-nas-release"]
-description = "Jw nas release"
-run = "bash tasks/install/jw-nas-release.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."install:nas-modern-git"]
-description = "Nas modern git"
-run = "bash tasks/install/nas-modern-git.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:aegis-local-install"]
-description = "Aegis local install"
-run = "bash tasks/local/aegis-local-install.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:aegis-signing-setup"]
-description = "Aegis signing setup"
-run = "bash tasks/local/aegis-signing-setup.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:antinote-bridge-build"]
-description = "Antinote bridge build"
-run = "bash tasks/local/antinote-bridge-build.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:cliproxy-configure"]
-description = "Cliproxy configure"
-run = "bash tasks/local/cliproxy-configure.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:cliproxy-service"]
-description = "Cliproxy service"
-run = "bash tasks/local/cliproxy-service.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:rift-local-install"]
-description = "Rift local install"
-run = "bash tasks/local/rift-local-install.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:rift-signing-setup"]
-description = "Rift signing setup"
-run = "bash tasks/local/rift-signing-setup.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:shell-select"]
-description = "Shell select"
-run = "bash tasks/local/shell-select.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:touchid-sudo"]
-description = "Touchid sudo"
-run = "bash tasks/local/touchid-sudo.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-[tasks.kbd_provision]
-description = "Provision Corne QMK and macOS keyboard runtime"
-run = "./dotfiles/.local/bin/kbd provision"
-
-[tasks.kbd_sync]
-description = "Sync keymap + regenerate images + reload HUD"
-run = "./dotfiles/.local/bin/kbd sync"
-
-[tasks.kbd_build]
-description = "Build default UF2"
-run = "./dotfiles/.local/bin/kbd build"
-
-[tasks.kbd_build_all]
-description = "Build all UF2 variants"
-run = "./dotfiles/.local/bin/kbd build-all"
-
-[tasks.kbd_build_left]
-description = "Build left-hand tagged UF2 artifact"
-run = "./dotfiles/.local/bin/kbd build --left"
-
-[tasks.kbd_build_right]
-description = "Build right-hand tagged UF2 artifact"
-run = "./dotfiles/.local/bin/kbd build --right"
-
-[tasks.kbd_flash_left]
-description = "Flash LEFT half and set EE_HANDS left"
-depends = ["kbd_build_left"]
-run = "./dotfiles/.local/bin/kbd flash left"
-
-[tasks.kbd_flash_right]
-description = "Flash RIGHT half and set EE_HANDS right"
-depends = ["kbd_build_right"]
-run = "./dotfiles/.local/bin/kbd flash right"
-
-[tasks.kbd_hud]
-description = "Reload Hammerspoon HUD"
-run = "./dotfiles/.local/bin/kbd hud-reload"
-
-[tasks.kbd_images]
-description = "Regenerate keymap images"
-run = "./dotfiles/.local/bin/kbd layout-images"
-
-[tasks."local:seed-configs"]
-run = "bash tasks/local/seed-configs.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:finish-dotfiles"]
-run = "bash tasks/local/finish-dotfiles.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:private-permissions"]
-run = "bash tasks/local/private-permissions.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:sync-skills"]
-run = "bash dotfiles/.local/bin/codex-sync-jj-waltz"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-
-[tasks."setup:profile"]
-run = "bash tasks/bootstrap/profile"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."setup:enroll-history"]
-run = "bash tasks/bootstrap/enroll-history"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:aerospace-local-build"]
-run = "bash tasks/local/aerospace-local-build.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:install-exceptions"]
-run = "bash tasks/local/install-exceptions.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks.bootstrap]
-description = "Complete private recovery, installation, services, and account enrollment"
-run = "node tasks/bootstrap/complete.mjs"
-raw = true
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:remctl-install"]
-run = "bash tasks/local/remctl-install.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:agenda-build-install"]
-run = "bash tasks/local/agenda-build-install.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-[tasks."local:voiceink-build"]
-description = "Stage the current locally signed VoiceInk build"
-run = "bash tasks/local/voiceink-build.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
@@ -421,7 +218,7 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 
 [bootstrap.hooks]
-pre-packages = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/ensure-homebrew-exceptions.sh"'
+pre-packages = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/ensure-homebrew-exceptions.sh"'
 
 [bootstrap.brew.taps]
 "modem-dev/tap" = "https://github.com/modem-dev/homebrew-tap"

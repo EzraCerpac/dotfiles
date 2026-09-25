@@ -24,13 +24,13 @@ class DotsTest(unittest.TestCase):
         self.mise = self.base / 'mise'
         self.mise.write_text('#!/usr/bin/env python3\nimport os,sys,json\nwith open(os.environ["CALL_LOG"],"a") as f: f.write(json.dumps({"args":sys.argv[1:],"env":os.environ.get("MISE_ENV"),"root":os.environ.get("MISE_CONFIG_DIR")})+"\\n")\nif "get" in sys.argv: print("workstation")\nsys.exit(int(os.environ.get("FAIL_USE","0")) if "use" in sys.argv else 0)\n')
         self.mise.chmod(0o755)
-        helper = self.root / 'tasks/lib/dots-package-add.sh'
+        helper = self.root / 'setup-scripts/lib/dots-package-add.sh'
         helper.parent.mkdir(parents=True)
         helper.write_text('#!/usr/bin/env bash\n"$1" -C "$2" PACKAGE_HELPER "$3" "${@:4}"\n')
-        bootstrap = self.root / 'tasks/bootstrap'
+        bootstrap = self.root / 'setup-scripts/bootstrap'
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
-            shutil.copy2(SOURCE.parents[3] / 'tasks/bootstrap' / name, bootstrap / name)
+            shutil.copy2(SOURCE.parents[3] / 'setup-scripts/bootstrap' / name, bootstrap / name)
         self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), CALL_LOG=str(self.log), MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
 
     def run_dots(self, *args, **env):
@@ -50,10 +50,10 @@ class DotsTest(unittest.TestCase):
 
     def test_source_routes_are_rooted_when_called_from_an_unrelated_project(self):
         expected = {
-            'sync': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/lib/source-repo.mjs'), 'sync', str(self.root)],
-            'publish': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'tasks/setup/publish.mjs'), str(self.root)],
-            'atuin-bundle': ['-C', str(self.root), 'exec', '--', 'bash', str(self.root / 'tasks/bootstrap/atuin-bundle')],
-            'atuin-login': ['-C', str(self.root), 'exec', '--', 'uv', 'run', '--no-project', 'python', str(self.root / 'tasks/bootstrap/atuin.py'), 'enroll', '--root', str(self.root)],
+            'sync': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'setup-scripts/lib/source-repo.mjs'), 'sync', str(self.root)],
+            'publish': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'setup-scripts/setup/publish.mjs'), str(self.root)],
+            'atuin-bundle': ['-C', str(self.root), 'exec', '--', 'bash', str(self.root / 'setup-scripts/bootstrap/atuin-bundle')],
+            'atuin-login': ['-C', str(self.root), 'exec', '--', 'uv', 'run', '--no-project', 'python', str(self.root / 'setup-scripts/bootstrap/atuin.py'), 'enroll', '--root', str(self.root)],
         }
         for command, args in expected.items():
             result = self.run_dots(command)

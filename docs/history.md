@@ -29,7 +29,7 @@ new encrypted checkpoint; it does not re-encrypt older commits.
 Persist the role and machine ID first:
 
 ```sh
-tasks/bootstrap/profile \
+setup-scripts/bootstrap/profile \
   --profile workstation \
   --machine-id mac-primary \
   --origin git@github.com:EzraCerpac/dotfiles-state.git
@@ -39,7 +39,7 @@ Enroll exact files with that host's identity. `--recipient` accepts a public
 age recipient for recovery or another machine; it never accepts a private key:
 
 ```sh
-tasks/bootstrap/enroll-history \
+setup-scripts/bootstrap/enroll-history \
   --profile workstation \
   --machine-id mac-primary \
   --identity ~/.config/age/keys.txt \

@@ -22,5 +22,5 @@ btop = { version = "latest", os = ["linux/x64"] }
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh"'
-post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh"'
+post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'

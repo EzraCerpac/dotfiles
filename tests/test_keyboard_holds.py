@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class KeyboardHoldTests(unittest.TestCase):
     def test_configuration_routes_keyboard_tools_to_hold_tasks(self):
         workstation = (ROOT / "config.workstation.toml").read_text()
-        exceptions = (ROOT / "tasks/setup/exceptions.tsv").read_text()
-        kanata = (ROOT / "tasks/setup/exceptions/kanata").read_text()
-        karabiner = (ROOT / "tasks/setup/exceptions/karabiner-elements").read_text()
+        exceptions = (ROOT / "setup-scripts/setup/exceptions.tsv").read_text()
+        kanata = (ROOT / "setup-scripts/setup/exceptions/kanata").read_text()
+        karabiner = (ROOT / "setup-scripts/setup/exceptions/karabiner-elements").read_text()
 
         self.assertNotIn('"brew:kanata"', workstation)
         self.assertIn("base\tkanata", exceptions)
@@ -47,7 +47,7 @@ class KeyboardHoldTests(unittest.TestCase):
                     [
                         "bash",
                         "-c",
-                        f"source '{ROOT}/tasks/lib/brew-exception.sh'; "
+                        f"source '{ROOT}/setup-scripts/lib/brew-exception.sh'; "
                         "hold_brew_formula_exception kanata 1.12.0",
                     ],
                     env=env,

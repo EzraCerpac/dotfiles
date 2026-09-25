@@ -55,9 +55,9 @@ case "$command_name" in
 esac
 case "$command_name" in
     up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
-    sync) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/lib/source-repo.mjs" sync "$root" ;;
-    publish) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/setup/publish.mjs" "$root" "$@" ;;
-    atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$root/tasks/bootstrap/atuin-bundle" "$@" ;;
+    sync) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" ;;
+    publish) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/setup/publish.mjs" "$root" "$@" ;;
+    atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$root/setup-scripts/bootstrap/atuin-bundle" "$@" ;;
     atuin-login)
         login_args=(enroll --root "$root")
         while (($#)); do
@@ -78,13 +78,13 @@ case "$command_name" in
             esac
             shift
         done
-        exec "$mise_bin" -C "$root" exec -- uv run --no-project python "$root/tasks/bootstrap/atuin.py" "${login_args[@]}"
+        exec "$mise_bin" -C "$root" exec -- uv run --no-project python "$root/setup-scripts/bootstrap/atuin.py" "${login_args[@]}"
         ;;
     plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
     status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
-    bootstrap) exec bash "$root/tasks/bootstrap/launch" "$mise_bin" "$root" "$@" ;;
-    remote) exec bash "$root/tasks/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
-    bundle) exec "$mise_bin" -C "$root" exec -- node "$root/tasks/bootstrap/bundle.mjs" "$@" ;;
+    bootstrap) exec bash "$root/setup-scripts/bootstrap/launch" "$mise_bin" "$root" "$@" ;;
+    remote) exec bash "$root/setup-scripts/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
+    bundle) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/bootstrap/bundle.mjs" "$@" ;;
     apply) exec "$mise_bin" -C "$root" bootstrap dotfiles apply "$@" ;;
     add) ;;
     *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
@@ -127,5 +127,5 @@ if [[ ${#tools[@]} -gt 0 ]]; then
     run_mise use --path "$target" "${tools[@]}"
 fi
 if [[ ${#packages[@]} -gt 0 ]]; then
-    bash "$root/tasks/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "${packages[@]}"
+    bash "$root/setup-scripts/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "${packages[@]}"
 fi

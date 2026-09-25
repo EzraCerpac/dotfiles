@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { complete } from '../tasks/bootstrap/complete.mjs';
-import { writeBundle } from '../tasks/bootstrap/bundle.mjs';
+import { complete } from '../setup-scripts/bootstrap/complete.mjs';
+import { writeBundle } from '../setup-scripts/bootstrap/bundle.mjs';
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-repeat-'));
 try {
@@ -28,7 +28,7 @@ try {
       return { status: key in local ? 0 : 1, stdout: local[key] || '' };
     }
     if (text.includes('config set')) local[args.at(-2)] = args.at(-1);
-    if (text.includes('tasks/bootstrap/enroll-history')) {
+    if (text.includes('setup-scripts/bootstrap/enroll-history')) {
       local['env.SETUP_AGE_IDENTITY'] = args[args.indexOf('--identity') + 1];
     }
     if (text.includes('dot status --json')) return { status: 0, stdout: '{"history":{"watcher":"running"}}' };
@@ -46,11 +46,11 @@ try {
   // The bundle still needs the independent external identity from the first run.
   assert.equal(complete({ root, home, miseBin: '/fixture/mise',
     env: { ...env, SETUP_AGE_IDENTITY: hostKey }, run }), 0);
-  const enrollments = calls.filter(c => c.args.some(a => a.endsWith('/tasks/bootstrap/tailnet')));
+  const enrollments = calls.filter(c => c.args.some(a => a.endsWith('/setup-scripts/bootstrap/tailnet')));
   assert.equal(enrollments.length, 2);
   assert(enrollments.every(c => c.key === 'fixture-enrollment-key'));
   assert(calls.filter(c => !enrollments.includes(c)).every(c => c.key === undefined));
-  const historyEnrollments = calls.filter(c => c.args.some(a => a.endsWith('/tasks/bootstrap/enroll-history')));
+  const historyEnrollments = calls.filter(c => c.args.some(a => a.endsWith('/setup-scripts/bootstrap/enroll-history')));
   assert.equal(historyEnrollments.length, 2);
   assert(historyEnrollments.every(c => c.args.includes(recipient)), 'Both passes retain the external recovery recipient');
   console.log('Repeat bootstrap preserves bundle identity and isolates enrollment credentials.');

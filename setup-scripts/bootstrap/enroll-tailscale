@@ -1,0 +1,319 @@
+#!/usr/bin/env bash
+# MISE description="Enroll this machine in Tailscale without changing network preferences"
+set -euo pipefail
+umask 077
+
+# The wrapper may run this task unattended.  Keep this code small and
+# resumable: a connected backend is a no-op, and a failed `up` is never
+# followed by `down`, `logout`, or a settings reset.
+readonly EXIT_USAGE=2
+readonly EXIT_DEFERRED=3
+readonly EXIT_AUTH_FAILURE=21
+readonly EXIT_NETWORK_FAILURE=22
+readonly EXIT_BACKEND_FAILURE=23
+
+usage() {
+    cat <<'EOF'
+Enroll the local machine in Tailscale.
+
+Usage: setup-scripts/bootstrap/enroll-tailscale
+
+When the local backend already reports BackendState=Running, this is a no-op
+and preserves the current identity and network preferences.  Otherwise the
+task uses SETUP_TAILSCALE_AUTH_KEY (read from the wrapper's child environment)
+through a private 0600 temporary file and runs:
+
+  tailscale up --auth-key=file:<temporary-file>
+
+The key is never passed as a command-line value, printed, or exported to the
+Tailscale process.  If the key is missing or expired, an interactive terminal
+may run `tailscale up` for browser login.  Non-interactive runs defer this
+step and return exit code 3.
+
+Exit codes:
+  0  already connected or enrollment completed
+  2  invalid invocation or local setup error
+  3  deferred: browser login or a client is needed
+ 21  authentication failed
+ 22  network/control-plane failure
+ 23  local Tailscale backend failure
+
+The CLI can be overridden for tests with TAILSCALE_CLI.  On macOS the
+installed app CLI is preferred and is invoked with TAILSCALE_BE_CLI=1; on
+Linux the existing `tailscale` command is used.
+EOF
+}
+
+bootstrap_error() {
+    printf 'Tailscale enrollment: %s\n' "$*" >&2
+}
+
+defer_step() {
+    printf 'Deferred: %s\n' "$*" >&2
+    return "$EXIT_DEFERRED"
+}
+
+if (($#)); then
+    case "$1" in
+        -h|--help) usage; exit 0 ;;
+        *) bootstrap_error "unknown argument: $1"; usage >&2; exit "$EXIT_USAGE" ;;
+    esac
+fi
+
+is_unattended() {
+    case "${NONINTERACTIVE:-}" in 1|true|TRUE|yes|YES) return 0 ;; esac
+    case "${MISE_NONINTERACTIVE:-}" in 1|true|TRUE|yes|YES) return 0 ;; esac
+    case "${SETUP_NONINTERACTIVE:-}" in 1|true|TRUE|yes|YES) return 0 ;; esac
+    case "${TAILSCALE_NONINTERACTIVE:-}" in 1|true|TRUE|yes|YES) return 0 ;; esac
+    [[ -n "${CI:-}" ]]
+}
+
+interactive_terminal() {
+    is_unattended && return 1
+    [[ -t 0 && -t 1 ]]
+}
+
+cli_path=''
+cli_is_mac=0
+resolve_cli() {
+    local platform
+    platform="$(uname -s 2>/dev/null || true)"
+    if [[ -n "${TAILSCALE_CLI:-}" ]]; then
+        cli_path="$TAILSCALE_CLI"
+        [[ "$platform" == Darwin ]] && cli_is_mac=1
+        [[ -x "$cli_path" ]] || return 1
+        return 0
+    fi
+
+    if [[ "$platform" == Darwin && -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]]; then
+        cli_path=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+        cli_is_mac=1
+        return 0
+    fi
+    cli_path="$(command -v tailscale 2>/dev/null || true)"
+    [[ -n "$cli_path" && -x "$cli_path" ]]
+}
+
+tailscale_exec() {
+    # SETUP_TAILSCALE_AUTH_KEY is unset below before any child is started.  The
+    # -u is a second guard against accidentally exposing a parent export.
+    if [[ "$cli_is_mac" -eq 1 ]]; then
+        env -u SETUP_TAILSCALE_AUTH_KEY TAILSCALE_BE_CLI=1 "$cli_path" "$@"
+    else
+        env -u SETUP_TAILSCALE_AUTH_KEY "$cli_path" "$@"
+    fi
+}
+
+parse_backend_state() {
+    local json_file="$1" state=''
+    if command -v jq >/dev/null 2>&1; then
+        state="$(jq -r 'if (.BackendState? // null) == null then "" else .BackendState end' "$json_file" 2>/dev/null || true)"
+    elif command -v python3 >/dev/null 2>&1; then
+        state="$(python3 - "$json_file" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        value = json.load(handle).get("BackendState", "")
+except (OSError, ValueError, TypeError, AttributeError):
+    value = ""
+print(value if isinstance(value, str) else "")
+PY
+        )"
+    fi
+    printf '%s\n' "$state"
+}
+
+classify_failure() {
+    local output_file="$1" text
+    text="$(cat "$output_file" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
+    if grep -Eq 'auth(entication)?|auth key|expired|invalid key|unauthori[sz]ed|forbidden|permission denied|logged out|not logged in|login required|needs login|(^|[^0-9])(401|403)([^0-9]|$)' <<< "$text"; then
+        printf 'auth\n'
+    elif grep -Eq 'network|timed out|timeout|dns|no route|unreachable|connection|control plane|control server|tls|temporary failure|cannot reach' <<< "$text"; then
+        printf 'network\n'
+    elif grep -Eq 'backend|daemon|local state|not running|failed to connect' <<< "$text"; then
+        printf 'backend\n'
+    else
+        printf 'unknown\n'
+    fi
+}
+
+print_safe_output() {
+    local output_file="$1"
+    [[ -s "$output_file" ]] || return 0
+    # Browser-login output is useful to the person at the terminal, but do not
+    # trust a third-party CLI to keep credentials out of its diagnostics.
+    sed -E 's/tskey-[^[:space:]]+/[REDACTED]/g' "$output_file"
+}
+
+print_safe_stream() {
+    # Keep browser login output visible while retaining the full diagnostic in
+    # the private temporary directory. Browser login receives no auth key, but
+    # retain the same defensive redaction as captured output.
+    awk '{gsub(/tskey-[^[:space:]]+/, "[REDACTED]"); print; fflush()}'
+}
+
+auth_key="${SETUP_TAILSCALE_AUTH_KEY:-}"
+# Do not let jq, Python, mktemp, or the CLI inherit the secret.  Keep the
+# private shell variable only long enough to write the one-off 0600 file.
+unset SETUP_TAILSCALE_AUTH_KEY
+
+if ! resolve_cli; then
+    platform="$(uname -s 2>/dev/null || true)"
+    if [[ "$platform" == Linux ]]; then
+        missing_message='Linux Tailscale client not found (`tailscale`); install Tailscale through the host package setup, then rerun enrollment'
+    elif [[ "$platform" == Darwin ]]; then
+        missing_message='macOS Tailscale app CLI not found; install or enable Tailscale and complete its system approval, then rerun enrollment'
+    else
+        missing_message='the Tailscale CLI is unavailable; install or enable Tailscale, then rerun enrollment'
+    fi
+    if is_unattended || ! interactive_terminal; then
+        defer_step "$missing_message in a terminal"
+        exit $?
+    fi
+    defer_step "$missing_message"
+    exit $?
+fi
+
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/mise-tailscale.XXXXXX")" || {
+    bootstrap_error 'could not create a private temporary directory'
+    exit "$EXIT_USAGE"
+}
+cleanup() {
+    [[ -n "${tmp_dir:-}" && -d "$tmp_dir" && ! -L "$tmp_dir" ]] && rm -rf "$tmp_dir"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+status_out="$tmp_dir/status.out"
+status_err="$tmp_dir/status.err"
+status_rc=0
+if tailscale_exec status --json >"$status_out" 2>"$status_err"; then
+    status_rc=0
+else
+    status_rc=$?
+fi
+
+backend_state="$(parse_backend_state "$status_out")"
+if [[ "$status_rc" -eq 0 && "$backend_state" == Running ]]; then
+    printf 'Tailscale is already connected; preserving current identity and network settings.\n'
+    exit 0
+fi
+
+if [[ "$status_rc" -ne 0 ]]; then
+    # A not-yet-enrolled client commonly returns a non-zero status code while
+    # still providing a useful BackendState. Those states are expected input
+    # to `tailscale up`; an error without a known state means that the local
+    # backend or its connection is not trustworthy enough to continue.
+    case "$backend_state" in
+        NeedsLogin|NeedsMachineAuth|NeedsNetwork|NoState|Starting|Stopped)
+            :
+            ;;
+        *)
+            status_diag="$tmp_dir/status.diag"
+            cat "$status_out" "$status_err" >"$status_diag"
+            status_failure="$(classify_failure "$status_diag")"
+            case "$status_failure" in
+                auth)
+                    :
+                    ;;
+                network)
+                    bootstrap_error 'Tailscale status could not reach the control plane'
+                    exit "$EXIT_NETWORK_FAILURE"
+                    ;;
+                backend|unknown)
+                    bootstrap_error 'the local Tailscale backend could not provide a usable status'
+                    exit "$EXIT_BACKEND_FAILURE"
+                    ;;
+            esac
+            ;;
+    esac
+fi
+
+valid_auth_key=0
+if [[ -n "$auth_key" && "$auth_key" != *$'\n'* && "$auth_key" != *$'\r'* && "$auth_key" =~ ^[^[:space:]]+$ ]]; then
+    valid_auth_key=1
+fi
+
+run_browser_login() {
+    if ! interactive_terminal; then
+        defer_step 'browser login requires an interactive terminal; rerun enrollment after attaching to the machine'
+        return $?
+    fi
+
+    printf 'Tailscale needs browser sign-in. Complete the browser and macOS system approval prompts, then return here.\n'
+    local login_out="$tmp_dir/login.out" login_err="$tmp_dir/login.err" login_rc=0 failure
+    # Stream the login URL while `tailscale up` waits for the browser. The
+    # files retain the complete diagnostic for classification; only the
+    # terminal stream is redacted.
+    if tailscale_exec up \
+        > >(tee "$login_out" | print_safe_stream) \
+        2> >(tee "$login_err" | print_safe_stream >&2); then
+        login_rc=0
+    else
+        login_rc=$?
+    fi
+    if [[ "$login_rc" -eq 0 ]]; then
+        printf 'Tailscale browser enrollment completed.\n'
+        return 0
+    fi
+    failure="$(cat "$login_out" "$login_err" 2>/dev/null | classify_failure /dev/stdin)"
+    case "$failure" in
+        auth) bootstrap_error 'browser authentication failed'; return "$EXIT_AUTH_FAILURE" ;;
+        network) bootstrap_error 'browser enrollment could not reach the Tailscale control plane'; return "$EXIT_NETWORK_FAILURE" ;;
+        backend) bootstrap_error 'the local Tailscale backend is unavailable'; return "$EXIT_BACKEND_FAILURE" ;;
+        *) bootstrap_error 'browser enrollment failed'; return 1 ;;
+    esac
+}
+
+if [[ "$valid_auth_key" -eq 1 ]]; then
+    auth_file="$tmp_dir/auth-key"
+    if ! printf '%s\n' "$auth_key" >"$auth_file" || ! chmod 600 "$auth_file"; then
+        bootstrap_error 'could not stage the Tailscale auth key privately'
+        exit "$EXIT_USAGE"
+    fi
+    auth_key=''
+
+    up_out="$tmp_dir/up.out"
+    up_err="$tmp_dir/up.err"
+    up_rc=0
+    if tailscale_exec up "--auth-key=file:$auth_file" >"$up_out" 2>"$up_err"; then
+        up_rc=0
+    else
+        up_rc=$?
+    fi
+    if [[ "$up_rc" -eq 0 ]]; then
+        printf 'Tailscale enrollment completed with the supplied auth key.\n'
+        exit 0
+    fi
+
+    failure="$(cat "$up_out" "$up_err" 2>/dev/null | classify_failure /dev/stdin)"
+    case "$failure" in
+        auth)
+            if ! interactive_terminal; then
+                defer_step 'the supplied Tailscale auth key is missing or expired; rerun in a terminal for browser login'
+                exit $?
+            fi
+            run_browser_login
+            exit $?
+            ;;
+        network)
+            bootstrap_error 'Tailscale enrollment could not reach the control plane; existing local state was left untouched'
+            exit "$EXIT_NETWORK_FAILURE"
+            ;;
+        backend)
+            bootstrap_error 'the local Tailscale backend is unavailable; existing local state was left untouched'
+            exit "$EXIT_BACKEND_FAILURE"
+            ;;
+        *)
+            bootstrap_error 'Tailscale enrollment failed; existing local state was left untouched'
+            exit 1
+            ;;
+    esac
+fi
+
+run_browser_login
+exit $?

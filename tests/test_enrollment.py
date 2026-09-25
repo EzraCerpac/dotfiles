@@ -24,11 +24,11 @@ class HistoryEnrollmentTests(unittest.TestCase):
         self.home.mkdir()
         self.config.mkdir(parents=True)
         self.bin.mkdir()
-        self.tasks = self.base / "tasks/bootstrap"
-        shutil.copytree(SOURCE_ROOT / "tasks/bootstrap", self.tasks)
-        shared_tasks = self.base / "tasks/lib"
+        self.tasks = self.base / "setup-scripts/bootstrap"
+        shutil.copytree(SOURCE_ROOT / "setup-scripts/bootstrap", self.tasks)
+        shared_tasks = self.base / "setup-scripts/lib"
         shared_tasks.mkdir(parents=True)
-        shutil.copy2(SOURCE_ROOT / "tasks/lib/mise-bin.sh", shared_tasks / "mise-bin.sh")
+        shutil.copy2(SOURCE_ROOT / "setup-scripts/lib/mise-bin.sh", shared_tasks / "mise-bin.sh")
         (self.config / "config.toml").write_text("min_version = '2026.9.7'\n")
         self.log = self.base / "mise.log"
         self.identity = self.home / ".config/age/keys.txt"

@@ -9,7 +9,7 @@ import tomllib
 import unittest
 
 
-HELPER = Path(__file__).resolve().parents[1] / "tasks/lib/dots-package-add.sh"
+HELPER = Path(__file__).resolve().parents[1] / "setup-scripts/lib/dots-package-add.sh"
 
 
 FAKE_MISE = r'''#!/usr/bin/env python3

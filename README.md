@@ -278,11 +278,12 @@ Review defaults:
 
 | Path | Purpose |
 | --- | --- |
-| `config.toml` and `config.<role>.toml` | Shared mise configuration, tasks, and explicit machine profiles |
+| `config.toml` and `config.<role>.toml` | Global mise settings, tools, bootstrap declarations, and machine profiles |
+| `setup-tasks.toml` and `setup-scripts/` | Setup tasks, available with `mise -C ~/.config/mise run` without adding them to project task lists |
 | `dotfiles/` | Native symlink sources; editing a linked target edits this source |
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
-| `tasks/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
-| `tasks/install/` and `tasks/local/` | Explicit install and machine lifecycle tasks |
+| `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
+| `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
 | `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.

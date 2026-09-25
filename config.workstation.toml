@@ -260,8 +260,8 @@ value = true
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/private-permissions.sh" --prepare-source'
-post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/tasks/local/finish-dotfiles.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
+post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
