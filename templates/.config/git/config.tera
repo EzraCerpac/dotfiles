@@ -1,3 +1,7 @@
+{#- Sign only once the key exists: a fresh machine would otherwise refuse
+    every commit. The next `mise bootstrap dotfiles apply` turns it on. -#}
+{%- set signing_key = env.HOME ~ "/.ssh/id_ed25519.pub" -%}
+{%- set sign = signing_key is file -%}
 [user]
 	name = Ezra Cerpac
 	email = 47384389+EzraCerpac@users.noreply.github.com
@@ -31,11 +35,13 @@
     side-by-side = true
     navigate = true
 {%- else %}
-	signingkey = {{ env.HOME }}/.ssh/id_ed25519.pub
+{%- if sign %}
+	signingkey = {{ signing_key }}
 [gpg]
 	format = ssh
 [commit]
 	gpgSign = true
+{%- endif %}
 {%- if vars.profile != "delftblue" %}
 [includeIf "gitdir:{{ env.HOME }}/PhpstormProjects/"]
 	path = {{ env.HOME }}/PhpstormProjects/.gitconfig
@@ -129,7 +135,9 @@
 	sort = -committerdate
 [tag]
 	sort = -taggerdate
+{%- if sign %}
 	gpgSign = true
+{%- endif %}
 [color "branch"]
 	current = magenta
 	local = default
