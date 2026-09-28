@@ -1,6 +1,7 @@
-# Targets whose [dotfiles] declarations were removed. After applying dotfiles,
-# `dots up` and `dots sync` delete each one only while it is a symlink into this
-# checkout whose source no longer exists (setup-scripts/lib/retire-dotfiles.sh).
+# Targets whose [dotfiles] declarations were removed. Every dotfiles apply
+# (bootstrap, `dots up`, `dots sync`) runs the post-dotfiles hook, which deletes
+# each one only while it is a symlink into this checkout whose source no longer
+# exists (setup-scripts/local/finish-dotfiles.sh -> lib/retire-dotfiles.sh).
 # Rendered templates are regular files and are never deleted automatically.
 ~/.config/nvim/lua/config/delftblue.lua
 ~/.config/nvim/lua/plugins/delftblue.lua

@@ -8,6 +8,7 @@ nothing.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 import unittest
@@ -79,6 +80,25 @@ class DotfileDeclarationTests(unittest.TestCase):
         ]
         self.assertEqual(redundant, [])
 
+
+
+class DocumentedEditTargetsTests(unittest.TestCase):
+    """`dotfiles edit` examples in the docs name targets that are still managed."""
+
+    EXAMPLE = re.compile(r"bootstrap dotfiles edit (--apply )?(~/\S+)")
+
+    def test_documented_edit_targets_are_declared(self) -> None:
+        by_target = {key.split(":", 1)[1]: entry for key, entry in declarations().items()}
+        documents = [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]
+        found = 0
+        for document in documents:
+            for apply, target in self.EXAMPLE.findall(document.read_text()):
+                found += 1
+                with self.subTest(document=document.name, target=target):
+                    self.assertIn(target, by_target, "the example edits an undeclared target")
+                    if apply:
+                        self.assertEqual(by_target[target].get("mode"), "template", "--apply edits a template")
+        self.assertGreater(found, 0, "no documented examples found; update the pattern")
 
 if __name__ == "__main__":
     unittest.main()
