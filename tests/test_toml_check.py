@@ -37,6 +37,9 @@ class TomlCheckTests(unittest.TestCase):
     def test_missing_mise_is_reported_separately(self) -> None:
         self.assertEqual(self.check("/nonexistent/mise", 'key = "value"\n').returncode, 2)
         self.assertEqual(self.check("mise-command-that-does-not-exist", 'key = "value"\n').returncode, 2)
+        # A failed resolver yields an empty path; that is "no mise", not an abort.
+        empty = self.check("", 'key = "value"\n')
+        self.assertEqual((empty.returncode, empty.stderr), (2, ""))
 
 
 if __name__ == "__main__":
