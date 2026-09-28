@@ -23,9 +23,11 @@ nothing is pushed. gitleaks is part of the base profile; if it is missing,
 publishing stops and `dots up` installs it.
 
 CI scans the complete history on every pull request with the same
-`.gitleaks.toml`. For a false positive, prefer a narrow path allowlist in
-`.gitleaks.toml` (as for Julia `Manifest.toml` package UUIDs) over a blanket
-rule, or mark the line with a trailing `gitleaks:allow` comment.
+`.gitleaks.toml`. Both scans include merge diffs, so content that only a
+conflict resolution adds is checked too. For a false positive, allowlist the
+exact value shape for the one rule that misfires (as `.gitleaks.toml` does for
+Julia package UUIDs in `Manifest.toml`) rather than a whole path, or mark the
+line with a trailing `gitleaks:allow` comment.
 
 ## Commits are signed with your SSH key
 
