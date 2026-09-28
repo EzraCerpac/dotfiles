@@ -8,4 +8,7 @@ elif [[ -x /usr/local/bin/brew ]]; then
     eval "$(/usr/local/bin/brew shellenv zsh)"
 fi
 
-. "$HOME/.cargo/env"
+# Rustup is optional; mise provides Rust on the workstation.
+if [[ -f "$HOME/.cargo/env" ]]; then
+    . "$HOME/.cargo/env"
+fi

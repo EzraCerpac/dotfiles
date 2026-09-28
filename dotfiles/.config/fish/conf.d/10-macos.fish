@@ -56,7 +56,7 @@ if test (uname) = Darwin
 
     # ---------- DBus and OrbStack ----------
     if set -q DBUS_LAUNCHD_SESSION_BUS_SOCKET
-        alias DBUS_SESSION_BUS_ADDRESS "unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
+        set -gx DBUS_SESSION_BUS_ADDRESS "unix:path=$DBUS_LAUNCHD_SESSION_BUS_SOCKET"
     end
 
     set -l orbstack_init "$HOME/.orbstack/shell/init2.fish"
