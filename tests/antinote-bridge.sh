@@ -9,6 +9,8 @@ if [[ "$(uname -s)" != Darwin ]] || ! command -v swiftc >/dev/null 2>&1; then
 fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Most checks are silent `jq -e` probes; name the one that failed.
+trap 'echo "antinote bridge test failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/antinote-bridge-test.XXXXXX")"
 trap 'rm -rf "$tmp_root"' EXIT
 

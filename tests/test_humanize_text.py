@@ -14,6 +14,11 @@ from unittest.mock import patch
 
 from lib.prereq import requires, requires_nvim_parser
 
+try:
+    import yaml  # noqa: F401  (humanize-text is a uv script that declares PyYAML)
+except ImportError:
+    raise unittest.SkipTest("humanize-text tests need PyYAML in the test interpreter") from None
+
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "dotfiles/.local/share/humanize-text/main.py"
 SPEC = importlib.util.spec_from_file_location("humanize_text_main", MODULE_PATH)
