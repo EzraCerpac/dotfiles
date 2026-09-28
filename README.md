@@ -219,7 +219,7 @@ history. SSH access to the cluster outlived it: to render the `delftblue` host i
 out of this public repository:
 
 ```sh
-mise config set --file ~/.config/mise/config.local.toml vars.delftblue_netid <netid>
+mise config set --file ~/.config/mise/config.local.toml vars.delftblue_netid YOUR_NETID
 dots apply ~/.ssh/config
 ```
 

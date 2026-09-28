@@ -48,6 +48,18 @@ class RetireDotfilesTests(unittest.TestCase):
         self.assertFalse(path.is_symlink())
         self.assertIn("Removed retired link ~/.config/nvim/lua/plugins/old.lua", result.stdout)
 
+    def test_links_spelled_through_a_symlinked_directory_match(self) -> None:
+        # macOS spells temporary paths as /var/... while `pwd -P` says
+        # /private/var/...; a retired directory may also be gone entirely.
+        alias = self.outside / "alias"
+        alias.symlink_to(self.root)
+        path = self.link(".config/nvim/lua/gone/init.lua", alias / "dotfiles/gone/init.lua")
+        relative = self.link(".config/relative.lua", Path("mise/dotfiles/old.lua"))
+        result = self.retire("~/.config/nvim/lua/gone/init.lua", "~/.config/relative.lua")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(path.is_symlink())
+        self.assertFalse(relative.is_symlink())
+
     def test_live_link_is_kept_because_it_was_redeclared(self) -> None:
         source = self.root / "dotfiles/live.lua"
         source.write_text("live\n")

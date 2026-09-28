@@ -1,8 +1,12 @@
+{#- Sign only once the key exists: a fresh machine would otherwise refuse
+    every commit. The next `mise bootstrap dotfiles apply` turns it on. -#}
+{%- set signing_key = env.HOME ~ "/.ssh/id_ed25519.pub" -%}
+{%- set sign = vars.profile != "nas" and signing_key is file -%}
 [user]
 	name = {{ vars.name }}
 	email = {{ vars.email }}
-{%- if vars.profile != "nas" %}
-	signingkey = {{ env.HOME }}/.ssh/id_ed25519.pub
+{%- if sign %}
+	signingkey = {{ signing_key }}
 {%- endif %}
 [core]
 	excludesfile = {{ env.HOME }}/.gitignore
@@ -90,14 +94,17 @@
 	branch = blue
 	tag = yellow
 	remoteBranch = magenta
-{%- if vars.profile != "nas" %}
-# Workstation integrations: SSH signing, LFS, and per-service credentials.
+{%- if sign %}
+# SSH signing, once ~/.ssh/id_ed25519.pub exists.
 [gpg]
 	format = ssh
 [commit]
 	gpgSign = true
 [tag]
 	gpgSign = true
+{%- endif %}
+{%- if vars.profile != "nas" %}
+# Workstation integrations: LFS and per-service credentials.
 [filter "lfs"]
 	process = git-lfs filter-process
 	required = true
