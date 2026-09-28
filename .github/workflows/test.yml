@@ -57,6 +57,8 @@ jobs:
           mise use --global "${tools[@]}"
           # Real install paths, not shims: tests replace HOME and mise config dirs.
           (cd "$RUNNER_TEMP" && mise bin-paths) >> "$GITHUB_PATH"
+          # humanize-text is a uv script that declares PyYAML; its tests import it directly.
+          "$(cd "$RUNNER_TEMP" && mise which python3)" -m pip install --quiet pyyaml
 
       - name: Build the Typst tree-sitter parser
         run: |
