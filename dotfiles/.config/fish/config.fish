@@ -93,7 +93,7 @@ alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
-alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" claude --dangerously-skip-permissions'
+alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" claude'
 alias oc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" opencode'
 
 if command -q wt

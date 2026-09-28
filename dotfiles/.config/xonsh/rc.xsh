@@ -126,13 +126,13 @@ def _nvim_local(args):
 aliases["nvim-local"] = _nvim_local
 aliases["vl"] = _nvim_local
 
-_JJ_AGENT_CONFIG = f"{Path.home()}/.config/jj/config.toml:{Path.home()}/.config/jj/claude-config.toml"
+_JJ_AGENT_CONFIG = f"{Path.home()}/.config/jj/config.toml:{Path.home()}/.config/jj/agent-config.toml"
 
 
 def _cc(args):
     """Launch Claude with the agent jj config."""
     return _run_streamed(
-        ["claude", "--dangerously-skip-permissions", *args],
+        ["claude", *args],
         extra_env={"JJ_CONFIG": _JJ_AGENT_CONFIG},
     )
 

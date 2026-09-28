@@ -64,6 +64,13 @@ class FishConfigTests(IsolatedShell):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/launchd-dbus")
 
+    def test_cc_launches_claude_with_permission_prompts(self) -> None:
+        result = self.fish(f"source {FISH_DIR / 'config.fish'}; functions cc")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("claude", result.stdout)
+        self.assertIn("agent-config.toml", result.stdout)
+        self.assertNotIn("--dangerously-skip-permissions", result.stdout)
+
 
 @requires("zsh")
 class ZshConfigTests(IsolatedShell):
