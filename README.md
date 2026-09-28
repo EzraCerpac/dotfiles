@@ -213,8 +213,15 @@ not own operating-system packages, storage, media services, or Compose projects.
 CerpacNAS's Debian 10 compatibility is handled through host-local tool choices;
 see [the NAS guide](docs/cerpacnas.md).
 
-The DelftBlue profile is retired. Its old configuration remains in repository
-history; the cluster and existing SSH access are not changed by this retirement.
+The DelftBlue profile is retired; its configuration remains in repository
+history. SSH access to the cluster outlived it: to render the `delftblue` host in
+`~/.ssh/config`, put your NetID in the ignored local configuration, where it stays
+out of this public repository:
+
+```sh
+mise config set --file ~/.config/mise/config.local.toml vars.delftblue_netid <netid>
+dots apply ~/.ssh/config
+```
 
 ## Recover app-written settings
 
@@ -372,66 +379,6 @@ Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for de
 CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
 
 Codex can run tasks on connected remote hosts, including CerpacNAS and DriehuisNAS, in any project available on that host. The `work-on-remote-hosts` skill describes how to coordinate those tasks and check the host and project at task time.
-
-## DelftBlue Profile
-
-This repo now supports a conservative `delftblue` profile for TU Delft's cluster.
-It is intentionally smaller than the normal Linux workstation setup:
-
-- package-manager bootstrap is skipped
-- workstation-heavy config is excluded
-- bash stays the default shell
-- module-based Julia/MPI helpers are added
-- Slurm starter templates live in `~/.config/delftblue/jobs/`
-- local SSH and `rsync` helpers are installed via `~/.ssh/config` and `~/.local/bin/db*`
-
-Select `delftblue` explicitly in that machine's ignored local mise configuration. Keep the host's netid, Slurm account, and optional project-storage root in local settings; do not copy them into the public shared configuration. The cluster profile is not cut over or accepted. Existing `.bashrc` and `.bash_profile` files need explicit conflict review and targeted deployment; DelftBlue does not automatically adopt Linux skeleton files.
-
-Important helpers:
-
-- `dbdev-bootstrap`
-- `dbdev-install`
-- `dbspack`
-- `dbdev [command ...]`
-- `dbacct`, `dblimits`, `dbjobs`
-- `dbcpu [time] [cpus] [mem-per-cpu]`
-- `dbgpusmoke [time] [mem-per-cpu]`
-- `dbjulia-mpi-init <project-dir>`
-- `dbpush`, `dbpull`
-- `dbprojectpush`, `dbprojectpull` when `project_storage_root` is set
-
-Important shell functions on DelftBlue:
-
-- `dbmod-julia`
-- `dbmod-julia-mpi`
-
-The DelftBlue profile can now also render a cluster-aware Neovim setup and a broader dev shell.
-That layer is still explicit and conservative:
-
-- bootstrap the default dev layer with `dbdev-bootstrap`
-- run `dbdev-bootstrap` on the login node, because compute nodes do not have outbound internet
-- `dbdev-bootstrap` also installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` from pinned release binaries on the login node
-- `dbdev-bootstrap` also installs `eza`, `rg`, `fd`, `atuin`, and `carapace` from pinned release binaries on the login node
-- `dbdev-install` is now just a compatibility check; the default dev layer is module-first and does not need a compute-node install step
-- the DelftBlue Neovim overlay disables Mason-driven installs and Sidekick runtime hooks, so cluster startup stays quiet and does not keep retrying unavailable tools
-- `tree-sitter` CLI is optional on DelftBlue and only used when the module system provides it
-- if you explicitly want Spack as an extra layer, use `dbdev-bootstrap --with-spack`
-- load it only when needed with `dbdev`
-- the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, `ls -> eza`, and guarded `atuin` / `zoxide` / `tv` init
-- a DelftBlue-only `~/.bash_profile` is rendered to source `~/.bashrc`, so those bash customizations appear in fresh login shells
-- `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
-- Television bash integration is generated once into `~/.config/television/shell/integration.bash` and sourced from `~/.bashrc`; `bash-preexec` is installed under `~/.local/share/bash-preexec/` and sourced before `atuin init bash --disable-up-arrow --disable-ctrl-r` so new commands are recorded correctly
-- on DelftBlue, Atuin keeps all local SQLite state under `/tmp/$USER/atuin/` instead of the default home-directory path: `history.db`, `records.db`, `meta.db`, `kv.db`, and `scripts.db`
-- keys and session remain on persistent home storage
-- on DelftBlue, Atuin also uses normal `fuzzy` search and `sync_frequency = "0"` so each command syncs immediately from node-local storage
-- on DelftBlue, bash runs a quick integrity check on the local Atuin DB at shell startup and automatically rotates it out if it is not a valid SQLite database
-- use `dbatuin-reset` in a DelftBlue bash shell to rotate out malformed local Atuin DBs and repopulate from sync
-- use `dbshell-check` in a DelftBlue bash shell to inspect loaded functions and active key bindings
-- bash also loads `carapace` as an extra completion bridge when available
-- use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
-- module availability varies by partition, so `dbdev` only loads tools that actually exist in the current environment
-- optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
-- `AGENTS.md` stays in the repo only and is not deployed into `$HOME`
 
 ## Herdr terminal workflow
 

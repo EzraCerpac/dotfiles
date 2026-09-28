@@ -34,7 +34,7 @@ only configure its settings link and start its service.
 | `setup-scripts/local/aerospace-local-build.sh` | Preserve the active AeroSpace local build | Builds the pinned clean source revision with SwiftPM and Xcode into a versioned staging directory. It never replaces the active app or CLI. |
 | `setup-scripts/local/voiceink-build.sh` | VoiceInk local-build owner exception | Builds the current clean VoiceInk source with its local updater guard and stable Apple Development signature, then stages the app without installing or launching it. |
 | `setup-scripts/local/ensure-homebrew-exceptions.sh` | Brooklyn and MacTeX prerequisites | On workstation macOS only, installs Homebrew if absent using a checksum-pinned official installer; it does not install or update packages. |
-| `setup-scripts/local/finish-dotfiles.sh` | Post-dotfiles permissions | Verifies private modes after file application; workstation and DelftBlue only. |
+| `setup-scripts/local/finish-dotfiles.sh` | Post-dotfiles permissions | Verifies private modes after file application; workstation and NAS. |
 | `setup-scripts/local/private-permissions.sh` | SSH template preparation and explicit permission repair | Before dotfile apply, sets the SSH template source to `0600` so mise renders `~/.ssh/config` with the same mode and reports it as applied. After apply, sets `~/.ssh` and `~/.config/jj` to `0700`, the rendered SSH config to `0600`, and regular jj config copies to `0600`. It skips declared public-source symlinks and refuses directory or SSH-target symlinks. |
 
 ## Operational boundaries
