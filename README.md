@@ -361,7 +361,7 @@ Edit ordinary symlinked files at their native target; the target is the tracked 
 
 ```bash
 mise -C ~/.config/mise bootstrap dotfiles edit ~/.config/fish/config.fish
-mise -C ~/.config/mise bootstrap dotfiles edit --apply ~/.config/atuin/config.toml
+mise -C ~/.config/mise bootstrap dotfiles edit --apply ~/.config/git/config
 mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g ~/.config/new-app/config.yaml
 mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.workstation.toml ~/.config/new-app/config.yaml
 ```
