@@ -1,24 +1,30 @@
 function __dots_source_init --description 'Source a tool init script, cached until the tool or config changes'
     # usage: __dots_source_init TOOL [ARGS...]
-    # Runs `TOOL ARGS...` once and sources the cached output afterwards. The cache
-    # is regenerated when the resolved executable or config.fish is newer than it.
+    # Runs `TOOL ARGS...` once and sources the cached output afterwards. The
+    # cache's first line fingerprints the resolved executable and config.fish
+    # by path and mtime, and any difference regenerates it. Matching exactly,
+    # rather than "newer than", means a tool that moves to another path or
+    # carries a future mtime cannot pin a stale cache or defeat it for good.
     set -l executable (command -s -- $argv[1]); or return 0
     set -l cache_root $HOME/.cache
-    set -q XDG_CACHE_HOME[1]; and set cache_root $XDG_CACHE_HOME
+    test -n "$XDG_CACHE_HOME"; and set cache_root $XDG_CACHE_HOME
     set -l key (string join _ -- $argv | string replace -ra '[^A-Za-z0-9_.-]+' _)
     set -l cache $cache_root/fish/init/$key.fish
 
-    set -l newest (path mtime -- (path resolve -- $executable))
+    set -l resolved (path resolve -- $executable)
     set -l config (path resolve -- $__fish_config_dir/config.fish)
-    if test -f "$config"
-        set -l config_mtime (path mtime -- $config)
-        test "$config_mtime" -gt "$newest"; and set newest $config_mtime
-    end
+    # A missing file's mtime is empty and simply drops out of the fingerprint.
+    set -l stamp (string join ' ' -- '# dots-init' $resolved (path mtime -- $resolved) $config (path mtime -- $config))
 
-    if not test -f $cache; or test (path mtime -- $cache) -lt $newest
+    set -l cached
+    test -f $cache; and read cached <$cache
+    if test "$cached" != "$stamp"
         mkdir -p (path dirname -- $cache)
         set -l temporary $cache.$fish_pid
-        if command $argv >$temporary 2>/dev/null
+        if begin
+                printf '%s\n' $stamp
+                command $argv
+            end >$temporary 2>/dev/null
             command mv -f -- $temporary $cache
         else
             command rm -f -- $temporary

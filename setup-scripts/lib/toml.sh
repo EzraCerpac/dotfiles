@@ -7,8 +7,10 @@
 #   setup problem cannot masquerade as invalid input. Nothing is printed: a
 #   parse error quotes the offending line, and these files can hold secrets.
 toml_check() {
-    local mise_bin="${1:?toml_check: mise binary required}" file="${2:?toml_check: file required}"
+    local mise_bin="${1-}" file="${2:?toml_check: file required}"
     local scratch status=0
+    # An empty binary (a failed resolver) means mise cannot run, not a usage bug.
+    [[ -n "$mise_bin" ]] || return 2
     if [[ "$mise_bin" == */* ]]; then
         [[ -x "$mise_bin" ]] || return 2
     else
