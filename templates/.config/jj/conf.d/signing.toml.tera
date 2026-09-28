@@ -1,10 +1,16 @@
 # Workstation only: sign commits with the SSH key GitHub knows as a signing
 # key. jj rewrites commits constantly, so sign once when pushing instead of on
 # every rewrite (which would prompt for the key each time it is not loaded).
+{%- set signing_key = env.HOME ~ "/.ssh/id_ed25519.pub" %}
+{%- if signing_key is file %}
 [git]
 sign-on-push = true
 
 [signing]
 behavior = "drop"
 backend = "ssh"
-key = "{{ env.HOME }}/.ssh/id_ed25519.pub"
+key = "{{ signing_key }}"
+{%- else %}
+# No ~/.ssh/id_ed25519.pub yet, so pushes stay unsigned rather than failing.
+# Create the key and re-run `mise bootstrap dotfiles apply` to sign.
+{%- endif %}

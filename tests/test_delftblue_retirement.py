@@ -66,8 +66,10 @@ class RenderedStartupTests(unittest.TestCase):
                 env=env, capture_output=True, text=True, check=False,
             )
             self.assertEqual((quiet.returncode, quiet.stderr), (0, ""))
+            # `bind -X` lists shell-command bindings; macOS /bin/bash 3.2 lacks it.
+            listing = "if ((BASH_VERSINFO[0] >= 4)); then bind -X; fi"
             interactive = subprocess.run(
-                ["bash", "--norc", "--noprofile", "-i", "-c", f"source {bashrc}; bind -X"],
+                ["bash", "--norc", "--noprofile", "-i", "-c", f"source {bashrc}; {listing}"],
                 env=env, capture_output=True, text=True, check=False, stdin=subprocess.DEVNULL,
             )
             self.assertEqual(interactive.returncode, 0, interactive.stderr)
