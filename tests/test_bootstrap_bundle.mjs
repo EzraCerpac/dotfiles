@@ -45,3 +45,17 @@ test('bundle encryption, rendering, permissions, and drift checks', requires('mi
     fs.rmSync(temporary, { recursive: true, force: true });
   }
 });
+
+test('Himalaya validation separates a missing mise from invalid TOML', requires('mise'), () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-bundle-toml-'));
+  try {
+    const home = path.join(temporary, 'home');
+    fs.mkdirSync(home);
+    const invalid = { himalaya_config: '[accounts.fixture\npassword = "fixture-secret"\n' };
+    assert.throws(() => applyPrivateFiles(invalid, { home, miseBin: miseBinary() }), /Himalaya input is not valid TOML/);
+    const valid = { himalaya_config: '[accounts.fixture]\nemail = "fixture@example.invalid"\n' };
+    assert.throws(() => applyPrivateFiles(valid, { home, miseBin: path.join(temporary, 'missing-mise') }), /mise is required to validate/);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});

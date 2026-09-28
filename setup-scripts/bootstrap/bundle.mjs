@@ -79,7 +79,9 @@ export function applyPrivateFiles(secrets, { home, miseBin, root }) {
     if (secrets.himalaya_config !== undefined) {
       const validation = path.join(temp, 'validate.toml');
       fs.writeFileSync(validation, secrets.himalaya_config, { mode: 0o600 });
+      // mise is the setup's one TOML reader. Its parse errors quote the input, so stay quiet.
       const result = spawnSync(miseBin, ['-C', temp, 'config', 'get', '--file', validation], { env, stdio: 'ignore' });
+      if (result.error) throw new Error(`mise is required to validate the Himalaya input: ${result.error.code || result.error.message}`);
       if (result.status !== 0) throw new Error('Himalaya input is not valid TOML');
       fs.unlinkSync(validation);
     }
