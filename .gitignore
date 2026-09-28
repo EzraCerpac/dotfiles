@@ -93,3 +93,20 @@ ehthumbs.db
 # Generated Python caches also stay out of explicitly included dotfile sources.
 __pycache__/
 *.pyc
+
+# Secret-shaped files stay ignored inside the re-included source trees too;
+# the negations above would otherwise override the patterns earlier in this
+# file. Keep this block last. Commit private inputs only as age ciphertext.
+.env
+.env.*
+!.env.example
+**/secrets/
+*.local
+# ...but not XDG .local/ directories themselves.
+!**/.local/
+*.pem
+*.key
+*.p12
+**/.ssh/id_*
+!**/.ssh/id_*.pub
+**/age/keys.txt
