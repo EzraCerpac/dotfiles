@@ -276,11 +276,18 @@ CONTAINER_SETUP
     local user_root='/workspace-user/.config/mise'
     local root_root='/root/.config/mise'
     docker exec --user 0 "$container_id" mkdir -p "$user_root" "$root_root"
+    # The lockfile and locks/ are ignored host state; ship them only when this
+    # checkout has them, so a clean clone can still run the harness.
+    local payload=(config.toml setup-tasks.toml config.workstation.toml
+        dotfiles templates seeds setup-scripts resources) optional
+    for optional in mise.workstation.lock locks; do
+        if [[ -e "$SOURCE_ROOT/$optional" ]]; then payload+=("$optional"); fi
+    done
     COPYFILE_DISABLE=1 tar --no-xattrs -C "$SOURCE_ROOT" -cf - \
-        config.toml setup-tasks.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds setup-scripts resources |
+        "${payload[@]}" |
         docker exec --interactive --user 0 "$container_id" tar -xf - -C "$user_root"
     COPYFILE_DISABLE=1 tar --no-xattrs -C "$SOURCE_ROOT" -cf - \
-        config.toml setup-tasks.toml config.workstation.toml mise.workstation.lock locks dotfiles templates seeds setup-scripts resources |
+        "${payload[@]}" |
         docker exec --interactive --user 0 "$container_id" tar -xf - -C "$root_root"
     docker exec --user 0 "$container_id" chown -R workspace-user:workspace-user /workspace-user/.config
 
