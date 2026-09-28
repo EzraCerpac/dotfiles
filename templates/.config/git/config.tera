@@ -31,9 +31,11 @@
     side-by-side = true
     navigate = true
 {%- else %}
-	signingkey = D041C1286F71DBDF
+	signingkey = {{ env.HOME }}/.ssh/id_ed25519.pub
+[gpg]
+	format = ssh
 [commit]
-; 	gpgSign = true
+	gpgSign = true
 {%- if vars.profile != "delftblue" %}
 [includeIf "gitdir:{{ env.HOME }}/PhpstormProjects/"]
 	path = {{ env.HOME }}/PhpstormProjects/.gitconfig
@@ -127,6 +129,7 @@
 	sort = -committerdate
 [tag]
 	sort = -taggerdate
+	gpgSign = true
 [color "branch"]
 	current = magenta
 	local = default

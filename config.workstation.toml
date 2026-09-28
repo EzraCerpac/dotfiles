@@ -301,6 +301,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/humanize-text/defaults.toml" = { source = "dotfiles/.config/humanize-text/defaults.toml", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.config/jj/conf.d/signing.toml" = { source = "templates/.config/jj/conf.d/signing.toml.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/jjui/config.toml" = { source = "dotfiles/.config/jjui/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/keyboard/corne-qmk/USAGE" = { source = "dotfiles/.config/keyboard/corne-qmk/USAGE", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/keyboard/corne-qmk/keymap-drawer.yaml" = { source = "dotfiles/.config/keyboard/corne-qmk/keymap-drawer.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

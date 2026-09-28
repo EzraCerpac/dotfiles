@@ -126,7 +126,7 @@ def _nvim_local(args):
 aliases["nvim-local"] = _nvim_local
 aliases["vl"] = _nvim_local
 
-_JJ_AGENT_CONFIG = f"{Path.home()}/.config/jj/config.toml:{Path.home()}/.config/jj/agent-config.toml"
+_JJ_AGENT_CONFIG = f"{Path.home()}/.config/jj/config.toml:{Path.home()}/.config/jj/conf.d:{Path.home()}/.config/jj/agent-config.toml"
 
 
 def _cc(args):

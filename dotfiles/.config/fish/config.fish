@@ -93,8 +93,9 @@ alias v='nvim'
 alias nvim-local='NVIM_LOCAL_ROOT=1 nvim'
 alias vl='nvim-local'
 
-alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" claude'
-alias oc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/agent-config.toml" opencode'
+# JJ_CONFIG replaces the default search path, so list conf.d (commit signing) too.
+alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/conf.d:$HOME/.config/jj/agent-config.toml" claude'
+alias oc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/conf.d:$HOME/.config/jj/agent-config.toml" opencode'
 
 if command -q wt
     wt config shell init fish | source
