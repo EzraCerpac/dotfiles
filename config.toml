@@ -74,6 +74,8 @@ starship = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", 
 tmux = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 "vfox:jdx/vfox-eza" = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 zoxide = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
+# `dots publish` refuses to push until gitleaks has scanned the commits.
+gitleaks = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
 

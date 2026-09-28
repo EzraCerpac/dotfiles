@@ -72,12 +72,18 @@ function advanceMain(fixture, { conflict = false } = {}) {
   command(clone, 'git', ['push', '-q', 'origin', 'main']);
 }
 
-function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, descriptionPrompt, confirm = () => true } = {}) {
+// scan: a gitleaks exit status to simulate, 'missing' for an absent scanner,
+// or 'real' to run the installed gitleaks.
+function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, scan = 0, descriptionPrompt, confirm = () => true } = {}) {
   const calls = [];
   const bodyFiles = [];
   const run = (bin, args, options) => {
     calls.push([bin, args]);
     if (bin === 'jj' && args.includes('push')) return { status: pushStatus, stdout: '', stderr: pushStatus ? 'push failed' : '' };
+    if (bin === 'gitleaks' && scan !== 'real') {
+      if (scan === 'missing') return { error: Object.assign(new Error('spawnSync gitleaks ENOENT'), { code: 'ENOENT' }) };
+      return { status: scan, stdout: scan ? 'Finding: ghp_REDACTED\n' : '', stderr: '' };
+    }
     if (bin === 'gh' && args[0] === 'pr' && args[1] === 'list') {
       if (lookupFailure) return { status: 1, stdout: '', stderr: 'GitHub unavailable' };
       return { status: 0, stdout: JSON.stringify(prs), stderr: '' };
@@ -125,6 +131,58 @@ test('default publication previews main@origin, prompts for an undescribed chang
     assert.equal(state.bodyFiles.length, 1);
     assert.match(state.bodyFiles[0].content, /Describe public setup/);
     assert(!fs.existsSync(state.bodyFiles[0].path));
+  } finally { cleanup(fixture); }
+});
+
+test('default publication scans exactly the unpublished commits before asking', needsJj, () => {
+  const fixture = setupRepository();
+  try {
+    const base = fixture.jj('log', '--no-graph', '-r', 'main@origin', '-T', 'commit_id').trim();
+    const head = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id').trim();
+    let scannedBeforeConfirm = false;
+    const state = publisher(fixture, { confirm: () => { scannedBeforeConfirm = hasCall(state.calls, 'gitleaks', 'git'); return true; } });
+    publish(state.options);
+    assert(scannedBeforeConfirm);
+    assert(hasCall(state.calls, 'gitleaks', 'git', '--redact', `--log-opts=${base}..${head}`, fixture.root));
+    assert.match(state.output.text, /Secret scan: gitleaks found nothing/);
+  } finally { cleanup(fixture); }
+});
+
+for (const [name, scan, message] of [
+  ['a gitleaks finding', 1, /gitleaks found potential secrets/],
+  ['a missing gitleaks', 'missing', /gitleaks is required to publish/],
+]) {
+  test(`${name} stops publication before confirming, bookmarking, or pushing`, needsJj, () => {
+    const fixture = setupRepository();
+    try {
+      let confirmed = false;
+      const state = publisher(fixture, { scan, confirm: () => { confirmed = true; return true; } });
+      assert.throws(() => publish(state.options), message);
+      assert(!confirmed);
+      assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
+      assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+      assert(!hasCall(state.calls, 'gh', 'create'));
+    } finally { cleanup(fixture); }
+  });
+}
+
+test('the real gitleaks refuses a token committed and then removed', requires('jj', 'gitleaks'), () => {
+  const fixture = setupRepository({ stack: 0 });
+  try {
+    // Assembled at runtime so this source file never contains a token-shaped string.
+    const token = ['ghp', 'R8tq3LwVn5Xk2Jc9Hy7Pd4Mb6Fz1Sa0Gu3Ee'].join('_');
+    fs.writeFileSync(path.join(fixture.root, 'token.txt'), `github_token = "${token}"\n`);
+    fixture.jj('describe', '-m', 'Add a token');
+    fixture.jj('new');
+    fs.rmSync(path.join(fixture.root, 'token.txt'));
+    fixture.jj('describe', '-m', 'Remove the token');
+    fixture.jj('bookmark', 'create', 'wip/token', '-r', '@');
+    const state = publisher(fixture, { scan: 'real' });
+    assert.throws(() => publish({ ...state.options, bookmark: 'wip/token' }), /gitleaks found potential secrets/);
+    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+    const finding = state.output.text.slice(state.output.text.indexOf('Finding:'));
+    assert.match(finding, /RuleID:\s+github-pat/);
+    assert(!finding.includes(token), 'the scanner report must redact the token');
   } finally { cleanup(fixture); }
 });
 
@@ -307,6 +365,8 @@ test('--all merges newer main, then previews the final PR diff', needsJj, () => 
     assert(hasCall(state.calls, 'jj', 'new', 'main@origin'));
     assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', result.bookmark));
     assert.equal(fixture.jj('log', '-r', `main@origin ~ ::${result.bookmark}`, '--no-graph', '-T', 'commit_id').trim(), '');
+    const pushed = fixture.jj('log', '--no-graph', '-r', result.bookmark, '-T', 'commit_id').trim();
+    assert(state.calls.some(([bin, args]) => bin === 'gitleaks' && args.some(arg => arg.endsWith(`..${pushed}`))), 'the merged stack must be scanned');
   } finally { cleanup(fixture); }
 });
 

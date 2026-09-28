@@ -1,0 +1,7 @@
+# Secret scanning for `dots publish` and CI. Extends gitleaks' default rules.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Julia manifests pin package UUIDs, which look like generic API keys"
+paths = ['''(^|/)Manifest\.toml$''']

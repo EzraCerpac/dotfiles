@@ -38,7 +38,6 @@ btop = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 "core:deno" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "git-lfs" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-gitleaks = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 glow = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 jjui = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 lazygit = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }

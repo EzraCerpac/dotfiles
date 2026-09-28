@@ -50,7 +50,7 @@ jobs:
           curl -fsSL https://mise.run | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
-          tools=(node@latest python@3.13 uv@latest jj@latest aqua:neovim/neovim@latest typst@latest age@latest herdr@latest)
+          tools=(node@latest python@3.13 uv@latest jj@latest aqua:neovim/neovim@latest typst@latest age@latest herdr@latest gitleaks@latest)
           if [[ "$RUNNER_OS" == Linux ]]; then
             tools+=(github:fish-shell/fish-shell@latest)
           fi
@@ -71,9 +71,31 @@ jobs:
       - name: Tool versions
         run: |
           mise --version
-          for tool in node python3 uv jj nvim typst age herdr fish lua zsh; do
+          for tool in node python3 uv jj nvim typst age herdr gitleaks fish lua zsh; do
             printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo missing)"
           done
 
       - name: Run tests
         run: tests/run
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      MISE_YES: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # Scan every commit: a secret removed later is still public.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" use --global gitleaks@latest
+          (cd "$RUNNER_TEMP" && "$HOME/.local/bin/mise" bin-paths) >> "$GITHUB_PATH"
+
+      - name: Scan history with the repository's gitleaks config
+        run: gitleaks git --no-banner --redact --verbose .
