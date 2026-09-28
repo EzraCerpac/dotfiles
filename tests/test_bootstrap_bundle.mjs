@@ -55,6 +55,10 @@ test('Himalaya validation separates a missing mise from invalid TOML', requires(
     assert.throws(() => applyPrivateFiles(invalid, { home, miseBin: miseBinary() }), /Himalaya input is not valid TOML/);
     const valid = { himalaya_config: '[accounts.fixture]\nemail = "fixture@example.invalid"\n' };
     assert.throws(() => applyPrivateFiles(valid, { home, miseBin: path.join(temporary, 'missing-mise') }), /mise is required to validate/);
+    // An executable wrapper whose mise cannot start exits 127, not a parse failure.
+    const broken = path.join(temporary, 'broken-mise');
+    fs.writeFileSync(broken, '#!/bin/sh\nexit 127\n', { mode: 0o755 });
+    assert.throws(() => applyPrivateFiles(valid, { home, miseBin: broken }), /mise is required to validate/);
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
