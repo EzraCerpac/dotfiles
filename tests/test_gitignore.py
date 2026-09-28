@@ -29,6 +29,7 @@ MUST_IGNORE = (
     "dotfiles/.config/app/identity.p12",
     "dotfiles/.config/age/keys.txt",
     "seeds/.config/app/settings.local",
+    "locks/mise.workstation/npm-example/1.0.0/aube-lock.yaml",
 )
 MUST_TRACK = (
     "dotfiles/.config/fish/config.fish",

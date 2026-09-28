@@ -37,6 +37,8 @@ __pycache__/
 /mise.lock
 /mise.nas.lock
 /mise.workstation.lock
+# Per-package companions of those lockfiles (npm aube locks).
+/locks/
 *.pyo
 .pytest_cache/
 .coverage
