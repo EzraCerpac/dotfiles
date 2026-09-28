@@ -16,6 +16,9 @@ toml_check() {
     else
         command -v "$mise_bin" >/dev/null 2>&1 || return 2
     fi
+    # An executable that cannot launch (a missing interpreter or loader exits
+    # 126/127) is unavailable too; only a running mise can call a file invalid.
+    "$mise_bin" --version >/dev/null 2>&1 || return 2
     scratch="$(mktemp -d "${TMPDIR:-/tmp}/toml-check.XXXXXX")" || return 2
     MISE_CONFIG_DIR="$scratch" MISE_TRUSTED_CONFIG_PATHS="$scratch" MISE_ENV='' \
         "$mise_bin" --quiet --cd "$scratch" config get --file "$file" >/dev/null 2>&1 || status=1
