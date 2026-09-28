@@ -88,6 +88,26 @@ class RenderedGitConfigTests(unittest.TestCase):
                             f"{profile}: unknown core.whitespace rule {rule!r}",
                         )
 
+    def test_profiles_share_identity_and_defaults(self) -> None:
+        import tomllib
+
+        identity = tomllib.loads((Path(__file__).resolve().parents[1] / "config.toml").read_text())["vars"]
+        for profile in ("workstation", "nas"):
+            with self.subTest(profile=profile):
+                entries = dict(config_entries(self._render(profile)))
+                self.assertEqual(entries["user.name"], identity["name"])
+                self.assertEqual(entries["user.email"], identity["email"])
+                for key, value in {
+                    "merge.conflictstyle": "zdiff3",
+                    "diff.algorithm": "histogram",
+                    "fetch.prune": "true",
+                    "push.autosetupremote": "true",
+                }.items():
+                    self.assertEqual(entries.get(key), value, key)
+                # Legacy transport workarounds that Git's docs advise against.
+                self.assertNotIn("http.version", entries)
+                self.assertNotIn("http.postbuffer", entries)
+
 
 if __name__ == "__main__":
     unittest.main()
