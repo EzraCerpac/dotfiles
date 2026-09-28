@@ -3,6 +3,8 @@
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Templates render through real mise; skip (77) where it is unavailable.
+python3 "$ROOT/tests/lib/prereq.py" mise || exit $?
 readonly REVISION="0123456789abcdef0123456789abcdef01234567"
 
 fail() { echo "not ok - $*" >&2; exit 1; }
@@ -177,7 +179,8 @@ test_real_jj_empty_child() (
     local tmp="$(mktemp -d)" real_jj parent_revision candidate mise_data
     trap 'rm -rf "$tmp"' EXIT
     render_helper "$tmp/helper"; make_fixture "$tmp"; : >"$tmp/calls"
-    real_jj="$(command -v jj)"
+    real_jj="$(command -v jj || true)"
+    if [[ -z "$real_jj" ]]; then echo "skip - real JJ parsing needs jj"; return 0; fi
     if [[ "$(readlink "$real_jj" 2>/dev/null || true)" == */mise ]]; then
         mise_data="${MISE_DATA_DIR:-${HOME}/.local/share/mise}"
         for candidate in "$mise_data/installs/jj/latest/jj" "$mise_data/installs/jj/latest/bin/jj"; do

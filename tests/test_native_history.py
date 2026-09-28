@@ -11,6 +11,8 @@ import subprocess
 import tempfile
 import unittest
 
+from lib.prereq import mise_binary
+
 
 MISE_ENV_VAR = "SETUP_TEST_MISE"
 HOST_ONE = "host-one"
@@ -160,9 +162,9 @@ class NativeFixture:
 class NativeHistoryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        mise = os.environ.get(MISE_ENV_VAR)
+        mise = mise_binary()
         if not mise:
-            raise unittest.SkipTest(f"set {MISE_ENV_VAR} to the staged mise binary")
+            raise unittest.SkipTest(f"requires mise (or set {MISE_ENV_VAR})")
         cls.mise = str(Path(mise).resolve())
         if not Path(cls.mise).is_file():
             raise RuntimeError(f"{MISE_ENV_VAR} does not name a file")

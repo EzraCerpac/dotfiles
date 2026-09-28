@@ -6,6 +6,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from lib.prereq import requires
 from lib.tera import render_template
 
 ROOT = Path(__file__).parents[1]
@@ -32,6 +33,7 @@ def render_dotfile(profile: str, managed_path: str, scratch: Path) -> str:
 class NasTemplateTests(unittest.TestCase):
 
 
+    @requires("mise")
     def test_nas_git_config_has_shared_pagers_without_workstation_integrations(self):
         with tempfile.TemporaryDirectory() as temp:
             rendered = render_dotfile(

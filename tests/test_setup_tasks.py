@@ -345,8 +345,19 @@ printf 'PGREP\\t%s\\n' "$*" >> "$PGREP_LOG"
 case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
 """,
         )
+        # The Karabiner hold reads the installed app bundle; use a fixture
+        # instead of whatever happens to be in the host's /Applications.
+        karabiner_app = self.base / "Applications/Karabiner-Elements.app"
+        (karabiner_app / "Contents").mkdir(parents=True, exist_ok=True)
+        (karabiner_app / "Contents/Info.plist").write_text("fixture\n")
+        self._write_executable(
+            self.bin / "PlistBuddy",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"${FAKE_KARABINER_VERSION:-16.0.0}\"\n",
+        )
         self.env.update(
             {
+                "KARABINER_APP_PATH": str(karabiner_app),
+                "BREW_EXCEPTION_PLISTBUDDY": str(self.bin / "PlistBuddy"),
                 "BREW_LOG": str(brew_log),
                 "SUDO_LOG": str(sudo_log),
                 "PGREP_LOG": str(pgrep_log),

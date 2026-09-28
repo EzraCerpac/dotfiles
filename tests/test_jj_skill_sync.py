@@ -6,10 +6,13 @@ import subprocess
 import tempfile
 import unittest
 
+from lib.prereq import requires
+
 
 SCRIPT = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/codex-sync-jj-waltz"
 
 
+@requires("uv", "rsync")
 class SkillSyncTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

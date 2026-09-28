@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+# The bridge links AppKit; it only builds on macOS. 77 tells tests/run to skip.
+if [[ "$(uname -s)" != Darwin ]] || ! command -v swiftc >/dev/null 2>&1; then
+    echo "skip: antinote bridge tests need macOS and swiftc"
+    exit 77
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/antinote-bridge-test.XXXXXX")"
 trap 'rm -rf "$tmp_root"' EXIT

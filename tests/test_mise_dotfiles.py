@@ -8,10 +8,13 @@ import tempfile
 import tomllib
 import unittest
 
+from lib.prereq import mise_binary, requires
+
 ROOT = Path(__file__).resolve().parents[1]
-MISE = os.environ.get('SETUP_TEST_MISE', 'mise')
+MISE = mise_binary() or 'mise'
 
 
+@requires('mise')
 class DotfileFixtures(unittest.TestCase):
     def test_profile_sources_and_native_link_lifecycle(self):
         for role in ('workstation', 'nas'):

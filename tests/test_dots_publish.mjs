@@ -7,6 +7,10 @@ import test from 'node:test';
 
 import { ensureRepository, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
 import { DISCLOSURE, publish } from '../setup-scripts/setup/publish.mjs';
+import { requires } from './lib/prereq.mjs';
+
+// Every fixture is a real colocated JJ repository.
+const needsJj = requires('jj');
 
 function command(root, bin, args) {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8' });
@@ -19,8 +23,8 @@ function setupRepository({ stack = 1, description = 'Sync public setup', bookmar
   const origin = path.join(directory, 'origin.git');
   const root = path.join(directory, 'source');
   fs.mkdirSync(root);
-  command(directory, 'git', ['init', '--bare', origin]);
-  command(root, 'git', ['init', '-q']);
+  command(directory, 'git', ['init', '--bare', '--initial-branch=main', origin]);
+  command(root, 'git', ['init', '-q', '--initial-branch=main']);
   command(root, 'git', ['config', 'user.name', 'Dots Test']);
   command(root, 'git', ['config', 'user.email', 'dots-test@example.invalid']);
   fs.writeFileSync(path.join(root, 'config.toml'), 'min_version = "2026.1.0"\n');
@@ -103,7 +107,7 @@ function hasCall(calls, bin, ...parts) {
   return calls.some(([actual, args]) => actual === bin && parts.every(part => args.includes(part)));
 }
 
-test('default publication previews main@origin, prompts for an undescribed change, and leaves an empty child', () => {
+test('default publication previews main@origin, prompts for an undescribed change, and leaves an empty child', needsJj, () => {
   const fixture = setupRepository({ description: '' });
   try {
     const state = publisher(fixture, { descriptionPrompt: () => 'Describe public setup' });
@@ -124,7 +128,7 @@ test('default publication previews main@origin, prompts for an undescribed chang
   } finally { cleanup(fixture); }
 });
 
-test('default publication rejects an empty child above main@origin before prompting or mutating JJ', () => {
+test('default publication rejects an empty child above main@origin before prompting or mutating JJ', needsJj, () => {
   const fixture = setupRepository({ stack: 0 });
   try {
     const before = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim();
@@ -148,7 +152,7 @@ test('default publication rejects an empty child above main@origin before prompt
   } finally { cleanup(fixture); }
 });
 
-test('default publication refuses a private stack above main@origin', () => {
+test('default publication refuses a private stack above main@origin', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     const state = publisher(fixture);
@@ -159,7 +163,7 @@ test('default publication refuses a private stack above main@origin', () => {
   } finally { cleanup(fixture); }
 });
 
-test('rejected confirmation does not describe, bookmark, push, or contact GitHub', () => {
+test('rejected confirmation does not describe, bookmark, push, or contact GitHub', needsJj, () => {
   const fixture = setupRepository({ description: 'Sync public setup' });
   try {
     const state = publisher(fixture, { confirm: () => false });
@@ -172,7 +176,7 @@ test('rejected confirmation does not describe, bookmark, push, or contact GitHub
   } finally { cleanup(fixture); }
 });
 
-test('explicit bookmark reuses an open PR without disturbing unrelated working changes', () => {
+test('explicit bookmark reuses an open PR without disturbing unrelated working changes', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     fixture.jj('new', 'main@origin');
@@ -191,7 +195,7 @@ test('explicit bookmark reuses an open PR without disturbing unrelated working c
   } finally { cleanup(fixture); }
 });
 
-test('explicit preview shows every unpublished commit, including content reverted by a later commit', () => {
+test('explicit preview shows every unpublished commit, including content reverted by a later commit', needsJj, () => {
   const fixture = setupRevertedSecret();
   try {
     const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'OPEN' }] });
@@ -204,7 +208,7 @@ test('explicit preview shows every unpublished commit, including content reverte
   } finally { cleanup(fixture); }
 });
 
-test('revision changes after confirmation abort before describe, bookmark, or push', () => {
+test('revision changes after confirmation abort before describe, bookmark, or push', needsJj, () => {
   const fixture = setupRepository({ description: '' });
   try {
     const state = publisher(fixture, {
@@ -218,7 +222,7 @@ test('revision changes after confirmation abort before describe, bookmark, or pu
   } finally { cleanup(fixture); }
 });
 
-test('closed existing PR is refused before an explicit bookmark is pushed', () => {
+test('closed existing PR is refused before an explicit bookmark is pushed', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'MERGED' }] });
@@ -228,7 +232,7 @@ test('closed existing PR is refused before an explicit bookmark is pushed', () =
   } finally { cleanup(fixture); }
 });
 
-test('failed explicit PR lookup refuses to push or create a duplicate', () => {
+test('failed explicit PR lookup refuses to push or create a duplicate', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { lookupFailure: true });
@@ -239,7 +243,7 @@ test('failed explicit PR lookup refuses to push or create a duplicate', () => {
   } finally { cleanup(fixture); }
 });
 
-test('push failure stops before PR lookup and leaves the private bookmark untouched', () => {
+test('push failure stops before PR lookup and leaves the private bookmark untouched', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { pushStatus: 1 });
@@ -251,7 +255,7 @@ test('push failure stops before PR lookup and leaves the private bookmark untouc
   } finally { cleanup(fixture); }
 });
 
-test('--all publishes the current stack through an empty child and ignores another head', () => {
+test('--all publishes the current stack through an empty child and ignores another head', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     const tip = fixture.jj('log', '-r', '@', '--no-graph', '-T', 'commit_id').trim();
@@ -276,7 +280,7 @@ test('--all publishes the current stack through an empty child and ignores anoth
   } finally { cleanup(fixture); }
 });
 
-test('--all refuses a stack whose final tree matches main', () => {
+test('--all refuses a stack whose final tree matches main', needsJj, () => {
   const fixture = setupRevertedSecret();
   try {
     const state = publisher(fixture);
@@ -287,7 +291,7 @@ test('--all refuses a stack whose final tree matches main', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all merges newer main, then previews the final PR diff', () => {
+test('--all merges newer main, then previews the final PR diff', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     advanceMain(fixture);
@@ -306,7 +310,7 @@ test('--all merges newer main, then previews the final PR diff', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all stops after a conflicted merge without pushing', () => {
+test('--all stops after a conflicted merge without pushing', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     fs.writeFileSync(path.join(fixture.root, 'config.toml'), 'local content\n');
@@ -321,7 +325,7 @@ test('--all stops after a conflicted merge without pushing', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all cancellation before merging leaves JJ untouched', () => {
+test('--all cancellation before merging leaves JJ untouched', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     advanceMain(fixture);
@@ -335,7 +339,7 @@ test('--all cancellation before merging leaves JJ untouched', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all cancellation after a clean merge leaves it local without pushing', () => {
+test('--all cancellation after a clean merge leaves it local without pushing', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     advanceMain(fixture);
@@ -349,7 +353,7 @@ test('--all cancellation after a clean merge leaves it local without pushing', (
   } finally { cleanup(fixture); }
 });
 
-test('--all rerun updates the open aggregate PR and moves its bookmark forward', () => {
+test('--all rerun updates the open aggregate PR and moves its bookmark forward', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     const first = publisher(fixture);
@@ -370,7 +374,7 @@ test('--all rerun updates the open aggregate PR and moves its bookmark forward',
   } finally { cleanup(fixture); }
 });
 
-test('--all rejects --bookmark before changing source state', () => {
+test('--all rejects --bookmark before changing source state', needsJj, () => {
   const fixture = setupRepository({ stack: 1, bookmark: 'wip/private' });
   try {
     const state = publisher(fixture);

@@ -3,6 +3,8 @@
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Templates render through real mise; skip (77) where it is unavailable.
+python3 "$ROOT/tests/lib/prereq.py" mise || exit $?
 readonly EXPECTED_REVISION="$(awk -F '"' '/^aegis_local_revision = / { print $2; exit }' "$ROOT/config.toml")"
 
 [[ "$EXPECTED_REVISION" =~ ^[[:xdigit:]]{40}$ ]] || {

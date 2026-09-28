@@ -5,6 +5,8 @@ import tempfile
 import tomllib
 import unittest
 
+from lib.prereq import mise_binary, requires
+
 ROOT = Path(__file__).resolve().parents[1]
 
 class SharedBaseTests(unittest.TestCase):
@@ -34,6 +36,7 @@ class SharedBaseTests(unittest.TestCase):
         nas=tomllib.loads((ROOT/'config.nas.toml').read_text())
         self.assertEqual(nas['tools']['btop'], {'version': 'latest', 'os': ['linux/x64']})
 
+    @requires('mise')
     def test_retired_selector_fails_before_bootstrap_hooks(self):
         with tempfile.TemporaryDirectory() as tmp:
             fixture=Path(tmp)
@@ -43,7 +46,7 @@ class SharedBaseTests(unittest.TestCase):
             for key in ('CONFIG','DATA','STATE','CACHE'):
                 env[f'MISE_{key}_DIR']=str(fixture if key=='CONFIG' else fixture/key.lower())
             for selection in ('delftblue','delftblue,workstation'):
-                result=subprocess.run([str(Path.home()/'.local/bin/mise'),'-C',str(fixture),'-E',selection,'bootstrap','--dry-run'],env=env,text=True,capture_output=True,timeout=30)
+                result=subprocess.run([mise_binary(),'-C',str(fixture),'-E',selection,'bootstrap','--dry-run'],env=env,text=True,capture_output=True,timeout=30)
                 self.assertNotEqual(result.returncode,0)
                 self.assertIn('delftblue profile is retired',result.stderr)
                 self.assertNotIn('bootstrap: pre-packages',result.stdout)

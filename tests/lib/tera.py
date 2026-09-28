@@ -6,15 +6,19 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
+try:
+    from lib.prereq import mise_binary
+except ImportError:  # executed directly as tests/lib/tera.py
+    from prereq import mise_binary
+
 ROOT = Path(__file__).resolve().parents[2]
-MISE = Path(os.environ.get("SETUP_TEST_MISE") or shutil.which("mise") or "mise")
+MISE = Path(mise_binary() or "mise")
 
 
 def _toml_value(value: Any) -> str:
