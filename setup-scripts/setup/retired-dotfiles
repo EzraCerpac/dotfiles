@@ -26,3 +26,14 @@
 ~/.config/nvim/lua/unused/modules/jjui.lua
 ~/.config/nvim/lua/unused/snacks.lua
 ~/.config/nvim/lua/unused/zellij.lua
+~/.config/ghostty/config
+~/.config/ghostty/themes/catppccin-mocha
+~/.config/gitui/theme.ron
+~/.config/gitui/themes/catppuccin-frappe.ron
+~/.config/gitui/themes/catppuccin-latte.ron
+~/.config/gitui/themes/catppuccin-macchiato.ron
+~/.config/gitui/themes/catppuccin-mocha.ron
+~/.config/xonsh/rc.xsh
+~/.config/zellij/themes/catppuccin.kdl
+~/.config/zellij/themes/catppuccin.yaml
+~/.xonshrc

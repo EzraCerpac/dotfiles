@@ -281,14 +281,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/fish/completions/ya.fish" = { source = "dotfiles/.config/fish/completions/ya.fish", mode = "symlink" }
 "~/.config/fish/completions/yazi.fish" = { source = "dotfiles/.config/fish/completions/yazi.fish", mode = "symlink" }
 "~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink" }
-"~/.config/ghostty/config" = { source = "dotfiles/.config/ghostty/config", mode = "symlink" }
-"~/.config/ghostty/themes/catppccin-mocha" = { source = "dotfiles/.config/ghostty/themes/catppccin-mocha", mode = "symlink" }
 "~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink" }
-"~/.config/gitui/theme.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink" }
-"~/.config/gitui/themes/catppuccin-frappe.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-frappe.ron", mode = "symlink" }
-"~/.config/gitui/themes/catppuccin-latte.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-latte.ron", mode = "symlink" }
-"~/.config/gitui/themes/catppuccin-macchiato.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink" }
-"~/.config/gitui/themes/catppuccin-mocha.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-mocha.ron", mode = "symlink" }
 "~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink" }
 "~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink" }
 "~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink" }
@@ -323,11 +316,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/television/config.toml" = { source = "dotfiles/.config/television/config.toml", mode = "symlink" }
 "~/.config/tex-fmt/tex-fmt.toml" = { source = "dotfiles/.config/tex-fmt/tex-fmt.toml", mode = "symlink" }
 "~/.config/worktrunk/config.toml" = { source = "dotfiles/.config/worktrunk/config.toml", mode = "symlink" }
-"~/.config/xonsh/rc.xsh" = { source = "dotfiles/.config/xonsh/rc.xsh", mode = "symlink" }
 "~/.config/yazi/init.lua" = { source = "dotfiles/.config/yazi/init.lua", mode = "symlink" }
-"~/.config/zellij/config.kdl" = { source = "templates/.config/zellij/config.kdl.tera", mode = "template" }
-"~/.config/zellij/themes/catppuccin.kdl" = { source = "dotfiles/.config/zellij/themes/catppuccin.kdl", mode = "symlink" }
-"~/.config/zellij/themes/catppuccin.yaml" = { source = "dotfiles/.config/zellij/themes/catppuccin.yaml", mode = "symlink" }
 "~/.hammerspoon/aerospace_workspaces.lua" = { source = "dotfiles/.hammerspoon/aerospace_workspaces.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/init.lua" = { source = "dotfiles/.hammerspoon/init.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.julia/config/pluto_user.js" = { source = "dotfiles/.julia/config/pluto_user.js", mode = "symlink" }
@@ -369,7 +358,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/share/personal-concierge/antinote-bridge/main.swift" = { source = "dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.markdownlint-cli2.yaml" = { source = "dotfiles/.markdownlint-cli2.yaml", mode = "symlink" }
 "~/.wezterm.lua" = { source = "dotfiles/.wezterm.lua", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.xonshrc" = { source = "dotfiles/.xonshrc", mode = "symlink" }
 "~/.zprofile" = { source = "dotfiles/.zprofile", mode = "symlink" }
 "~/.zshenv" = { source = "dotfiles/.zshenv", mode = "symlink" }
 "~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink" }
