@@ -19,7 +19,12 @@ function __dots_source_init --description 'Source a tool init script, cached unt
     set -l cached
     test -f $cache; and read cached <$cache
     if test "$cached" != "$stamp"
-        mkdir -p (path dirname -- $cache)
+        set -l directory (path dirname -- $cache)
+        if not mkdir -p $directory 2>/dev/null; or not test -w $directory
+            # An unwritable cache must not cost the integration; run it uncached.
+            command $argv 2>/dev/null | source
+            return
+        end
         set -l temporary $cache.$fish_pid
         if begin
                 printf '%s\n' $stamp

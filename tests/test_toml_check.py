@@ -37,6 +37,12 @@ class TomlCheckTests(unittest.TestCase):
     def test_missing_mise_is_reported_separately(self) -> None:
         self.assertEqual(self.check("/nonexistent/mise", 'key = "value"\n').returncode, 2)
         self.assertEqual(self.check("mise-command-that-does-not-exist", 'key = "value"\n').returncode, 2)
+        with tempfile.TemporaryDirectory() as temporary:
+            # Executable, but its interpreter is missing, so launching exits 126/127.
+            broken = Path(temporary) / "mise"
+            broken.write_text("#!/nonexistent/interpreter\n")
+            broken.chmod(0o755)
+            self.assertEqual(self.check(str(broken), 'key = "value"\n').returncode, 2)
         # A failed resolver yields an empty path; that is "no mise", not an abort.
         empty = self.check("", 'key = "value"\n')
         self.assertEqual((empty.returncode, empty.stderr), (2, ""))
