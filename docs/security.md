@@ -44,3 +44,20 @@ An authentication key is not automatically a signing key on GitHub; the key
 must be added again with `--type signing`. The key must be loadable without a
 prompt, as it is when macOS Keychain holds its passphrase (`UseKeychain` in
 the SSH config). The former GPG key `D041C1286F71DBDF` is no longer used.
+
+## Known exposure in history
+
+A full-history scan found live credentials published by commit `806e72e4`
+(2025-08-30, before the mise migration): Raycast account tokens in
+`dot_config/raycast/private_config.json`, and a OneDrive rclone OAuth token,
+including its refresh token, in `dot_config/rclone/private_rclone.conf`. The
+repository is public, so treat them as compromised:
+
+1. Raycast: sign out of every session from your Raycast account settings, then
+   sign in again.
+2. OneDrive: remove rclone's access at <https://account.live.com/consent/Manage>,
+   then run `rclone config reconnect onedrive:`.
+
+Rewriting history would not un-publish them; forks and caches keep old
+commits. `.gitleaksignore` lists only these findings' fingerprints so the scan
+still fails on any new leak.
