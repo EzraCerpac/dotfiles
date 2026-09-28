@@ -10,7 +10,16 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Most checks are silent `jq -e` probes; name the one that failed.
-trap 'echo "antinote bridge test failed at line $LINENO: $BASH_COMMAND" >&2' ERR
+report_failure() {
+    echo "antinote bridge test failed at line $1: $2" >&2
+    # The bridge reports errors as JSON on stdout, which most checks redirect.
+    local report
+    for report in "${tmp_root:-/nonexistent}"/*.json; do
+        [[ -f "$report" ]] && printf '%s: %s\n' "${report##*/}" "$(cat "$report")" >&2
+    done
+    return 0
+}
+trap 'report_failure "$LINENO" "$BASH_COMMAND"' ERR
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/antinote-bridge-test.XXXXXX")"
 trap 'rm -rf "$tmp_root"' EXIT
 
