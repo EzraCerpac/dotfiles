@@ -46,3 +46,9 @@ The legacy `nas.py` command and bundled NAS skill are retired. Use `dots` for
 configuration and backups, normal JJ/JW commands for source work, and native
 Codex Remote SSH for remote tasks. Their unused project manifest and rules
 templates are also retired; existing project-owned `AGENTS.md` files are kept.
+
+## Remote Codex tasks
+
+CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
+
+Codex can run tasks on connected remote hosts, including CerpacNAS and DriehuisNAS, in any project available on that host. The `work-on-remote-hosts` skill describes how to coordinate those tasks and check the host and project at task time.
