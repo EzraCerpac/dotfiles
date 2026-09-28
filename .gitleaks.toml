@@ -2,6 +2,14 @@
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "Julia manifests pin package UUIDs, which look like generic API keys"
+# Julia manifests pin package UUIDs (`Name = "uuid"`), which the generic rule
+# reads as API keys. Allow exactly that shape in manifests, for that rule only,
+# so any other secret in a Manifest.toml is still reported.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Julia package UUIDs in Manifest.toml"
+condition = "AND"
 paths = ['''(^|/)Manifest\.toml$''']
+regexTarget = "secret"
+regexes = ['''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''']
