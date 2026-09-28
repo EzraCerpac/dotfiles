@@ -88,10 +88,10 @@ class FishStartupTests(IsolatedShell):
         for tool in INIT_TOOLS:
             self.stub(tool, f'echo "{tool} $*" >> {self.calls}\necho "set -g __stub_{tool} loaded"')
 
-    def start(self, *flags: str, script: str = "true") -> subprocess.CompletedProcess[str]:
+    def start(self, *flags: str, script: str = "true", **extra_env: str) -> subprocess.CompletedProcess[str]:
         result = subprocess.run(
             [shutil.which("fish") or "fish", *flags, "-c", script],
-            env=self.env, capture_output=True, text=True, check=False, timeout=60, stdin=subprocess.DEVNULL,
+            env={**self.env, **extra_env}, capture_output=True, text=True, check=False, timeout=60, stdin=subprocess.DEVNULL,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result
@@ -122,6 +122,32 @@ class FishStartupTests(IsolatedShell):
         os.utime(later, (stamp, stamp))
         self.start("-i")
         self.assertEqual(self.logged(), ["mise activate fish", "starship init fish --print-full-init"])
+
+    def test_a_tool_at_a_new_path_regenerates_its_cache(self) -> None:
+        self.start("-i")
+        self.calls.unlink()
+        # An older binary earlier on PATH (e.g. a switched mise tool version).
+        moved = self.home / "moved"
+        moved.mkdir()
+        shutil.copy2(self.stubs / "starship", moved / "starship")
+        stamp = (self.stubs / "starship").stat().st_mtime - 3600
+        os.utime(moved / "starship", (stamp, stamp))
+        self.start("-i", PATH=os.pathsep.join((str(moved), self.env["PATH"])))
+        self.assertEqual(self.logged(), ["mise activate fish", "starship init fish --print-full-init"])
+
+    def test_a_future_mtime_does_not_regenerate_on_every_start(self) -> None:
+        future = self.stubs / "starship"
+        stamp = future.stat().st_mtime + 86400
+        os.utime(future, (stamp, stamp))
+        self.start("-i")
+        self.calls.unlink()
+        self.start("-i")
+        self.assertEqual(self.logged(), ["mise activate fish"])
+
+    def test_an_empty_cache_home_means_the_default(self) -> None:
+        self.start("-i", XDG_CACHE_HOME="")
+        cached = self.home / ".cache/fish/init/starship_init_fish_--print-full-init.fish"
+        self.assertTrue(cached.is_file())
 
     def test_missing_tools_are_skipped_quietly(self) -> None:
         for tool in INIT_TOOLS:
