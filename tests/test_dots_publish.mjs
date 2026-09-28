@@ -143,7 +143,7 @@ test('default publication scans exactly the unpublished commits before asking', 
     const state = publisher(fixture, { confirm: () => { scannedBeforeConfirm = hasCall(state.calls, 'gitleaks', 'git'); return true; } });
     publish(state.options);
     assert(scannedBeforeConfirm);
-    assert(hasCall(state.calls, 'gitleaks', 'git', '--redact', `--log-opts=${base}..${head}`, fixture.root));
+    assert(hasCall(state.calls, 'gitleaks', 'git', '--redact', `--log-opts=--diff-merges=first-parent ${base}..${head}`, fixture.root));
     assert.match(state.output.text, /Secret scan: gitleaks found nothing/);
   } finally { cleanup(fixture); }
 });
@@ -183,6 +183,25 @@ test('the real gitleaks refuses a token committed and then removed', requires('j
     const finding = state.output.text.slice(state.output.text.indexOf('Finding:'));
     assert.match(finding, /RuleID:\s+github-pat/);
     assert(!finding.includes(token), 'the scanner report must redact the token');
+  } finally { cleanup(fixture); }
+});
+
+test('the real gitleaks scans content that only a merge resolution adds', requires('jj', 'gitleaks'), () => {
+  const fixture = setupRepository({ stack: 0 });
+  try {
+    const sides = ['left', 'right'].map(side => {
+      fixture.jj('new', 'main@origin', '-m', `Add ${side}`);
+      fs.writeFileSync(path.join(fixture.root, `${side}.txt`), `${side}\n`);
+      return fixture.jj('log', '--no-graph', '-r', '@', '-T', 'change_id').trim();
+    });
+    // Neither parent has the token; `git log -p` omits merge diffs by default.
+    fixture.jj('new', ...sides, '-m', 'Merge both sides');
+    const token = ['ghp', 'R8tq3LwVn5Xk2Jc9Hy7Pd4Mb6Fz1Sa0Gu3Ee'].join('_');
+    fs.writeFileSync(path.join(fixture.root, 'token.txt'), `github_token = "${token}"\n`);
+    fixture.jj('bookmark', 'create', 'wip/merge', '-r', '@');
+    const state = publisher(fixture, { scan: 'real' });
+    assert.throws(() => publish({ ...state.options, bookmark: 'wip/merge' }), /gitleaks found potential secrets/);
+    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
   } finally { cleanup(fixture); }
 });
 

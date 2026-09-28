@@ -114,8 +114,11 @@ function proposedChanges(run, root, revision) {
 
 // The repository is public: a pushed secret is disclosed even if a later
 // commit removes it. Scan every commit being published, not just the net diff.
+// `git log` omits merge diffs unless asked, which would hide anything a
+// conflict resolution adds; diff merges against their first parent instead.
 function scanForSecrets(run, root, output, baseCommit, headCommit) {
-  const args = ['git', '--no-banner', '--redact', '--verbose', '--exit-code', '1', `--log-opts=${baseCommit}..${headCommit}`, root];
+  const range = `--diff-merges=first-parent ${baseCommit}..${headCommit}`;
+  const args = ['git', '--no-banner', '--redact', '--verbose', '--exit-code', '1', `--log-opts=${range}`, root];
   let result;
   try {
     result = run(SECRET_SCANNER, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
