@@ -1,0 +1,79 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Nightly canary. Tools track "latest", so an upstream release can break the
+    # setup without any change here; find out before `dots up` does.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      # mise uses the token for GitHub release lookups instead of anonymous rate limits.
+      GITHUB_TOKEN: ${{ github.token }}
+      MISE_YES: "1"
+      # Revision of the Typst grammar that nvim-treesitter installs on the workstation.
+      TYPST_GRAMMAR_REVISION: 46cf4ded12ee974a70bf8457263b67ad7ee0379d
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Install system packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends lua5.4 rsync zsh
+
+      - name: Install system packages (macOS)
+        if: runner.os == 'macOS'
+        run: brew install lua fish
+
+      - name: Install mise and test tools
+        run: |
+          curl -fsSL https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          tools=(node@latest python@3.13 uv@latest jj@latest aqua:neovim/neovim@latest typst@latest age@latest herdr@latest)
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            tools+=(github:fish-shell/fish-shell@latest)
+          fi
+          mise use --global "${tools[@]}"
+          # Real install paths, not shims: tests replace HOME and mise config dirs.
+          (cd "$RUNNER_TEMP" && mise bin-paths) >> "$GITHUB_PATH"
+
+      - name: Build the Typst tree-sitter parser
+        run: |
+          git clone --quiet https://github.com/uben0/tree-sitter-typst "$RUNNER_TEMP/tree-sitter-typst"
+          git -C "$RUNNER_TEMP/tree-sitter-typst" checkout --quiet "$TYPST_GRAMMAR_REVISION"
+          parser_dir="$HOME/.local/share/nvim/site/parser"
+          mkdir -p "$parser_dir"
+          cc -shared -fPIC -O2 -I "$RUNNER_TEMP/tree-sitter-typst/src" \
+            "$RUNNER_TEMP/tree-sitter-typst/src/parser.c" "$RUNNER_TEMP/tree-sitter-typst/src/scanner.c" \
+            -o "$parser_dir/typst.so"
+
+      - name: Tool versions
+        run: |
+          mise --version
+          for tool in node python3 uv jj nvim typst age herdr fish lua zsh; do
+            printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo missing)"
+          done
+
+      - name: Run tests
+        run: tests/run

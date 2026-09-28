@@ -292,6 +292,7 @@ Review defaults:
 | `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
 | `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
 | `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
+| `tests/` | Test suites; run them with `dots test` (see [testing](docs/testing.md)) |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.
 
