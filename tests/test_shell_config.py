@@ -149,6 +149,15 @@ class FishStartupTests(IsolatedShell):
         cached = self.home / ".cache/fish/init/starship_init_fish_--print-full-init.fish"
         self.assertTrue(cached.is_file())
 
+    def test_an_unwritable_cache_still_loads_the_integrations(self) -> None:
+        # A regular file where the cache directory belongs cannot be created
+        # into, even by root (chmod-based read-only checks are bypassed there).
+        blocked = self.home / "blocked"
+        blocked.write_text("")
+        probe = "echo RESULT=$__stub_starship,$__stub_carapace"
+        result = self.start("-i", script=probe, XDG_CACHE_HOME=str(blocked))
+        self.assertIn("RESULT=loaded,loaded", result.stdout)
+
     def test_missing_tools_are_skipped_quietly(self) -> None:
         for tool in INIT_TOOLS:
             (self.stubs / tool).unlink()
