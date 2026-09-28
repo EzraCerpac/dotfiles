@@ -69,8 +69,9 @@ persistent history across sessions. To switch an already open shell to local
 recall, run `set -g fish_history ''`; existing saved history is retained.
 
 When the shortcut is ready to share, run `dots publish` from any directory.
-It shows the proposed source diff, asks for a short description and confirmation,
-then publishes a `wip/` branch and opens a pull request. Review and merge that PR
+It shows the proposed source diff, scans every commit in it for secrets
+(see [security guardrails](docs/security.md)), asks for a short description and
+confirmation, then publishes a `wip/` branch and opens a pull request. Review and merge that PR
 on GitHub. Source publication is always explicit; the settings watcher and
 updater never push your edits.
 
