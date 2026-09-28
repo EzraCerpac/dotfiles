@@ -195,6 +195,27 @@ repoTest('clean remote fast-forward syncs through the fake mise validation and a
   } finally { fixture.close(); }
 });
 
+repoTest('sync removes links retired by the incoming source after applying', () => {
+  const retire = fs.readFileSync(new URL('../setup-scripts/lib/retire-dotfiles.sh', import.meta.url), 'utf8');
+  const fixture = makeFixture({ files: {
+    'config.toml': 'min_version = "1.0.0"\nbase = "A"\n',
+    'setup-scripts/lib/retire-dotfiles.sh': retire,
+    'dotfiles/old.lua': 'old\n',
+  } });
+  const home = path.join(fixture.state, 'home');
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    const retired = path.join(home, '.config/nvim/lua/plugins/old.lua');
+    fs.mkdirSync(path.dirname(retired), { recursive: true });
+    fs.symlinkSync(path.join(fixture.root, 'dotfiles/old.lua'), retired);
+    fs.rmSync(path.join(fixture.seed, 'dotfiles/old.lua'));
+    updateRemote(fixture, 'setup-scripts/setup/retired-dotfiles', '~/.config/nvim/lua/plugins/old.lua\n');
+    withEnvironment({ HOME: home }, () => sync(fixture));
+    assert(!fs.existsSync(path.join(fixture.root, 'dotfiles/old.lua')));
+    assert.throws(() => fs.lstatSync(retired), /ENOENT/);
+  } finally { fixture.close(); }
+});
+
 repoTest('sync resolves MISE_BIN and PATH when the standalone binary is absent', () => {
   const fixture = makeFixture();
   try {

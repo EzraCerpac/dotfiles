@@ -1,0 +1,4 @@
+# Targets whose [dotfiles] declarations were removed. After applying dotfiles,
+# `dots up` and `dots sync` delete each one only while it is a symlink into this
+# checkout whose source no longer exists (setup-scripts/lib/retire-dotfiles.sh).
+# Rendered templates are regular files and are never deleted automatically.

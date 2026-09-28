@@ -186,6 +186,9 @@ export function syncSource(root, { miseBin, expectedRemote } = {}) {
       }
     }
     command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes'], root, { env, stdio: 'inherit' });
+    // mise keeps links whose declarations were removed; drop the retired ones.
+    const retire = path.join(root, 'setup-scripts/lib/retire-dotfiles.sh');
+    if (fs.existsSync(retire)) command('bash', [retire, root], root, { stdio: 'inherit' });
     console.log(`Source synchronized to ${incoming[0].slice(0, 12)}; dotfiles applied.`);
     return incoming[0];
   });
