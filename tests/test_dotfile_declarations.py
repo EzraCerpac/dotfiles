@@ -1,0 +1,84 @@
+"""Every managed source file is declared, and every declaration has a source.
+
+Neovim and other trees are declared file by file so application state beside
+them stays unmanaged. The cost is that a new file does nothing until it is
+declared; this test makes that omission fail instead of silently shipping
+nothing.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import tomllib
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+CONFIGS = ("config.toml", "config.workstation.toml", "config.nas.toml")
+MANAGED_TREES = ("dotfiles", "templates", "seeds")
+
+# Sources used by something other than a [dotfiles] declaration.
+INDIRECT = {
+    "dotfiles/.config/herdr/config.toml": "read by templates/.config/herdr/config.tera",
+    "templates/.config/herdr/config.tera": "declared per host by setup-scripts/local/shell-select.sh",
+    "seeds/.codex/config.toml": "seeded once by setup-scripts/local/seed-configs.sh",
+    "seeds/.config/aegis/config.json": "seeded once by setup-scripts/local/seed-configs.sh",
+    "seeds/.config/karabiner/karabiner.json": "seeded once by setup-scripts/local/seed-configs.sh",
+    "seeds/.config/nvim/lazyvim.json": "seeded once by setup-scripts/local/seed-configs.sh",
+}
+
+
+def declarations() -> dict[str, dict]:
+    entries: dict[str, dict] = {}
+    for name in CONFIGS:
+        for target, entry in tomllib.loads((ROOT / name).read_text()).get("dotfiles", {}).items():
+            entries[f"{name}:{target}"] = entry
+    return entries
+
+
+def tracked(*trees: str) -> set[str]:
+    listing = subprocess.run(["git", "ls-files", "-z", "--", *trees], cwd=ROOT, capture_output=True, text=True, check=True)
+    return set(filter(None, listing.stdout.split("\0")))
+
+
+class DotfileDeclarationTests(unittest.TestCase):
+    def test_every_declared_source_exists(self) -> None:
+        missing = [
+            f"{key} -> {entry['source']}"
+            for key, entry in declarations().items()
+            if "source" in entry and not (ROOT / entry["source"]).is_file()
+        ]
+        self.assertEqual(missing, [])
+
+    def test_every_managed_file_is_declared_or_explained(self) -> None:
+        declared = {entry["source"] for entry in declarations().values() if "source" in entry}
+        undeclared = sorted(tracked(*MANAGED_TREES) - declared - INDIRECT.keys())
+        self.assertEqual(undeclared, [], "declare these in a config file, archive them, or explain them in INDIRECT")
+
+    def test_indirect_sources_are_still_referenced(self) -> None:
+        for source in INDIRECT:
+            with self.subTest(source=source):
+                self.assertTrue((ROOT / source).is_file())
+                uses = subprocess.run(
+                    ["git", "grep", "-l", "-F", source.split("/", 1)[1], "--", "setup-scripts", "templates"],
+                    cwd=ROOT, capture_output=True, text=True, check=False,
+                )
+                self.assertTrue(uses.stdout.strip(), f"nothing references {source}; archive or delete it")
+
+    def test_archive_is_never_deployed(self) -> None:
+        deployed = [key for key, entry in declarations().items() if entry.get("source", "").startswith("archive/")]
+        self.assertEqual(deployed, [])
+
+    def test_declarations_do_not_restate_every_supported_os(self) -> None:
+        # An entry applies on every OS unless restricted; listing both is noise.
+        redundant = [
+            key
+            for key, entry in declarations().items()
+            if sorted(variant.get("os") for variant in entry.get("variants", []) if set(variant) == {"os"})
+            == ["linux", "macos"]
+        ]
+        self.assertEqual(redundant, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
