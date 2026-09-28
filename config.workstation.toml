@@ -309,11 +309,11 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/marksman/config.toml" = { source = "dotfiles/.config/marksman/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/opencode/AGENTS.md" = { source = "dotfiles/.config/opencode/AGENTS.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/opencode/opencode.json" = { source = "dotfiles/.config/opencode/opencode.json", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.config/opencode/skills/jj-waltz/agents/openai.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/codex.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/lifecycle.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/links.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/links.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.codex/skills/jj-waltz/agents/openai.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/codex.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/lifecycle.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/opencode/skills/jj-waltz/references/links.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/links.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/rift/config.toml" = { source = "dotfiles/.config/rift/config.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/ruff/ruff.toml" = { source = "dotfiles/.config/ruff/ruff.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/television/cable/channels.toml" = { source = "dotfiles/.config/television/cable/channels.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

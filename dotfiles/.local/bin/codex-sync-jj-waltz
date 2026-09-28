@@ -3,9 +3,9 @@ set -euo pipefail
 
 SETUP_SOURCE="${MISE_CONFIG_DIR:-${HOME}/.config/mise}"
 SOURCE_SKILL="${JJ_WALTZ_SKILL_SOURCE:-${HOME}/Projects/jj-waltz/skills/jj-waltz}"
+# One source copy; mise links it into both ~/.codex and ~/.config/opencode.
 DEST_SKILLS=(
     "${SETUP_SOURCE}/dotfiles/.codex/skills/jj-waltz"
-    "${SETUP_SOURCE}/dotfiles/.config/opencode/skills/jj-waltz"
 )
 
 validate_skill() {
