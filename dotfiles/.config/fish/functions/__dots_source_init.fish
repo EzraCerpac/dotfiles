@@ -12,6 +12,12 @@ function __dots_source_init --description 'Source a tool init script, cached unt
     set -l cache $cache_root/fish/init/$key.fish
 
     set -l resolved (path resolve -- $executable)
+    # A mise shim resolves to mise itself, whose path and mtime do not change
+    # when the tool is switched or upgraded; fingerprint the selected binary.
+    if test "$argv[1]" != mise; and test (path basename -- $resolved) = mise
+        set -l selected (command mise which -- $argv[1] 2>/dev/null)
+        and set resolved (path resolve -- $selected)
+    end
     set -l config (path resolve -- $__fish_config_dir/config.fish)
     # A missing file's mtime is empty and simply drops out of the fingerprint.
     set -l stamp (string join ' ' -- '# dots-init' $resolved (path mtime -- $resolved) $config (path mtime -- $config))

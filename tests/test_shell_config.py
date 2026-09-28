@@ -149,6 +149,30 @@ class FishStartupTests(IsolatedShell):
         cached = self.home / ".cache/fish/init/starship_init_fish_--print-full-init.fish"
         self.assertTrue(cached.is_file())
 
+    def test_a_tool_behind_a_mise_shim_is_fingerprinted_by_its_selected_binary(self) -> None:
+        # Shims link to mise itself, so the selected version must come from `mise which`.
+        selected = self.home / "installs/starship-1"
+        selected.mkdir(parents=True)
+        shutil.copy2(self.stubs / "starship", selected / "starship")
+        shims = self.home / "shims"
+        shims.mkdir()
+        (shims / "starship").symlink_to(self.stubs / "mise")
+        # Like a real shim: invoked as the tool, run the version mise selected.
+        self.stub("mise", '[ "$(basename "$0")" = starship ] && exec "$SELECTED_STARSHIP" "$@"\n'
+                  f'echo "mise $*" >> {self.calls}\n'
+                  '[ "$1" = which ] && echo "$SELECTED_STARSHIP"; exit 0')
+        path = os.pathsep.join((str(shims), self.env["PATH"]))
+        self.start("-i", PATH=path, SELECTED_STARSHIP=str(selected / "starship"))
+        self.calls.unlink()
+        self.start("-i", PATH=path, SELECTED_STARSHIP=str(selected / "starship"))
+        self.assertNotIn("starship init fish --print-full-init", self.logged())
+        # A switched version behind the same shim regenerates the cache.
+        upgraded = self.home / "installs/starship-2"
+        upgraded.mkdir()
+        shutil.copy2(self.stubs / "starship", upgraded / "starship")
+        self.start("-i", PATH=path, SELECTED_STARSHIP=str(upgraded / "starship"))
+        self.assertIn("starship init fish --print-full-init", self.logged())
+
     def test_an_unwritable_cache_still_loads_the_integrations(self) -> None:
         # A regular file where the cache directory belongs cannot be created
         # into, even by root (chmod-based read-only checks are bypassed there).
