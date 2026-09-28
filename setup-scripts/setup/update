@@ -4,10 +4,6 @@ set -euo pipefail
 
 source "$(dirname "$0")/../lib/setup-common.sh"
 setup_init || exit $?
-if [[ "$SETUP_PROFILE" == "delftblue" ]]; then
-    setup_error "setup:update is disabled for delftblue; use its restricted configuration workflow"
-    exit 2
-fi
 
 # Reload after sync so maintenance runs from the newly adopted source.
 if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then

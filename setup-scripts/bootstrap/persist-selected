@@ -34,6 +34,7 @@ persisted_machine_id=""
 while IFS= read -r selector; do
     [[ -n "$selector" ]] || continue
     case "$selector" in
+        # delftblue is retired; recognizing it lets validation reject it clearly.
         workstation|nas|delftblue)
             if [[ -n "$persisted_role" && "$persisted_role" != "$selector" ]]; then
                 bootstrap_error 'miserc has multiple setup roles; resolve it before bootstrap'

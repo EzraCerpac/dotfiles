@@ -274,10 +274,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/delftblue/jobs/julia_cpu.sbatch" = { source = "templates/.config/delftblue/jobs/julia_cpu.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/jobs/julia_gpu_smoke.sbatch" = { source = "templates/.config/delftblue/jobs/julia_gpu_smoke.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/jobs/julia_mpi.sbatch" = { source = "templates/.config/delftblue/jobs/julia_mpi.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/spack/dev/spack.yaml" = { source = "dotfiles/.config/delftblue/spack/dev/spack.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/functions/__mise_source_yazi_completion.fish" = { source = "dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
@@ -341,8 +337,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.julia/environments/v1.11/Project.toml" = { source = "dotfiles/.julia/environments/v1.11/Project.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.julia/environments/v1.12/Manifest.toml" = { source = "dotfiles/.julia/environments/v1.12/Manifest.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.julia/environments/v1.12/Project.toml" = { source = "dotfiles/.julia/environments/v1.12/Project.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/db-common.sh" = { source = "templates/.local/bin/db-common.sh.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/db-spack-env.sh" = { source = "templates/.local/bin/db-spack-env.sh.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/aegis-local-install" = { source = "templates/.local/bin/aegis-local-install.tera", mode = "template", variants = [{ os = "macos" }] }
 "~/.local/bin/aegis-local-signing-setup" = { source = "dotfiles/.local/bin/aegis-local-signing-setup", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/aerospace-default-workspaces" = { source = "dotfiles/.local/bin/aerospace-default-workspaces", mode = "symlink", variants = [{ os = "macos" }] }
@@ -350,18 +344,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/ai-text-detector" = { source = "dotfiles/.local/bin/ai-text-detector", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/antinote" = { source = "dotfiles/.local/bin/antinote", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/codex-sync-jj-waltz" = { source = "dotfiles/.local/bin/codex-sync-jj-waltz", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbacct" = { source = "dotfiles/.local/bin/dbacct", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbcpu" = { source = "dotfiles/.local/bin/dbcpu", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbdev-bootstrap" = { source = "templates/.local/bin/dbdev-bootstrap.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbdev-install" = { source = "dotfiles/.local/bin/dbdev-install", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbgpusmoke" = { source = "dotfiles/.local/bin/dbgpusmoke", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbjobs" = { source = "dotfiles/.local/bin/dbjobs", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbjulia-mpi-init" = { source = "dotfiles/.local/bin/dbjulia-mpi-init", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dblimits" = { source = "dotfiles/.local/bin/dblimits", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbprojectpull" = { source = "dotfiles/.local/bin/dbprojectpull", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbprojectpush" = { source = "dotfiles/.local/bin/dbprojectpush", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbpull" = { source = "dotfiles/.local/bin/dbpull", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbpush" = { source = "dotfiles/.local/bin/dbpush", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.local/bin/gitlogue-screensaver" = { source = "dotfiles/.local/bin/gitlogue-screensaver", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/gitlogue-select" = { source = "dotfiles/.local/bin/gitlogue-select", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/prdiff-review" = { source = "dotfiles/.local/bin/prdiff-review", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

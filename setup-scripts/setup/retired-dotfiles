@@ -2,3 +2,17 @@
 # `dots up` and `dots sync` delete each one only while it is a symlink into this
 # checkout whose source no longer exists (setup-scripts/lib/retire-dotfiles.sh).
 # Rendered templates are regular files and are never deleted automatically.
+~/.config/nvim/lua/config/delftblue.lua
+~/.config/nvim/lua/plugins/delftblue.lua
+~/.config/delftblue/spack/dev/spack.yaml
+~/.local/bin/dbacct
+~/.local/bin/dbcpu
+~/.local/bin/dbdev-install
+~/.local/bin/dbgpusmoke
+~/.local/bin/dbjobs
+~/.local/bin/dbjulia-mpi-init
+~/.local/bin/dblimits
+~/.local/bin/dbprojectpull
+~/.local/bin/dbprojectpush
+~/.local/bin/dbpull
+~/.local/bin/dbpush

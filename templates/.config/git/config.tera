@@ -36,10 +36,8 @@
 	format = ssh
 [commit]
 	gpgSign = true
-{%- if vars.profile != "delftblue" %}
 [includeIf "gitdir:{{ env.HOME }}/PhpstormProjects/"]
 	path = {{ env.HOME }}/PhpstormProjects/.gitconfig
-{%- endif %}
 [filter "lfs"]
 	process = git-lfs filter-process
 	required = true
@@ -71,7 +69,6 @@
 	context = 3
 	renames = copies
 	interHunkContext = 10
-{%- if vars.profile != "delftblue" %}
 [merge]
     tool = nvimdiff
 [mergetool]
@@ -81,7 +78,6 @@
 [delta]
 	side-by-side = true
 	navigate = true
-{%- endif %}
 [color "diff"]
 	meta = black bold
 	frag = magenta
@@ -93,9 +89,7 @@
 	maxRequests = 20
 	version = HTTP/1.1
 [interactive]
-{%- if vars.profile != "delftblue" %}
 	diffFilter = delta --side-by-side --paging=never
-{%- endif %}
 	singleKey = true
 [alias]
 	staash = stash --all

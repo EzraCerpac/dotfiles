@@ -137,11 +137,14 @@ def render_template(
     return target_path.read_text()
 
 
-def render_profile_dotfile(profile: str, managed_path: str, scratch: str | Path) -> str:
+def render_profile_dotfile(
+    profile: str, managed_path: str, scratch: str | Path, *, extra_vars: dict[str, Any] | None = None
+) -> str:
     """Render the ``managed_path`` template exactly as ``profile`` declares it.
 
     Shared base declarations are overridden by the profile's own, mirroring
-    how mise merges ``config.toml`` with ``config.<profile>.toml``.
+    how mise merges ``config.toml`` with ``config.<profile>.toml``. ``extra_vars``
+    stands in for a host's ignored ``config.local.toml``.
     """
     import tomllib
 
@@ -155,7 +158,7 @@ def render_profile_dotfile(profile: str, managed_path: str, scratch: str | Path)
         ROOT / entry["source"],
         target=scratch_path / "home" / managed_path.removeprefix("~/"),
         scratch=scratch_path,
-        vars={**shared.get("vars", {}), **selected.get("vars", {})},
+        vars={**shared.get("vars", {}), **selected.get("vars", {}), **(extra_vars or {})},
     )
 
 

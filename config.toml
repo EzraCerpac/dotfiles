@@ -25,14 +25,6 @@ name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
 nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"
 nas_jj_waltz_version = "0.3.1"
-delftblue_default_cpu_partition = "compute-p2"
-delftblue_default_gpu_partition = "gpu-a100-small"
-delftblue_host_alias = "delftblue"
-delftblue_hostname = "login.delftblue.tudelft.nl"
-delftblue_module_stack = "2025"
-delftblue_netid = "ecerpac"
-delftblue_project_storage_root = ""
-delftblue_slurm_account = "education-eemcs-msc-cosse"
 aegis_bundle_id = "Aegis.Aegis"
 aegis_local_revision = "0b48a069ff81840f39f537e928e4589b0ef1ae3a"
 aegis_sha256 = "89fc260fb5f0ccc437161c1d61614398ea2b97985668fea514365b4076d12c59"
@@ -125,7 +117,6 @@ codex = "latest"
 "~/.config/nvim/.neoconf.json" = { source = "dotfiles/.config/nvim/.neoconf.json", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/init.lua" = { source = "dotfiles/.config/nvim/init.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/config/autocmds.lua" = { source = "dotfiles/.config/nvim/lua/config/autocmds.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/config/delftblue.lua" = { source = "dotfiles/.config/nvim/lua/config/delftblue.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/config/keymaps.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/config/keymaps/jabref.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps/jabref.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/config/lazy.lua" = { source = "dotfiles/.config/nvim/lua/config/lazy.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
@@ -166,7 +157,6 @@ codex = "latest"
 "~/.config/nvim/lua/plugins/conform.lua" = { source = "dotfiles/.config/nvim/lua/plugins/conform.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/core.lua" = { source = "dotfiles/.config/nvim/lua/plugins/core.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/csv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/csv.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/plugins/delftblue.lua" = { source = "dotfiles/.config/nvim/lua/plugins/delftblue.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/disabled.lua" = { source = "dotfiles/.config/nvim/lua/plugins/disabled.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/explorer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/explorer.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/fzf.lua" = { source = "dotfiles/.config/nvim/lua/plugins/fzf.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
