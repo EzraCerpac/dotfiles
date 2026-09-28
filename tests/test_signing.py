@@ -58,6 +58,16 @@ class SigningTests(unittest.TestCase):
         self.run_checked(["git", "commit", "-q", "-m", "Signed"], repo, **git)
         self.assertIn(SIGNATURE_HEADER, self.run_checked(["git", "cat-file", "commit", "HEAD"], repo, **git))
 
+    def test_signing_waits_for_the_key_to_exist(self) -> None:
+        # A fresh workstation has no key yet; commits and pushes must still work.
+        with tempfile.TemporaryDirectory(prefix="unsigned-") as bare:
+            git = render_profile_dotfile("workstation", "~/.config/git/config", bare)
+            jj = render_profile_dotfile("workstation", "~/.config/jj/conf.d/signing.toml", bare)
+        self.assertNotIn("gpgSign", git)
+        self.assertNotIn("signingkey", git)
+        self.assertNotIn("sign-on-push", jj)
+        self.assertNotIn("[signing]", jj)
+
     def test_nas_git_does_not_require_a_signing_key(self) -> None:
         rendered = render_profile_dotfile("nas", "~/.config/git/config", self.scratch)
         self.assertNotIn("gpgSign", rendered)

@@ -16,6 +16,18 @@ physical_root="$(cd "$logical_root" && pwd -P)"
 list="$physical_root/setup-scripts/setup/retired-dotfiles"
 [[ -f "$list" ]] || exit 0
 
+# Resolve PATH through its nearest existing ancestor, so a link spelled via a
+# symlinked directory (macOS /var -> /private/var) still matches the checkout.
+physical_path() {
+    local head="$1" tail=""
+    while [[ -n "$head" && ! -d "$head" ]]; do
+        tail="/${head##*/}$tail"
+        head="${head%/*}"
+    done
+    [[ -n "$head" ]] || head=/
+    printf '%s%s\n' "$(cd "$head" && pwd -P)" "$tail"
+}
+
 while IFS= read -r entry || [[ -n "$entry" ]]; do
     [[ -n "$entry" && "$entry" != \#* ]] || continue
     if [[ "$entry" != "~/"* || "$entry" == *"/../"* || "$entry" == *"/.." ]]; then
@@ -25,6 +37,8 @@ while IFS= read -r entry || [[ -n "$entry" ]]; do
     target="$HOME/${entry#"~/"}"
     [[ -L "$target" ]] || continue
     link="$(readlink "$target")"
+    [[ "$link" == /* ]] || link="$(dirname "$target")/$link"
+    link="$(physical_path "$link")"
     case "$link" in
         "$logical_root"/*|"$physical_root"/*) ;;
         *) continue ;;

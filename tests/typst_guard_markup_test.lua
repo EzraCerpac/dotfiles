@@ -1,4 +1,5 @@
 local root = assert(os.getenv("GRAMMARLY_BRIDGE_TEST_ROOT"))
+dofile(root .. "/tests/lib/require_parser.lua")("typst")
 local guard = dofile(root .. "/dotfiles/.config/nvim/lua/custom/typst_guard.lua")
 
 local source = table.concat({
