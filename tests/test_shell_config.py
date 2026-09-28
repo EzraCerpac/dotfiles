@@ -72,6 +72,64 @@ class FishConfigTests(IsolatedShell):
         self.assertNotIn("--dangerously-skip-permissions", result.stdout)
 
 
+INIT_TOOLS = ("atuin", "tv", "zoxide", "starship", "wt", "jw", "carapace", "mole", "fzf")
+
+
+@requires("fish")
+class FishStartupTests(IsolatedShell):
+    """The real config, loaded the way fish loads it, against logging stubs."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.home / ".config").mkdir()
+        (self.home / ".config/fish").symlink_to(FISH_DIR)
+        self.calls = self.home / "calls"
+        self.stub("mise", f'echo "mise $*" >> {self.calls}')
+        for tool in INIT_TOOLS:
+            self.stub(tool, f'echo "{tool} $*" >> {self.calls}\necho "set -g __stub_{tool} loaded"')
+
+    def start(self, *flags: str, script: str = "true") -> subprocess.CompletedProcess[str]:
+        result = subprocess.run(
+            [shutil.which("fish") or "fish", *flags, "-c", script],
+            env=self.env, capture_output=True, text=True, check=False, timeout=60, stdin=subprocess.DEVNULL,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
+    def logged(self) -> list[str]:
+        return self.calls.read_text().splitlines() if self.calls.exists() else []
+
+    def test_scripts_only_activate_mise(self) -> None:
+        self.start()
+        self.assertEqual(self.logged(), ["mise activate fish"])
+
+    def test_interactive_init_runs_once_then_comes_from_the_cache(self) -> None:
+        probe = "echo RESULT=$__stub_starship,$__stub_carapace,$__stub_fzf"
+        self.assertIn("RESULT=loaded,loaded,loaded", self.start("-i", script=probe).stdout)
+        tools_first = sorted(line.split()[0] for line in self.logged() if not line.startswith("mise"))
+        self.assertEqual(tools_first, sorted(INIT_TOOLS))
+        self.assertIn("starship init fish --print-full-init", self.logged())
+
+        self.calls.unlink()
+        self.assertIn("RESULT=loaded,loaded,loaded", self.start("-i", script=probe).stdout)
+        self.assertEqual(self.logged(), ["mise activate fish"])
+
+    def test_an_updated_tool_regenerates_only_its_cache(self) -> None:
+        self.start("-i")
+        self.calls.unlink()
+        later = self.stubs / "starship"
+        stamp = later.stat().st_mtime + 60
+        os.utime(later, (stamp, stamp))
+        self.start("-i")
+        self.assertEqual(self.logged(), ["mise activate fish", "starship init fish --print-full-init"])
+
+    def test_missing_tools_are_skipped_quietly(self) -> None:
+        for tool in INIT_TOOLS:
+            (self.stubs / tool).unlink()
+        result = self.start("-i")
+        self.assertEqual(result.stderr.strip(), "")
+
+
 @requires("zsh")
 class ZshConfigTests(IsolatedShell):
     def test_zshenv_tolerates_a_home_without_rustup(self) -> None:
@@ -88,6 +146,59 @@ class ZshConfigTests(IsolatedShell):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "1")
+
+
+@requires("zsh")
+class ZshStartupTests(IsolatedShell):
+    """The real zsh startup files, read in zsh's own order, against stubs."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        zdotdir = self.home / "zdot"
+        zdotdir.mkdir()
+        for name in (".zshenv", ".zprofile", ".zshrc"):
+            (zdotdir / name).symlink_to(ROOT / "dotfiles" / name)
+        (self.home / ".local/bin").mkdir(parents=True)
+        self.env["ZDOTDIR"] = str(zdotdir)
+        self.calls = self.home / "calls"
+        for tool in ("mise", "gh", "jw", "starship", "tv", "wt"):
+            self.stub(tool, f'echo "{tool} $*" >> {self.calls}')
+
+    def start(self, *flags: str, script: str) -> subprocess.CompletedProcess[str]:
+        # -d skips /etc/zsh*, so a distribution's own compinit cannot mask ours.
+        result = subprocess.run(
+            [shutil.which("zsh") or "zsh", "-d", *flags, "-c", script],
+            env=self.env, capture_output=True, text=True, check=False, timeout=60, stdin=subprocess.DEVNULL,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
+    def mise_activations(self) -> int:
+        calls = self.calls.read_text().splitlines() if self.calls.exists() else []
+        return sum(line.startswith("mise activate") for line in calls)
+
+    def test_each_shell_kind_activates_mise_exactly_once(self) -> None:
+        for flags in (("-i",), ("-l", "-i"), ("-l",)):
+            with self.subTest(flags=flags):
+                self.calls.unlink(missing_ok=True)
+                self.start(*flags, script="true")
+                self.assertEqual(self.mise_activations(), 1)
+
+    def test_interactive_path_starts_with_local_bin_once(self) -> None:
+        result = self.start("-i", script="print -rl -- RESULT $path")
+        path = result.stdout.split("RESULT\n", 1)[1].split()
+        local_bin = str(self.home / ".local/bin")
+        self.assertEqual(path[0], local_bin)
+        self.assertEqual(path.count(local_bin), 1)
+
+    def test_completion_is_ready_without_optional_tools(self) -> None:
+        (self.stubs / "jw").unlink()
+        result = self.start("-i", script="(( $+functions[compdef] )) && print COMPDEF-READY")
+        self.assertIn("COMPDEF-READY", result.stdout)
+
+    def test_startup_does_not_query_gh_extensions(self) -> None:
+        self.start("-i", script="true")
+        self.assertNotIn("gh ", self.calls.read_text())
 
 
 if __name__ == "__main__":
