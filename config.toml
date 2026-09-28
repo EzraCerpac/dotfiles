@@ -102,6 +102,7 @@ codex = "latest"
 "~/.config/fish/completions/oc.fish" = { source = "dotfiles/.config/fish/completions/oc.fish", mode = "symlink" }
 "~/.config/fish/conf.d/atuin.env.fish" = { source = "dotfiles/.config/fish/conf.d/atuin.env.fish", mode = "symlink" }
 "~/.config/fish/config.fish" = { source = "dotfiles/.config/fish/config.fish", mode = "symlink" }
+"~/.config/fish/functions/__dots_source_init.fish" = { source = "dotfiles/.config/fish/functions/__dots_source_init.fish", mode = "symlink" }
 "~/.config/fish/functions/fish_user_key_bindings.fish" = { source = "dotfiles/.config/fish/functions/fish_user_key_bindings.fish", mode = "symlink" }
 "~/.config/gh/config.yml" = { source = "dotfiles/.config/gh/config.yml", mode = "symlink" }
 "~/.config/git/config" = { source = "templates/.config/git/config.tera", mode = "template" }

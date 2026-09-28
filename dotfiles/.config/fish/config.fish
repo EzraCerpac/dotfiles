@@ -1,3 +1,6 @@
+# ---------- XDG Config ----------
+set -gx XDG_CONFIG_HOME $HOME/.config
+
 if status is-interactive
     if test "$__CFBundleIdentifier" = com.openai.codex
         or test "$TERM_PROGRAM" = WezTerm
@@ -11,6 +14,7 @@ end
 
 # Portable paths kept previously in fish_user_paths. Add only directories
 # that exist, in reverse order so prepend preserves their intended priority.
+# ~/.local/bin is needed here already: the standalone mise lives there.
 set -l portable_paths \
     /usr/local/bin \
     "$HOME/bin" \
@@ -23,9 +27,8 @@ for path in $portable_paths
     end
 end
 
-# Activate mise before any tool guard below. Fresh login shells (e.g. herdr
-# tabs) start without shims on PATH, so guards like `command -q starship`
-# would otherwise skip everything and only the next nested shell would work.
+# Activate mise in every shell, scripts included, so they find managed tools.
+# Fresh login shells (e.g. herdr tabs) start without shims on PATH.
 if command -q mise
     mise activate fish | source
 end
@@ -36,45 +39,15 @@ set -gx fifc_editor nvim
 set -g fifc_keybinding "\x14"
 set -g fifc_open_keybinding ctrl-o
 
-# Enable vi key bindings
-fish_vi_key_bindings
-
-if status is-interactive
-    # Arrow-key recall belongs to this terminal session. Atuin still records
-    # commands persistently and provides cross-session search on Ctrl-R.
-    set -g fish_history ''
-
-    # Commands to run in interactive sessions can go here
-    if command -q atuin
-        atuin init fish --disable-up-arrow | source
-    end
-
-    if command -q tv
-        tv init fish | source
-    end
-
-    # Reapply our preferred bindings after third-party init scripts.
-    fish_user_key_bindings
-end
-
-# Silence the default greeting
-function fish_greeting
-end
-
-# extensions
-if command -q zoxide
-    zoxide init fish --cmd cd | source
-end
-if command -q starship
-    starship init fish | source
-end
 # ---------- Default editor ----------
 set -gx EDITOR nvim
 set -gx VISUAL $EDITOR
 set -gx GIT_EDITOR $EDITOR
 
-# ---------- XDG Config ----------
-set -gx XDG_CONFIG_HOME $HOME/.config
+# Silence the default greeting
+function fish_greeting
+end
+
 # Replace ls with eza
 alias ls='eza --icons=auto --group-directories-first --git'
 alias la='eza -a --icons=auto --group-directories-first --git'
@@ -97,14 +70,6 @@ alias vl='nvim-local'
 alias cc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/conf.d:$HOME/.config/jj/agent-config.toml" claude'
 alias oc='JJ_CONFIG="$HOME/.config/jj/config.toml:$HOME/.config/jj/conf.d:$HOME/.config/jj/agent-config.toml" opencode'
 
-if command -q wt
-    wt config shell init fish | source
-end
-
-if command -q jw
-    command jw shell init fish | source
-end
-
 function wto --description "Create or switch a worktree and launch OpenCode"
     worktree-opencode $argv
 end
@@ -112,16 +77,7 @@ end
 function prdiff --description "Review a pull request diff in Hunk"
     prdiff-review $argv
 end
-# ---------- Completions ----------
-if command -q carapace
-    # Carapace cannot infer the shell when stdin is a Fish source pipeline.
-    # Keep the shell explicit so its bridge covers the managed CLI set.
-    command carapace _carapace fish 2>/dev/null | source
-end
 
-if command -q mole
-    set -l output (mole completion fish 2>/dev/null); and echo "$output" | source
-end
 # ---------- Julia ----------
 alias pluto="julia --banner=no -e 'using Pluto; Pluto.run(auto_reload_from_file=true, require_secret_for_access=false, require_secret_for_open_links=false)'"
 alias lss='julia -e "import LiveServer as LS; LS.serve(launch_browser=true)"'
@@ -136,14 +92,40 @@ end
 function gitlogue-menu
     gitlogue-select menu $argv
 end
-# OpenClaw Completion (lazy-loaded to speed up shell startup)
-function __openclaw_lazy_load --on-event fish_preexec
-    string match -q "openclaw*" -- $argv[1]
-    and openclaw completion --shell fish 2>/dev/null | source
-    and functions --erase __openclaw_lazy_load
+
+# Prompt, key bindings, completions and cd integration only matter at a
+# prompt. Scripts skip them, and interactive shells source cached init output
+# (see functions/__dots_source_init.fish) instead of spawning each tool.
+if status is-interactive
+    fish_vi_key_bindings
+
+    # Arrow-key recall belongs to this terminal session. Atuin still records
+    # commands persistently and provides cross-session search on Ctrl-R.
+    set -g fish_history ''
+
+    __dots_source_init atuin init fish --disable-up-arrow
+    __dots_source_init tv init fish
+    __dots_source_init zoxide init fish --cmd cd
+    __dots_source_init starship init fish --print-full-init
+    __dots_source_init wt config shell init fish
+    __dots_source_init jw shell init fish
+    # Carapace cannot infer the shell when stdin is a Fish source pipeline.
+    # Keep the shell explicit so its bridge covers the managed CLI set.
+    __dots_source_init carapace _carapace fish
+    __dots_source_init mole completion fish
+
+    # OpenClaw completion, loaded on first use.
+    function __openclaw_lazy_load --on-event fish_preexec
+        string match -q "openclaw*" -- $argv[1]
+        and openclaw completion --shell fish 2>/dev/null | source
+        and functions --erase __openclaw_lazy_load
+    end
+
+    # Reapply our preferred bindings after third-party init scripts.
+    fish_user_key_bindings
 end
 
-# Prefer the standalone tools directory over mise-managed executables.
+# mise's hook reorders PATH; keep the standalone tools directory first.
 if test -d "$HOME/.local/bin"
     fish_add_path --global --path --prepend --move "$HOME/.local/bin"
 end
