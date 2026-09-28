@@ -191,16 +191,6 @@ codex = "latest"
 "~/.config/nvim/lua/plugins/which-key.lua" = { source = "dotfiles/.config/nvim/lua/plugins/which-key.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/plugins/yazi.lua" = { source = "dotfiles/.config/nvim/lua/plugins/yazi.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/lua/queries/toml/injections.scm" = { source = "dotfiles/.config/nvim/lua/queries/toml/injections.scm", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/auto-save.lua" = { source = "dotfiles/.config/nvim/lua/unused/auto-save.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/better-escape.lua" = { source = "dotfiles/.config/nvim/lua/unused/better-escape.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/codecompanion.lua" = { source = "dotfiles/.config/nvim/lua/unused/codecompanion.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/firenvim.lua" = { source = "dotfiles/.config/nvim/lua/unused/firenvim.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/flash.lua" = { source = "dotfiles/.config/nvim/lua/unused/flash.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/learn-vim.lua" = { source = "dotfiles/.config/nvim/lua/unused/learn-vim.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/modules/jj_fzf.lua" = { source = "dotfiles/.config/nvim/lua/unused/modules/jj_fzf.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/modules/jjui.lua" = { source = "dotfiles/.config/nvim/lua/unused/modules/jjui.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/snacks.lua" = { source = "dotfiles/.config/nvim/lua/unused/snacks.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/nvim/lua/unused/zellij.lua" = { source = "dotfiles/.config/nvim/lua/unused/zellij.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/nvim/stylua.toml" = { source = "dotfiles/.config/nvim/stylua.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }

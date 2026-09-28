@@ -16,3 +16,13 @@
 ~/.local/bin/dbprojectpush
 ~/.local/bin/dbpull
 ~/.local/bin/dbpush
+~/.config/nvim/lua/unused/auto-save.lua
+~/.config/nvim/lua/unused/better-escape.lua
+~/.config/nvim/lua/unused/codecompanion.lua
+~/.config/nvim/lua/unused/firenvim.lua
+~/.config/nvim/lua/unused/flash.lua
+~/.config/nvim/lua/unused/learn-vim.lua
+~/.config/nvim/lua/unused/modules/jj_fzf.lua
+~/.config/nvim/lua/unused/modules/jjui.lua
+~/.config/nvim/lua/unused/snacks.lua
+~/.config/nvim/lua/unused/zellij.lua
