@@ -48,7 +48,6 @@
 	autocrlf = input
 	pager = hunk pager
 	compression = 9
-	whitespace = error
 	preloadindex = true
 [advice]
 	addEmptyPathspec = false
@@ -111,7 +110,6 @@
 	followTags = true
 	recurseSubmodules = on-demand
 [pull]
-	default = current
 	rebase = false
 [rebase]
 	autoStash = true
@@ -131,11 +129,7 @@
 	sort = -taggerdate
 [color "branch"]
 	current = magenta
-{%- if vars.profile == "nas" %}
-	local = blue
-{%- else %}
 	local = default
-{%- endif %}
 	remote = yellow
 	upstream = green
 	plain = blue

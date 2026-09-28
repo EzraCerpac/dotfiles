@@ -137,6 +137,28 @@ def render_template(
     return target_path.read_text()
 
 
+def render_profile_dotfile(profile: str, managed_path: str, scratch: str | Path) -> str:
+    """Render the ``managed_path`` template exactly as ``profile`` declares it.
+
+    Shared base declarations are overridden by the profile's own, mirroring
+    how mise merges ``config.toml`` with ``config.<profile>.toml``.
+    """
+    import tomllib
+
+    shared = tomllib.loads((ROOT / "config.toml").read_text())
+    selected = tomllib.loads((ROOT / f"config.{profile}.toml").read_text())
+    entry = {**shared.get("dotfiles", {}), **selected.get("dotfiles", {})}[managed_path]
+    if entry["mode"] != "template":
+        raise ValueError(f"{profile} {managed_path} is not a template")
+    scratch_path = Path(scratch)
+    return render_template(
+        ROOT / entry["source"],
+        target=scratch_path / "home" / managed_path.removeprefix("~/"),
+        scratch=scratch_path,
+        vars={**shared.get("vars", {}), **selected.get("vars", {})},
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source")
