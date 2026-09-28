@@ -656,7 +656,8 @@ class OutputTests(unittest.TestCase):
             with patch.object(MODULE, "command_result", side_effect=[existing, existing]):
                 MODULE.compile_typst_proposal(path, "proposal", settings)
 
-    @requires("typst")
+    # compile_typst_proposal is patched out; only the JJ sink runs for real.
+    @requires("jj")
     def test_default_typst_sink_creates_described_parent_and_empty_child(self) -> None:
         settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
         with tempfile.TemporaryDirectory() as directory:

@@ -803,6 +803,19 @@ esac
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
 
+    def test_reloaded_update_retires_links_an_older_sync_left_behind(self) -> None:
+        # The first upgrade syncs with the previous source-repo.mjs, which has
+        # no retirement step; the reloaded updater must still clean up.
+        home = Path(self.env["HOME"])
+        retired = home / ".config/nvim/lua/plugins/old.lua"
+        retired.parent.mkdir(parents=True)
+        retired.symlink_to(self.root / "dotfiles/old.lua")
+        (self.root / "setup-scripts/setup/retired-dotfiles").write_text("~/.config/nvim/lua/plugins/old.lua\n")
+        result = self._run("update", extra_env={"DOTS_SOURCE_SYNC_DONE": "1", "DOTS_SOURCE_SYNC_RESULT": "0"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(retired.is_symlink())
+        self.assertIn("Removed retired link ~/.config/nvim/lua/plugins/old.lua", result.stdout)
+
     def test_deferred_source_sync_preserves_source_and_still_updates(self) -> None:
         marker = self.root / "source-marker"
         marker.write_text("local source edit\n")
