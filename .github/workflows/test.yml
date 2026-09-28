@@ -100,4 +100,5 @@ jobs:
           (cd "$RUNNER_TEMP" && "$HOME/.local/bin/mise" bin-paths) >> "$GITHUB_PATH"
 
       - name: Scan history with the repository's gitleaks config
-        run: gitleaks git --no-banner --redact --verbose .
+        # Include merge diffs, which `git log` omits by default.
+        run: gitleaks git --no-banner --redact --verbose --log-opts='--all --full-history --diff-merges=first-parent' .
