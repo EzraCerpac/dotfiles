@@ -84,6 +84,7 @@ class FishStartupTests(IsolatedShell):
         (self.home / ".config").mkdir()
         (self.home / ".config/fish").symlink_to(FISH_DIR)
         self.calls = self.home / "calls"
+        self.stub("uname", "echo Linux")
         self.stub("mise", f'echo "mise $*" >> {self.calls}')
         for tool in INIT_TOOLS:
             self.stub(tool, f'echo "{tool} $*" >> {self.calls}\necho "set -g __stub_{tool} loaded"')
