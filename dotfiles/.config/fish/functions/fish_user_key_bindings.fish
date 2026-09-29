@@ -10,9 +10,7 @@ end
 
 function fish_user_key_bindings
     # Initialize fzf key bindings first (they may add their own maps)
-    if command -q fzf
-        fzf --fish | source
-    end
+    __dots_source_init fzf --fish
 
     # Remove any existing Alt-e (Meta-e) bindings in both vi default (normal) and insert modes
     bind -M default --erase \ee

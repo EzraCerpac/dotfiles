@@ -142,11 +142,13 @@ verify_local_release() {
 
 build_stage() {
     local cargo_bin="${RIFT_CARGO_BIN:-cargo}" codesign_bin="${RIFT_CODESIGN_BIN:-/usr/bin/codesign}"
-    local stage release source identifier name
+    local release source identifier name
     require_command "$cargo_bin"; require_command "$codesign_bin"; require_command "${RIFT_LIPO_BIN:-/usr/bin/lipo}"
     mkdir -p "$RIFT_RELEASES_DIR"
-    stage="$(mktemp -d "${RIFT_RELEASES_DIR}/.staging.${RIFT_INSTALLED_REVISION}.XXXXXX")"
-    cleanup_stage() { [[ -z "${stage:-}" ]] || rm -rf "$stage"; }
+    # Global, not local: when `set -e` exits inside this function, bash may
+    # unwind the function scope before the EXIT trap runs, hiding a local.
+    RIFT_STAGE_DIR="$(mktemp -d "${RIFT_RELEASES_DIR}/.staging.${RIFT_INSTALLED_REVISION}.XXXXXX")"
+    cleanup_stage() { [[ -z "${RIFT_STAGE_DIR:-}" ]] || rm -rf "$RIFT_STAGE_DIR"; }
     # Cargo/signing/publish can fail through `set -e`, so RETURN alone is not
     # enough. Keep the staging directory scoped to this build on every exit.
     trap cleanup_stage EXIT
@@ -157,19 +159,19 @@ build_stage() {
     for name in rift rift-cli; do
         identifier="$RIFT_BINARY_IDENTIFIER"; [[ "$name" == rift-cli ]] && identifier="$RIFT_CLI_BINARY_IDENTIFIER"
         [[ -x "$source/$name" ]] || die "cargo did not produce executable: $source/$name"
-        cp "$source/$name" "$stage/$name"; chmod 755 "$stage/$name"
-        "$codesign_bin" --force --sign "$RIFT_SIGNING_IDENTITY_HASH" --identifier "$identifier" --timestamp=none "$stage/$name" >/dev/null
+        cp "$source/$name" "$RIFT_STAGE_DIR/$name"; chmod 755 "$RIFT_STAGE_DIR/$name"
+        "$codesign_bin" --force --sign "$RIFT_SIGNING_IDENTITY_HASH" --identifier "$identifier" --timestamp=none "$RIFT_STAGE_DIR/$name" >/dev/null
     done
-    verify_local_release "$stage" || die "staged Rift release failed architecture or signature verification"
+    verify_local_release "$RIFT_STAGE_DIR" || die "staged Rift release failed architecture or signature verification"
     release="$RIFT_RELEASES_DIR/$RIFT_INSTALLED_REVISION"
     if [[ -e "$release" || -L "$release" ]]; then
         verify_local_release "$release" || die "existing release path is invalid: $release"
-        rm -rf "$stage"
+        rm -rf "$RIFT_STAGE_DIR"
     else
-        "${RIFT_PUBLISH_MV_BIN:-/bin/mv}" "$stage" "$release" || die "could not publish staged release"
+        "${RIFT_PUBLISH_MV_BIN:-/bin/mv}" "$RIFT_STAGE_DIR" "$release" || die "could not publish staged release"
     fi
     RIFT_CANDIDATE_RELEASE="$release"
-    stage=""
+    RIFT_STAGE_DIR=""
     trap - EXIT INT TERM
 }
 

@@ -48,7 +48,7 @@ owned both `grok` and `agent`. Both recorded executables were later uninstalled.
 ## Do not promote helper names into package declarations
 
 The remaining names are mostly personal wrappers, setup commands,
-window-manager helpers, DelftBlue/SSH helpers, or application launchers. Where
+window-manager helpers, SSH helpers, or application launchers. Where
 the migration has a matching dotfile or template mapping, that mapping owns the
 command; otherwise keep it as a local helper instead of adding a package
 entry. `~/bin/game` is a CrossOver shortcut, and `~/.opencode/bin` is absent.

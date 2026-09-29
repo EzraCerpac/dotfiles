@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Run the setup repository's test suites: tests/run [python|node|shell|lua ...]
+#
+# Suites skip individual checks whose tools are missing; a shell test signals a
+# skip with exit status 77. The run is isolated from the caller's Git and JJ
+# configuration so personal settings (signing, pagers, default branches) cannot
+# change fixture behavior.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+readonly root
+readonly all_suites=(python node shell lua)
+# Needs Docker and a full workstation install; run it explicitly.
+readonly excluded_shell_tests=(tests/linux-bootstrap.sh)
+
+usage() {
+    printf 'usage: tests/run [%s ...]\n' "$(IFS='|'; printf '%s' "${all_suites[*]}")"
+}
+
+suites=()
+for argument in "$@"; do
+    case "$argument" in
+        -h|--help) usage; exit 0 ;;
+        python|node|shell|lua) suites+=("$argument") ;;
+        *) usage >&2; exit 2 ;;
+    esac
+done
+[[ ${#suites[@]} -gt 0 ]] || suites=("${all_suites[@]}")
+
+isolation="$(mktemp -d "${TMPDIR:-/tmp}/setup-tests.XXXXXX")"
+trap 'rm -rf "$isolation"' EXIT
+printf '[user]\n\tname = Setup Tests\n\temail = setup-tests@example.invalid\n' >"$isolation/gitconfig"
+printf '[user]\nname = "Setup Tests"\nemail = "setup-tests@example.invalid"\n' >"$isolation/jj.toml"
+export GIT_CONFIG_GLOBAL="$isolation/gitconfig" GIT_CONFIG_NOSYSTEM=1 JJ_CONFIG="$isolation/jj.toml"
+unset MISE_ENV
+
+passed=()
+failed=()
+skipped=()
+
+record() {
+    local name="$1" status="$2"
+    case "$status" in
+        0) passed+=("$name") ;;
+        77) skipped+=("$name") ;;
+        *) failed+=("$name") ;;
+    esac
+}
+
+run_python() {
+    local status=0
+    python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
+    record python "$status"
+}
+
+run_node() {
+    local status=0
+    if ! command -v node >/dev/null 2>&1; then
+        record node 77
+        return
+    fi
+    node --test "$root"/tests/*.mjs || status=$?
+    record node "$status"
+}
+
+run_shell() {
+    local test status excluded
+    while IFS= read -r test; do
+        for excluded in "${excluded_shell_tests[@]}"; do
+            [[ "$test" == "$excluded" ]] && continue 2
+        done
+        printf '\n== %s\n' "$test"
+        status=0
+        (cd "$root" && bash "$test") || status=$?
+        record "$test" "$status"
+    done < <(cd "$root" && find tests -name '*.sh' -type f | LC_ALL=C sort)
+}
+
+run_lua() {
+    local test status
+    if ! command -v nvim >/dev/null 2>&1; then
+        record lua 77
+        return
+    fi
+    for test in "$root"/tests/*.lua; do
+        printf '\n== %s\n' "${test#"$root"/}"
+        status=0
+        GRAMMARLY_BRIDGE_TEST_ROOT="$root" nvim --headless -u NONE -l "$test" || status=$?
+        record "${test#"$root"/}" "$status"
+    done
+}
+
+for suite in "${suites[@]}"; do
+    printf '\n### %s\n' "$suite"
+    "run_$suite"
+done
+
+printf '\n### summary\n'
+printf 'passed:  %d\n' "${#passed[@]}"
+if [[ ${#skipped[@]} -gt 0 ]]; then printf 'skipped: %s\n' "${skipped[*]}"; fi
+if [[ ${#failed[@]} -gt 0 ]]; then
+    printf 'FAILED:  %s\n' "${failed[*]}"
+    exit 1
+fi

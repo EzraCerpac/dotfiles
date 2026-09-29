@@ -6,37 +6,21 @@ import tomllib
 import unittest
 from pathlib import Path
 
-from lib.tera import render_template
+from lib.prereq import requires
+from lib.tera import render_profile_dotfile
 
 ROOT = Path(__file__).parents[1]
 NAS_CONFIG = tomllib.loads((ROOT / "config.nas.toml").read_text())
-WORKSTATION_CONFIG = tomllib.loads((ROOT / "config.workstation.toml").read_text())
 SHARED_CONFIG = tomllib.loads((ROOT / "config.toml").read_text())
-
-
-def render_dotfile(profile: str, managed_path: str, scratch: Path) -> str:
-    config = {"nas": NAS_CONFIG, "workstation": WORKSTATION_CONFIG}[profile]
-    entry = {**SHARED_CONFIG["dotfiles"], **config.get("dotfiles", {})}[managed_path]
-    if entry["mode"] != "template":
-        raise AssertionError(f"{profile} {managed_path} is not a template")
-
-    target = scratch / "home" / managed_path.removeprefix("~/")
-    return render_template(
-        ROOT / entry["source"],
-        target=target,
-        scratch=scratch,
-        vars={**SHARED_CONFIG["vars"], **config["vars"]},
-    )
 
 
 class NasTemplateTests(unittest.TestCase):
 
 
+    @requires("mise")
     def test_nas_git_config_has_shared_pagers_without_workstation_integrations(self):
         with tempfile.TemporaryDirectory() as temp:
-            rendered = render_dotfile(
-                "nas", "~/.config/git/config", Path(temp)
-            )
+            rendered = render_profile_dotfile("nas", "~/.config/git/config", Path(temp))
 
         self.assertIn("pager = hunk pager", rendered)
         pager = subprocess.run(

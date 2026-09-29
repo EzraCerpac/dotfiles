@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { ensureRepository, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
+import { requires } from './lib/prereq.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
 const jjConfig = path.join(testState, 'jj.toml');
@@ -85,7 +86,7 @@ function makeFixture({ files = { 'config.toml': 'min_version = "1.0.0"\nbase = "
   const origin = path.join(state, 'origin.git');
   const seed = path.join(state, 'seed');
   const root = path.join(state, 'root');
-  run('git', ['init', '--bare', origin], state);
+  run('git', ['init', '--bare', '--initial-branch=main', origin], state);
   run('git', ['init', '-b', 'main', seed], state);
   for (const [name, contents] of Object.entries(files)) {
     const target = path.join(seed, name);
@@ -131,7 +132,8 @@ function assertDeferred(callback, pattern) {
 }
 
 function parentRevision(fixture) { return jj(fixture.root, 'log', '-r', '@-', '--no-graph', '-T', 'commit_id ++ "\\n"'); }
-const repoTest = (name, callback) => test(name, { concurrency: false }, callback);
+// Fixtures are real JJ repositories; skip them where jj is unavailable.
+const repoTest = (name, callback) => test(name, { concurrency: false, ...requires('jj') }, callback);
 
 repoTest('Git-only initialization is idempotent and preserves dirty files and branch refs', () => {
   const fixture = makeFixture({ files: { 'config.toml': 'base = "A"\n', 'tracked.txt': 'before\n' } });

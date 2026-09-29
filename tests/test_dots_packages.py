@@ -8,6 +8,8 @@ import tempfile
 import tomllib
 import unittest
 
+from lib.prereq import mise_binary, requires
+
 
 HELPER = Path(__file__).resolve().parents[1] / "setup-scripts/lib/dots-package-add.sh"
 
@@ -244,8 +246,9 @@ class DotsPackageTest(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), before)
         self.assertEqual(self.calls(), [])
 
+    @requires("mise")
     def test_real_mise_config_set_and_get_with_installer_stub(self):
-        real_mise = os.environ.get("SETUP_TEST_MISE", "mise")
+        real_mise = mise_binary()
         wrapper = self.root / "mise-with-stubbed-installer"
         wrapper.write_text(
             "#!/usr/bin/env bash\n"

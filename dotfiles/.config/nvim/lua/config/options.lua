@@ -2,12 +2,8 @@
 -- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
 -- Add any additional options here
 
-local delftblue = require("config.delftblue")
-
 -- Prepend mise shims to PATH
-if not delftblue.enabled() then
-  vim.env.PATH = vim.env.HOME .. "/.local/share/mise/shims:" .. vim.env.PATH
-end
+vim.env.PATH = vim.env.HOME .. "/.local/share/mise/shims:" .. vim.env.PATH
 
 -- Force transparent background after any colorscheme load or terminal background detection
 -- Workaround for nvim 0.12 OSC 11 background detection resetting highlights
@@ -43,7 +39,7 @@ end
 -- Can be one of: telescope, fzf
 -- Leave it to "auto" to automatically use the picker
 -- enabled with `:LazyExtras`
-vim.g.lazyvim_picker = delftblue.has("fzf") and "fzf" or "auto"
+vim.g.lazyvim_picker = vim.fn.executable("fzf") == 1 and "fzf" or "auto"
 
 -- Temporarily prefer nvim-cmp to rule out blink.cmp issues on NVIM 0.12-dev.
 -- Switch back to "blink.cmp" once LSP/completion is stable again.

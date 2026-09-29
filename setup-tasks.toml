@@ -20,6 +20,12 @@ description = "Restore the machine setup"
 run = "bash setup-scripts/setup/restore"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
+["setup:test"]
+description = "Run the setup repository's test suites"
+raw = true
+run = "bash tests/run"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
 ["setup:secrets"]
 description = "Deploy encrypted private configuration"
 run = "bash setup-scripts/setup/secrets"

@@ -81,7 +81,8 @@ class FishCompletionTests(unittest.TestCase):
 
     def test_config_passes_fish_to_carapace(self):
         config = (ROOT / 'dotfiles/.config/fish/config.fish').read_text()
-        self.assertIn('command carapace _carapace fish 2>/dev/null | source', config)
+        # Carapace cannot infer the shell from a cached or piped init; name it.
+        self.assertIn('__dots_source_init carapace _carapace fish', config)
 
 
 if __name__ == '__main__':

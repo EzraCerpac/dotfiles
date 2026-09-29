@@ -1,4 +1,3 @@
-local delftblue = require("config.delftblue")
 
 return {
   {
@@ -41,7 +40,6 @@ return {
     dir = vim.fn.expand("~/Projects/jj-waltz.nvim"),
     name = "jj-waltz.nvim",
     main = "jj-waltz",
-    enabled = not delftblue.enabled(),
     cmd = {
       "JwPick",
       "JwSwitch",

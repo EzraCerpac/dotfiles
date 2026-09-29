@@ -7,6 +7,10 @@ import test from 'node:test';
 
 import { ensureRepository, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
 import { DISCLOSURE, publish } from '../setup-scripts/setup/publish.mjs';
+import { requires } from './lib/prereq.mjs';
+
+// Every fixture is a real colocated JJ repository.
+const needsJj = requires('jj');
 
 function command(root, bin, args) {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8' });
@@ -19,8 +23,8 @@ function setupRepository({ stack = 1, description = 'Sync public setup', bookmar
   const origin = path.join(directory, 'origin.git');
   const root = path.join(directory, 'source');
   fs.mkdirSync(root);
-  command(directory, 'git', ['init', '--bare', origin]);
-  command(root, 'git', ['init', '-q']);
+  command(directory, 'git', ['init', '--bare', '--initial-branch=main', origin]);
+  command(root, 'git', ['init', '-q', '--initial-branch=main']);
   command(root, 'git', ['config', 'user.name', 'Dots Test']);
   command(root, 'git', ['config', 'user.email', 'dots-test@example.invalid']);
   fs.writeFileSync(path.join(root, 'config.toml'), 'min_version = "2026.1.0"\n');
@@ -68,12 +72,18 @@ function advanceMain(fixture, { conflict = false } = {}) {
   command(clone, 'git', ['push', '-q', 'origin', 'main']);
 }
 
-function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, descriptionPrompt, confirm = () => true } = {}) {
+// scan: a gitleaks exit status to simulate, 'missing' for an absent scanner,
+// or 'real' to run the installed gitleaks.
+function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, scan = 0, descriptionPrompt, confirm = () => true } = {}) {
   const calls = [];
   const bodyFiles = [];
   const run = (bin, args, options) => {
     calls.push([bin, args]);
     if (bin === 'jj' && args.includes('push')) return { status: pushStatus, stdout: '', stderr: pushStatus ? 'push failed' : '' };
+    if (bin === 'gitleaks' && scan !== 'real') {
+      if (scan === 'missing') return { error: Object.assign(new Error('spawnSync gitleaks ENOENT'), { code: 'ENOENT' }) };
+      return { status: scan, stdout: scan ? 'Finding: ghp_REDACTED\n' : '', stderr: '' };
+    }
     if (bin === 'gh' && args[0] === 'pr' && args[1] === 'list') {
       if (lookupFailure) return { status: 1, stdout: '', stderr: 'GitHub unavailable' };
       return { status: 0, stdout: JSON.stringify(prs), stderr: '' };
@@ -103,7 +113,7 @@ function hasCall(calls, bin, ...parts) {
   return calls.some(([actual, args]) => actual === bin && parts.every(part => args.includes(part)));
 }
 
-test('default publication previews main@origin, prompts for an undescribed change, and leaves an empty child', () => {
+test('default publication previews main@origin, prompts for an undescribed change, and leaves an empty child', needsJj, () => {
   const fixture = setupRepository({ description: '' });
   try {
     const state = publisher(fixture, { descriptionPrompt: () => 'Describe public setup' });
@@ -124,7 +134,78 @@ test('default publication previews main@origin, prompts for an undescribed chang
   } finally { cleanup(fixture); }
 });
 
-test('default publication rejects an empty child above main@origin before prompting or mutating JJ', () => {
+test('default publication scans exactly the unpublished commits before asking', needsJj, () => {
+  const fixture = setupRepository();
+  try {
+    const base = fixture.jj('log', '--no-graph', '-r', 'main@origin', '-T', 'commit_id').trim();
+    const head = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id').trim();
+    let scannedBeforeConfirm = false;
+    const state = publisher(fixture, { confirm: () => { scannedBeforeConfirm = hasCall(state.calls, 'gitleaks', 'git'); return true; } });
+    publish(state.options);
+    assert(scannedBeforeConfirm);
+    assert(hasCall(state.calls, 'gitleaks', 'git', '--redact', `--log-opts=--diff-merges=first-parent ${base}..${head}`, fixture.root));
+    assert.match(state.output.text, /Secret scan: gitleaks found nothing/);
+  } finally { cleanup(fixture); }
+});
+
+for (const [name, scan, message] of [
+  ['a gitleaks finding', 1, /gitleaks found potential secrets/],
+  ['a missing gitleaks', 'missing', /gitleaks is required to publish/],
+]) {
+  test(`${name} stops publication before confirming, bookmarking, or pushing`, needsJj, () => {
+    const fixture = setupRepository();
+    try {
+      let confirmed = false;
+      const state = publisher(fixture, { scan, confirm: () => { confirmed = true; return true; } });
+      assert.throws(() => publish(state.options), message);
+      assert(!confirmed);
+      assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
+      assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+      assert(!hasCall(state.calls, 'gh', 'create'));
+    } finally { cleanup(fixture); }
+  });
+}
+
+test('the real gitleaks refuses a token committed and then removed', requires('jj', 'gitleaks'), () => {
+  const fixture = setupRepository({ stack: 0 });
+  try {
+    // Assembled at runtime so this source file never contains a token-shaped string.
+    const token = ['ghp', 'R8tq3LwVn5Xk2Jc9Hy7Pd4Mb6Fz1Sa0Gu3Ee'].join('_');
+    fs.writeFileSync(path.join(fixture.root, 'token.txt'), `github_token = "${token}"\n`);
+    fixture.jj('describe', '-m', 'Add a token');
+    fixture.jj('new');
+    fs.rmSync(path.join(fixture.root, 'token.txt'));
+    fixture.jj('describe', '-m', 'Remove the token');
+    fixture.jj('bookmark', 'create', 'wip/token', '-r', '@');
+    const state = publisher(fixture, { scan: 'real' });
+    assert.throws(() => publish({ ...state.options, bookmark: 'wip/token' }), /gitleaks found potential secrets/);
+    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+    const finding = state.output.text.slice(state.output.text.indexOf('Finding:'));
+    assert.match(finding, /RuleID:\s+github-pat/);
+    assert(!finding.includes(token), 'the scanner report must redact the token');
+  } finally { cleanup(fixture); }
+});
+
+test('the real gitleaks scans content that only a merge resolution adds', requires('jj', 'gitleaks'), () => {
+  const fixture = setupRepository({ stack: 0 });
+  try {
+    const sides = ['left', 'right'].map(side => {
+      fixture.jj('new', 'main@origin', '-m', `Add ${side}`);
+      fs.writeFileSync(path.join(fixture.root, `${side}.txt`), `${side}\n`);
+      return fixture.jj('log', '--no-graph', '-r', '@', '-T', 'change_id').trim();
+    });
+    // Neither parent has the token; `git log -p` omits merge diffs by default.
+    fixture.jj('new', ...sides, '-m', 'Merge both sides');
+    const token = ['ghp', 'R8tq3LwVn5Xk2Jc9Hy7Pd4Mb6Fz1Sa0Gu3Ee'].join('_');
+    fs.writeFileSync(path.join(fixture.root, 'token.txt'), `github_token = "${token}"\n`);
+    fixture.jj('bookmark', 'create', 'wip/merge', '-r', '@');
+    const state = publisher(fixture, { scan: 'real' });
+    assert.throws(() => publish({ ...state.options, bookmark: 'wip/merge' }), /gitleaks found potential secrets/);
+    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
+  } finally { cleanup(fixture); }
+});
+
+test('default publication rejects an empty child above main@origin before prompting or mutating JJ', needsJj, () => {
   const fixture = setupRepository({ stack: 0 });
   try {
     const before = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim();
@@ -148,7 +229,7 @@ test('default publication rejects an empty child above main@origin before prompt
   } finally { cleanup(fixture); }
 });
 
-test('default publication refuses a private stack above main@origin', () => {
+test('default publication refuses a private stack above main@origin', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     const state = publisher(fixture);
@@ -159,7 +240,7 @@ test('default publication refuses a private stack above main@origin', () => {
   } finally { cleanup(fixture); }
 });
 
-test('rejected confirmation does not describe, bookmark, push, or contact GitHub', () => {
+test('rejected confirmation does not describe, bookmark, push, or contact GitHub', needsJj, () => {
   const fixture = setupRepository({ description: 'Sync public setup' });
   try {
     const state = publisher(fixture, { confirm: () => false });
@@ -172,7 +253,7 @@ test('rejected confirmation does not describe, bookmark, push, or contact GitHub
   } finally { cleanup(fixture); }
 });
 
-test('explicit bookmark reuses an open PR without disturbing unrelated working changes', () => {
+test('explicit bookmark reuses an open PR without disturbing unrelated working changes', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     fixture.jj('new', 'main@origin');
@@ -191,7 +272,7 @@ test('explicit bookmark reuses an open PR without disturbing unrelated working c
   } finally { cleanup(fixture); }
 });
 
-test('explicit preview shows every unpublished commit, including content reverted by a later commit', () => {
+test('explicit preview shows every unpublished commit, including content reverted by a later commit', needsJj, () => {
   const fixture = setupRevertedSecret();
   try {
     const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'OPEN' }] });
@@ -204,7 +285,7 @@ test('explicit preview shows every unpublished commit, including content reverte
   } finally { cleanup(fixture); }
 });
 
-test('revision changes after confirmation abort before describe, bookmark, or push', () => {
+test('revision changes after confirmation abort before describe, bookmark, or push', needsJj, () => {
   const fixture = setupRepository({ description: '' });
   try {
     const state = publisher(fixture, {
@@ -218,7 +299,7 @@ test('revision changes after confirmation abort before describe, bookmark, or pu
   } finally { cleanup(fixture); }
 });
 
-test('closed existing PR is refused before an explicit bookmark is pushed', () => {
+test('closed existing PR is refused before an explicit bookmark is pushed', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'MERGED' }] });
@@ -228,7 +309,7 @@ test('closed existing PR is refused before an explicit bookmark is pushed', () =
   } finally { cleanup(fixture); }
 });
 
-test('failed explicit PR lookup refuses to push or create a duplicate', () => {
+test('failed explicit PR lookup refuses to push or create a duplicate', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { lookupFailure: true });
@@ -239,7 +320,7 @@ test('failed explicit PR lookup refuses to push or create a duplicate', () => {
   } finally { cleanup(fixture); }
 });
 
-test('push failure stops before PR lookup and leaves the private bookmark untouched', () => {
+test('push failure stops before PR lookup and leaves the private bookmark untouched', needsJj, () => {
   const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
   try {
     const state = publisher(fixture, { pushStatus: 1 });
@@ -251,7 +332,7 @@ test('push failure stops before PR lookup and leaves the private bookmark untouc
   } finally { cleanup(fixture); }
 });
 
-test('--all publishes the current stack through an empty child and ignores another head', () => {
+test('--all publishes the current stack through an empty child and ignores another head', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     const tip = fixture.jj('log', '-r', '@', '--no-graph', '-T', 'commit_id').trim();
@@ -276,7 +357,7 @@ test('--all publishes the current stack through an empty child and ignores anoth
   } finally { cleanup(fixture); }
 });
 
-test('--all refuses a stack whose final tree matches main', () => {
+test('--all refuses a stack whose final tree matches main', needsJj, () => {
   const fixture = setupRevertedSecret();
   try {
     const state = publisher(fixture);
@@ -287,7 +368,7 @@ test('--all refuses a stack whose final tree matches main', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all merges newer main, then previews the final PR diff', () => {
+test('--all merges newer main, then previews the final PR diff', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
     advanceMain(fixture);
@@ -303,10 +384,12 @@ test('--all merges newer main, then previews the final PR diff', () => {
     assert(hasCall(state.calls, 'jj', 'new', 'main@origin'));
     assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', result.bookmark));
     assert.equal(fixture.jj('log', '-r', `main@origin ~ ::${result.bookmark}`, '--no-graph', '-T', 'commit_id').trim(), '');
+    const pushed = fixture.jj('log', '--no-graph', '-r', result.bookmark, '-T', 'commit_id').trim();
+    assert(state.calls.some(([bin, args]) => bin === 'gitleaks' && args.some(arg => arg.endsWith(`..${pushed}`))), 'the merged stack must be scanned');
   } finally { cleanup(fixture); }
 });
 
-test('--all stops after a conflicted merge without pushing', () => {
+test('--all stops after a conflicted merge without pushing', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     fs.writeFileSync(path.join(fixture.root, 'config.toml'), 'local content\n');
@@ -321,7 +404,7 @@ test('--all stops after a conflicted merge without pushing', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all cancellation before merging leaves JJ untouched', () => {
+test('--all cancellation before merging leaves JJ untouched', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     advanceMain(fixture);
@@ -335,7 +418,7 @@ test('--all cancellation before merging leaves JJ untouched', () => {
   } finally { cleanup(fixture); }
 });
 
-test('--all cancellation after a clean merge leaves it local without pushing', () => {
+test('--all cancellation after a clean merge leaves it local without pushing', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     advanceMain(fixture);
@@ -349,7 +432,7 @@ test('--all cancellation after a clean merge leaves it local without pushing', (
   } finally { cleanup(fixture); }
 });
 
-test('--all rerun updates the open aggregate PR and moves its bookmark forward', () => {
+test('--all rerun updates the open aggregate PR and moves its bookmark forward', needsJj, () => {
   const fixture = setupRepository({ stack: 1 });
   try {
     const first = publisher(fixture);
@@ -370,7 +453,7 @@ test('--all rerun updates the open aggregate PR and moves its bookmark forward',
   } finally { cleanup(fixture); }
 });
 
-test('--all rejects --bookmark before changing source state', () => {
+test('--all rejects --bookmark before changing source state', needsJj, () => {
   const fixture = setupRepository({ stack: 1, bookmark: 'wip/private' });
   try {
     const state = publisher(fixture);

@@ -12,6 +12,7 @@ Your machine setup, from any directory.
   dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
   dots status                     Inspect files, tools and backup health
   dots plan                       Preview the declared machine setup
+  dots test [SUITE...]            Run this repository's tests (python node shell lua)
   dots bootstrap [ARGS...]        Install/apply the full declared machine setup
   dots remote HOST --profile ROLE  Bootstrap a machine over existing SSH
   dots bundle create [ARGS...]     Encrypt private bootstrap inputs
@@ -81,7 +82,7 @@ case "$command_name" in
         exec "$mise_bin" -C "$root" exec -- uv run --no-project python "$root/setup-scripts/bootstrap/atuin.py" "${login_args[@]}"
         ;;
     plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
-    status|backup|restore) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
+    status|backup|restore|test) exec "$mise_bin" -C "$root" run "setup:$command_name" "$@" ;;
     bootstrap) exec bash "$root/setup-scripts/bootstrap/launch" "$mise_bin" "$root" "$@" ;;
     remote) exec bash "$root/setup-scripts/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
     bundle) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/bootstrap/bundle.mjs" "$@" ;;

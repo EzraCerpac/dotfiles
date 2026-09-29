@@ -8,10 +8,8 @@ if [[ -o interactive \
     fi
 fi
 
-export PATH="$HOME/.local/bin:$PATH"
-
 # opencode
-export PATH=${HOME}/.opencode/bin:$PATH
+path=("$HOME/.opencode/bin" $path)
 
 # Default editor
 export EDITOR="nvim"
@@ -52,10 +50,16 @@ if [ -z "${WAKATIME_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
 fi
 
 # Activate mise before any tool guard below. Fresh shells start without
-# shims on PATH, so guards like `command -v tv` would otherwise skip.
-if command -v mise >/dev/null 2>&1; then
+# shims on PATH, so guards like `command -v tv` would otherwise skip. Login
+# shells were already activated by .zprofile.
+if [[ ! -o login ]] && command -v mise >/dev/null 2>&1; then
     eval "$(mise activate zsh --shims)"
 fi
+
+# Initialize completion once, before anything below registers completions.
+autoload -Uz compinit
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+compinit -i -d "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump-$ZSH_VERSION"
 
 if command -v starship >/dev/null 2>&1; then
     eval "$(starship init zsh)"
@@ -69,20 +73,12 @@ fi
 
 # Alias: quick launch nvim with `v`
 alias v='nvim'
-if command -v gh >/dev/null 2>&1 && gh extension list 2>/dev/null | rg -q '^github/gh-copilot'; then
-    eval "$(gh copilot alias -- zsh)"
-fi
-
 
 # Shell completion configuration for the Click Python package
 command -v flow-cli > /dev/null 2>&1 && eval "$(_FLOW_CLI_COMPLETE=zsh_source flow-cli)"
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
-if command -v jw >/dev/null 2>&1; then
-    autoload -Uz compinit
-    (( $+functions[compdef] )) || compinit
-    eval "$(command jw shell init zsh)"
-fi
-if [[ -o interactive ]] && command -v tv >/dev/null 2>&1; then eval "$(tv init zsh)"; fi
+if command -v jw >/dev/null 2>&1; then eval "$(command jw shell init zsh)"; fi
+if command -v tv >/dev/null 2>&1; then eval "$(tv init zsh)"; fi
 
 wto() {
     worktree-opencode "$@"
@@ -104,3 +100,6 @@ gitlogue-menu() {
 if command -v openclaw >/dev/null 2>&1; then
     source <(openclaw completion --shell zsh)
 fi
+
+# mise's shims were prepended above; keep the standalone tools directory first.
+path=("$HOME/.local/bin" $path)

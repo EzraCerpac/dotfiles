@@ -11,6 +11,7 @@ export const EXPECTED_REPOSITORY = 'EzraCerpac/dotfiles';
 export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL || 'dots publish'}** is writing on behalf of Ezra.`;
 
 const DEFAULT_BASE = 'main';
+const SECRET_SCANNER = 'gitleaks';
 
 function commandError(command, args, result) {
   const detail = String(result?.stderr || result?.stdout || '').trim();
@@ -109,6 +110,30 @@ function proposedChanges(run, root, revision) {
     description: descriptionFor(run, root, commit),
     diff: invoke(run, 'jj', ['--no-pager', 'diff', '--git', '--color=never', '-r', commit], root).stdout,
   }));
+}
+
+// The repository is public: a pushed secret is disclosed even if a later
+// commit removes it. Scan every commit being published, not just the net diff.
+// `git log` omits merge diffs unless asked, which would hide anything a
+// conflict resolution adds; diff merges against their first parent instead.
+function scanForSecrets(run, root, output, baseCommit, headCommit) {
+  const range = `--diff-merges=first-parent ${baseCommit}..${headCommit}`;
+  const args = ['git', '--no-banner', '--redact', '--verbose', '--exit-code', '1', `--log-opts=${range}`, root];
+  let result;
+  try {
+    result = run(SECRET_SCANNER, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    result = { error };
+  }
+  if (result?.error?.code === 'ENOENT') {
+    throw new Error('gitleaks is required to publish; run dots up to install it; nothing was pushed');
+  }
+  if (result?.status === 1) {
+    outputText(output, `${String(result.stdout || '')}${String(result.stderr || '')}`);
+    throw new Error('gitleaks found potential secrets in the commits to publish; remove them from every commit and try again; nothing was pushed');
+  }
+  if (!result || result.error || result.status !== 0) throw result?.error || commandError(SECRET_SCANNER, args, result);
+  outputText(output, 'Secret scan: gitleaks found nothing in the commits to publish.\n');
 }
 
 function previewChanges(output, revision, changes) {
@@ -277,6 +302,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
   const finalCommit = commitIdFor(run, root, revision);
   const finalWorkingCommit = commitIdFor(run, root, '@');
   outputText(output, `Proposed pull request title: ${title}\nProposed pull request description:\n${body}\n`);
+  scanForSecrets(run, root, output, baseCommit, finalCommit);
   if (!confirm(`Publish the current stack to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
 
   // The preview and approval cover this exact source and base, including any merge.
@@ -364,6 +390,7 @@ export function publish({
         throw new Error(`refusing to edit ${String(existing.state || 'closed').toLowerCase()} pull request ${existing.number} for ${bookmark}; choose a new bookmark`);
       }
     }
+    scanForSecrets(run, root, output, commitIdFor(run, root, 'main@origin'), pinnedCommit);
     if (!confirm(`Publish ${revision} to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
 
     if (commitIdFor(run, root, revision) !== pinnedCommit || (!explicit && commitIdFor(run, root, '@') !== workingCommit)) {

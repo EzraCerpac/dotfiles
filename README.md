@@ -69,8 +69,9 @@ persistent history across sessions. To switch an already open shell to local
 recall, run `set -g fish_history ''`; existing saved history is retained.
 
 When the shortcut is ready to share, run `dots publish` from any directory.
-It shows the proposed source diff, asks for a short description and confirmation,
-then publishes a `wip/` branch and opens a pull request. Review and merge that PR
+It shows the proposed source diff, scans every commit in it for secrets
+(see [security guardrails](docs/security.md)), asks for a short description and
+confirmation, then publishes a `wip/` branch and opens a pull request. Review and merge that PR
 on GitHub. Source publication is always explicit; the settings watcher and
 updater never push your edits.
 
@@ -122,40 +123,6 @@ This does not publish dotfile source, update project dependencies,
 upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
 
-
-## Atuin across machines
-
-Atuin uses the same `EzraCerpac` account and history key on the Mac, CerpacNAS,
-and DriehuisNAS. Ctrl-R searches shared history; Up/Down still recall only this
-terminal session. At an empty prompt, `?` opens Atuin AI. Within a command,
-`?` remains a normal character.
-
-Bootstrap uses the separate `encrypted/atuin.json.age` bundle for enrollment.
-Each machine decrypts it with its own age identity; passwords and history keys
-are never passed as command arguments. The initial `dots atuin-bundle` wizard
-accepts authorized public recipients and asks for the password without echoing it.
-It captures the existing history key locally and writes ciphertext only.
-
-A new host must have its own age identity, and an enrolled host must include its
-public recipient in a reviewed replacement bundle before it can decrypt it.
-Keep private age keys outside the repositories. If bootstrap stops for a
-two-factor code, open a terminal and run `dots atuin-login`. It supplies the
-bundled password and history key privately, then asks you for the one-time code
-without echoing it. With an external age identity, use
-`dots atuin-login --identity /path/to/key`.
-
-For browser authorization, run `dots atuin-login --browser`. Open the displayed
-Atuin Hub link, sign in as `EzraCerpac`, and leave the terminal open until login
-and synchronization finish. The history key still comes from your encrypted
-bundle; you do not need to reveal or paste it. Then rerun `dots bootstrap` to
-finish any deferred setup stages. Already-correct logins and history are preserved.
-
-`dots status` reports Atuin installation, history login, last synchronization,
-and AI readiness separately. An enabled AI binding does not prove Hub login:
-complete the native Atuin Hub linking/browser flow if it asks for one.
-
-The WakaTime/mail bundle also permits the two authorized NAS keys to decrypt it.
-That permission does not overwrite any existing application configuration.
 
 ## Add a tool
 
@@ -212,74 +179,15 @@ not own operating-system packages, storage, media services, or Compose projects.
 CerpacNAS's Debian 10 compatibility is handled through host-local tool choices;
 see [the NAS guide](docs/cerpacnas.md).
 
-The DelftBlue profile is retired. Its old configuration remains in repository
-history; the cluster and existing SSH access are not changed by this retirement.
-
-## Recover app-written settings
-
-The watcher saves selected app-written files locally in encrypted history.
-When you want to publish those snapshots, run `dots backup`. On a replacement
-machine, configure the private history connection and key, then follow
-[the restore guide](docs/history.md) and use `dots restore`.
-
-For a fresh replacement, select the old identity on the **first** adoption, before
-the machine receives a new identity. After installing mise with the installer
-above, run:
+The DelftBlue profile is retired; its configuration remains in repository
+history. SSH access to the cluster outlived it: to render the `delftblue` host in
+`~/.ssh/config`, put your NetID in the ignored local configuration, where it stays
+out of this public repository:
 
 ```sh
-SETUP_RESTORE_MACHINE_ID=mac-primary SETUP_AGE_IDENTITY=/Volumes/Recovery/age-key.txt "$HOME/.local/bin/mise" -E workstation bootstrap --adopt EzraCerpac/dotfiles --skip services
+mise config set --file ~/.config/mise/config.local.toml vars.delftblue_netid YOUR_NETID
+dots apply ~/.ssh/config
 ```
-
-Resume that same restoration with
-`dots bootstrap --restore mac-primary --identity /Volumes/Recovery/age-key.txt`.
-Restoration runs before the history watcher is enabled. A machine already enrolled
-under a different identity refuses this operation. Keep an external backup of the
-recovery key: encrypted history alone cannot recover it.
-
-Bootstrap credentials live in an age-encrypted bundle, separate from settings
-history. To capture your existing WakaTime and Himalaya configuration, use
-`dots bundle create --from-live --output /tmp/bootstrap.json.age --recipient age1...`,
-with your recovery key's public recipient. Review and move that ciphertext to
-`encrypted/bootstrap.json.age`; the private key stays outside both repositories.
-On the new machine, run `dots bootstrap --bundle /path/bootstrap.json.age --identity /path/key.txt`.
-Changed private destination files are left for reconciliation.
-The bundle's external identity path is remembered separately from the new
-machine's history key. Keep that external key available when applying the bundle
-again; a missing key defers private setup without replacing existing files.
-
-For unattended account enrollment, the bundle's version-1 JSON `secrets` object
-may also contain `tailscale_auth_key` and `github_token`. Create it from a private
-JSON file with `dots bundle create --input /private/path/inputs.json --output /tmp/bootstrap.json.age --recipient age1...`.
-Use a fresh one-use Tailscale key when preparing a machine; expired keys require
-replacement or browser login. Do not put private JSON or identities in this repository.
-
-`mise dot` is mise's native dotfile interface. For example,
-`mise dot edit ~/.config/fish/config.fish` opens the managed source, and
-`mise dot add -g --mode symlink ~/.config/new-app/config.toml` registers a new
-hand-edited file. Application-written files use `mise dot track`; configure
-encryption before their first sensitive snapshot. `dots` adds the broader
-machine update, recovery, and bootstrap workflow around these native commands.
-
-The repository already lives at mise's configuration directory, so the documented
-self-managing configuration pattern would add unnecessary links here. Native
-`--adopt` provides the persistent checkout used by both local and remote setup.
-
-This private recovery history is separate from publishing your Fish source or
-tool declarations with JJ. Keep age keys outside both repositories. The older
-migration backups remain available; see [migration and rollback](docs/migration.md).
-
-Review defaults:
-
-- `git diff` opens through the shared `hunk pager`
-- `git show` and embedded diff views use `delta --side-by-side --paging=never`
-- In `jjui`, `\ h` compares exactly two checked revisions, lower graph row → upper row. With nothing checked, the first menu option compares the highlighted revision with its parent. With zero or one checked, the menu also lets you set, compare, or clear a session-only base; more than two shows an error. Normal `d` reviews the highlighted revision.
-- `wt` is declared in the workstation profile and initialized in fish
-- `jw` is built from the local `~/Projects/jj-waltz` checkout and shell-initialized in fish and zsh
-- `jj-waltz` skill content is linked from this source checkout to both `~/.codex/skills/jj-waltz` and `~/.config/opencode/skills/jj-waltz`
-- `wto <branch> [prompt...]` creates or switches a worktree and launches `opencode`
-- `prdiff [pr]` opens `gh pr diff` output in Hunk
-- `glf [git-log-args...]` selects a commit and replays it in `gitlogue`
-- `gitlogue-menu` selects a Gitlogue mode, author, date range, commit, or theme
 
 ## Source layout
 
@@ -292,183 +200,23 @@ Review defaults:
 | `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
 | `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
 | `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
+| `tests/` | Test suites; run them with `dots test` (see [testing](docs/testing.md)) |
+| `archive/` | Configuration kept for reference but never deployed; see its README to restore an entry |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.
 
-## Keyboard Workflow (Corne + QMK)
+## More
 
-Kanata configuration and its held-version installer belong to base on macOS.
-Use `kbd activate` from your logged-in Mac account to activate only that user's
-session. It requests administrator approval for the root-owned driver service,
-saves the previous service files for rollback, and uses Kanata's lock-screen
-guard. The root wrapper joins your GUI session and stops its child when another
-user takes the console. This is separate from building or flashing a keyboard.
-
-Keyboard source lives at `~/.config/keyboard/corne-qmk` and syncs into a local `qmk_firmware` checkout at `~/Projects/keyboards/qmk_firmware`.
-
-Commands:
-
-- `kbd provision` → validate setup prerequisites, prepare QMK, activate VirtualHID, and install the Kanata daemon
-- `kbd activate` → refresh the daemon for the currently logged-in Mac user only
-- `kbd doctor` → diagnose macOS Kanata/Karabiner runtime, TCC grants, and duplicate VirtualHID daemons
-- `kbd sync` → copy keymap source into `qmk_firmware`, regenerate layout images, and reload HUD
-- `kbd build` → build `crkbd/rev1:ezra_corne` (`rp2040_ce` by default)
-- `kbd build-all` → build both `rp2040_ce` and `sparkfun_pm2040`
-- `kbd build --left` / `kbd build --right` → build convenience left/right-tagged UF2 artifacts
-- `kbd flash left` / `kbd flash right` → authoritative split-handedness flash flow (`uf2-split-left/right`)
-- `kbd layout-images` → regenerate JSON/YAML/SVG/PNG layer images from `keymap.c`
-- `kbd hud-reload` → reload Hammerspoon HUD overlay
-- `kbd open-artifacts` → open UF2 artifact folder in Finder
-
-`kbd provision` is an explicit lifecycle task; it may request `sudo`. If macOS needs DriverKit, Input Monitoring, or Accessibility approval, the command stops with the exact System Settings action. Complete that action, then rerun the same task; finished stages are safe to repeat.
-
-Kanata remains a root process because the Karabiner VirtualHID socket is
-root-only. Its root-owned supervisor records the non-root console UID when you
-run `kbd activate`, and starts Kanata only while that same user owns the Mac
-console. Locking the screen or switching users releases the keyboard grab;
-another Mac user never inherits your remapping. Kanata's
-`--release-grab-on-lock` option handles the lock/fast-user-switch transition.
-Run `kbd activate` again after changing the Kanata source or switching the
-owner account. The held Kanata 1.12.0 and Karabiner-Elements 16.0.0 versions
-are intentional compatibility choices.
-
-Run keyboard tasks from the setup root so mise loads the selected profile:
-
-- `mise -C ~/.config/mise run kbd_provision`
-- `mise -C ~/.config/mise run kbd_sync`
-- `mise -C ~/.config/mise run kbd_build`
-- `mise -C ~/.config/mise run kbd_build_all`
-- `mise -C ~/.config/mise run kbd_build_left`
-- `mise -C ~/.config/mise run kbd_build_right`
-- `mise -C ~/.config/mise run kbd_flash_left`
-- `mise -C ~/.config/mise run kbd_flash_right`
-- `mise -C ~/.config/mise run kbd_hud`
-- `mise -C ~/.config/mise run kbd_images`
-
-## Adding/Editing Configs
-
-Edit ordinary symlinked files at their native target; the target is the tracked source. Edit a Tera template with `--apply` to render and deploy the result. Add globally shared links with `-g`, or scope an entry to a profile:
-
-```bash
-mise -C ~/.config/mise bootstrap dotfiles edit ~/.config/fish/config.fish
-mise -C ~/.config/mise bootstrap dotfiles edit --apply ~/.config/atuin/config.toml
-mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g ~/.config/new-app/config.yaml
-mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.workstation.toml ~/.config/new-app/config.yaml
-```
-
-Change `workstation` to `nas` for a profile-specific entry. Use `dots up` for declared package/tool updates; it does not publish source.
-
-## Cross-Platform Notes
-
-- Native packages and binary backends declare their supported Mac architectures
-- OS and profile variants select the appropriate files and package declarations
-- Tera templates provide small machine-specific values; ordinary linked files remain directly editable
-- The `workstation` or `nas` role must be selected explicitly in local mise configuration
-
-## Remote Codex and CerpacNAS setup
-
-CerpacNAS uses the `nas` profile and shared command-line base. Connect with `ssh nas`; Fish opens automatically. Use `dots status`, `dots up`, and `dots backup` there just as on the Mac. The legacy `nas.py` command, bundled NAS skill, and their project manifest/rule templates are retired. Existing project checkouts and their own instructions remain unchanged.
-
-Codex can run tasks on connected remote hosts, including CerpacNAS and DriehuisNAS, in any project available on that host. The `work-on-remote-hosts` skill describes how to coordinate those tasks and check the host and project at task time.
-
-## DelftBlue Profile
-
-This repo now supports a conservative `delftblue` profile for TU Delft's cluster.
-It is intentionally smaller than the normal Linux workstation setup:
-
-- package-manager bootstrap is skipped
-- workstation-heavy config is excluded
-- bash stays the default shell
-- module-based Julia/MPI helpers are added
-- Slurm starter templates live in `~/.config/delftblue/jobs/`
-- local SSH and `rsync` helpers are installed via `~/.ssh/config` and `~/.local/bin/db*`
-
-Select `delftblue` explicitly in that machine's ignored local mise configuration. Keep the host's netid, Slurm account, and optional project-storage root in local settings; do not copy them into the public shared configuration. The cluster profile is not cut over or accepted. Existing `.bashrc` and `.bash_profile` files need explicit conflict review and targeted deployment; DelftBlue does not automatically adopt Linux skeleton files.
-
-Important helpers:
-
-- `dbdev-bootstrap`
-- `dbdev-install`
-- `dbspack`
-- `dbdev [command ...]`
-- `dbacct`, `dblimits`, `dbjobs`
-- `dbcpu [time] [cpus] [mem-per-cpu]`
-- `dbgpusmoke [time] [mem-per-cpu]`
-- `dbjulia-mpi-init <project-dir>`
-- `dbpush`, `dbpull`
-- `dbprojectpush`, `dbprojectpull` when `project_storage_root` is set
-
-Important shell functions on DelftBlue:
-
-- `dbmod-julia`
-- `dbmod-julia-mpi`
-
-The DelftBlue profile can now also render a cluster-aware Neovim setup and a broader dev shell.
-That layer is still explicit and conservative:
-
-- bootstrap the default dev layer with `dbdev-bootstrap`
-- run `dbdev-bootstrap` on the login node, because compute nodes do not have outbound internet
-- `dbdev-bootstrap` also installs `jj`, `jjui`, `nvim`, `bat`, `zoxide`, and `tv` from pinned release binaries on the login node
-- `dbdev-bootstrap` also installs `eza`, `rg`, `fd`, `atuin`, and `carapace` from pinned release binaries on the login node
-- `dbdev-install` is now just a compatibility check; the default dev layer is module-first and does not need a compute-node install step
-- the DelftBlue Neovim overlay disables Mason-driven installs and Sidekick runtime hooks, so cluster startup stays quiet and does not keep retrying unavailable tools
-- `tree-sitter` CLI is optional on DelftBlue and only used when the module system provides it
-- if you explicitly want Spack as an extra layer, use `dbdev-bootstrap --with-spack`
-- load it only when needed with `dbdev`
-- the default DelftBlue bash shell also restores lightweight niceties like `..`, `...`, `v`, `ls -> eza`, and guarded `atuin` / `zoxide` / `tv` init
-- a DelftBlue-only `~/.bash_profile` is rendered to source `~/.bashrc`, so those bash customizations appear in fresh login shells
-- `Ctrl-R` is assigned to Atuin, `Ctrl-T` to Television shell integration, and `Ctrl-E` to bash's `edit-and-execute-command`
-- Television bash integration is generated once into `~/.config/television/shell/integration.bash` and sourced from `~/.bashrc`; `bash-preexec` is installed under `~/.local/share/bash-preexec/` and sourced before `atuin init bash --disable-up-arrow --disable-ctrl-r` so new commands are recorded correctly
-- on DelftBlue, Atuin keeps all local SQLite state under `/tmp/$USER/atuin/` instead of the default home-directory path: `history.db`, `records.db`, `meta.db`, `kv.db`, and `scripts.db`
-- keys and session remain on persistent home storage
-- on DelftBlue, Atuin also uses normal `fuzzy` search and `sync_frequency = "0"` so each command syncs immediately from node-local storage
-- on DelftBlue, bash runs a quick integrity check on the local Atuin DB at shell startup and automatically rotates it out if it is not a valid SQLite database
-- use `dbatuin-reset` in a DelftBlue bash shell to rotate out malformed local Atuin DBs and repopulate from sync
-- use `dbshell-check` in a DelftBlue bash shell to inspect loaded functions and active key bindings
-- bash also loads `carapace` as an extra completion bridge when available
-- use a visual node only for GPU/CUDA-related setup that needs internet plus a visible GPU
-- module availability varies by partition, so `dbdev` only loads tools that actually exist in the current environment
-- optional editor-side tools that are not available in the current Spack set are skipped, and the DelftBlue Neovim overlay disables those integrations automatically
-- `AGENTS.md` stays in the repo only and is not deployed into `$HOME`
-
-## Herdr terminal workflow
-
-WezTerm is the terminal window; Herdr owns terminal organization and persistence:
-
-- a **session** is one persistent Herdr server containing all local work
-- a **workspace** is one project row in Herdr's left sidebar
-- a **tab** is one activity inside a workspace
-- a **pane** is a visible terminal split inside a tab
-- a Rift workspace is a macOS window-management space and is unrelated to a Herdr workspace
-
-New Herdr panes use Fish on both roles, including saved remote machines. Bootstrap
-validates Fish's stable executable path and records it in ignored local mise
-configuration, then renders Herdr's `terminal.default_shell`. Workstation keeps the
-keybindings and plugins below; NAS gets only the shell settings. This does not
-install Herdr on hosts that do not already use it.
-
-Both bootstrap and `dots up` prepare and apply this setting after tools are installed,
-then reload an already-running Herdr server. Existing installations migrate through
-`dots up`; an account-shell change still belongs to explicit bootstrap.
-Changing your account's login shell does not change an already-running Herdr
-server's inherited `$SHELL`. After applying a changed Herdr configuration, run
-`herdr server reload-config` on that machine (or
-`herdr --machine cerpacnas server reload-config` from the Mac). New splits then use
-the configured shell; existing panes keep running. No server restart is needed.
-If bootstrap reports that the login-shell change needs administrator approval,
-Herdr can still use Fish; finish the account step to make fresh SSH logins use it too.
-
-Closing WezTerm or pressing `Ctrl-B`, then `q`, detaches the client without stopping pane processes. Opening WezTerm again reattaches to the local default session. Herdr does not pin workspace rows; an open `Remote shells` workspace stays in the sidebar because the session persists.
-
-Useful keys all start with the default `Ctrl-B` prefix:
-
-- `up` / `down`: Herdr Plus Projects / Quick Actions
-- `t`: Picker Plus search across agents, remotes, workspaces, projects, sessions, and actions
-- `left` / `right`: previous / next workspace
-- `Alt-1..9`: switch workspace; `1..9`: switch tab
-- `d`: close Herdr workspace; `Shift-d`: remove its `jw` checkout
-- `h/j/k/l`: focus panes; `w`: workspace picker; `?`: full key help
-
-Herdr Plus manages the reproducible project layouts under `~/.config/herdr/plugins/config/cloudmanic.herdr-plus/`. Use the `Remote shells` project for a local shell and a normal `ssh delftblue` tab. SSH keepalives reduce idle disconnects. DelftBlue still needs `kinit` on the login node when `/tudelft.net` credentials expire.
-
-Picker Plus exposes `CerpacNAS` as a remote Herdr target. Its custom integration clears the inherited `HERDR_ENV` marker before running Herdr's remote handoff, while global nested launches remain disabled. It bootstraps a matching remote binary when needed and opens the NAS server's own persistent sidebar. The NAS session is separate from the local sidebar; detach it with `Ctrl-B`, then `q`.
+| Topic | Guide |
+| --- | --- |
+| Recovering settings, bootstrap bundles, replacement machines | [Recovery](docs/recovery.md) |
+| Shared shell history and Atuin login | [Atuin](docs/atuin.md) |
+| Editing linked files and templates, cross-platform notes | [Dotfiles](docs/dotfiles.md) |
+| Review defaults and shortcuts (`hunk`, `jjui`, `wto`, `prdiff`, `glf`) | [Review tools](docs/review-tools.md) |
+| Herdr sessions, workspaces and keys | [Herdr](docs/herdr.md) |
+| Corne keyboard and Kanata | [Keyboard](docs/keyboard.md) |
+| CerpacNAS and remote Codex tasks | [NAS guide](docs/cerpacnas.md) |
+| Tests and CI | [Testing](docs/testing.md) |
+| Secret scanning, signing, leaked-credential rotation | [Security](docs/security.md) |
+| Window managers | [Runbook](docs/window-manager-runbook.md) |
+| Settings history internals | [History](docs/history.md) |

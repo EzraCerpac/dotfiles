@@ -1,0 +1,11 @@
+# Findings gitleaks may skip. Each line is a finding fingerprint, never a secret.
+#
+# Commit 806e72e4 (2025-08-30, chezmoi era) published live credentials that
+# remain in public history: Raycast account tokens and a OneDrive rclone OAuth
+# token, including its refresh token. They are listed here only so the scan
+# keeps failing on *new* leaks; listing them does not make them safe. Revoke
+# them (see docs/security.md) — rewriting history cannot un-publish them.
+806e72e4da567032b9ca045197127592da36b9bc:dot_config/raycast/private_config.json:generic-api-key:2
+806e72e4da567032b9ca045197127592da36b9bc:dot_config/raycast/private_config.json:generic-api-key:3
+806e72e4da567032b9ca045197127592da36b9bc:dot_config/rclone/private_rclone.conf:jwt:3
+806e72e4da567032b9ca045197127592da36b9bc:dot_config/rclone/rclone/private_rclone.conf:jwt:3

@@ -3,6 +3,8 @@
 set -euo pipefail
 
 readonly ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Templates render through real mise; skip (77) where it is unavailable.
+python3 "$ROOT/tests/lib/prereq.py" mise || exit $?
 
 fail() {
     echo "not ok - $*" >&2

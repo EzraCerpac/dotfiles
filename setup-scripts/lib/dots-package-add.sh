@@ -171,7 +171,8 @@ for package in "$@"; do
         printf 'dots: package name is not safe for a mise config key: %s\n' "$package" >&2
         exit 2
     fi
-    for previous_key in "${package_keys[@]}"; do
+    # ${a[@]+...}: macOS /bin/bash 3.2 treats an empty array as unset under set -u.
+    for previous_key in ${package_keys[@]+"${package_keys[@]}"}; do
         if [[ "$previous_key" == "$package_key" ]]; then
             printf 'dots: package was supplied more than once: %s\n' "$package" >&2
             exit 2
@@ -217,7 +218,7 @@ fi
 
 # Read shared tap metadata before writing any requested package declaration.
 taps=""
-for manager in "${package_managers[@]}"; do
+for manager in ${package_managers[@]+"${package_managers[@]}"}; do
     case "$manager" in
         brew|brew-cask)
             base_taps=""

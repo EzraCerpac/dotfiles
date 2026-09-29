@@ -2,9 +2,32 @@
 
 set -euo pipefail
 
+# The bridge links AppKit; it only builds on macOS. 77 tells tests/run to skip.
+if [[ "$(uname -s)" != Darwin ]] || ! command -v swiftc >/dev/null 2>&1; then
+    echo "skip: antinote bridge tests need macOS and swiftc"
+    exit 77
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Most checks are silent `jq -e` probes; name the one that failed.
+report_failure() {
+    echo "antinote bridge test failed at line $1: $2" >&2
+    # The bridge reports errors as JSON on stdout, which most checks redirect.
+    local report
+    for report in "${tmp_root:-/nonexistent}"/*.json; do
+        [[ -f "$report" ]] && printf '%s: %s\n' "${report##*/}" "$(cat "$report")" >&2
+    done
+    return 0
+}
+trap 'report_failure "$LINENO" "$BASH_COMMAND"' ERR
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/antinote-bridge-test.XXXXXX")"
-trap 'rm -rf "$tmp_root"' EXIT
+holder_pid=""
+cleanup() {
+    exec 9>&- 2>/dev/null || true
+    [[ -z "$holder_pid" ]] || kill "$holder_pid" 2>/dev/null || true
+    rm -rf "$tmp_root"
+}
+trap cleanup EXIT
 
 mkdir -p "$tmp_root/module-cache"
 swiftc -O \
@@ -32,6 +55,21 @@ SQL
 
 "$tmp_root/antinote" --version | jq -e '.ok and .version == "0.1.0" and .helperVersion == "0.1.0"' >/dev/null
 "$tmp_root/antinote" version | jq -e '.ok and .version == "0.1.0"' >/dev/null
+
+# AntiNote keeps its database open, so its -shm and -wal files exist whenever
+# the bridge reads it. Hold the fixture open the same way: a read-only reader
+# of a closed WAL database depends on SQLite's read-only shared-memory
+# fallback, which some macOS SQLite builds lack ("unable to open database").
+mkfifo "$tmp_root/holder.fifo"
+sqlite3 "$db" <"$tmp_root/holder.fifo" >/dev/null &
+holder_pid=$!
+exec 9>"$tmp_root/holder.fifo"
+printf 'SELECT count(*) FROM ZNOTE;\n' >&9
+for _ in $(seq 100); do
+    [[ -e "$db-shm" ]] && break
+    sleep 0.1
+done
+[[ -e "$db-shm" ]]
 
 id="00112233-4455-6677-8899-aabbccddeeff"
 list_json="$tmp_root/list.json"
@@ -95,7 +133,8 @@ SQL
 
 bad_identity_db="$tmp_root/bad-identity.sqlite"
 cp "$db" "$bad_identity_db"
-sqlite3 "$bad_identity_db" "UPDATE ZNOTE SET ZID = X'01' WHERE Z_PK = 1;"
+# This check is about identities, not WAL; a rollback journal needs no holder.
+sqlite3 "$bad_identity_db" "PRAGMA journal_mode=DELETE; UPDATE ZNOTE SET ZID = X'01' WHERE Z_PK = 1;" >/dev/null
 "$tmp_root/antinote" doctor --db "$bad_identity_db" --json | jq -e '.ok == false and (.schemaGuard.invalidIdentities | map(select(.table == "ZNOTE")) | length == 1)' >/dev/null
 
 echo "antinote bridge tests passed"

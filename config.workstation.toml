@@ -38,7 +38,6 @@ btop = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 "core:deno" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "git-lfs" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-gitleaks = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 glow = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 jjui = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 lazygit = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -268,103 +267,75 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py" = { source = "dotfiles/.codex/skills/audio-diarization/scripts/transcribe_diarize.py", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink" }
+"~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink" }
+"~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink" }
+"~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py" = { source = "dotfiles/.codex/skills/audio-diarization/scripts/transcribe_diarize.py", mode = "symlink" }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/delftblue/jobs/julia_cpu.sbatch" = { source = "templates/.config/delftblue/jobs/julia_cpu.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/jobs/julia_gpu_smoke.sbatch" = { source = "templates/.config/delftblue/jobs/julia_gpu_smoke.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/jobs/julia_mpi.sbatch" = { source = "templates/.config/delftblue/jobs/julia_mpi.sbatch.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/delftblue/spack/dev/spack.yaml" = { source = "dotfiles/.config/delftblue/spack/dev/spack.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/functions/__mise_source_yazi_completion.fish" = { source = "dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/completions/ya.fish" = { source = "dotfiles/.config/fish/completions/ya.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/fish/completions/yazi.fish" = { source = "dotfiles/.config/fish/completions/yazi.fish", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/ghostty/config" = { source = "dotfiles/.config/ghostty/config", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/ghostty/themes/catppccin-mocha" = { source = "dotfiles/.config/ghostty/themes/catppccin-mocha", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitui/theme.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitui/themes/catppuccin-frappe.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-frappe.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitui/themes/catppuccin-latte.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-latte.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitui/themes/catppuccin-macchiato.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-macchiato.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/gitui/themes/catppuccin-mocha.ron" = { source = "dotfiles/.config/gitui/themes/catppuccin-mocha.ron", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink" }
+"~/.config/fish/functions/__mise_source_yazi_completion.fish" = { source = "dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish", mode = "symlink" }
+"~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink" }
+"~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink" }
+"~/.config/fish/completions/ya.fish" = { source = "dotfiles/.config/fish/completions/ya.fish", mode = "symlink" }
+"~/.config/fish/completions/yazi.fish" = { source = "dotfiles/.config/fish/completions/yazi.fish", mode = "symlink" }
+"~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink" }
+"~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink" }
+"~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink" }
+"~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink" }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink" }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink" }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink" }
+"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink" }
+"~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink" }
 "~/.config/humanize-text/defaults.toml" = { source = "dotfiles/.config/humanize-text/defaults.toml", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/jjui/config.toml" = { source = "dotfiles/.config/jjui/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/keyboard/corne-qmk/USAGE" = { source = "dotfiles/.config/keyboard/corne-qmk/USAGE", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/keyboard/corne-qmk/keymap-drawer.yaml" = { source = "dotfiles/.config/keyboard/corne-qmk/keymap-drawer.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/latexindent/latexindent.yaml" = { source = "dotfiles/.config/latexindent/latexindent.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/lazygit/config.yml" = { source = "dotfiles/.config/lazygit/config.yml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/marksman/config.toml" = { source = "dotfiles/.config/marksman/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/AGENTS.md" = { source = "dotfiles/.config/opencode/AGENTS.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/opencode.json" = { source = "dotfiles/.config/opencode/opencode.json", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/SKILL.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.config/opencode/skills/jj-waltz/agents/openai.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/codex.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/lifecycle.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/opencode/skills/jj-waltz/references/links.md" = { source = "dotfiles/.config/opencode/skills/jj-waltz/references/links.md", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/jj/conf.d/signing.toml" = { source = "templates/.config/jj/conf.d/signing.toml.tera", mode = "template" }
+"~/.config/jjui/config.toml" = { source = "dotfiles/.config/jjui/config.toml", mode = "symlink" }
+"~/.config/keyboard/corne-qmk/USAGE" = { source = "dotfiles/.config/keyboard/corne-qmk/USAGE", mode = "symlink" }
+"~/.config/keyboard/corne-qmk/keymap-drawer.yaml" = { source = "dotfiles/.config/keyboard/corne-qmk/keymap-drawer.yaml", mode = "symlink" }
+"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h", mode = "symlink" }
+"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c", mode = "symlink" }
+"~/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk", mode = "symlink" }
+"~/.config/latexindent/latexindent.yaml" = { source = "dotfiles/.config/latexindent/latexindent.yaml", mode = "symlink" }
+"~/.config/lazygit/config.yml" = { source = "dotfiles/.config/lazygit/config.yml", mode = "symlink" }
+"~/.config/marksman/config.toml" = { source = "dotfiles/.config/marksman/config.toml", mode = "symlink" }
+"~/.config/opencode/AGENTS.md" = { source = "dotfiles/.config/opencode/AGENTS.md", mode = "symlink" }
+"~/.config/opencode/opencode.json" = { source = "dotfiles/.config/opencode/opencode.json", mode = "symlink" }
+"~/.config/opencode/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "symlink" }
+"~/.config/opencode/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.codex/skills/jj-waltz/agents/openai.yaml", mode = "symlink" }
+"~/.config/opencode/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/codex.md", mode = "symlink" }
+"~/.config/opencode/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/lifecycle.md", mode = "symlink" }
+"~/.config/opencode/skills/jj-waltz/references/links.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/links.md", mode = "symlink" }
 "~/.config/rift/config.toml" = { source = "dotfiles/.config/rift/config.toml", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/ruff/ruff.toml" = { source = "dotfiles/.config/ruff/ruff.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/television/cable/channels.toml" = { source = "dotfiles/.config/television/cable/channels.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/television/cable/jj-bookmarks.toml" = { source = "dotfiles/.config/television/cable/jj-bookmarks.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/television/cable/jj.toml" = { source = "dotfiles/.config/television/cable/jj.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/television/cable/jw.toml" = { source = "dotfiles/.config/television/cable/jw.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/television/config.toml" = { source = "dotfiles/.config/television/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/tex-fmt/tex-fmt.toml" = { source = "dotfiles/.config/tex-fmt/tex-fmt.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/worktrunk/config.toml" = { source = "dotfiles/.config/worktrunk/config.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/xonsh/rc.xsh" = { source = "dotfiles/.config/xonsh/rc.xsh", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/yazi/init.lua" = { source = "dotfiles/.config/yazi/init.lua", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/zellij/config.kdl" = { source = "templates/.config/zellij/config.kdl.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/zellij/themes/catppuccin.kdl" = { source = "dotfiles/.config/zellij/themes/catppuccin.kdl", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.config/zellij/themes/catppuccin.yaml" = { source = "dotfiles/.config/zellij/themes/catppuccin.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.config/ruff/ruff.toml" = { source = "dotfiles/.config/ruff/ruff.toml", mode = "symlink" }
+"~/.config/television/cable/channels.toml" = { source = "dotfiles/.config/television/cable/channels.toml", mode = "symlink" }
+"~/.config/television/cable/jj-bookmarks.toml" = { source = "dotfiles/.config/television/cable/jj-bookmarks.toml", mode = "symlink" }
+"~/.config/television/cable/jj.toml" = { source = "dotfiles/.config/television/cable/jj.toml", mode = "symlink" }
+"~/.config/television/cable/jw.toml" = { source = "dotfiles/.config/television/cable/jw.toml", mode = "symlink" }
+"~/.config/television/config.toml" = { source = "dotfiles/.config/television/config.toml", mode = "symlink" }
+"~/.config/tex-fmt/tex-fmt.toml" = { source = "dotfiles/.config/tex-fmt/tex-fmt.toml", mode = "symlink" }
+"~/.config/worktrunk/config.toml" = { source = "dotfiles/.config/worktrunk/config.toml", mode = "symlink" }
+"~/.config/yazi/init.lua" = { source = "dotfiles/.config/yazi/init.lua", mode = "symlink" }
 "~/.hammerspoon/aerospace_workspaces.lua" = { source = "dotfiles/.hammerspoon/aerospace_workspaces.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/init.lua" = { source = "dotfiles/.hammerspoon/init.lua", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.julia/config/pluto_user.js" = { source = "dotfiles/.julia/config/pluto_user.js", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/config/startup.jl" = { source = "dotfiles/.julia/config/startup.jl", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/environments/runic/Manifest.toml" = { source = "dotfiles/.julia/environments/runic/Manifest.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/environments/runic/Project.toml" = { source = "dotfiles/.julia/environments/runic/Project.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/environments/v1.11/Project.toml" = { source = "dotfiles/.julia/environments/v1.11/Project.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/environments/v1.12/Manifest.toml" = { source = "dotfiles/.julia/environments/v1.12/Manifest.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.julia/environments/v1.12/Project.toml" = { source = "dotfiles/.julia/environments/v1.12/Project.toml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/db-common.sh" = { source = "templates/.local/bin/db-common.sh.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/db-spack-env.sh" = { source = "templates/.local/bin/db-spack-env.sh.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.julia/config/pluto_user.js" = { source = "dotfiles/.julia/config/pluto_user.js", mode = "symlink" }
+"~/.julia/config/startup.jl" = { source = "dotfiles/.julia/config/startup.jl", mode = "symlink" }
+"~/.julia/environments/runic/Manifest.toml" = { source = "dotfiles/.julia/environments/runic/Manifest.toml", mode = "symlink" }
+"~/.julia/environments/runic/Project.toml" = { source = "dotfiles/.julia/environments/runic/Project.toml", mode = "symlink" }
+"~/.julia/environments/v1.11/Project.toml" = { source = "dotfiles/.julia/environments/v1.11/Project.toml", mode = "symlink" }
+"~/.julia/environments/v1.12/Manifest.toml" = { source = "dotfiles/.julia/environments/v1.12/Manifest.toml", mode = "symlink" }
+"~/.julia/environments/v1.12/Project.toml" = { source = "dotfiles/.julia/environments/v1.12/Project.toml", mode = "symlink" }
 "~/.local/bin/aegis-local-install" = { source = "templates/.local/bin/aegis-local-install.tera", mode = "template", variants = [{ os = "macos" }] }
 "~/.local/bin/aegis-local-signing-setup" = { source = "dotfiles/.local/bin/aegis-local-signing-setup", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/aerospace-default-workspaces" = { source = "dotfiles/.local/bin/aerospace-default-workspaces", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/agenda" = { source = "dotfiles/.local/bin/agenda", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/ai-text-detector" = { source = "dotfiles/.local/bin/ai-text-detector", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/ai-text-detector" = { source = "dotfiles/.local/bin/ai-text-detector", mode = "symlink" }
 "~/.local/bin/antinote" = { source = "dotfiles/.local/bin/antinote", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/codex-sync-jj-waltz" = { source = "dotfiles/.local/bin/codex-sync-jj-waltz", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbacct" = { source = "dotfiles/.local/bin/dbacct", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbcpu" = { source = "dotfiles/.local/bin/dbcpu", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbdev-bootstrap" = { source = "templates/.local/bin/dbdev-bootstrap.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbdev-install" = { source = "dotfiles/.local/bin/dbdev-install", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbgpusmoke" = { source = "dotfiles/.local/bin/dbgpusmoke", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbjobs" = { source = "dotfiles/.local/bin/dbjobs", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbjulia-mpi-init" = { source = "dotfiles/.local/bin/dbjulia-mpi-init", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dblimits" = { source = "dotfiles/.local/bin/dblimits", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbprojectpull" = { source = "dotfiles/.local/bin/dbprojectpull", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbprojectpush" = { source = "dotfiles/.local/bin/dbprojectpush", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbpull" = { source = "dotfiles/.local/bin/dbpull", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.local/bin/dbpush" = { source = "dotfiles/.local/bin/dbpush", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/codex-sync-jj-waltz" = { source = "dotfiles/.local/bin/codex-sync-jj-waltz", mode = "symlink" }
 "~/.local/bin/gitlogue-screensaver" = { source = "dotfiles/.local/bin/gitlogue-screensaver", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/gitlogue-select" = { source = "dotfiles/.local/bin/gitlogue-select", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/prdiff-review" = { source = "dotfiles/.local/bin/prdiff-review", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/prdiff-review" = { source = "dotfiles/.local/bin/prdiff-review", mode = "symlink" }
 "~/.local/bin/present" = { source = "dotfiles/.local/bin/present", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/remctl" = { source = "dotfiles/.local/bin/remctl", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/rift-layout-profile" = { source = "dotfiles/.local/bin/rift-layout-profile", mode = "symlink", variants = [{ os = "macos" }] }
@@ -373,7 +344,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/rift-preferred-workspace" = { source = "dotfiles/.local/bin/rift-preferred-workspace", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/start-btop" = { source = "dotfiles/.local/bin/start-btop", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/wm-focus" = { source = "dotfiles/.local/bin/wm-focus", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/worktree-opencode" = { source = "dotfiles/.local/bin/worktree-opencode", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.local/bin/worktree-opencode" = { source = "dotfiles/.local/bin/worktree-opencode", mode = "symlink" }
 "~/.local/bin/humanize-clipboard" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/humanize-text" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/grammarly-bridge/app.js" = { source = "dotfiles/.local/share/grammarly-bridge/app.js", mode = "symlink", variants = [{ os = "macos" }] }
@@ -385,11 +356,10 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/share/humanize-text/main.py.lock" = { source = "dotfiles/.local/share/humanize-text/main.py.lock", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/humanize-text/typst_guard_cli.lua" = { source = "dotfiles/.local/share/humanize-text/typst_guard_cli.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/personal-concierge/antinote-bridge/main.swift" = { source = "dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.markdownlint-cli2.yaml" = { source = "dotfiles/.markdownlint-cli2.yaml", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.markdownlint-cli2.yaml" = { source = "dotfiles/.markdownlint-cli2.yaml", mode = "symlink" }
 "~/.wezterm.lua" = { source = "dotfiles/.wezterm.lua", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.xonshrc" = { source = "dotfiles/.xonshrc", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.zprofile" = { source = "dotfiles/.zprofile", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.zshenv" = { source = "dotfiles/.zshenv", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink", variants = [{ os = "macos" }, { os = "linux" }] }
-"~/.ssh/config" = { source = "templates/.ssh/config.tera", mode = "template", variants = [{ os = "macos" }, { os = "linux" }] }
+"~/.zprofile" = { source = "dotfiles/.zprofile", mode = "symlink" }
+"~/.zshenv" = { source = "dotfiles/.zshenv", mode = "symlink" }
+"~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink" }
+"~/.ssh/config" = { source = "templates/.ssh/config.tera", mode = "template" }
 "~/.config/fish/conf.d/10-macos.fish" = { source = "dotfiles/.config/fish/conf.d/10-macos.fish", mode = "symlink", variants = [{ os = "macos" }] }

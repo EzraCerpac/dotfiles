@@ -12,6 +12,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from lib.prereq import requires, requires_nvim_parser
+
+try:
+    import yaml  # noqa: F401  (humanize-text is a uv script that declares PyYAML)
+except ImportError:
+    raise unittest.SkipTest("humanize-text tests need PyYAML in the test interpreter") from None
+
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "dotfiles/.local/share/humanize-text/main.py"
 SPEC = importlib.util.spec_from_file_location("humanize_text_main", MODULE_PATH)
@@ -530,6 +537,8 @@ class RewritingTests(unittest.TestCase):
         self.assertEqual(rewrites, 2)
         self.assertEqual(validations, ["bad syntax", "safe prose", "safe prose"])
 
+    @requires("nvim")
+    @requires_nvim_parser("typst")
     def test_headless_guard_adapter_round_trip(self) -> None:
         adapter = ROOT / "dotfiles/.local/share/humanize-text/typst_guard_cli.lua"
         guard_path = ROOT / "dotfiles/.config/nvim/lua/custom/typst_guard.lua"
@@ -615,6 +624,7 @@ class OutputTests(unittest.TestCase):
                 )
         run.assert_not_called()
 
+    @requires("typst")
     def test_typst_compile_check_uses_temporary_sibling(self) -> None:
         settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
         with tempfile.TemporaryDirectory() as directory:
@@ -646,6 +656,8 @@ class OutputTests(unittest.TestCase):
             with patch.object(MODULE, "command_result", side_effect=[existing, existing]):
                 MODULE.compile_typst_proposal(path, "proposal", settings)
 
+    # compile_typst_proposal is patched out; only the JJ sink runs for real.
+    @requires("jj")
     def test_default_typst_sink_creates_described_parent_and_empty_child(self) -> None:
         settings = MODULE.RunSettings(1.0, True, "url", Path("proxy"), "model", "fi", ())
         with tempfile.TemporaryDirectory() as directory:

@@ -367,10 +367,13 @@ setup_mise bootstrap dotfiles paths --json |
 const fs = require("fs");
 const document = JSON.parse(fs.readFileSync(0, "utf8"));
 if (!Array.isArray(document.entries)) throw new Error("mise dotfiles paths JSON has no entries array");
+// Newer mise releases report home paths as "~/..."; older ones were absolute.
+const home = process.env.HOME;
 for (const entry of document.entries) {
   if (entry.mode !== "track") continue;
   if (typeof entry.path !== "string") throw new Error("tracked mise dotfile entry has no path");
-  process.stdout.write(entry.path + "\n");
+  const target = entry.path === "~" || entry.path.startsWith("~/") ? home + entry.path.slice(1) : entry.path;
+  process.stdout.write(target + "\n");
 }
 ' |
     bash "$SETUP_ROOT/setup-scripts/bootstrap/history-permissions.sh"

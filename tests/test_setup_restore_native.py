@@ -8,9 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from lib.prereq import mise_binary
+
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MISE = Path("/Users/ezracerpac/.local/state/mise-migration/tools/mise")
 HISTORY_ORIGIN = "git@github.com:EzraCerpac/dotfiles-state.git"
 PROFILE = "workstation,host-mac-primary"
 NAS_PROFILE = "nas,host-cerpacnas"
@@ -21,9 +22,12 @@ NAS_BRANCH = "host-cerpacnas"
 class NativeRestoreIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.mise = Path(os.environ.get("SETUP_TEST_MISE", DEFAULT_MISE))
+        mise = mise_binary()
+        if mise is None:
+            raise unittest.SkipTest("requires mise (or set SETUP_TEST_MISE)")
+        cls.mise = Path(mise)
         if not cls.mise.is_file() or not os.access(cls.mise, os.X_OK):
-            raise unittest.SkipTest("set SETUP_TEST_MISE to an executable mise installation")
+            raise unittest.SkipTest(f"mise is not an executable file: {cls.mise}")
         cls.age = subprocess.run([str(cls.mise), "which", "age"], text=True, capture_output=True).stdout.strip() or shutil.which("age")
         cls.age_keygen = shutil.which("age-keygen")
         cls.git = shutil.which("git")

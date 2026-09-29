@@ -24,11 +24,11 @@ return {
       out_dir = "./out",
     }
 
-    -- Fix for returning focus to Neovim after inverse search on macOS with Ghostty
+    -- Fix for returning focus to Neovim after inverse search on macOS
     local function tex_focus_vim()
       if vim.fn.has("mac") ~= 1 then return end
-      -- Use 'open -a' to focus the Ghostty terminal application
-      vim.fn.system("open -a Ghostty")
+      -- Use 'open -a' to focus the terminal application (WezTerm)
+      vim.fn.system("open -a WezTerm")
       vim.cmd("redraw!")
     end
 

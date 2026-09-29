@@ -6,15 +6,19 @@ import argparse
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
 
 
+try:
+    from lib.prereq import mise_binary
+except ImportError:  # executed directly as tests/lib/tera.py
+    from prereq import mise_binary
+
 ROOT = Path(__file__).resolve().parents[2]
-MISE = Path(os.environ.get("SETUP_TEST_MISE") or shutil.which("mise") or "mise")
+MISE = Path(mise_binary() or "mise")
 
 
 def _toml_value(value: Any) -> str:
@@ -131,6 +135,31 @@ def render_template(
         timeout=30,
     )
     return target_path.read_text()
+
+
+def render_profile_dotfile(
+    profile: str, managed_path: str, scratch: str | Path, *, extra_vars: dict[str, Any] | None = None
+) -> str:
+    """Render the ``managed_path`` template exactly as ``profile`` declares it.
+
+    Shared base declarations are overridden by the profile's own, mirroring
+    how mise merges ``config.toml`` with ``config.<profile>.toml``. ``extra_vars``
+    stands in for a host's ignored ``config.local.toml``.
+    """
+    import tomllib
+
+    shared = tomllib.loads((ROOT / "config.toml").read_text())
+    selected = tomllib.loads((ROOT / f"config.{profile}.toml").read_text())
+    entry = {**shared.get("dotfiles", {}), **selected.get("dotfiles", {})}[managed_path]
+    if entry["mode"] != "template":
+        raise ValueError(f"{profile} {managed_path} is not a template")
+    scratch_path = Path(scratch)
+    return render_template(
+        ROOT / entry["source"],
+        target=scratch_path / "home" / managed_path.removeprefix("~/"),
+        scratch=scratch_path,
+        vars={**shared.get("vars", {}), **selected.get("vars", {}), **(extra_vars or {})},
+    )
 
 
 if __name__ == "__main__":

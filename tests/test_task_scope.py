@@ -8,11 +8,14 @@ import subprocess
 import tempfile
 import unittest
 
+from lib.prereq import mise_binary, requires
+
 
 ROOT = Path(__file__).resolve().parents[1]
-MISE = os.environ.get("SETUP_TEST_MISE", "mise")
+MISE = mise_binary() or "mise"
 
 
+@requires("mise")
 class TaskScopeTests(unittest.TestCase):
     def test_setup_tasks_are_only_available_from_setup_checkout(self):
         with tempfile.TemporaryDirectory(prefix="mise-task-scope-") as temporary:

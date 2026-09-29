@@ -90,6 +90,12 @@ class DotsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[-1]['args'][-3:], ['PACKAGE_HELPER', str(self.root/'config.toml'), 'brew:libmagic'])
 
+    def test_test_runs_the_setup_suite_with_suite_arguments(self):
+        result = self.run_dots('test', 'python', 'shell')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]['args'], ['-C', str(self.root), 'run', 'setup:test', 'python', 'shell'])
+        self.assertIsNone(self.calls()[-1]['env'])
+
     def test_plan_is_rooted_and_remote_keeps_durable_config(self):
         self.assertEqual(self.run_dots('plan').returncode, 0)
         self.assertEqual(self.calls()[-1]['args'], ['-C', str(self.root), 'bootstrap', 'plan'])

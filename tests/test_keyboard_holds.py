@@ -40,6 +40,13 @@ class KeyboardHoldTests(unittest.TestCase):
                 'printf "unexpected brew call: %s\\n" "$*" >&2; exit 97\n'
             )
             fake_bin.chmod(0o755)
+            # The hold is macOS-only; present a Mac so the check runs anywhere.
+            fake_uname = Path(temp) / "uname"
+            fake_uname.write_text(
+                "#!/bin/sh\n"
+                'if [ "${1:-}" = "-m" ]; then printf "arm64\\n"; else printf "Darwin\\n"; fi\n'
+            )
+            fake_uname.chmod(0o755)
 
             def run(version):
                 env = os.environ.copy()

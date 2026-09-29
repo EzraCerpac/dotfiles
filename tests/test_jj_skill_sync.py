@@ -6,10 +6,13 @@ import subprocess
 import tempfile
 import unittest
 
+from lib.prereq import requires
+
 
 SCRIPT = Path(__file__).resolve().parents[1] / "dotfiles/.local/bin/codex-sync-jj-waltz"
 
 
+@requires("uv", "rsync")
 class SkillSyncTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -41,10 +44,11 @@ class SkillSyncTest(unittest.TestCase):
     def test_distributes_references_but_not_evals(self):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
-        for target in ("dotfiles/.codex/skills/jj-waltz", "dotfiles/.config/opencode/skills/jj-waltz"):
-            dest = self.setup / target
-            self.assertEqual((dest / "references/codex.md").read_text(), "# Codex\n")
-            self.assertFalse((dest / "evals").exists())
+        dest = self.setup / "dotfiles/.codex/skills/jj-waltz"
+        self.assertEqual((dest / "references/codex.md").read_text(), "# Codex\n")
+        self.assertFalse((dest / "evals").exists())
+        # One source copy; OpenCode links to it rather than receiving a second copy.
+        self.assertFalse((self.setup / "dotfiles/.config/opencode/skills").exists())
         (self.source / "references/codex.md").unlink()
         self.write_skill("No references now.")
         self.assertEqual(self.run_sync().returncode, 0)

@@ -345,8 +345,19 @@ printf 'PGREP\\t%s\\n' "$*" >> "$PGREP_LOG"
 case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
 """,
         )
+        # The Karabiner hold reads the installed app bundle; use a fixture
+        # instead of whatever happens to be in the host's /Applications.
+        karabiner_app = self.base / "Applications/Karabiner-Elements.app"
+        (karabiner_app / "Contents").mkdir(parents=True, exist_ok=True)
+        (karabiner_app / "Contents/Info.plist").write_text("fixture\n")
+        self._write_executable(
+            self.bin / "PlistBuddy",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"${FAKE_KARABINER_VERSION:-16.0.0}\"\n",
+        )
         self.env.update(
             {
+                "KARABINER_APP_PATH": str(karabiner_app),
+                "BREW_EXCEPTION_PLISTBUDDY": str(self.bin / "PlistBuddy"),
                 "BREW_LOG": str(brew_log),
                 "SUDO_LOG": str(sudo_log),
                 "PGREP_LOG": str(pgrep_log),
@@ -791,6 +802,36 @@ esac
         self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)]])
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
+
+    def test_post_dotfiles_hook_retires_links_left_by_removed_declarations(self) -> None:
+        # Every apply runs this hook from the incoming source, even when the
+        # sync that triggered it is still the previous source's code.
+        home = Path(self.env["HOME"])
+        retired = home / ".config/nvim/lua/plugins/old.lua"
+        retired.parent.mkdir(parents=True)
+        retired.symlink_to(self.root / "dotfiles/old.lua")
+        (self.root / "setup-scripts/setup/retired-dotfiles").write_text("~/.config/nvim/lua/plugins/old.lua\n")
+        # The hook's permission step then verifies these private configs.
+        (home / ".config/jj").mkdir(parents=True)
+        for name in ("config.toml", "agent-config.toml"):
+            (home / ".config/jj" / name).write_text("")
+        result = subprocess.run(
+            ["bash", str(self.root / "setup-scripts/local/finish-dotfiles.sh")],
+            cwd=self.base, text=True, capture_output=True, check=False,
+            # NAS: the workstation's private-permission step needs files this fixture lacks.
+            env={**self.env, "SETUP_PROFILE": "nas", "SETUP_MACHINE_ID": "cerpacnas"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(retired.is_symlink())
+        self.assertIn("Removed retired link ~/.config/nvim/lua/plugins/old.lua", result.stdout)
+
+    def test_every_profile_runs_the_post_dotfiles_hook(self) -> None:
+        for name in ("config.nas.toml", "config.workstation.toml"):
+            with self.subTest(config=name):
+                self.assertRegex(
+                    (SOURCE_ROOT / name).read_text(),
+                    r"(?m)^post-dotfiles = .*setup-scripts/local/finish-dotfiles\.sh",
+                )
 
     def test_deferred_source_sync_preserves_source_and_still_updates(self) -> None:
         marker = self.root / "source-marker"

@@ -54,7 +54,7 @@ validate_installed_tool() {
     "$python_path" - "$receipt" "$launcher_dir" "${entrypoints[@]}" <<'PY'
 import os
 import sys
-import tomllib
+import tomllib  # mise config get cannot read arrays of tables such as tool.requirements
 
 receipt_path, launcher_dir, *entrypoints = sys.argv[1:]
 with open(receipt_path, "rb") as stream:

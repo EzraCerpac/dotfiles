@@ -166,6 +166,7 @@ bootstrap_set_miserc_env() {
     while IFS= read -r selector; do
         [[ -n "$selector" ]] || continue
         case "$selector" in
+            # delftblue is retired but still recognized, so an old selector is replaced.
             workstation|nas|delftblue) continue ;;
         esac
         if [[ "$selector" =~ ^host-[a-z0-9][a-z0-9-]*$ ]]; then

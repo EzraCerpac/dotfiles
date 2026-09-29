@@ -1,5 +1,4 @@
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-local delftblue = require("config.delftblue")
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
   local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
@@ -33,9 +32,9 @@ require("lazy").setup({
   },
   install = { colorscheme = { "tokyonight", "habamax" } },
   checker = {
-    enabled = not delftblue.enabled(), -- avoid background update checks on DelftBlue
-    notify = not delftblue.enabled(), -- notify on update
-  }, -- automatically check for plugin updates
+    enabled = true, -- automatically check for plugin updates
+    notify = true, -- notify on update
+  },
   performance = {
     rtp = {
       -- disable some rtp plugins

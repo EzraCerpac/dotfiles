@@ -175,7 +175,7 @@ hold_brew_cask_exception() {
         printf 'Manual action required: install Karabiner-Elements %s from the keyboard setup instructions; refusing the current Homebrew cask.\n' "$held_version" >&2
         return 1
     fi
-    installed_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$version_plist" 2>/dev/null || true)"
+    installed_version="$("${BREW_EXCEPTION_PLISTBUDDY:-/usr/libexec/PlistBuddy}" -c 'Print :CFBundleShortVersionString' "$version_plist" 2>/dev/null || true)"
     if [[ "$installed_version" != "$held_version" ]]; then
         printf 'Held: %s is %s, but this setup requires %s; refusing to change it.\n' "$token" "${installed_version:-unknown}" "$held_version" >&2
         return 1
