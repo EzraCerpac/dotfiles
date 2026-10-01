@@ -25,6 +25,9 @@ place of `workstation` for the smaller NAS role. The choice is saved locally;
 you do not repeat it during everyday use. Both roles select Fish as your login
 shell, including new SSH sessions. CerpacNAS uses the NAS role; its older Linux
 compatibility choices and rollback location are in [the NAS guide](docs/cerpacnas.md).
+For the optional macOS concierge services, follow the separate
+[concierge setup guide](docs/concierge-nas.md); its runtime sources and private
+enrollment must be supplied separately.
 
 Public configuration comes from this repository. Restoring private app settings
 also needs the private history credentials and the machine's age key; see
