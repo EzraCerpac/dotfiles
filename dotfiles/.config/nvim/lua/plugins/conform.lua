@@ -5,6 +5,8 @@ return {
     dependencies = { "mason.nvim" },
     opts = {
       formatters_by_ft = {
+        -- Formatting must not wait for Tinymist's compilation and analysis queue.
+        typst = { "typstyle", lsp_format = "never", timeout_ms = 1000 },
         python = { "ruff_format" },
         json = { "biome" },
         javascript = { "biome", stop_after_first = true },

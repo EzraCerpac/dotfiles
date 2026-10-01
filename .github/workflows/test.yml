@@ -50,7 +50,7 @@ jobs:
           curl -fsSL https://mise.run | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
-          tools=(node@latest python@3.13 uv@latest jj@latest aqua:neovim/neovim@latest typst@latest age@latest herdr@latest gitleaks@latest)
+          tools=(node@latest python@3.13 uv@latest jj@latest aqua:neovim/neovim@latest typst@latest typstyle@latest age@latest herdr@latest gitleaks@latest)
           if [[ "$RUNNER_OS" == Linux ]]; then
             tools+=(github:fish-shell/fish-shell@latest)
           fi
@@ -59,6 +59,22 @@ jobs:
           (cd "$RUNNER_TEMP" && mise bin-paths) >> "$GITHUB_PATH"
           # humanize-text is a uv script that declares PyYAML; its tests import it directly.
           "$(cd "$RUNNER_TEMP" && mise which python3)" -m pip install --quiet pyyaml
+
+      - name: Install pinned Neovim integration-test plugins
+        run: |
+          plugin_root="$RUNNER_TEMP/nvim-test-plugins"
+          mkdir -p "$plugin_root"
+          while read -r name repository revision; do
+            git init --quiet "$plugin_root/$name"
+            git -C "$plugin_root/$name" fetch --quiet --depth 1 "https://github.com/$repository.git" "$revision"
+            git -C "$plugin_root/$name" checkout --quiet --detach FETCH_HEAD
+            test "$(git -C "$plugin_root/$name" rev-parse HEAD)" = "$revision"
+          done <<'PLUGINS'
+          LazyVim LazyVim/LazyVim 999700997f72227187d49d8b92667183dc7fc809
+          conform.nvim stevearc/conform.nvim 016802de402556da54c36bd7359b441266b01cdd
+          blink.cmp Saghen/blink.cmp 78336bc89ee5365633bcf754d93df01678b5c08f
+          PLUGINS
+          echo "NVIM_TEST_PLUGIN_ROOT=$plugin_root" >> "$GITHUB_ENV"
 
       - name: Build the Typst tree-sitter parser
         run: |
@@ -73,7 +89,7 @@ jobs:
       - name: Tool versions
         run: |
           mise --version
-          for tool in node python3 uv jj nvim typst age herdr gitleaks fish lua zsh; do
+          for tool in node python3 uv jj nvim typst typstyle age herdr gitleaks fish lua zsh; do
             printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo missing)"
           done
 

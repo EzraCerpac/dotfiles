@@ -1,0 +1,14 @@
+# Inspect and control local apps, processes, and services within the task.
+prefix_rule(
+    pattern = [["ps", "pgrep", "open", "osascript", "kill", "pkill", "killall", "launchctl"]],
+    decision = "allow",
+    justification = "Inspect and control authorized local apps, processes, and services without approval.",
+)
+
+prefix_rule(pattern = ["brew", "services"], decision = "allow", justification = "Manage authorized Homebrew services without approval.")
+prefix_rule(pattern = ["codesign", "--verify"], decision = "allow", justification = "Verify code signatures without approval.")
+prefix_rule(
+    pattern = [["sudo", "dd", "diskutil"]],
+    decision = "prompt",
+    justification = "Root commands and disk operations still require review.",
+)

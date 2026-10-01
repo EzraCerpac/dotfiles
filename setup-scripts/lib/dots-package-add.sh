@@ -21,6 +21,7 @@ mise_bin="$1"
 setup_root="$2"
 target_file="$3"
 shift 3
+source "$setup_root/setup-scripts/lib/dots-add-common.sh"
 
 [[ -x "$mise_bin" ]] || { printf 'dots: mise executable is missing: %s\n' "$mise_bin" >&2; exit 2; }
 [[ -d "$setup_root" ]] || { printf 'dots: setup root is missing: %s\n' "$setup_root" >&2; exit 2; }
@@ -30,10 +31,9 @@ shift 3
 # directory to mise's trust list: choosing --path is permission to edit that
 # file, not permission to execute nearby configuration.
 export MISE_CONFIG_DIR="$setup_root"
-
-mise_config() {
-    "$mise_bin" -C "$setup_root" config "$@"
-}
+work_root="$(mktemp -d "${TMPDIR:-/tmp}/dots-package-add.XXXXXX")"
+trap 'rm -rf "$work_root"' EXIT
+cp "$target_file" "$work_root/before.toml"
 
 mise_packages() {
     "$mise_bin" -C "$setup_root" bootstrap packages "$@"
@@ -181,7 +181,7 @@ for package in "$@"; do
 
     key_path="bootstrap.packages.$package_key"
     error_file="$(mktemp "${TMPDIR:-/tmp}/dots-package-probe.XXXXXX")"
-    if declaration="$(read_declaration "$target_file" "$key_path" "$error_file")"; then
+    if declaration="$(read_declaration "$work_root/before.toml" "$key_path" "$error_file")"; then
         package_is_new=0
     else
         probe_status=$?
@@ -225,13 +225,76 @@ for manager in ${package_managers[@]+"${package_managers[@]}"}; do
             if [[ -f "$setup_root/config.toml" ]]; then
                 base_taps="$(read_optional_declaration "$setup_root/config.toml" bootstrap.brew.taps)"
             fi
-            target_taps="$(read_optional_declaration "$target_file" bootstrap.brew.taps)"
+            target_taps="$(read_optional_declaration "$work_root/before.toml" bootstrap.brew.taps)"
             taps="$(printf '%s\n%s\n' "$base_taps" "$target_taps" | merge_taps)"
             break
             ;;
     esac
 done
 
+declare -a staged_configs=() replace_keys=() resolved_keys=()
+
+isolated_apply() {
+    local config="$1"
+    shift
+    local directory="${config%/*}"
+    MISE_CONFIG_DIR="$directory" MISE_ENV= MISE_TRUSTED_CONFIG_PATHS="$directory" \
+        MISE_DATA_DIR="$data_dir" MISE_CACHE_DIR="$cache_dir" MISE_STATE_DIR="$state_dir" \
+        "$mise_bin" -C "$directory" bootstrap packages apply "$@"
+}
+
+describe_declaration() {
+    local key="$1" value="$2"
+    if [[ "$value" == *'='* ]]; then
+        printf '[bootstrap.packages.'; toml_quote "$key"; printf ']\n%s\n' "$value"
+    else
+        printf '[bootstrap.packages]\n'; toml_quote "$key"; printf ' = '; toml_quote "$value"; printf '\n'
+    fi
+}
+
+record_package() {
+    local config="$1" key="$2" old_key="$3"
+    local arguments=(record-package "$target_file" "$config" "$key" --before "$work_root/before.toml")
+    [[ -z "$old_key" ]] || arguments+=(--replace-key "$old_key")
+    dots_edit_config "${arguments[@]}" || return $?
+    printf 'Recorded %s in %s\n' "$key" "$target_file"
+}
+
+failed_package() {
+    local status="$1" config="$2" key="$3" value="$4"
+    printf 'dots: failed to install package: %s\n' "$key" >&2
+    if [[ "$status" -ne 130 && "$status" -ne 143 ]] && \
+        dots_record_failed "$(describe_declaration "$key" "$value")" "$target_file"; then
+        # Existing declarations survive a failed attempt, including an old
+        # formula key. Only a successful cask install completes that migration.
+        record_package "$config" "$key" "" || printf 'dots: failed to record package: %s\n' "$key" >&2
+    fi
+    exit "$status"
+}
+
+formula_absent() {
+    local errors="$1" name="$2"
+    # A metadata failure alone is insufficient for taps: the Ruby definition
+    # may still exist. Only fall back after mise's definition lookup says no.
+    if [[ "$name" == */* ]]; then
+        grep -Fq "mise ERROR tap has no formula named '${name##*/}' in " "$errors"
+    else
+        grep -Fxq "mise ERROR HTTP status client error (404 Not Found) for url (https://formulae.brew.sh/api/formula/$name.json)" "$errors"
+    fi
+}
+
+check_held_package() {
+    local key="$1" manager="${1%%:*}" token="${1##*/}"
+    token="${token#*:}"
+    case "$manager:$token" in
+        brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
+            printf 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead\n' >&2
+            return 2 ;;
+    esac
+}
+
+# Resolve every package first. A duplicate discovered after cask routing must
+# stop before any package in this group is installed or recorded.
 for index in "${!package_list[@]}"; do
     package="${package_list[$index]}"
     package_manager="${package_managers[$index]}"
@@ -239,60 +302,87 @@ for index in "${!package_list[@]}"; do
     declaration="${package_declarations[$index]}"
     package_is_new="${package_new[$index]}"
     package_is_mac="${package_mac[$index]}"
+    old_key=""
+    check_held_package "$package_key"
+    install_root="$work_root/$index"
+    mkdir "$install_root"
+    install_config="$install_root/mise.toml"
 
     if [[ "$package_is_new" -eq 1 ]]; then
         if [[ "$package_is_mac" -eq 1 ]]; then
-            # An absent key can safely become a child table.  This writes the
-            # macOS guard before any installer runs, so a failed install never
-            # leaves an unguarded package in shared workstation config.
-            if mise_config set --file "$target_file" "bootstrap.packages.$package_key.os" macos/arm64; then
-                :
-            else
-                install_status=$?
-                printf 'dots: failed to record package: %s\n' "$package" >&2
-                exit "$install_status"
-            fi
+            declaration='os = "macos/arm64"'
         else
-            # `use --no-install` writes the native manager's version shape
-            # (for example apt:curl@8.5.0-2 becomes apt:curl = "8.5.0-2")
-            # without starting an installation yet.
-            if mise_packages use --no-install --path "$target_file" "$package"; then
-                :
-            else
-                install_status=$?
-                printf 'dots: failed to record package: %s\n' "$package" >&2
-                exit "$install_status"
-            fi
+            # Let mise retain its native version parsing, but only in staging.
+            printf '[bootstrap.packages]\n' > "$install_config"
+            mise_packages use --no-install --path "$install_config" "$package"
+            declaration="$(read_optional_declaration "$install_config" "bootstrap.packages.$package_key")"
         fi
-
-        error_file="$(mktemp "${TMPDIR:-/tmp}/dots-package-declaration.XXXXXX")"
-        if declaration="$(read_declaration "$target_file" "bootstrap.packages.$package_key" "$error_file")"; then
-            :
-        else
-            install_status=$?
-            cat "$error_file" >&2
-            rm -f "$error_file"
-            printf 'dots: package declaration could not be read back: %s\n' "$package" >&2
-            exit "$install_status"
-        fi
-        rm -f "$error_file"
     fi
-
-    install_root="$(mktemp -d "${TMPDIR:-/tmp}/dots-package-install.XXXXXX")"
-    install_config="$install_root/mise.toml"
     write_isolated_config "$install_config" "$package_key" "$declaration" "$taps"
 
-    # Use a private config directory for the selected declaration only.  Keep
-    # mise's real install data/cache/state so an installed package is visible
-    # to the normal setup, while MISE_ENV is empty so no profile is merged.
-    if MISE_CONFIG_DIR="$install_root" MISE_ENV= MISE_TRUSTED_CONFIG_PATHS="$install_root" \
-        MISE_DATA_DIR="$data_dir" MISE_CACHE_DIR="$cache_dir" MISE_STATE_DIR="$state_dir" \
-        "$mise_bin" -C "$install_root" bootstrap packages apply --yes; then
-        rm -rf "$install_root"
+    if [[ "$package_manager" == brew ]]; then
+        if isolated_apply "$install_config" --dry-run > "$work_root/probe.out" 2> "$work_root/probe.err"; then
+            :
+        else
+            probe_status=$?
+            if formula_absent "$work_root/probe.err" "${package#*:}"; then
+                candidate="brew-cask:${package#*:}"
+                candidate_declaration="$(read_optional_declaration "$work_root/before.toml" "bootstrap.packages.$candidate")"
+                if [[ -n "$candidate_declaration" ]]; then
+                    if [[ "$package_is_new" -eq 0 && "$declaration" != "$candidate_declaration" ]]; then
+                        printf 'dots: conflicting formula and cask declarations for %s; reconcile them first\n' "$package" >&2
+                        exit 2
+                    fi
+                    declaration="$candidate_declaration"
+                fi
+                write_isolated_config "$install_config" "$candidate" "$declaration" "$taps"
+                if isolated_apply "$install_config" --dry-run > "$work_root/cask.out" 2> "$work_root/cask.err"; then
+                    [[ "$package_is_new" -eq 1 ]] || old_key="$package_key"
+                    package_key="$candidate"
+                else
+                    probe_status=$?
+                    cat "$work_root/probe.err" "$work_root/cask.err" >&2
+                    # Neither type resolved: retain the original request for
+                    # the optional record prompt, without claiming a cask.
+                    declaration="${package_declarations[$index]}"
+                    [[ -n "$declaration" ]] || declaration='os = "macos/arm64"'
+                    write_isolated_config "$install_config" "$package_key" "$declaration" "$taps"
+                    failed_package "$probe_status" "$install_config" "$package_key" "$declaration"
+                fi
+            else
+                cat "$work_root/probe.err" >&2
+                failed_package "$probe_status" "$install_config" "$package_key" "$declaration"
+            fi
+        fi
+    fi
+    check_held_package "$package_key"
+    for resolved in "${resolved_keys[@]+"${resolved_keys[@]}"}"; do
+        if [[ "$resolved" == "$package_key" ]]; then
+            printf 'dots: package was supplied more than once after routing: %s\n' "$package_key" >&2
+            exit 2
+        fi
+    done
+    resolved_keys+=("$package_key")
+    staged_configs+=("$install_config")
+    replace_keys+=("$old_key")
+    package_declarations[$index]="$declaration"
+done
+
+for index in "${!resolved_keys[@]}"; do
+    package_key="${resolved_keys[$index]}"
+    install_config="${staged_configs[$index]}"
+    old_key="${replace_keys[$index]}"
+    printf 'Installing %s\n' "$package_key"
+    if isolated_apply "$install_config" --yes; then
+        if record_package "$install_config" "$package_key" "$old_key"; then
+            :
+        else
+            record_status=$?
+            printf 'dots: %s installed, but its declaration could not be recorded\n' "$package_key" >&2
+            exit "$record_status"
+        fi
     else
         install_status=$?
-        rm -rf "$install_root"
-        printf 'dots: failed to install package: %s\n' "$package" >&2
-        exit "$install_status"
+        failed_package "$install_status" "$install_config" "$package_key" "${package_declarations[$index]}"
     fi
 done

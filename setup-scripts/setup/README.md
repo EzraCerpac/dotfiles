@@ -11,7 +11,9 @@ other Homebrew formulae, casks, mise tools, named exceptions, and editor plugins
 It waits for App Store updates before updating standalone mise and saving the
 final checkpoint. The cask stage installs missing declared casks, then
 upgrades only casks without `auto_updates: true`; self-updating casks are left
-to their vendor updaters. Zoom, Tailscale, Antinote, and OmniDiskSweeper use
+to their vendor updaters. CodexBar is explicitly excluded from routine upgrades
+because its cask omits that flag; setup still installs it when missing.
+Zoom, Tailscale, Antinote, and OmniDiskSweeper use
 named cask exceptions: routine updates install them if missing and skip their
 upgrades. Herdr is deferred while its terminal server is running. Kanata and
 Karabiner remain held for the known input bug. Other profiles use their declared

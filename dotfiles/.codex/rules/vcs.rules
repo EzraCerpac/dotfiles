@@ -1,0 +1,3 @@
+# Version control and repository hosting within the authorized task.
+prefix_rule(pattern = [["jj", "jw", "git", "gh"]], decision = "allow", justification = "Run authorized history changes, workspace management, GitHub API calls, and publication without approval.")
+prefix_rule(pattern = ["gh", "repo", "delete"], decision = "prompt", justification = "Repository deletion still requires review.")

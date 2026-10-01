@@ -21,13 +21,44 @@ return {
       opts = opts or {}
       opts.servers = opts.servers or {}
       opts.servers.pyright = { enabled = false } -- using ty instead
+      -- Typst inlay hints repeatedly analyse package imports on edits and scrolling.
+      opts.inlay_hints = opts.inlay_hints or {}
+      opts.inlay_hints.exclude = opts.inlay_hints.exclude or {}
+      if not vim.tbl_contains(opts.inlay_hints.exclude, "typst") then
+        table.insert(opts.inlay_hints.exclude, "typst")
+      end
       local tinymist = opts.servers.tinymist or {}
+      local patched_tinymist = vim.fn.expand("~/.local/share/tinymist-patched/bin/tinymist")
+      if vim.fn.executable(patched_tinymist) == 1 then
+        tinymist.cmd = { patched_tinymist }
+        tinymist.mason = false
+      end
       opts.servers.tinymist = vim.tbl_deep_extend("force", tinymist, {
         root_markers = typst_root_markers,
         settings = vim.tbl_deep_extend("force", tinymist.settings or {}, {
           compileStatus = "enable",
+          -- Tree-sitter provides highlighting without Tinymist's import analysis.
+          semanticTokens = "disable",
         }),
       })
+      local previous_tinymist_init = opts.servers.tinymist.on_init
+      opts.servers.tinymist.on_init = function(client, result)
+        if previous_tinymist_init then
+          previous_tinymist_init(client, result)
+        end
+        -- Tinymist still advertises this capability when semanticTokens is disabled.
+        client.server_capabilities.semanticTokensProvider = nil
+        local references = require("custom.typst_references")
+        local previous_status = client.handlers["tinymist/compileStatus"] or vim.lsp.handlers["tinymist/compileStatus"]
+        client.handlers["tinymist/compileStatus"] = function(err, result, ctx, config)
+          if not err and result and result.path then
+            references.set_main(client.id, client.root_dir, result.path)
+          end
+          if previous_status then
+            return previous_status(err, result, ctx, config)
+          end
+        end
+      end
       local harper = opts.servers.harper_ls or {}
       opts.servers.harper_ls = vim.tbl_deep_extend("force", harper, {
         enabled = vim.fn.executable("harper-ls") == 1,

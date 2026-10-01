@@ -34,6 +34,7 @@ __pycache__/
 *.pyc
 
 # Machine tool resolutions are host-local; project lockfiles remain tracked.
+/locks/
 /mise.lock
 /mise.nas.lock
 /mise.workstation.lock

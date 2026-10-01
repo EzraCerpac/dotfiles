@@ -27,6 +27,8 @@ class DotsTest(unittest.TestCase):
         helper = self.root / 'setup-scripts/lib/dots-package-add.sh'
         helper.parent.mkdir(parents=True)
         helper.write_text('#!/usr/bin/env bash\n"$1" -C "$2" PACKAGE_HELPER "$3" "${@:4}"\n')
+        tool_helper = helper.with_name('dots-tool-add.sh')
+        tool_helper.write_text('#!/usr/bin/env bash\nset -e\nfor request in "${@:4}"; do "$1" -C "$2" use --path "$3" "$request"; done\n')
         bootstrap = self.root / 'setup-scripts/bootstrap'
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
@@ -83,7 +85,8 @@ class DotsTest(unittest.TestCase):
         for flags, target in [(['--base'], self.root/'config.toml'), (['--profile','nas'], self.root/'config.nas.toml'), (['--path','local.toml'], self.project/'local.toml')]:
             result = self.run_dots('add', *flags, 'npm:prettier@3', 'cargo:hexyl')
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(self.calls()[-1]['args'][-3:], [str(target), 'npm:prettier@3', 'cargo:hexyl'])
+            self.assertEqual(self.calls()[-2]['args'][-2:], [str(target), 'npm:prettier@3'])
+            self.assertEqual(self.calls()[-1]['args'][-2:], [str(target), 'cargo:hexyl'])
 
     def test_package_routing(self):
         result = self.run_dots('add', '--base', 'brew:libmagic')

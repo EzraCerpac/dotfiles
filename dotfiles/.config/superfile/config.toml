@@ -1,0 +1,15 @@
+theme = "catppuccin-mocha"
+transparent_background = true
+nerdfont = true
+default_open_file_preview = true
+show_image_preview = true
+code_previewer = "bat"
+editor = "nvim"
+dir_editor = "nvim"
+zoxide_support = true
+default_sort_type = 4
+file_panel_extra_columns = 2
+auto_check_update = false
+cd_on_quit = false
+metadata = false
+ignore_missing_fields = true

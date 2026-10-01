@@ -1,0 +1,10 @@
+# HTTP, SSH, file transfer, and remote storage within the authorized task.
+prefix_rule(pattern = [["curl", "wget", "ssh", "scp", "sftp", "rsync", "rclone"]], decision = "allow", justification = "Use authorized network access and file transfers without approval.")
+
+# Sync/bisync can remove destination files; move removes its source after transfer.
+# Those workflows are allowed. Direct deletion verbs still require review.
+prefix_rule(
+    pattern = ["rclone", ["delete", "deletefile", "purge", "cleanup", "dedupe", "rmdir", "rmdirs"]],
+    decision = "prompt",
+    justification = "Explicit remote deletion, purge, cleanup, and deduplication still require review.",
+)

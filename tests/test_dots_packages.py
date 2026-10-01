@@ -2,6 +2,10 @@
 
 import json
 import os
+import shutil
+import select
+import pty
+import time
 from pathlib import Path
 import subprocess
 import tempfile
@@ -112,13 +116,21 @@ if "bootstrap" in args and "packages" in args and "use" in args:
 
 if "bootstrap" in args and "packages" in args and "apply" in args:
     content = (effective_cwd / "mise.toml").read_text()
+    package = next(iter(tomllib.loads(content)["bootstrap"]["packages"]))
     log_call(args, content)
+    if "--dry-run" in args:
+        outcomes = json.loads(os.environ.get("DOTS_DRY_RUN_RESULTS", "{}"))
+        outcome = outcomes.get(package, {})
+        if outcome.get("error"):
+            print(outcome["error"], file=sys.stderr)
+        raise SystemExit(outcome.get("status", 0))
     if os.environ.get("DOTS_REQUIRE_CREDENTIAL_COMMAND"):
         settings = tomllib.loads(content).get("settings", {})
         if not settings.get("github", {}).get("credential_command"):
             print("isolated install has no GitHub credential command", file=sys.stderr)
             raise SystemExit(41)
-    raise SystemExit(int(os.environ.get("DOTS_PACKAGE_APPLY_STATUS", "0")))
+    outcomes = json.loads(os.environ.get("DOTS_INSTALL_RESULTS", "{}"))
+    raise SystemExit(outcomes.get(package, int(os.environ.get("DOTS_PACKAGE_APPLY_STATUS", "0"))))
 
 log_call(args)
 raise SystemExit(0)
@@ -149,6 +161,10 @@ class DotsPackageTest(unittest.TestCase):
         self.mise = self.root / "fake-mise"
         self.mise.write_text(FAKE_MISE)
         self.mise.chmod(0o755)
+        helpers = self.root / "setup-scripts/lib"
+        helpers.mkdir(parents=True)
+        for name in ("dots-add-common.sh", "dots-add-config.py"):
+            shutil.copy2(HELPER.parent / name, helpers / name)
         self.log = self.root / "calls.jsonl"
         self.env = dict(
             os.environ,
@@ -174,7 +190,7 @@ class DotsPackageTest(unittest.TestCase):
         return [json.loads(line) for line in self.log.read_text().splitlines()]
 
     def apply_calls(self):
-        return [call for call in self.calls() if "apply" in call["args"]]
+        return [call for call in self.calls() if "apply" in call["args"] and "--dry-run" not in call["args"]]
 
     def test_failed_tap_read_stops_before_install_or_write(self):
         before = self.target.read_bytes()
@@ -184,7 +200,7 @@ class DotsPackageTest(unittest.TestCase):
         self.assertFalse(self.apply_calls())
         self.assertEqual(self.target.read_bytes(), before)
 
-    def test_new_mac_entries_are_guarded_before_install(self):
+    def test_new_mac_entries_are_guarded_in_staging(self):
         result = self.run_helper("brew:libmagic", "brew-cask:firefox")
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -230,14 +246,122 @@ class DotsPackageTest(unittest.TestCase):
         self.assertEqual(packages["apt:curl"], "8.5.0-2")
         self.assertIn('"apt:curl" = "8.5.0-2"', self.apply_calls()[0]["content"])
 
-    def test_failed_install_leaves_new_mac_guard_in_place(self):
+    def test_failed_install_does_not_record_new_package(self):
+        before = self.target.read_bytes()
         result = self.run_helper("brew-cask:broken", DOTS_PACKAGE_APPLY_STATUS="17")
         self.assertEqual(result.returncode, 17)
-        self.assertIn(
-            {"os": "macos/arm64"},
-            tomllib.loads(self.target.read_text())["bootstrap"]["packages"].values(),
-        )
-        self.assertTrue(any("set" in call["args"] for call in self.calls()))
+        self.assertEqual(self.target.read_bytes(), before)
+        self.assertIn("not recorded (noninteractive run)", result.stderr)
+        self.assertFalse(any("set" in call["args"] for call in self.calls()))
+
+    def test_tapped_formula_routes_to_cask_and_repairs_old_key(self):
+        key = "brew:owner/tap/capd"
+        with self.target.open("a") as stream:
+            stream.write(f'\n[bootstrap.packages."{key}"]\nos = "macos/arm64"\nadopt = true\n')
+        probes = {key: {"status": 1, "error": "mise ERROR tap has no formula named 'capd' in Formula"}}
+        result = self.run_helper(key, DOTS_DRY_RUN_RESULTS=json.dumps(probes))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        packages = tomllib.loads(self.target.read_text())["bootstrap"]["packages"]
+        self.assertNotIn(key, packages)
+        self.assertEqual(packages["brew-cask:owner/tap/capd"], {"os": "macos/arm64", "adopt": True})
+        self.assertIn("brew-cask:owner/tap/capd", self.apply_calls()[0]["content"])
+
+    def test_core_formula_routes_only_after_exact_api_404(self):
+        error = "mise ERROR HTTP status client error (404 Not Found) for url (https://formulae.brew.sh/api/formula/firefox.json)"
+        result = self.run_helper("brew:firefox", DOTS_DRY_RUN_RESULTS=json.dumps({"brew:firefox": {"status": 1, "error": error}}))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("brew-cask:firefox", tomllib.loads(self.target.read_text())["bootstrap"]["packages"])
+
+    def test_formula_wins_when_both_types_are_available(self):
+        result = self.run_helper("brew:both")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("brew:both", tomllib.loads(self.target.read_text())["bootstrap"]["packages"])
+        self.assertNotIn("brew-cask:both", self.apply_calls()[0]["content"])
+
+    def test_resolution_errors_do_not_switch_or_record(self):
+        for error in ("mise ERROR HTTP status client error (403 Forbidden)", "mise ERROR timed out", "mise ERROR unsupported formula DSL", "mise ERROR HTTP status client error (404 Not Found) for url (https://other.invalid/foo)"):
+            before = self.target.read_bytes()
+            result = self.run_helper("brew:broken", DOTS_DRY_RUN_RESULTS=json.dumps({"brew:broken": {"status": 19, "error": error}}))
+            self.assertEqual(result.returncode, 19)
+            self.assertEqual(self.target.read_bytes(), before)
+            self.assertFalse(self.apply_calls())
+
+    def test_neither_type_available_does_not_record(self):
+        probes = {
+            "brew:owner/tap/missing": {"status": 1, "error": "mise ERROR tap has no formula named 'missing' in Formula"},
+            "brew-cask:owner/tap/missing": {"status": 23, "error": "mise ERROR tap has no cask named 'missing'"},
+        }
+        before = self.target.read_bytes()
+        result = self.run_helper("brew:owner/tap/missing", DOTS_DRY_RUN_RESULTS=json.dumps(probes))
+        self.assertEqual(result.returncode, 23)
+        self.assertEqual(self.target.read_bytes(), before)
+        self.assertFalse(self.apply_calls())
+
+    def test_resolved_duplicate_and_held_cask_stop_before_install(self):
+        for name, packages in (("firefox", ("brew:owner/tap/firefox", "brew-cask:owner/tap/firefox")), ("karabiner-elements", ("brew:karabiner-elements",))):
+            key = packages[0]
+            error = f"mise ERROR tap has no formula named '{name}' in Formula" if "/" in key else f"mise ERROR HTTP status client error (404 Not Found) for url (https://formulae.brew.sh/api/formula/{name}.json)"
+            before = self.target.read_bytes()
+            result = self.run_helper(*packages, DOTS_DRY_RUN_RESULTS=json.dumps({key: {"status": 1, "error": error}}))
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertEqual(self.target.read_bytes(), before)
+            self.assertFalse(self.apply_calls())
+
+    def test_partial_success_records_first_and_stops_after_failure(self):
+        result = self.run_helper("brew-cask:first", "brew-cask:second", "brew-cask:third", DOTS_INSTALL_RESULTS=json.dumps({"brew-cask:second": 17}))
+        self.assertEqual(result.returncode, 17)
+        packages = tomllib.loads(self.target.read_text())["bootstrap"]["packages"]
+        self.assertIn("brew-cask:first", packages)
+        self.assertNotIn("brew-cask:second", packages)
+        self.assertNotIn("brew-cask:third", packages)
+        self.assertEqual(len(self.apply_calls()), 2)
+
+    def test_failed_existing_declaration_is_preserved(self):
+        before = self.target.read_bytes()
+        result = self.run_helper("brew:existing", DOTS_PACKAGE_APPLY_STATUS="17")
+        self.assertEqual(result.returncode, 17)
+        self.assertEqual(self.target.read_bytes(), before)
+
+    def test_failure_prompt_yes_no_enter_and_eof(self):
+        for answer, recorded in ((b"yes\n", True), (b"n\n", False), (b"\n", False), (b"\x04", False), (None, False)):
+            with self.subTest(answer=answer):
+                before = self.target.read_bytes()
+                master, slave = pty.openpty()
+                process = subprocess.Popen(
+                    ["bash", str(HELPER), str(self.mise), str(self.root), str(self.target), "brew-cask:prompt"],
+                    cwd=self.root, env=dict(self.env, DOTS_PACKAGE_APPLY_STATUS="17"),
+                    stdin=slave, stdout=slave, stderr=slave,
+                )
+                os.close(slave)
+                output = b""
+                deadline = time.monotonic() + 30
+                try:
+                    while b"Record this request for a later retry? [y/N]" not in output:
+                        self.assertLess(time.monotonic(), deadline, output.decode(errors="replace"))
+                        ready, _, _ = select.select([master], [], [], 0.2)
+                        if ready:
+                            output += os.read(master, 65536)
+                    if answer is None:
+                        process.terminate()
+                    else:
+                        os.write(master, answer)
+                    while process.poll() is None:
+                        self.assertLess(time.monotonic(), deadline)
+                        ready, _, _ = select.select([master], [], [], 0.2)
+                        if ready:
+                            try:
+                                output += os.read(master, 65536)
+                            except OSError:
+                                break
+                    self.assertEqual(process.wait(timeout=10), -15 if answer is None else 17, output.decode(errors="replace"))
+                    packages = tomllib.loads(self.target.read_text())["bootstrap"]["packages"]
+                    self.assertEqual("brew-cask:prompt" in packages, recorded)
+                finally:
+                    if process.poll() is None:
+                        process.kill()
+                        process.wait()
+                    os.close(master)
+                    self.target.write_bytes(before)
 
     def test_dotted_key_is_rejected_before_native_write(self):
         before = self.target.read_bytes()
@@ -247,7 +371,7 @@ class DotsPackageTest(unittest.TestCase):
         self.assertEqual(self.calls(), [])
 
     @requires("mise")
-    def test_real_mise_config_set_and_get_with_installer_stub(self):
+    def test_real_mise_reads_staging_with_installer_stub(self):
         real_mise = mise_binary()
         wrapper = self.root / "mise-with-stubbed-installer"
         wrapper.write_text(

@@ -38,3 +38,9 @@
 ~/.config/zellij/themes/catppuccin.kdl
 ~/.config/zellij/themes/catppuccin.yaml
 ~/.xonshrc
+# Replaced by Superfile; retain any user-owned regular files or foreign links.
+~/.config/nvim/lua/plugins/yazi.lua
+~/.config/fish/functions/__mise_source_yazi_completion.fish
+~/.config/fish/completions/ya.fish
+~/.config/fish/completions/yazi.fish
+~/.config/yazi/init.lua

@@ -85,7 +85,7 @@ run_lua() {
     for test in "$root"/tests/*.lua; do
         printf '\n== %s\n' "${test#"$root"/}"
         status=0
-        GRAMMARLY_BRIDGE_TEST_ROOT="$root" nvim --headless -u NONE -l "$test" || status=$?
+        GRAMMARLY_BRIDGE_TEST_ROOT="$root" NVIM_TYPST_TEST_ROOT="$root" nvim --headless -u NONE -l "$test" || status=$?
         record "${test#"$root"/}" "$status"
     done
 }

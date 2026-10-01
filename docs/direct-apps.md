@@ -108,6 +108,7 @@ previous installed versions and cask targets only.
 | KeyType Dev 1.6 (8) | Bundle ID maps to that project's dev-install script | Local project/build workflow |
 | SoloTrace 0.1.0 (202607271343) | Bundle ID and app name map to `~/Projects/solotrace` | Local project/build workflow |
 | VoiceInk 2.13 (213) | Local build from `~/Projects/Tools/VoiceInk`; active weekly updater preserves the local build and signing workflow | Keep the local build owner; do not transfer to stock `brew-cask:voiceink` |
+| capd local fork | `~/Projects/capd`; old cask receipt retained in rollback backup | Explicit `local:capd-build` and `local:capd-install`; routine updates report it as pinned |
 | TurboFieldfare Uncensored 0.7.1 (`d50bf4f`) | User-level app with an ad-hoc signature; no vendor or package receipt found | Keep as a local app; no global package declaration |
 | BoringNotch 2.7.3 (271) | Vendor app; no matching Homebrew cask in the official API | Vendor app/update path |
 | Edist 1.3.3 | Jules Le Prince-signed app; no matching cask | Vendor app/update path |

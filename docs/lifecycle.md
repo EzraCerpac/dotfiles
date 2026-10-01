@@ -33,6 +33,8 @@ only configure its settings link and start its service.
 | `setup-scripts/local/rift-signing-setup.sh` | Rift signing setup helper | Calls the deployed signing helper when needed. |
 | `setup-scripts/local/aerospace-local-build.sh` | Preserve the active AeroSpace local build | Builds the pinned clean source revision with SwiftPM and Xcode into a versioned staging directory. It never replaces the active app or CLI. |
 | `setup-scripts/local/voiceink-build.sh` | VoiceInk local-build owner exception | Builds the current clean VoiceInk source with its local updater guard and stable Apple Development signature, then stages the app without installing or launching it. |
+| `setup-scripts/local/capd-build.sh` | capd local fork build | Packages the clean fork with its app, CLI, agent and share extension, signs with the existing Apple Development identity and stages it outside the checkout. |
+| `setup-scripts/local/capd-install.sh` | capd local fork activation | Installs a named stage, preserves the app, data and preferences, then restores the prior app/agent running state. Rolls back on failure. |
 | `setup-scripts/local/ensure-homebrew-exceptions.sh` | Brooklyn and MacTeX prerequisites | On workstation macOS only, installs Homebrew if absent using a checksum-pinned official installer; it does not install or update packages. |
 | `setup-scripts/local/finish-dotfiles.sh` | Post-dotfiles permissions | Verifies private modes after file application; workstation and NAS. |
 | `setup-scripts/local/private-permissions.sh` | SSH template preparation and explicit permission repair | Before dotfile apply, sets the SSH template source to `0600` so mise renders `~/.ssh/config` with the same mode and reports it as applied. After apply, sets `~/.ssh` and `~/.config/jj` to `0700`, the rendered SSH config to `0600`, and regular jj config copies to `0600`. It skips declared public-source symlinks and refuses directory or SSH-target symlinks. |
@@ -49,8 +51,8 @@ its activation path can replace the active manager and load its LaunchAgent. The
 Rift LaunchAgent source must remain valid XML, and a cutover should retain the
 current inactive state until a deliberate manager handoff.
 
-The AeroSpace task stages the active custom `0.21.3-PR2245-Local` build from
-clean source commit `0c0671cc593a556a1627a10aee601671e6cbeb3e` in
+The AeroSpace task stages the active custom `0.21.3-PR2245-Local-CacheFocusFix` build from
+source commit `d2792f5bcd5b35af2fcc3160b41dc6cd0201c592` in
 `~/Projects/Tools/AeroSpace`. It uses Xcode Release for the app and an arm64
 SwiftPM Release build for the CLI, signing with the current app's Apple
 Development identity. The revision keeps the PR2245 fullscreen fix, Hyper
@@ -75,6 +77,54 @@ different artifact at that path. It does not fetch or merge source, resolve new
 package versions, install or launch VoiceInk, or touch preferences, transcripts,
 recordings, downloaded models, or Parakeet Unified. Live app and Parakeet checks
 remain separate from this build task.
+
+capd is owned by the fork in `~/Projects/capd`. The `origin` remote is
+`EzraCerpac/capd`; `upstream` is `jamiedavenport/capd`. The local
+`wip/local-capd` bookmark adds eager app-state initialization for Xcode 27
+on top of the focused `wip/search-browser` patch. Keep that compatibility
+change separate when submitting Search support upstream. Updates are explicit:
+integrate upstream, test, build, then install a named stage. In-app update notices
+refer to upstream releases and are not the fork update path.
+
+Run
+`mise -C ~/.config/mise run local:capd-build` after committing source changes.
+The task runs the upstream `Scripts/package-app.sh` in a clean source copy and
+stages the signed app under `~/.local/state/capd/staged/`. Its CLI, agent and
+share extension are included. The signing identity comes from the current
+installed app or `CAPD_CODESIGN_IDENTITY`. On a new host, supply an existing
+identity explicitly; no identity is provisioned by this task. Set
+`CAPD_SOURCE_DIR` or `CAPD_STAGE_ROOT` to override the source or staging path.
+The packaging script also creates its DMG in task-owned scratch space.
+The local task replaces the archived script's fixed `.build/apple` product
+path with Swift's `--show-bin-path`: Xcode 27 uses `.build/out`. This guarded
+adapter changes only the disposable source copy and stops if the expected
+upstream line changes. The fork's tracked packaging script stays unchanged.
+It also splits Xcode 27's failing multi-architecture `lipo -verify_arch` call
+into separate arm64 and x86_64 checks; both architectures are still required.
+
+Install a stage explicitly with
+`mise -C ~/.config/mise run local:capd-install -- /absolute/path/to/stage`.
+The install task stops the app and its loaded `dev.jxd.capd.agent`, copies the
+whole `~/Library/Application Support/capd` directory after both writers exit,
+exports preferences, and retains the previous app, CLI link and LaunchAgent
+under `~/.local/state/capd/backups/`. It replaces `/Applications/capd.app`, links
+`~/.local/bin/capd` to the bundled CLI and restores the prior running state.
+Any install or restart failure restores the previous app, data and preferences.
+After launching the app, the task requires its process to remain alive for
+three seconds; an immediate startup crash also triggers rollback.
+If stopping or rollback fails, the task reports the retained backup for repair.
+Set `CAPD_BACKUP_ROOT` only when choosing another private backup location.
+
+`dots up` reports capd as pinned through `vendor-apps.tsv`; it does not fetch,
+build, reinstall or adopt the fork. The old cask receipt and `/opt/homebrew/bin/capd`
+link were moved into the original rollback backup after the live app, agent and
+capture checks passed; no cask uninstall was run. The original release and library
+remain in the host's private `~/.local/state/capd/backups/` directory.
+
+The first switch from the release certificate to the local signing identity required
+removing the stale Capd app entry from macOS Device Control and Data Access, then
+adding `/Applications/capd.app` again. Toggling the old entry was insufficient.
+Subsequent builds retain the same designated signing requirement.
 
 The CerpacNAS modern Git installer keeps the existing user-space recipe. It
 does not upgrade system Git, install system packages, or alter NAS services.
