@@ -70,7 +70,8 @@ executable and private file paths. `expectedHost` must equal Node's `os.hostname
 on the target. The service labels and backend kinds are fixed. Keep each private
 path home-relative (`~/...`); runtime keys, sessions and profile directories must
 be owned by the runtime user and inaccessible to other users. Symlinked private
-paths and writable shared LaunchAgent directories are refused. Mail's account
+paths, foreign-owned or group/other-writable ancestors within the runtime home,
+and writable shared LaunchAgent directories are refused. Mail's account
 reference definition may be mode `0644`; its credentials must remain private.
 
 Keep `remindersEdits: false` until the external runtime's edit support, grants
@@ -108,12 +109,18 @@ mise -C ~/.config/mise -E nas run concierge:rebuild
 ```
 
 Rebuild refuses definition or profile-binding drift before dependency changes.
+Profiles must use the supported generated block structure, with exactly one
+`mcp.commands` entry on channel `main`. Extra commands, HTTP targets, duplicate
+keys in checked mappings and unsupported YAML syntax are refused.
 It syncs locked Python dependencies, creates missing tunnel profiles, installs
 missing LaunchAgents and bootstraps only unloaded labels. It does not restart
 loaded labels or replace differing definitions. Dependency sync still occurs
 when labels are already loaded, so use it in a supervised maintenance window.
-If another `wacli` process exists, collector startup is skipped to avoid a
-second writer. Inspect the reported `skipped` and `blocked` fields.
+If another `wacli` process exists and the managed collector is unloaded, both
+collector installation and startup are skipped to avoid leaving an auto-start
+agent for a second writer. A previously installed collector plist is preserved
+and reported as requiring manual reconciliation; resolve that conflict before
+the next login. Inspect the reported `skipped` and `blocked` fields.
 
 After activation, check provider reads, session reuse, the single WhatsApp
 collector and the reviewed write policies. Verify fresh calls through the actual

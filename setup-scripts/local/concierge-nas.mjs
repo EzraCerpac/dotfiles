@@ -13,7 +13,11 @@ const quote = value => /^[A-Za-z0-9_./:@=-]+$/.test(value) ? value : `'${value.r
 const canonical = value => JSON.stringify(Array.isArray(value) ? value.map(v => JSON.parse(canonical(v))) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, JSON.parse(canonical(value[k]))])) : value);
 const defaultRun = (bin, args, options = {}) => {
   try { return execFileSync(bin, args, {encoding: 'utf8', input: options.input, env: {...process.env, ...options.env}, stdio: ['pipe', options.capture ? 'pipe' : 'ignore', 'ignore']}) || ''; }
-  catch { fail('A concierge command failed. Private output withheld.'); }
+  catch (cause) {
+    const error = new Error('A concierge command failed. Private output withheld.');
+    error.status = cause.status;
+    throw error;
+  }
 };
 
 export function validate(config, hostname = os.hostname(), platform = process.platform) {
@@ -52,14 +56,22 @@ export function createOperations(config, options = {}) {
   };
   const project = expand(config.projectDir), stageDir = path.join(home, '.local/state/dottie-concierge-stage');
   function privatePath(target, directory = false, publicDefinition = false) {
-    let current = target;
-    while (current !== path.dirname(current)) {
-      if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) fail('Refusing a symlinked private path.');
+    let current = target, targetStat;
+    while (true) {
+      let st;
+      try { st = fs.lstatSync(current); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (st) {
+        if (st.isSymbolicLink()) fail('Refusing a symlinked private path.');
+        if (current === target) targetStat = st;
+        else if (current === home || current.startsWith(home + path.sep)) {
+          if (!st.isDirectory() || st.uid !== uid || (st.mode & 0o022)) fail('Private path ancestor ownership, type or mode is unsafe.');
+        }
+      }
+      if (current === path.dirname(current)) break;
       current = path.dirname(current);
     }
-    if (!fs.existsSync(target)) return false;
-    const st = fs.statSync(target);
-    if (st.uid !== uid || (st.mode & (publicDefinition ? 0o022 : 0o077)) || (directory ? !st.isDirectory() : !st.isFile())) fail('Private path ownership, type or mode is unsafe.');
+    if (!targetStat) return false;
+    if (targetStat.uid !== uid || (targetStat.mode & (publicDefinition ? 0o022 : 0o077)) || (directory ? !targetStat.isDirectory() : !targetStat.isFile())) fail('Private path ownership, type or mode is unsafe.');
     return true;
   }
   const mcpArgv = s => s.backend === 'whatsapp'
@@ -81,23 +93,63 @@ export function createOperations(config, options = {}) {
   const profileFile = s => path.join(expand(s.profileDir), `${s.profile}.yaml`);
   function profileMatches(s) {
     if (!privatePath(profileFile(s))) return null;
-    // Accept only scalar fields emitted by the official local stdio sample.
-    const text = fs.readFileSync(profileFile(s), 'utf8');
-    function scalar(section, key, indent) {
-      const sections = [...text.matchAll(new RegExp(`^${section}:[ \t]*(?:#.*)?$`, 'gm'))];
-      if (sections.length !== 1) return null;
-      const tail = text.slice(sections[0].index + sections[0][0].length);
-      const boundary = tail.search(/^[^\s#]/m);
-      const body = boundary < 0 ? tail : tail.slice(0, boundary);
-      const matches = [...body.matchAll(new RegExp(`^ {${indent}}${key}:[ \t]*(.*?)[ \t]*$`, 'gm'))];
-      if (matches.length !== 1) return null;
-      const v = matches[0][1];
-      if (v.startsWith('"')) { try { return JSON.parse(v); } catch { return null; } }
-      if (v.startsWith("'")) return v.endsWith("'") ? v.slice(1, -1).replaceAll("''", "'") : null;
-      return v.replace(/\s+#.*$/, '');
+    // Recognize the emitted sample's block structure, not arbitrary YAML.
+    // Reject duplicate/quoted root keys, aliases, flow maps and extra MCP targets.
+    const sections = new Map();
+    let section;
+    for (const raw of fs.readFileSync(profileFile(s), 'utf8').split(/\r?\n/)) {
+      const line = raw.trimEnd();
+      if (!line.trim() || /^ *#/.test(line)) continue;
+      if (/\t/.test(line)) return false;
+      if (!line.startsWith(' ')) {
+        const match = line.match(/^([a-z_]+):(?: +(.*))?$/);
+        if (!match || !['config_version', 'control_plane', 'health', 'admin_ui', 'log', 'mcp'].includes(match[1]) || sections.has(match[1])) return false;
+        section = [match[2] || ''];
+        sections.set(match[1], section);
+      } else {
+        if (!section) return false;
+        section.push(line);
+      }
     }
-    return scalar('control_plane', 'tunnel_id', 2) === s.tunnelID && scalar('mcp', 'command', 6) === mcpCommand(s) && scalar('control_plane', 'api_key', 2) === `file:${expand(s.keyFile)}`;
+    function scalar(value) {
+      if (value.startsWith('"')) { try { const parsed = JSON.parse(value); return typeof parsed === 'string' ? parsed : null; } catch { return null; } }
+      if (value.startsWith("'")) return /^'(?:[^']|'')*'$/.test(value) ? value.slice(1, -1).replaceAll("''", "'") : null;
+      return /^[\w/.:@=-]+$/.test(value) ? value : null;
+    }
+    const version = sections.get('config_version');
+    if (version && (version.length !== 1 || version[0] !== '1')) return false;
+    function fields(name, allowed) {
+      const block = sections.get(name), values = new Map();
+      if (!block || block[0] !== '') return null;
+      for (const line of block.slice(1)) {
+        const match = line.match(/^  ([a-z_]+): +(.+)$/);
+        if (!match || !allowed.includes(match[1]) || values.has(match[1])) return null;
+        const value = scalar(match[2]);
+        if (value === null) return null;
+        values.set(match[1], value);
+      }
+      return values;
+    }
+    for (const [name, allowed] of [['health', ['listen_addr', 'url_file']], ['admin_ui', ['open_browser']], ['log', ['level', 'format']]]) {
+      if (sections.has(name) && !fields(name, allowed)) return false;
+    }
+    const bindings = fields('control_plane', ['base_url', 'url_path', 'tunnel_id', 'api_key']), mcp = sections.get('mcp');
+    if (!bindings || !mcp || mcp.length !== 4 || mcp[0] !== '' || mcp[1] !== '  commands:') return false;
+    if ((bindings.get('base_url') ?? 'https://api.openai.com') !== 'https://api.openai.com' || (bindings.get('url_path') ?? '') !== '') return false;
+    const defaults = {
+      health: {listen_addr: '127.0.0.1:0', ...(s.healthURLFile ? {url_file: expand(s.healthURLFile)} : {})},
+      admin_ui: {open_browser: 'false'},
+      log: {level: 'info', format: 'json'},
+    };
+    for (const [name, expected] of Object.entries(defaults)) {
+      if (!sections.has(name)) continue;
+      const actual = fields(name, Object.keys(expected));
+      if (!actual || [...actual].some(([key, value]) => value !== expected[key])) return false;
+    }
+    const channel = mcp[2].match(/^    - channel: +(.+)$/), command = mcp[3].match(/^      command: +(.+)$/);
+    return bindings.get('tunnel_id') === s.tunnelID && bindings.get('api_key') === `file:${expand(s.keyFile)}` && !!channel && scalar(channel[1]) === 'main' && !!command && scalar(command[1]) === mcpCommand(s);
   }
+
   function plistMatches(file, s) {
     if (!fs.existsSync(file)) return null;
     privatePath(file, false, !file.startsWith(stageDir + path.sep));
@@ -169,20 +221,28 @@ export function createOperations(config, options = {}) {
       run(expand(config.tunnelClient), ['init', '--sample', 'sample_mcp_stdio_local', '--profile', s.profile, '--profile-dir', expand(s.profileDir), '--tunnel-id', s.tunnelID, '--control-plane-api-key-ref', `file:${expand(s.keyFile)}`, '--mcp-command', mcpCommand(s), '--health-listen-addr', '127.0.0.1:0']);
       if (profileMatches(s) !== true) fail('Initialized profile binding did not match.');
     }
-    fs.mkdirSync(path.join(home, 'Library/LaunchAgents'), {recursive: true, mode: 0o700});
-    for (const f of files) if (!fs.existsSync(f.installed)) fs.copyFileSync(f.staged, f.installed, fs.constants.COPYFILE_EXCL);
-    const skipped = [];
+    // Resolve collector ownership before installing an auto-start definition.
+    const skipped = [], installable = [];
     for (const f of files) {
-      if (status(f.service).loaded) continue;
-      if (f.service.kind === 'wacli-collector') {
+      if (f.service.kind === 'wacli-collector' && !status(f.service).loaded) {
         let pids = '';
-        try { pids = run('/usr/bin/pgrep', ['-x', 'wacli'], {capture: true}); } catch {}
-        if (/^\d+$/m.test(pids)) { skipped.push({label: f.service.label, reason: 'existing-collector'}); continue; }
+        try { pids = run('/usr/bin/pgrep', ['-x', 'wacli'], {capture: true}); }
+        catch (error) { if (error.status !== 1) fail('Could not determine collector ownership.'); }
+        if (/^\d+$/m.test(pids)) {
+          skipped.push({label: f.service.label, reason: fs.existsSync(f.installed) ? 'existing-collector-and-agent-requires-reconciliation' : 'existing-collector'});
+          continue;
+        }
       }
-      run('/bin/launchctl', ['bootstrap', `gui/${uid}`, f.installed]);
+      installable.push(f);
     }
-    return {action: 'rebuild', serviceFiles: files.map(f => f.installed), skipped, cloudInvocationVerified: false};
+    fs.mkdirSync(path.join(home, 'Library/LaunchAgents'), {recursive: true, mode: 0o700});
+    for (const f of installable) if (!fs.existsSync(f.installed)) fs.copyFileSync(f.staged, f.installed, fs.constants.COPYFILE_EXCL);
+    for (const f of installable) {
+      if (!status(f.service).loaded) run('/bin/launchctl', ['bootstrap', `gui/${uid}`, f.installed]);
+    }
+    return {action: 'rebuild', serviceFiles: installable.map(f => f.installed), skipped, cloudInvocationVerified: false};
   }
+
   function version(key) {
     try { return run(expand(config[key]), ['--version'], {capture: true}).match(/(?:^|\s)v?(\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?)(?=\s|$)/)?.[1] || null; } catch { return null; }
   }

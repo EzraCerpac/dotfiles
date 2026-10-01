@@ -27,7 +27,11 @@ function fixture() {
       if (process.platform === 'darwin' && !process.env.CONCIERGE_TEST_PORTABLE_PLIST) return execFileSync(bin,args,{encoding:'utf8'});
       return execFileSync('python3', ['-c', 'import json, plistlib, sys; print(json.dumps(plistlib.load(open(sys.argv[1], "rb"))))', args.at(-1)], {encoding:'utf8'});
     }
-    if (bin === '/usr/bin/pgrep') { if (run.collectorExists) return '991\n'; throw Error('absent'); }
+    if (bin === '/usr/bin/pgrep') {
+      if (run.collectorProbeError) throw Object.assign(Error('probe failed'),{status:2});
+      if (run.collectorExists) return '991\n';
+      throw Object.assign(Error('absent'),{status:1});
+    }
     if (bin === '/bin/launchctl') {
       if (args[0] === 'print') {if (!loaded.has(args[1].split('/').at(-1))) throw Error('absent');return 'state = running\npid = 42';}
       if (args[0] === 'bootstrap') loaded.add(path.basename(args[2],'.plist'));
@@ -195,4 +199,116 @@ test('missing LaunchAgents cannot be installed through a symlink or writable dir
       assert.deepEqual(fs.readdirSync(target),[]);
     } finally {f.cleanup();}
   }
+});
+
+test('private paths reject writable ancestors, including above a missing destination',()=>{
+  for (const mode of [0o770,0o707,0o777]) {
+    const f=fixture();try {
+      const key=f.expand(f.config.services[1].keyFile), parent=path.dirname(key);
+      fs.chmodSync(parent,mode);
+      assert.throws(()=>f.ops.privatePath(key));
+      assert.throws(()=>f.ops.privatePath(path.join(parent,'missing/key')));
+      assert.throws(()=>f.ops.rebuild());
+      assert.deepEqual(f.calls,[]);
+    } finally {f.cleanup();}
+  }
+  const f=fixture();try {
+    fs.chmodSync(path.join(f.home,'.local'),0o777);
+    assert.throws(()=>f.ops.rebuild());assert.deepEqual(f.calls,[]);
+  } finally {f.cleanup();}
+});
+test('private paths reject foreign-owned ancestors while allowing safe traversable directories',t=>{
+  for (const relative of ['.local/share/dottie-whatsapp/tunnel','.local', '.']) {
+    const f=fixture();try {
+      const key=f.expand(f.config.services[1].keyFile), foreign=path.resolve(f.home,relative);
+      fs.chmodSync(foreign,0o755);
+      assert.equal(f.ops.privatePath(key),true);
+      const lstat=fs.lstatSync;
+      t.mock.method(fs,'lstatSync',(file,...args)=>{
+        const st=lstat(file,...args);
+        if (path.resolve(file)===foreign) Object.defineProperty(st,'uid',{value:process.getuid()+1});
+        return st;
+      });
+      assert.throws(()=>f.ops.privatePath(key));
+      assert.throws(()=>f.ops.privatePath(path.join(foreign,'missing/key')));
+      assert.throws(()=>f.ops.rebuild());assert.deepEqual(f.calls,[]);
+    } finally {t.mock.restoreAll();f.cleanup();}
+  }
+});
+test('external collector is skipped without installing a login auto-start plist',()=>{
+  const f=fixture();try {
+    const label=f.config.services[0].label, installed=path.join(f.home,'Library/LaunchAgents',label+'.plist');
+    f.run.collectorExists=true;
+    for (let i=0;i<2;i++) {
+      const result=f.ops.rebuild();
+      assert.deepEqual(result.skipped,[{label,reason:'existing-collector'}]);
+      assert.equal(fs.existsSync(installed),false);
+      assert.equal(result.serviceFiles.includes(installed),false);
+      assert.equal(f.loaded.has(label),false);
+      assert.ok(!f.calls.some(c=>c.args[0]==='bootstrap'&&c.args[2]===installed));
+    }
+    f.run.collectorExists=false;
+    f.ops.rebuild();assert.equal(fs.existsSync(installed),true);assert.equal(f.loaded.has(label),true);
+    f.run.collectorExists=true;f.calls.length=0;
+    assert.deepEqual(f.ops.rebuild().skipped,[]);
+    assert.ok(!f.calls.some(c=>c.bin==='/usr/bin/pgrep'||c.args[0]==='bootstrap'));
+  } finally {f.cleanup();}
+});
+test('an existing unloaded collector plist is preserved and reported for manual reconciliation',()=>{
+  const f=fixture();try {
+    f.ops.rebuild();
+    const label=f.config.services[0].label, installed=path.join(f.home,'Library/LaunchAgents',label+'.plist');
+    const original=fs.readFileSync(installed);
+    f.loaded.delete(label);f.run.collectorExists=true;f.calls.length=0;
+    assert.deepEqual(f.ops.rebuild().skipped,[{label,reason:'existing-collector-and-agent-requires-reconciliation'}]);
+    assert.deepEqual(fs.readFileSync(installed),original);
+    assert.equal(f.loaded.has(label),false);
+    assert.ok(!f.calls.some(c=>['bootstrap','bootout','kickstart'].includes(c.args[0])));
+  } finally {f.cleanup();}
+});
+test('profile binding requires exactly one command under mcp.commands on channel main',()=>{
+  const f=fixture();try {
+    f.ops.rebuild();
+    const s=f.config.services[1],file=f.ops.profileFile(s),original=fs.readFileSync(file,'utf8');
+    for (const changed of [
+      original.replace('channel: main','channel: unrelated'),
+      original.replace('  commands:','  ignored:'),
+      original.replace('    - channel: main\n',''),
+      original+'    - channel: other\n      command: "/usr/bin/false"\n',
+      original+'      channel: other\n',
+      original+'      command: "/usr/bin/false"\n',
+      original+'  server_urls:\n    - url: "https://example.invalid/mcp"\n',
+      original+'mcp: {commands: []}\n',
+      original+'"mcp": {commands: []}\n',
+      original.replace('mcp:\n','mcp: &commands\n'),
+      original.replace('  commands:','  commands: *other'),
+      original+'---\nmcp: {}\n',
+      original+'unexpected: [bad\n',
+      original.replace('control_plane:\n','control_plane:\n  unexpected: true\n'),
+      original+'health:\n  listen_addr: [bad\n',
+      original+'log:\n  level: info\n  level: debug\n',
+      original.replace('control_plane:\n','control_plane:\n  base_url: https://example.invalid\n'),
+      original.replace('control_plane:\n','control_plane:\n  url_path: /unexpected\n'),
+      original+'health:\n  listen_addr: 0.0.0.0:8080\n',
+      original+'health:\n  url_file: /tmp/unexpected\n',
+      original+'admin_ui:\n  open_browser: true\n',
+      original+'log:\n  level: debug\n'
+    ]) {
+      fs.writeFileSync(file,changed);f.calls.length=0;
+      assert.equal(f.ops.profileMatches(s),false);
+      assert.throws(()=>f.ops.rebuild());
+      assert.ok(!f.calls.some(c=>['sync','pip','init','bootstrap'].includes(c.args[0])));
+    }
+    fs.writeFileSync(file,original.replace('channel: main','channel: "main"').replace('mcp:\n','mcp:\n  # Generated sample\n\n').replaceAll('\n','\r\n'));
+    assert.equal(f.ops.profileMatches(s),true);
+  } finally {f.cleanup();}
+});
+
+test('collector probe failure cannot install or bootstrap the collector',()=>{
+  const f=fixture();try {
+    f.run.collectorProbeError=true;
+    assert.throws(()=>f.ops.rebuild(),/collector ownership/);
+    assert.equal(fs.existsSync(path.join(f.home,'Library/LaunchAgents',f.config.services[0].label+'.plist')),false);
+    assert.equal(f.loaded.size,0);
+  } finally {f.cleanup();}
 });
