@@ -240,3 +240,18 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 description = "Stage the current locally signed VoiceInk build"
 run = "bash setup-scripts/local/voiceink-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:capd-build"]
+description = "Build and stage the signed local capd fork"
+run = "bash setup-scripts/local/capd-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:capd-install"]
+description = "Install a staged capd build with app and data rollback"
+run = "bash setup-scripts/local/capd-install.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+
+["local:tinymist-build"]
+description = "Build Tinymist with the dependency-history cache fix"
+run = "bash setup-scripts/local/tinymist-build.sh"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"

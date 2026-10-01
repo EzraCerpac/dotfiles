@@ -1,0 +1,2 @@
+# Portless is the authorized local development proxy.
+prefix_rule(pattern = ["portless"], decision = "allow", justification = "Inspect and control Portless without approval.")

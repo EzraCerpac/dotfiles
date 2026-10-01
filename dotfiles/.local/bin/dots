@@ -31,6 +31,8 @@ Examples:
 
 Add defaults to the selected machine profile; --base targets shared config.
 Bare tool names use mise's preferred backend and latest version.
+brew: names prefer formulas and resolve to casks when no formula exists.
+New requests are recorded after installation; failures ask before recording.
 Source publication still uses JJ; backup publishes only private settings.
 HELP
 }
@@ -123,9 +125,9 @@ if [[ -z "$target" ]]; then
         *) echo 'dots: no supported machine profile; use --base or --profile' >&2; exit 2 ;;
     esac
 fi
-printf 'Recording in %s\n' "$target"
+printf 'Config destination: %s\n' "$target"
 if [[ ${#tools[@]} -gt 0 ]]; then
-    run_mise use --path "$target" "${tools[@]}"
+    bash "$root/setup-scripts/lib/dots-tool-add.sh" "$mise_bin" "$root" "$target" "${tools[@]}"
 fi
 if [[ ${#packages[@]} -gt 0 ]]; then
     bash "$root/setup-scripts/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "${packages[@]}"

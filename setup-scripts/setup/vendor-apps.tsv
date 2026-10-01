@@ -6,6 +6,7 @@ pinned	KeyType	/Applications/KeyType.app	project:~/Projects/KeyType	Use the KeyT
 pinned	KeyType Dev	/Applications/KeyType Dev.app	project:~/Projects/KeyType	Use the project dev-install workflow; keep this development bundle distinct.
 pinned	SoloTrace	/Applications/SoloTrace.app	project:~/Projects/solotrace	Use the SoloTrace project build/install workflow; do not replace its local data.
 pinned	VoiceInk	/Applications/VoiceInk.app	local:voiceink-build	Build and stage with this task; app installation/replacement remains a separate local step.
+pinned	capd	/Applications/capd.app	local:capd-build + local:capd-install	Build the local fork explicitly, then install the staged signed app; routine updates do not rebuild or adopt it.
 pinned	Neovim Automator	/Applications/Neovim.app	local:Automator workflow	Keep the local Automator application workflow; the Neovim CLI is managed separately by mise.
 pinned	vibez	~/.local/bin/vibez	project:~/Projects/Archive/vibez	Use the archived project source only for an intentional local rebuild; this report does not rebuild it.
 deferred	ChatGPT	/Applications/ChatGPT.app	OpenAI app updater	Use the app's vendor update route; package ownership for this bundle remains unresolved.

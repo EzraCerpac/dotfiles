@@ -45,6 +45,7 @@ opencode = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"
 "github:jgm/pandoc" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rclone = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 sccache = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+superfile = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 swiftformat = { version = "latest", os = ["macos/arm64"] }
 swiftlint = { version = "latest", os = ["macos/arm64"] }
 television = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -55,7 +56,6 @@ typstyle = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"
 "aqua:jdx/usage" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 worktrunk = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 xcodegen = { version = "latest", os = ["macos/arm64"] }
-yazi = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
 # Global npm CLIs. portless is a local checkout symlink and stays owned by
@@ -74,6 +74,7 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 
 # Native packages stay in the Homebrew prefix. Every item is Mac-only, so a
 # Linux workstation never inherits Mac system integration or GUI packages.
+claude-code = "latest"
 [bootstrap.packages]
 "brew:terminal-notifier" = { os = "macos/arm64" }
 "apt:git" = { os = ["linux/x64", "linux/arm64"] }
@@ -201,7 +202,10 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 [bootstrap.packages."brew-cask:driceroland/tap/search"]
 os = "macos/arm64"
 
+# capd is a local fork, built and installed only through explicit local tasks.
 
+[bootstrap.packages."brew-cask:ribren/tap/clicker"]
+os = "macos/arm64"
 [bootstrap.directories]
 "~/Projects" = { mode = "0755" }
 "~/Scripts" = { mode = "0755" }
@@ -266,6 +270,12 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
+"~/.codex/rules/core.rules" = { source = "dotfiles/.codex/rules/core.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.codex/rules/development.rules" = { source = "dotfiles/.codex/rules/development.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.codex/rules/vcs.rules" = { source = "dotfiles/.codex/rules/vcs.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.codex/rules/network.rules" = { source = "dotfiles/.codex/rules/network.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.codex/rules/macos.rules" = { source = "dotfiles/.codex/rules/macos.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.codex/rules/portless.rules" = { source = "dotfiles/.codex/rules/portless.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink" }
 "~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink" }
@@ -275,11 +285,10 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink" }
-"~/.config/fish/functions/__mise_source_yazi_completion.fish" = { source = "dotfiles/.config/fish/functions/__mise_source_yazi_completion.fish", mode = "symlink" }
+"~/.config/fish/functions/spf.fish" = { source = "dotfiles/.config/fish/functions/spf.fish", mode = "symlink" }
+"~/.config/zsh/spf.zsh" = { source = "dotfiles/.config/zsh/spf.zsh", mode = "symlink" }
 "~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink" }
 "~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink" }
-"~/.config/fish/completions/ya.fish" = { source = "dotfiles/.config/fish/completions/ya.fish", mode = "symlink" }
-"~/.config/fish/completions/yazi.fish" = { source = "dotfiles/.config/fish/completions/yazi.fish", mode = "symlink" }
 "~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink" }
 "~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink" }
 "~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink" }
@@ -316,7 +325,10 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/television/config.toml" = { source = "dotfiles/.config/television/config.toml", mode = "symlink" }
 "~/.config/tex-fmt/tex-fmt.toml" = { source = "dotfiles/.config/tex-fmt/tex-fmt.toml", mode = "symlink" }
 "~/.config/worktrunk/config.toml" = { source = "dotfiles/.config/worktrunk/config.toml", mode = "symlink" }
-"~/.config/yazi/init.lua" = { source = "dotfiles/.config/yazi/init.lua", mode = "symlink" }
+"~/.config/superfile/config.toml" = { source = "dotfiles/.config/superfile/config.toml", mode = "symlink" }
+"~/.config/superfile/hotkeys.toml" = { source = "dotfiles/.config/superfile/hotkeys.toml", mode = "symlink" }
+"~/Library/Application Support/superfile/config.toml" = { source = "dotfiles/.config/superfile/config.toml", mode = "symlink", variants = [{ os = "macos" }] }
+"~/Library/Application Support/superfile/hotkeys.toml" = { source = "dotfiles/.config/superfile/hotkeys.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/aerospace_workspaces.lua" = { source = "dotfiles/.hammerspoon/aerospace_workspaces.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/init.lua" = { source = "dotfiles/.hammerspoon/init.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.julia/config/pluto_user.js" = { source = "dotfiles/.julia/config/pluto_user.js", mode = "symlink" }

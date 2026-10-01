@@ -1,0 +1,64 @@
+# General local commands that may run outside the sandbox.
+prefix_rule(
+    pattern = [["sed", "env", "rg", "fd", "find", "jq", "ls", "head", "tail", "wc", "nl", "diff", "cat", "cut", "sort", "uniq", "tr", "awk", "xargs", "tee", "cp", "mv", "mkdir", "touch", "ln", "rm", "rmdir", "chmod", "chown", "du", "df", "stat", "file", "readlink", "realpath", "tar", "zip", "unzip"]],
+    decision = "allow",
+    justification = "Run authorized local utilities without approval.",
+)
+
+prefix_rule(
+    pattern = ["remctl"],
+    decision = "allow",
+    justification = "Read and fully control Apple Reminders through the authorized local CLI.",
+)
+
+prefix_rule(
+    pattern = [
+        "agenda",
+        [
+            "events",
+            "today",
+            "tomorrow",
+            "reminders",
+            "search",
+            "free",
+            "add",
+            "done",
+            "edit",
+            "move",
+            "calendars",
+            "doctor",
+            "describe",
+            "mcp",
+        ],
+    ],
+    decision = "allow",
+    justification = "Read and update Apple Calendar and Reminders, and serve their authorized local MCP.",
+)
+
+prefix_rule(
+    pattern = ["mail-mcp", "run"],
+    decision = "allow",
+    justification = "Serve the authorized local Apple Mail MCP.",
+)
+
+prefix_rule(
+    pattern = [
+        "mail-mcp",
+        "tool",
+        [
+            "find_messages",
+            "get_message_content",
+            "get_selected_messages",
+            "list_accounts",
+            "list_drafts",
+            "list_mailboxes",
+            "list_outgoing_messages",
+            "create_outgoing_message",
+            "create_reply",
+            "replace_outgoing_message",
+            "replace_reply",
+        ],
+    ],
+    decision = "allow",
+    justification = "Read Apple Mail and create or replace unsent drafts within the authorized task.",
+)

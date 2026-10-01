@@ -127,7 +127,9 @@ codex = "latest"
 "~/.config/nvim/lua/config/root-overide.lua" = { source = "dotfiles/.config/nvim/lua/config/root-overide.lua", mode = "symlink" }
 "~/.config/nvim/lua/custom/grammarly_bridge.lua" = { source = "dotfiles/.config/nvim/lua/custom/grammarly_bridge.lua", mode = "symlink" }
 "~/.config/nvim/lua/custom/latex_to_typst.lua" = { source = "dotfiles/.config/nvim/lua/custom/latex_to_typst.lua", mode = "symlink" }
+"~/.config/nvim/lua/custom/superfile.lua" = { source = "dotfiles/.config/nvim/lua/custom/superfile.lua", mode = "symlink" }
 "~/.config/nvim/lua/custom/typst_guard.lua" = { source = "dotfiles/.config/nvim/lua/custom/typst_guard.lua", mode = "symlink" }
+"~/.config/nvim/lua/custom/typst_references.lua" = { source = "dotfiles/.config/nvim/lua/custom/typst_references.lua", mode = "symlink" }
 "~/.config/nvim/lua/helpers/julials.jl" = { source = "dotfiles/.config/nvim/lua/helpers/julials.jl", mode = "symlink" }
 "~/.config/nvim/lua/overseer/component/uvpy/env.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/env.lua", mode = "symlink" }
 "~/.config/nvim/lua/overseer/component/uvpy/open_list.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/open_list.lua", mode = "symlink" }
@@ -190,7 +192,6 @@ codex = "latest"
 "~/.config/nvim/lua/plugins/undotree.lua" = { source = "dotfiles/.config/nvim/lua/plugins/undotree.lua", mode = "symlink" }
 "~/.config/nvim/lua/plugins/wakatime.lua" = { source = "dotfiles/.config/nvim/lua/plugins/wakatime.lua", mode = "symlink" }
 "~/.config/nvim/lua/plugins/which-key.lua" = { source = "dotfiles/.config/nvim/lua/plugins/which-key.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/yazi.lua" = { source = "dotfiles/.config/nvim/lua/plugins/yazi.lua", mode = "symlink" }
 "~/.config/nvim/lua/queries/toml/injections.scm" = { source = "dotfiles/.config/nvim/lua/queries/toml/injections.scm", mode = "symlink" }
 "~/.config/nvim/stylua.toml" = { source = "dotfiles/.config/nvim/stylua.toml", mode = "symlink" }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink" }

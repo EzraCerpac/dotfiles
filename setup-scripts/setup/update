@@ -111,9 +111,11 @@ upgrade_homebrew_casks() {
     local -a packages
 
     status_json="$(setup_mise bootstrap packages status --json)" || return $?
+    # CodexBar uses Sparkle, but its cask omits auto_updates metadata.
     selected="$(printf '%s' "$status_json" | setup_mise exec -- jq -r '
         (."brew-cask".packages | if type == "array" then . else error("missing brew-cask status") end)[]
         | select(.state == "installed" and .auto_updates != true)
+        | select(.package != "codexbar")
         | (.package | if type == "string" and length > 0 then "brew-cask:\(.)" else error("missing cask token") end)
     ')" || return $?
     if [[ -z "$selected" ]]; then

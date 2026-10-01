@@ -1,0 +1,78 @@
+diff --git a/crates/tinymist-query/src/analysis/global.rs b/crates/tinymist-query/src/analysis/global.rs
+index 2ab2df5..92ddb1f 100644
+--- a/crates/tinymist-query/src/analysis/global.rs
++++ b/crates/tinymist-query/src/analysis/global.rs
+@@ -1636,6 +1636,29 @@ impl<K, V> IncrCacheMap<K, V> {
+ mod incr_cache_tests {
+     use super::IncrCacheMap;
+ 
++    #[test]
++    fn type_history_drops_old_dependency_variants_for_reused_expression() {
++        use super::{AnalysisRevCache, RevisionManagerLike, TypeInfo};
++        use std::sync::Arc;
++        use typst::syntax::{FileId, RootedPath, VirtualPath, VirtualRoot};
++
++        let mut cache = AnalysisRevCache::default();
++        let fid = FileId::new(RootedPath::new(
++            VirtualRoot::Project,
++            VirtualPath::new("unchanged.typ").unwrap(),
++        ));
++        for revision in 1..=100 {
++            let slot = cache.default_slot.crawl(revision);
++            let mut info = TypeInfo::default();
++            info.fid = Some(fid);
++            // Expression reuse keeps this unchanged while a reachable dependency changes.
++            info.revision = 1;
++            slot.type_check.publish(revision as u128, Arc::new(info));
++            cache.gc(revision);
++        }
++        assert_eq!(cache.default_slot.type_check.global.lock().len(), 1);
++    }
++
+     #[test]
+     fn panicked_initializer_leaves_slot_empty() {
+         let cache = IncrCacheMap::<u8, u8>::default();
+@@ -1760,35 +1783,36 @@ impl RevisionManagerLike for AnalysisRevCache {
+     fn gc(&mut self, rev: usize) {
+         self.manager.gc(rev);
+ 
+-        // todo: the following code are time consuming.
++        // Use the publication revision: reused expression/type values can keep an older
++        // source revision while their dependency-keyed history changes.
+         {
+             let mut max_ei = FxHashMap::default();
+             let es = self.default_slot.expr_stage.global.lock();
+             for r in es.iter() {
+                 let rev: &mut usize = max_ei.entry(r.1.fid).or_default();
+-                *rev = (*rev).max(r.1.revision);
++                *rev = (*rev).max(r.0);
+             }
+-            es.retain(|_, r| r.1.revision == *max_ei.get(&r.1.fid).unwrap_or(&0));
++            es.retain(|_, r| r.0 == *max_ei.get(&r.1.fid).unwrap_or(&0));
+         }
+ 
+         {
+             let mut max_ti = FxHashMap::default();
+             let ts = self.default_slot.type_check.global.lock();
+             for r in ts.iter() {
+                 let rev: &mut usize = max_ti.entry(r.1.fid).or_default();
+-                *rev = (*rev).max(r.1.revision);
++                *rev = (*rev).max(r.0);
+             }
+-            ts.retain(|_, r| r.1.revision == *max_ti.get(&r.1.fid).unwrap_or(&0));
++            ts.retain(|_, r| r.0 == *max_ti.get(&r.1.fid).unwrap_or(&0));
+         }
+ 
+         {
+             let mut max_li = FxHashMap::default();
+             let ts = self.default_slot.lint.global.lock();
+             for r in ts.iter() {
+                 let rev: &mut usize = max_li.entry(r.1.fid).or_default();
+-                *rev = (*rev).max(r.1.revision);
++                *rev = (*rev).max(r.0);
+             }
+-            ts.retain(|_, r| r.1.revision == *max_li.get(&r.1.fid).unwrap_or(&0));
++            ts.retain(|_, r| r.0 == *max_li.get(&r.1.fid).unwrap_or(&0));
+         }
+     }
+ }

@@ -155,10 +155,22 @@ source; mise still owns installation and updates. Source builds may take longer
 and need a Rust toolchain. The workstation already includes Rust.
 
 For a native Mac library, use `dots add brew:libmagic`; a Mac app looks like
-`dots add brew-cask:firefox`. New Homebrew declarations are restricted to macOS
+`dots add brew-cask:firefox`. A `brew:` request prefers a formula and automatically
+selects a cask when the formula is confirmed absent. Network and recipe errors
+stop the attempt. `brew-cask:` explicitly selects a cask.
+New Homebrew declarations are restricted to macOS
 automatically, so they do not become Linux requirements. Existing declarations
 keep their options. Unsupported recipes still need a named installer exception;
-`dots` reports a backend failure rather than silently changing package managers.
+`dots` reports a backend failure for recipes it cannot install.
+
+New requests are recorded after successful installation. On failure, `dots add`
+shows the requested declaration and asks whether to record it for a later retry;
+the default is No. Noninteractive runs never record failed requests. Existing
+declarations remain in place. With multiple requests, earlier successful installs
+stay recorded and the command stops at the first failure.
+Tool installs stage only the requested static declaration. If that declaration
+contains a mise template, use mise directly from its trusted configuration;
+unrelated target templates and hooks are not evaluated by `dots add`.
 
 All these commands select `~/.config/mise` before loading configuration. They
 work from your thesis checkout or any other directory. An explicit `--path` is

@@ -74,6 +74,8 @@ fi
 # Alias: quick launch nvim with `v`
 alias v='nvim'
 
+[[ ! -f "$HOME/.config/zsh/spf.zsh" ]] || source "$HOME/.config/zsh/spf.zsh"
+
 # Shell completion configuration for the Click Python package
 command -v flow-cli > /dev/null 2>&1 && eval "$(_FLOW_CLI_COMPLETE=zsh_source flow-cli)"
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi

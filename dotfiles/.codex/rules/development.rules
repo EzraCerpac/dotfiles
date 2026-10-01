@@ -1,0 +1,11 @@
+# Scripts, toolchains, builds, installation, and publication within the task.
+# Shells and interpreters can run arbitrary code; review exceptions are best effort.
+prefix_rule(
+    pattern = [["bash", "sh", "zsh", "fish", "python", "python3", "node", "npm", "npx", "pnpm", "yarn", "bun", "deno", "uv", "cargo", "rustc", "mise", "julia", "swift", "swiftc", "typst", "brew", "make", "cmake", "ninja", "xcodebuild"]],
+    decision = "allow",
+    justification = "Run authorized scripts, installs, builds, tests, formatting, and publication without approval.",
+)
+
+prefix_rule(pattern = ["xcrun"], decision = "allow", justification = "Use Apple development and device tools within the authorized task.")
+prefix_rule(pattern = ["xcrun", "simctl", ["erase", "delete"]], decision = "prompt", justification = "Simulator erasure or deletion still requires review.")
+prefix_rule(pattern = ["xcrun", "devicectl", "device", "erase"], decision = "prompt", justification = "Physical device erasure still requires review.")

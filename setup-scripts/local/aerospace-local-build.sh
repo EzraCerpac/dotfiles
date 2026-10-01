@@ -9,8 +9,8 @@ source "${SCRIPT_DIR}/common"
 require_setup_profile workstation
 require_macos
 
-readonly expected_revision="0c0671cc593a556a1627a10aee601671e6cbeb3e"
-readonly expected_version="0.21.3-PR2245-Local"
+readonly expected_revision="d2792f5bcd5b35af2fcc3160b41dc6cd0201c592"
+readonly expected_version="0.21.3-PR2245-Local-CacheFocusFix"
 readonly source_dir="${AEROSPACE_SOURCE_DIR:-${HOME}/Projects/Tools/AeroSpace}"
 readonly app_path="/Applications/AeroSpace.app"
 readonly stage_root="${AEROSPACE_STAGE_ROOT:-${HOME}/.local/state/aerospace-pr2245/staged}"
@@ -66,17 +66,10 @@ require_command xcodebuild
     exit 1
 }
 
-source_revision="$(mise_exec git -C "$source_dir" rev-parse HEAD)"
-[[ "$source_revision" == "$expected_revision" ]] || {
-    setup_error "source revision is ${source_revision}; expected ${expected_revision}"
+if ! mise_exec git -C "$source_dir" cat-file -e "${expected_revision}^{commit}"; then
+    setup_error "source revision is unavailable: ${expected_revision}"
     exit 1
-}
-source_changes="$(mise_exec git -C "$source_dir" status --porcelain=v1 --untracked-files=all)"
-[[ -z "$source_changes" ]] || {
-    setup_error "source checkout has changes; preserve and reconcile them before building"
-    printf '%s\n' "$source_changes" >&2
-    exit 1
-}
+fi
 
 signing_identity="${AEROSPACE_CODESIGN_IDENTITY:-}"
 if [[ -z "$signing_identity" && -d "$app_path" ]]; then
@@ -112,7 +105,9 @@ trap 'exit 143' TERM
 
 source_copy="${build_root}/source"
 mkdir -p "$source_copy"
-mise_exec git -C "$source_dir" archive --format=tar "$expected_revision" | tar -xf - -C "$source_copy"
+source_archive="${build_root}/source.tar"
+mise_exec git -C "$source_dir" archive --format=tar --output="$source_archive" "$expected_revision"
+tar -xf "$source_archive" -C "$source_copy"
 
 echo "Generating version metadata for ${expected_version} (${expected_revision}) in an isolated source copy"
 mise_exec bash "${source_copy}/generate.sh" \
@@ -127,13 +122,14 @@ public let gitShortHash = "${revision_short}"
 EOF
 
 echo "Building the arm64 CLI and signed Release app into a private staging directory"
+# Swift 6.4's swiftbuild backend conflicts with warnings-as-errors for dependencies.
 mise_exec swift build \
     --package-path "$source_copy" \
     --scratch-path "${build_root}/swift-build" \
+    --build-system native \
     --configuration release \
     --arch arm64 \
-    --product aerospace \
-    -Xswiftc -warnings-as-errors
+    --product aerospace
 mise_exec xcodebuild \
     -project "${source_copy}/xcode/AeroSpace.xcodeproj" \
     -scheme AeroSpace \
@@ -144,7 +140,14 @@ mise_exec xcodebuild \
     MARKETING_VERSION="$expected_version" \
     build
 
-cli_build="${build_root}/swift-build/apple/Products/Release/aerospace"
+cli_build_dir="$(mise_exec swift build \
+    --package-path "$source_copy" \
+    --scratch-path "${build_root}/swift-build" \
+    --build-system native \
+    --configuration release \
+    --arch arm64 \
+    --show-bin-path)"
+cli_build="${cli_build_dir}/aerospace"
 app_build="${build_root}/xcode-build/Build/Products/Release/AeroSpace.app"
 require_file "$cli_build"
 [[ -d "$app_build" ]] || {

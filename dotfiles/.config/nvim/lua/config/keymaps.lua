@@ -4,6 +4,16 @@
 
 require("config.keymaps.jabref")
 
+vim.keymap.set({ "n", "x" }, "<leader>-", function()
+  require("custom.superfile").open()
+end, { desc = "Open Superfile at the current file" })
+vim.keymap.set("n", "<leader>cw", function()
+  require("custom.superfile").open_cwd()
+end, { desc = "Open Superfile in the working directory" })
+vim.keymap.set("n", "<leader>cy", function()
+  require("custom.superfile").toggle()
+end, { desc = "Toggle Superfile" })
+
 local function safe_del(mode, lhs)
   pcall(vim.keymap.del, mode, lhs)
 end

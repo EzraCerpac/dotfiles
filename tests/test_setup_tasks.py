@@ -241,6 +241,7 @@ exit 91
                         ]},
                         "brew-cask": {"packages": [
                             {"package": "rustdesk", "state": "installed"},
+                            {"package": "codexbar", "state": "installed"},
                             {"package": "google-chrome", "state": "installed", "auto_updates": True},
                         ]},
                     }
@@ -956,6 +957,8 @@ esac
         self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:mas"], commands)
         self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:fish"], commands)
         self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew-cask", "--yes", "brew-cask:rustdesk"], commands)
+        self.assertIn(["bootstrap", "packages", "apply", "--manager", "brew-cask", "--yes"], commands)
+        self.assertFalse(any("brew-cask:codexbar" in command for command in commands))
         self.assertFalse(any("brew-cask:google-chrome" in command for command in commands))
         self.assertNotIn(["bootstrap", "packages", "upgrade", "--manager", "mas", "--yes"], commands)
         self.assertIn(["upgrade", "--no-prune"], commands)
@@ -982,16 +985,20 @@ esac
         platform_bin.mkdir()
         self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
         path = f"{platform_bin}{os.pathsep}{self.env['PATH']}"
-        auto_only = json.dumps({
-            "brew": {"packages": [{"package": "mas", "state": "installed"}]},
-            "brew-cask": {"packages": [
-                {"package": "google-chrome", "state": "installed", "auto_updates": True},
-            ]},
-        })
-        result = self._run("update", extra_env={"PATH": path, "MISE_CASK_STATUS_JSON": auto_only})
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("No ordinary Homebrew casks", result.stdout)
-        self.assertFalse(any(call[4:7] == ["bootstrap", "packages", "upgrade"] and "brew-cask" in call for call in self._calls()))
+        for package in (
+            {"package": "google-chrome", "state": "installed", "auto_updates": True},
+            {"package": "codexbar", "state": "installed"},
+        ):
+            with self.subTest(package=package["package"]):
+                self.log.unlink(missing_ok=True)
+                status = json.dumps({
+                    "brew": {"packages": [{"package": "mas", "state": "installed"}]},
+                    "brew-cask": {"packages": [package]},
+                })
+                result = self._run("update", extra_env={"PATH": path, "MISE_CASK_STATUS_JSON": status})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("No ordinary Homebrew casks", result.stdout)
+                self.assertFalse(any(call[4:7] == ["bootstrap", "packages", "upgrade"] and "brew-cask" in call for call in self._calls()))
 
         self.log.unlink()
         result = self._run("update", extra_env={"PATH": path, "MISE_CASK_STATUS_JSON": "{bad json"})

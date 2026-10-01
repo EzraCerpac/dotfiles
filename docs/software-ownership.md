@@ -8,6 +8,15 @@ below records the migration baseline; it is not a list of current version pins.
 
 # Software ownership inventory
 
+capd is a local fork owned by `~/Projects/capd`, with explicit
+`local:capd-build` and `local:capd-install` tasks. Its previous
+`brew-cask:jamiedavenport/tap/capd` declaration is removed. Native package
+bootstrap acts on declared packages, so an old installed Homebrew receipt is
+not an adoption request and routine `dots up` does not reinstall it. The
+receipt and its old CLI link are retained in the rollback backup;
+the pinned `vendor-apps.tsv` entry only reports ownership. See
+[the capd task lifecycle](lifecycle.md) for build, install and rollback.
+
 Snapshot: 2026-09-14. This pre-cutover inventory uses read-only Homebrew, mise, `npm -g`,
 and `uv tool list` output. Homebrew queries used `HOMEBREW_NO_AUTO_UPDATE=1`;
 no package was installed, upgraded, uninstalled, or pruned for this inventory.
@@ -81,6 +90,11 @@ Brew version and new tool name. Homebrew's `git-delta` formula becomes mise's
 | `worktrunk` 0.74.0; `xcodegen` 2.46.0; `yazi` 26.8.15; `yt-dlp` 2026.7.4; `zoxide` 0.10.0 | Same-named Aqua/GitHub tools |
 | `julia` 1.12.6; `rust` 1.97.1; `uv` 0.12.0 | Existing mise ownership is retained; Brew duplicates are pending workflow checks |
 | `python@3.13` 3.13.14_1 | Mise Python 3.13, needed by remctl and global CLI environments |
+
+Superfile (`spf`) replaces Yazi as the workstation file manager; mise `latest`
+in the workstation profile is its owner. The Yazi row above is the baseline
+record. The existing Yazi installation and data are retained. See
+[Superfile](superfile.md).
 
 Other installed roots awaiting a consumer audit are `node@22` 22.23.2 and
 `python@3.11` 3.11.15_4. They are intentionally absent from the desired
@@ -199,6 +213,10 @@ has no release shorthand, so its Cargo Git source retains the exact installed
 commit. A fresh Fish resolution selects the declared mise Tinymist; the old
 Cargo binary remains an inert duplicate. The Cargo-installed `ttm` came from
 `~/Projects/typst-time-machine` and duplicates the declared Homebrew recipe.
+The Mac also selects a mise-linked local development build. Its
+`"github:EzraCerpac/typst-time-machine" = "local"` tool entry belongs in the
+ignored `config.host-<machine>.toml` under `[tools]`, because the linked build
+must already exist on that host. It is not a shared installation requirement.
 
 ## Cask transfer list
 

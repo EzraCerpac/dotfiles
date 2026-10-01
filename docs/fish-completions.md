@@ -11,12 +11,8 @@ completion is first requested, so upgrades do not require checked-in generated
 files. Herdr is verified with `herdr completion fish`; Tinymist is verified
 with `tinymist completion fish`.
 
-Yazi is different: its release archive ships `completions/yazi.fish` and
-`completions/ya.fish` beside the active binaries, but the binary does not
-provide a usable stdout generator. The tracked `yazi` and `ya` shims locate
-the active `yazi` binary with `command -s` (falling back to `mise which`) and
-source those sibling files. This follows mise version changes without copying
-generated provider files into the repository.
+Superfile (`spf`) uses ordinary filename completion; no completion generator
+or generated file is tracked for it. See [Superfile](superfile.md).
 
 The audit of the installed development tools found these working providers:
 
@@ -46,6 +42,4 @@ Validate the integration with:
 fish -n ~/.config/fish/config.fish ~/.config/fish/completions/herdr.fish
 fish -i -c 'complete -C "herdr "'
 fish -i -c 'complete -C "tinymist "'
-fish -i -c 'complete -C "yazi --"'
-fish -i -c 'complete -C "ya "'
 ```
