@@ -1,4 +1,29 @@
 # Included only when mise runs in the setup checkout.
+["concierge:plan"]
+description = "Inspect explicit NAS concierge service staging plan"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "node setup-scripts/local/concierge-nas.mjs plan"
+
+["concierge:stage"]
+description = "Stage private NAS LaunchAgent definitions without activation"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "node setup-scripts/local/concierge-nas.mjs stage"
+
+["concierge:doctor"]
+description = "Inspect NAS paths and exact concierge services without reading keys"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "node setup-scripts/local/concierge-nas.mjs doctor"
+
+["concierge:example"]
+description = "Print a secret-free runtime configuration template"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "node setup-scripts/local/concierge-nas.mjs example"
+
+["concierge:rebuild"]
+description = "Rebuild locked NAS dependencies and install or start only missing concierge services"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "node setup-scripts/local/concierge-nas.mjs rebuild"
+
 ["setup:status"]
 description = "Inspect setup health"
 run = "bash setup-scripts/setup/status"

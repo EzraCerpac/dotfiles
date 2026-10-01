@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "expectedHost": "REPLACE_WITH_NAS_HOSTNAME",
+  "projectDir": "~/Projects/personal-concierge",
+  "node": "~/.local/bin/node",
+  "python": "~/Projects/personal-concierge/integrations/icloud-pilot/.venv/bin/python",
+  "tunnelClient": "/usr/local/bin/tunnel-client",
+  "wacli": "/usr/local/bin/wacli",
+  "services": [
+    {
+      "label": "com.ezra.dottie.whatsapp.collector",
+      "kind": "wacli-collector",
+      "store": "~/.local/share/dottie-whatsapp/store"
+    },
+    {
+      "label": "com.ezra.dottie.whatsapp.read-bridge",
+      "kind": "tunnel",
+      "profile": "dottie-whatsapp-live",
+      "profileDir": "~/.local/share/dottie-whatsapp/tunnel/profiles",
+      "keyFile": "~/.local/share/dottie-whatsapp/tunnel/runtime-key",
+      "healthURLFile": "~/.local/state/dottie-whatsapp/health-url",
+      "backend": "whatsapp",
+      "tunnelID": "REPLACE_WHATSAPP_TUNNEL_ID",
+      "healthViaEnvironment": false,
+      "facadeConfig": "~/.config/dottie-whatsapp/facade.json"
+    },
+    {
+      "label": "com.ezra.dottie.mail.bridge",
+      "kind": "tunnel",
+      "profile": "dottie-mail",
+      "profileDir": "~/.local/share/dottie-mail/tunnel/profiles",
+      "keyFile": "~/.local/share/dottie-mail/tunnel/runtime-key",
+      "healthURLFile": "~/.local/state/dottie-mail/health-url",
+      "backend": "mail",
+      "tunnelID": "REPLACE_MAIL_TUNNEL_ID",
+      "healthViaEnvironment": true,
+      "accountsFile": "~/.config/dottie-mail/accounts.json",
+      "mailStateDir": "~/.local/state/dottie-mail"
+    },
+    {
+      "label": "com.ezra.dottie.reminders.bridge",
+      "kind": "tunnel",
+      "profile": "dottie-reminders",
+      "profileDir": "~/.local/share/dottie-icloud/tunnel/profiles",
+      "keyFile": "~/.local/share/dottie-icloud/tunnel/runtime-key",
+      "healthURLFile": "~/.local/state/dottie-icloud/health-url",
+      "backend": "icloud",
+      "tunnelID": "REPLACE_ICLOUD_TUNNEL_ID",
+      "healthViaEnvironment": true
+    }
+  ],
+  "uv": "~/.local/bin/uv",
+  "mailPython": "~/.local/share/dottie-mail/venv/bin/python",
+  "mailPythonVersion": "3.14.7",
+  "pythonVersion": "3.13.15",
+  "remindersEdits": false
+}
