@@ -214,8 +214,10 @@ class ZshSuperfileTests(SuperfileShellTests, unittest.TestCase):
             return bytes(output)
 
         try:
+            # CI runners can add writable third-party completion directories.
+            # Ignore those unrelated entries instead of prompting on the PTY.
             setup = (
-                "autoload -Uz compinit; compinit -D; "
+                "autoload -Uz compinit; compinit -i -D; "
                 f"source {shlex.quote(str(self.integration))}; "
                 f"cd {shlex.quote(str(self.origin))}; PROMPT=''; "
                 "print -r -- __SETUP_READY__"
