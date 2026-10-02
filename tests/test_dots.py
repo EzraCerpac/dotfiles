@@ -36,6 +36,8 @@ status = int(os.environ.get("UV_EXIT", "0"))
 if status:
     sys.exit(status)
 args = sys.argv[1:]
+if "--script" in args and "remove.py" in args[args.index("--script") + 1]:
+    sys.exit(0)
 url = args[args.index("resolve") + 1]
 if url.startswith("http://"):
     sys.exit(2)
@@ -138,6 +140,41 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.uv_calls()[0][-2:], ['--asset', pattern])
         self.assertEqual(self.calls()[-1]['args'][-1], f'github:jaskirat1616/mactap-app[asset_pattern={pattern}]')
+
+    def test_remove_and_uninstall_route_through_setup_helper(self):
+        for command in ('remove', 'uninstall'):
+            result = self.run_dots(command, '--dry-run', '--keep-installed', 'npm:prettier')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(self.uv_calls()[-1], [
+                'run', '--script', str(self.root/'setup-scripts/lib/dots-remove.py'),
+                str(self.mise), str(self.root), '--dry-run', '--keep-installed', 'npm:prettier',
+            ])
+            self.assertEqual(self.calls(), [])
+        self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
+    def test_remove_passes_config_selectors_and_resolves_relative_path_from_caller(self):
+        result = self.run_dots('remove', '--base', 'ripgrep')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls()[-1][-2:], ['--base', 'ripgrep'])
+        result = self.run_dots('uninstall', '--profile', 'nas', 'jq')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls()[-1][-3:], ['--profile', 'nas', 'jq'])
+        result = self.run_dots('remove', '--path', 'local.toml', 'watchexec')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls()[-1][-3:], ['--path', str(self.project/'local.toml'), 'watchexec'])
+        result = self.run_dots('remove', '--path=relative/config.toml', 'watchexec')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls()[-1][-3:], ['--path', str(self.project/'relative/config.toml'), 'watchexec'])
+        self.assertEqual(self.calls(), [])
+        self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
+    def test_remove_path_without_value_fails_before_dispatch(self):
+        for command in ('remove', 'uninstall'):
+            result = self.run_dots(command, '--path')
+            self.assertNotEqual(result.returncode, 0)
+        self.assertNotEqual(self.run_dots('remove', '--path=').returncode, 0)
+        self.assertEqual(self.uv_calls(), [])
+        self.assertEqual(self.calls(), [])
 
     def test_github_resolver_failure_stops_install_and_leaves_target_untouched(self):
         target = self.root/'config.workstation.toml'

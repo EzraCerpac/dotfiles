@@ -188,6 +188,52 @@ work from your thesis checkout or any other directory. An explicit `--path` is
 the only way to redirect the write to an arbitrary file. `dots help` explains
 the available actions; ordinary project-local `mise use` is unchanged.
 
+## Remove a tool
+
+When you no longer want something, run:
+
+```sh
+dots remove watchexec
+```
+
+`dots uninstall` does the same thing. The command uninstalls the software and
+deletes its declaration. Settings and app data stay where they are. By default
+it searches every active setup config, including your local and host files.
+`--base`, `--profile workstation|nas`, and `--path FILE` narrow the search the
+same way they do for `dots add`. If another active config still declares the
+tool, only the selected declaration is removed and the software stays
+installed.
+
+You can name the target by its exact declaration, such as `brew-cask:firefox`
+or `npm:prettier`, or by a GitHub repository URL. Backend identifiers retain
+their exact spelling; short names and GitHub repository names ignore case.
+A short name works when it matches exactly one declaration. If a bare
+`[tools]` key such as `jq` clashes with another manager's package, `mise:jq`
+selects the mise declaration explicitly. `dots remove mactap`
+also finds a GitHub app that `dots` installed. If a name matches more than
+one declaration, the command lists them and stops.
+
+Each kind of tool is removed by its own installer:
+
+- **mise tools:** `mise unuse` edits the named file. After removal,
+  `mise prune --yes --tools TOOL` removes unused versions of that tool. Mise
+  keeps versions that tracked project configs and tool stubs still use.
+- **Native packages** (Homebrew, apt, dnf, pacman, apk, mas): one targeted
+  uninstall. Dependents and transaction previews are checked first. Nothing is
+  pruned globally, and the command never uses zap, purge, or force.
+- **GitHub apps** installed by `dots add`: the app moves to the Trash, then mise
+  removes its unused release installation. Its ownership record is deleted
+  after removal succeeds. A failure restores the staged app.
+
+Kanata and Karabiner are held and cannot be removed this way. When the command
+can't confirm that a removal is safe, it stops. If a step fails, the command
+restores the target's declarations and its staged app. It does not reinstall
+native packages that were already uninstalled.
+
+`--dry-run` shows the plan without changing anything. `--keep-installed` deletes
+only the declaration and leaves the software installed. A GitHub app's
+ownership record is kept, so a later `dots remove` can still uninstall it.
+
 ## Choose what belongs on a machine
 
 `config.toml` is the shared base: the shell, navigation/search tools, Git/JJ,
