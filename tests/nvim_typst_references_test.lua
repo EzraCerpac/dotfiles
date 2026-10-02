@@ -202,6 +202,7 @@ ctx.id, ctx.mode = 100, "default"
 ctx.bounds = { start_col = 16, length = 5, line_number = 1 }
 ctx.trigger = { kind = "trigger_character", initial_kind = "trigger_character", character = ":" }
 ctx.providers = opts.sources.default(ctx)
+vim.uv.update_time()
 local started = vim.uv.hrtime()
 sources.request_completions(ctx)
 assert(
@@ -211,10 +212,9 @@ assert(
   "Blink never reached the fallback"
 )
 local elapsed = (vim.uv.hrtime() - started) / 1000000
-assert(
-  elapsed >= 100 and not replied and lsp_requests == 1,
-  "The cached fallback must arrive after timeout, before the stalled reply"
-)
+assert(elapsed >= 100, ("The cached fallback arrived before the timeout (%.1fms)"):format(elapsed))
+assert(not replied, "The cached fallback must arrive before the stalled LSP reply")
+assert(lsp_requests == 1, ("Expected one stalled LSP request, got %d"):format(lsp_requests))
 assert(
   not emitted.buffer and not emitted.lsp,
   "Reference completions must not expose ordinary buffer words"
