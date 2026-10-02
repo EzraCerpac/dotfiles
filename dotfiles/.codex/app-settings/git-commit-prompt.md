@@ -1,0 +1,1 @@
+Write one short, imperative, one-line commit subject describing the concrete change in the actual diff. Follow the repository's existing subject conventions. Name the resulting behavior or fixed problem. Do not invent validation, append unrelated changes, or include a body unless the user asks for one. Output only the commit message.

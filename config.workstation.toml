@@ -16,6 +16,8 @@ ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
 go = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rust = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+# JJ inherits the shared stable release. The native-worktree source pin is an
+# explicit host opt-in; see resources/jj-pr9943/workstation.toml.
 # Latest is the default; older interpreters serve existing global application environments.
 python = [
   { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] },

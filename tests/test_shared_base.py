@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -35,6 +36,45 @@ class SharedBaseTests(unittest.TestCase):
             self.assertIn(f'{manager}:git', workstation['bootstrap']['packages'])
         nas=tomllib.loads((ROOT/'config.nas.toml').read_text())
         self.assertEqual(nas['tools']['btop'], {'version': 'latest', 'os': ['linux/x64']})
+
+    @requires('mise')
+    def test_jj_source_pin_requires_explicit_workstation_host_overlay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp)
+            for name in ('config.toml', 'config.workstation.toml', 'config.nas.toml'):
+                (fixture / name).write_text((ROOT / name).read_text())
+            (fixture / 'config.host-native.toml').write_text(
+                (ROOT / 'resources/jj-pr9943/workstation.toml').read_text())
+            env = {key: value for key, value in os.environ.items() if not key.startswith('MISE_')}
+            env.update(MISE_CONFIG_DIR=tmp, MISE_AUTO_INSTALL='0', MISE_OFFLINE='1', MISE_YES='0')
+            for key in ('DATA', 'STATE', 'CACHE'):
+                env[f'MISE_{key}_DIR'] = str(fixture / key.lower())
+            for role in ('workstation', 'nas', None, 'workstation,host-native'):
+                command = [mise_binary(), '-C', tmp]
+                if role:
+                    command += ['-E', role]
+                result = subprocess.run(command + ['tool', 'jj', '--json'], env=env,
+                                        text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                selected = json.loads(result.stdout)
+                if role == 'workstation,host-native':
+                    self.assertEqual(selected['backend'], 'cargo:https://github.com/jj-vcs/jj')
+                    self.assertEqual(selected['requested_versions'],
+                                     ['rev:ede10cda453017def68e672a5715220ddf10c09b'])
+                    self.assertEqual(selected['tool_options']['crate'], 'jj-cli')
+                    self.assertEqual(selected['tool_options']['bin'], 'jj')
+                    self.assertEqual(selected['tool_options']['locked'], 'true')
+                    self.assertEqual(selected['tool_options']['depends'], ['rust'])
+                    self.assertEqual(Path(selected['config_source']['path']).name,
+                                     'config.host-native.toml')
+                    listing = subprocess.run(command + ['ls', '--current', '--json'], env=env,
+                                             text=True, capture_output=True, timeout=30)
+                    self.assertEqual(listing.returncode, 0, listing.stderr)
+                    self.assertEqual([key for key in json.loads(listing.stdout)
+                                      if key == 'jj' or key.endswith('/jj')], ['jj'])
+                else:
+                    self.assertEqual(selected['backend'], 'aqua:jj-vcs/jj')
+                    self.assertEqual(selected['requested_versions'], ['latest'])
 
     @requires('mise')
     def test_retired_selector_fails_before_bootstrap_hooks(self):
