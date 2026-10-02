@@ -85,7 +85,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_foreign_architectures_are_excluded_on_supported_hosts(self):
         for machine in ("arm64", "x86_64"):
-            for suffix in ("riscv64", "ppc64le", "powerpc64", "s390x", "loongarch64", "mips", "mipsel", "mips64", "mips64el", "sparc", "sparc64"):
+            for suffix in ("riscv64", "ppc64le", "powerpc64", "s390x", "loongarch64", "loong64", "mips", "mipsel", "mipsle", "mips64", "mips64el", "mips64le", "sparc", "sparc64"):
                 with self.subTest(machine=machine, suffix=suffix):
                     self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
                     self.assertIsNone(github.asset_score(f"tool-linux-{suffix}-universal.zip", "linux", machine))

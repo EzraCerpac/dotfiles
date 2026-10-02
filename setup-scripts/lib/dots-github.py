@@ -70,7 +70,7 @@ def asset_score(name, system, machine):
     x64 = machine in {"x86_64", "amd64", "x64"}
     arm32_tokens = {"arm", "armv6", "armv6l", "armv7", "armv7l", "armhf"}
     x86_tokens = {"x86", "i386", "i486", "i586", "i686", "386"}
-    foreign_arch_tokens = {"riscv64", "ppc64", "ppc64le", "powerpc64", "powerpc64le", "s390x", "loongarch64", "mips", "mipsel", "mips64", "mips64el", "sparc", "sparc64"}
+    foreign_arch_tokens = {"riscv64", "ppc64", "ppc64le", "powerpc64", "powerpc64le", "s390x", "loongarch64", "loong64", "mips", "mipsel", "mipsle", "mips64", "mips64el", "mips64le", "sparc", "sparc64"}
     if (arm or x64) and words & foreign_arch_tokens:
         return None
     # x86_64 and x86-64 split into x86/64, so exclude those spellings first.
