@@ -237,7 +237,7 @@ def resolve(url, override=None):
         if platform.system() != "Darwin":
             raise ValueError("this release contains a macOS app; install it on a Mac")
         hook = 'uv run --no-project python "${MISE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}/setup-scripts/lib/dots-github.py" install-app ' + shlex.quote(repo)
-        options = dict(asset_pattern=pattern, strip_components=0, bin_path=".dots-no-bin", os=["macos"], postinstall={"run": hook, "when": "always"})
+        options.update(strip_components=0, bin_path=".dots-no-bin", os=["macos"], postinstall={"run": hook, "when": "always"})
     if numeric_version and tag[:numeric_version.start()] not in {"", "v"}:
         options["version_prefix"] = tag[:numeric_version.start()]
     def toml_value(value):

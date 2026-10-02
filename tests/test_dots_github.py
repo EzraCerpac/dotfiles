@@ -158,6 +158,16 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("postinstall={run=", request)
         self.assertNotIn(str(ROOT), request)
 
+    def test_app_patterns_remain_scoped_to_host_architecture(self):
+        release = {"tag_name": "v1.2.3", "assets": assets("Tool-1.2.3-macos-arm64.zip", "Tool-1.2.3-macos-x64.zip")}
+        for machine, architecture in (("arm64", "arm64"), ("x86_64", "x64")):
+            with self.subTest(machine=machine), patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"), patch.object(github.platform, "machine", return_value=machine):
+                request = github.resolve("https://github.com/owner/repo")
+            self.assertIn(f'platform_macos_{architecture}_asset_pattern="Tool-*-macos-{architecture}.zip"', request)
+            self.assertNotIn("[asset_pattern=", request)
+            self.assertIn("postinstall={run=", request)
+            self.assertIn("strip_components=0", request)
+
     def test_private_asset_download_and_redirect_do_not_leak_token(self):
         asset = {"name": "tool.zip", "id": 123, "browser_download_url": "https://github.com/owner/repo/releases/download/v1/tool.zip"}
         for token_name in ("GITHUB_TOKEN", "GH_TOKEN"):
