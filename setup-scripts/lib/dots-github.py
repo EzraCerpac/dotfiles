@@ -59,7 +59,7 @@ def fetch_release(repo):
 def asset_score(name, system, machine):
     name = name.lower()
     words = set(re.split(r"[^a-z0-9]+", name))
-    families = {"darwin": {"macos", "darwin", "osx", "mac"}, "linux": {"linux"}, "windows": {"windows", "win32", "win64"}}
+    families = {"darwin": {"macos", "darwin", "osx", "mac"}, "linux": {"linux"}, "windows": {"windows", "win", "win32", "win64"}}
     current = families.get(system, {system})
     if any(words & tokens for key, tokens in families.items() if key != system):
         return None
@@ -69,7 +69,7 @@ def asset_score(name, system, machine):
     has_x64 = bool(words & x64_tokens) or "x86_64" in name
     if ((arm and has_x64) or (not arm and words & arm_tokens)) and "universal" not in words:
         return None
-    if any(token in name for token in ("checksum", "sha256", "sha512", ".sig", ".asc", "source", "debug", "symbols", "sbom", "intoto", "provenance")):
+    if words & {"source", "sources"} or any(token in name for token in ("checksum", "sha256", "sha512", ".sig", ".asc", "debug", "symbols", "sbom", "intoto", "provenance")):
         return None
     if name.endswith((".dmg", ".pkg")) and system != "darwin":
         return None

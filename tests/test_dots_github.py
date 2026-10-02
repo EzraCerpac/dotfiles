@@ -51,6 +51,19 @@ class ReleaseTests(unittest.TestCase):
         chosen = github.choose_asset(assets("tool-linux-arm64.tar.gz", "tool-darwin-x86_64.tar.gz", "tool-darwin-aarch64.tar.gz", "tool-darwin-aarch64.tar.gz.sha256"), system="darwin", machine="arm64")
         self.assertEqual(chosen["name"], "tool-darwin-aarch64.tar.gz")
 
+    def test_win_archive_is_excluded_on_mac_and_linux(self):
+        for system in ("darwin", "linux"):
+            with self.subTest(system=system):
+                self.assertIsNone(github.asset_score("tool-win-x64.zip", system, "x86_64"))
+        self.assertEqual(github.choose_asset(assets("tool-win-x64.zip", "tool-linux-x64.zip"), system="windows", machine="x86_64")["name"], "tool-win-x64.zip")
+
+    def test_source_product_name_is_not_a_source_archive(self):
+        candidates = assets("SourceGit-2026-macos-arm64.zip", "SourceGit-source.zip", "SourceGit-sources.tar.gz")
+        self.assertEqual(github.choose_asset(candidates, system="darwin", machine="arm64")["name"], "SourceGit-2026-macos-arm64.zip")
+        for name in ("SourceGit-source.zip", "SourceGit-sources.tar.gz", "source.zip", "tool-source-code.zip"):
+            with self.subTest(name=name):
+                self.assertIsNone(github.asset_score(name, "darwin", "arm64"))
+
     def test_ambiguity_and_override(self):
         candidates = assets("one-macos-arm64.zip", "two-macos-arm64.zip")
         with self.assertRaisesRegex(ValueError, "--asset"):
