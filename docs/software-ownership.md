@@ -1,10 +1,36 @@
 # Current policy
 
 The manifests are authoritative: shared terminal tools, Neovim, and pagers load
-for both roles. Tools track latest releases; Kanata and Karabiner are held for
-the known input bug. Herdr updates defer while its server is running. Older
-Python interpreters are application compatibility dependencies. The inventory
+for both roles. Tools track latest releases except the workstation JJ source
+pin and the Kanata and Karabiner versions held for the known input bug.
+Herdr updates defer while its server is running. Older Python interpreters are
+application compatibility dependencies. The inventory
 below records the migration baseline; it is not a list of current version pins.
+
+The shared base retains `jj = "latest"`. Workstation overrides that same tool
+identity with the Cargo backend for the official `jj-vcs/jj` repository at
+`ede10cda453017def68e672a5715220ddf10c09b`, the tested head of
+[PR #9943](https://github.com/jj-vcs/jj/pull/9943). The source build selects
+`jj-cli` and its `jj` binary with Cargo's lockfile. The tested binary reports
+`jj 0.45.1-ede10cda453017def68e672a5715220ddf10c09b`; it was built with Rust
+1.97.1. The profile retains its normal Rust `latest` policy, so another machine
+may build the same JJ revision with a different compiler. Linux compilation
+and installation through mise remain unverified.
+
+Routine updates retain this full SHA. Replacing it requires a reviewed source
+edit. To return workstation to the shared stable release selection, remove
+its `jj` tool entry and `[tool_alias.jj]` together, then install the inherited
+release through the normal mise workflow and verify the selected executable.
+Changing these source files alone does not install or activate the new binary.
+
+Coordinate activation with every active JJ writer and let those writers yield
+before adopting worktrees or switching the binary. Capture the latest local
+metadata and delta against the reviewed source after they yield. Before
+adoption, the ownership-aware `jw` build must pass its adopted-worktree
+removal, prune, and reconciliation tests, and the corresponding agent
+instructions must be applied. Direct `jj workspace forget` remains unsafe
+for Codex-owned worktrees; agents must use the app's lifecycle controls.
+Do not switch binaries underneath active tasks. This pin is staged only.
 
 # Software ownership inventory
 

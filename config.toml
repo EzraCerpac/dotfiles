@@ -86,6 +86,8 @@ codex = "latest"
 "~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink" }
 "~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template" }
 "~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink" }
+"~/.codex/app-settings/git-commit-prompt.md" = { source = "dotfiles/.codex/app-settings/git-commit-prompt.md", mode = "symlink" }
+"~/.codex/app-settings/git-pr-prompt.md" = { source = "dotfiles/.codex/app-settings/git-pr-prompt.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/agents/openai.yaml" = { source = "dotfiles/.codex/skills/jj-waltz/agents/openai.yaml", mode = "symlink" }
 "~/.codex/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/codex.md", mode = "symlink" }

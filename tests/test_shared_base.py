@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -20,7 +21,8 @@ class SharedBaseTests(unittest.TestCase):
         self.assertFalse(any(key.startswith('cargo:') for key in tools))
         for role in ('workstation','nas'):
             profile=tomllib.loads((ROOT/f'config.{role}.toml').read_text())
-            self.assertFalse(tools.keys() & profile.get('tools',{}).keys())
+            expected_overrides = {'jj'} if role == 'workstation' else set()
+            self.assertEqual(tools.keys() & profile.get('tools',{}).keys(), expected_overrides)
             self.assertFalse(base['dotfiles'].keys() & profile.get('dotfiles',{}).keys())
         for path in ('~/.config/fish/config.fish','~/.config/jj/config.toml','~/.config/git/config','~/.config/nvim/init.lua','~/.local/bin/dots'):
             self.assertIn(path, base['dotfiles'])
@@ -35,6 +37,43 @@ class SharedBaseTests(unittest.TestCase):
             self.assertIn(f'{manager}:git', workstation['bootstrap']['packages'])
         nas=tomllib.loads((ROOT/'config.nas.toml').read_text())
         self.assertEqual(nas['tools']['btop'], {'version': 'latest', 'os': ['linux/x64']})
+
+    @requires('mise')
+    def test_workstation_jj_source_pin_replaces_shared_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp)
+            for name in ('config.toml', 'config.workstation.toml', 'config.nas.toml'):
+                (fixture / name).write_text((ROOT / name).read_text())
+            env = {key: value for key, value in os.environ.items() if not key.startswith('MISE_')}
+            env.update(MISE_CONFIG_DIR=tmp, MISE_AUTO_INSTALL='0', MISE_OFFLINE='1', MISE_YES='0')
+            for key in ('DATA', 'STATE', 'CACHE'):
+                env[f'MISE_{key}_DIR'] = str(fixture / key.lower())
+            for role in ('workstation', 'nas', None):
+                command = [mise_binary(), '-C', tmp]
+                if role:
+                    command += ['-E', role]
+                result = subprocess.run(command + ['tool', 'jj', '--json'], env=env,
+                                        text=True, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                selected = json.loads(result.stdout)
+                if role == 'workstation':
+                    self.assertEqual(selected['backend'], 'cargo:https://github.com/jj-vcs/jj')
+                    self.assertEqual(selected['requested_versions'],
+                                     ['rev:ede10cda453017def68e672a5715220ddf10c09b'])
+                    self.assertEqual(selected['tool_options']['crate'], 'jj-cli')
+                    self.assertEqual(selected['tool_options']['bin'], 'jj')
+                    self.assertEqual(selected['tool_options']['locked'], 'true')
+                    self.assertEqual(selected['tool_options']['depends'], ['rust'])
+                    self.assertEqual(Path(selected['config_source']['path']).name,
+                                     'config.workstation.toml')
+                    listing = subprocess.run(command + ['ls', '--current', '--json'], env=env,
+                                             text=True, capture_output=True, timeout=30)
+                    self.assertEqual(listing.returncode, 0, listing.stderr)
+                    self.assertEqual([key for key in json.loads(listing.stdout)
+                                      if key == 'jj' or key.endswith('/jj')], ['jj'])
+                else:
+                    self.assertEqual(selected['backend'], 'aqua:jj-vcs/jj')
+                    self.assertEqual(selected['requested_versions'], ['latest'])
 
     @requires('mise')
     def test_retired_selector_fails_before_bootstrap_hooks(self):

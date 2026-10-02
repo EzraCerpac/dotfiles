@@ -1,5 +1,21 @@
+# Project-local environment; fields match the installed app's generated format.
 version = 1
 name = "dotfiles"
 
 [setup]
-script = "mise -C ~/.config/mise run setup:status"
+script = "test -f config.toml && test -f config.workstation.toml && test -x tests/run"
+
+[[actions]]
+name = "Python tests"
+icon = "tool"
+command = "tests/run python"
+
+[[actions]]
+name = "JJ profile tests"
+icon = "tool"
+command = "uv run --no-project python -m unittest discover -s tests -p test_shared_base.py -v"
+
+[[actions]]
+name = "Skill sync tests"
+icon = "tool"
+command = "uv run --no-project python -m unittest discover -s tests -p test_jj_skill_sync.py -v"

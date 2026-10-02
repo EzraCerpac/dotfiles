@@ -8,6 +8,10 @@ DISABLE_AUTOUPDATER = "1"
 GROK_DISABLE_AUTOUPDATER = "1"
 AGY_CLI_DISABLE_AUTO_UPDATE = "true"
 
+# Keep one jj tool owner; the workstation overrides the shared release backend.
+[tool_alias.jj]
+backend = "cargo:https://github.com/jj-vcs/jj"
+
 [tools]
 # Routine updates defer Herdr while its persistent terminal server is running.
 herdr = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -16,6 +20,9 @@ ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
 go = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rust = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+# Official PR #9943, fixed revision. Updates do not advance this pin automatically.
+# Roll back by removing this jj entry and [tool_alias.jj] to inherit base latest.
+jj = { version = "rev:ede10cda453017def68e672a5715220ddf10c09b", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"], crate = "jj-cli", bin = "jj", locked = true }
 # Latest is the default; older interpreters serve existing global application environments.
 python = [
   { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] },
