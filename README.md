@@ -163,6 +163,17 @@ automatically, so they do not become Linux requirements. Existing declarations
 keep their options. Unsupported recipes still need a named installer exception;
 `dots` reports a backend failure for recipes it cannot install.
 
+For a project that publishes GitHub releases, pass its HTTPS repository URL:
+`dots add https://github.com/jaskirat1616/mactap-app`. A prebuilt command-line
+release uses mise's GitHub backend. A macOS app shipped as a ZIP or tar archive
+is recorded with a local install hook, so mise upgrades also replace the app in
+`/Applications`; no Homebrew cask is needed. The hook will not overwrite an app
+that `dots` did not install. DMG and pkg installers are rejected with an
+explanation. If `dots` cannot choose one download, name it with
+`--asset 'tool-*-macos-arm64.zip'`, which takes a name or glob and requires
+exactly one URL. Only the latest stable release assets are used and no script
+from the repository runs, so a source-only repository cannot be installed.
+
 New requests are recorded after successful installation. On failure, `dots add`
 shows the requested declaration and asks whether to record it for a later retry;
 the default is No. Noninteractive runs never record failed requests. Existing

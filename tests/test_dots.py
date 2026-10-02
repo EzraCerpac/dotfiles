@@ -21,9 +21,29 @@ class DotsTest(unittest.TestCase):
             (self.root / name).write_text('')
         (self.project / 'mise.toml').write_text('[tools]\nnode="20"\n')
         self.log = self.base / 'calls.jsonl'
+        self.uv_log = self.base / 'uv-calls.jsonl'
         self.mise = self.base / 'mise'
         self.mise.write_text('#!/usr/bin/env python3\nimport os,sys,json\nwith open(os.environ["CALL_LOG"],"a") as f: f.write(json.dumps({"args":sys.argv[1:],"env":os.environ.get("MISE_ENV"),"root":os.environ.get("MISE_CONFIG_DIR")})+"\\n")\nif "get" in sys.argv: print("workstation")\nsys.exit(int(os.environ.get("FAIL_USE","0")) if "use" in sys.argv else 0)\n')
         self.mise.chmod(0o755)
+        self.bin_dir = self.base / 'bin'
+        self.bin_dir.mkdir()
+        self.uv = self.bin_dir / 'uv'
+        self.uv.write_text('''#!/usr/bin/env python3
+import json, os, sys
+with open(os.environ["UV_CALL_LOG"], "a") as f:
+    f.write(json.dumps(sys.argv[1:]) + "\\n")
+status = int(os.environ.get("UV_EXIT", "0"))
+if status:
+    sys.exit(status)
+args = sys.argv[1:]
+url = args[args.index("resolve") + 1]
+if url.startswith("http://"):
+    sys.exit(2)
+repo = "/".join(url.removesuffix(".git").rstrip("/").split("/")[-2:])
+asset = args[args.index("--asset") + 1] if "--asset" in args else None
+print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
+''')
+        self.uv.chmod(0o755)
         helper = self.root / 'setup-scripts/lib/dots-package-add.sh'
         helper.parent.mkdir(parents=True)
         helper.write_text('#!/usr/bin/env bash\n"$1" -C "$2" PACKAGE_HELPER "$3" "${@:4}"\n')
@@ -33,13 +53,19 @@ class DotsTest(unittest.TestCase):
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
             shutil.copy2(SOURCE.parents[3] / 'setup-scripts/bootstrap' / name, bootstrap / name)
-        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), CALL_LOG=str(self.log), MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
+        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), CALL_LOG=str(self.log), UV_CALL_LOG=str(self.uv_log), PATH=f'{self.bin_dir}:{os.environ["PATH"]}', MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
 
     def run_dots(self, *args, **env):
         return subprocess.run(['bash', str(SOURCE), *args], cwd=self.project, env=dict(self.env, **env), text=True, capture_output=True)
 
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+
+    def uv_calls(self):
+        return [json.loads(line) for line in self.uv_log.read_text().splitlines()] if self.uv_log.exists() else []
+
+    def install_calls(self):
+        return [call for call in self.calls() if 'use' in call['args'] or 'PACKAGE_HELPER' in call['args']]
 
     def test_short_update_is_rooted_and_drops_project_selector(self):
         result = self.run_dots('up')
@@ -92,6 +118,55 @@ class DotsTest(unittest.TestCase):
         result = self.run_dots('add', '--base', 'brew:libmagic')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[-1]['args'][-3:], ['PACKAGE_HELPER', str(self.root/'config.toml'), 'brew:libmagic'])
+
+    def test_github_release_is_resolved_from_the_setup_root(self):
+        url = 'https://github.com/jaskirat1616/mactap-app'
+        result = self.run_dots('add', url)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls(), [[
+            'run', '--script', str(self.root/'setup-scripts/lib/dots-github.py'), 'resolve', url,
+        ]])
+        self.assertEqual(self.calls()[-1]['args'], [
+            '-C', str(self.root), 'use', '--path', str(self.root/'config.workstation.toml'),
+            'github:jaskirat1616/mactap-app',
+        ])
+        self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
+    def test_github_asset_glob_is_preserved_for_resolver_and_install(self):
+        pattern = 'MacTap-*-macos-arm64.zip'
+        result = self.run_dots('add', '--asset', pattern, 'https://github.com/jaskirat1616/mactap-app')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.uv_calls()[0][-2:], ['--asset', pattern])
+        self.assertEqual(self.calls()[-1]['args'][-1], f'github:jaskirat1616/mactap-app[asset_pattern={pattern}]')
+
+    def test_github_resolver_failure_stops_install_and_leaves_target_untouched(self):
+        target = self.root/'config.workstation.toml'
+        before = target.read_text()
+        result = self.run_dots('add', 'https://github.com/jaskirat1616/mactap-app', UV_EXIT='23')
+        self.assertEqual(result.returncode, 23)
+        self.assertEqual(len(self.uv_calls()), 1)
+        self.assertEqual(self.install_calls(), [])
+        self.assertEqual(target.read_text(), before)
+
+    def test_asset_requires_one_github_url_and_one_asset_option(self):
+        invalid = [
+            ('add', '--asset', 'app.zip', 'watchexec'),
+            ('add', '--asset', 'app.zip', 'https://github.com/one/repo', 'https://github.com/two/repo'),
+            ('add', '--asset', 'first.zip', '--asset', 'second.zip', 'https://github.com/one/repo'),
+            ('add', '--asset', 'https://github.com/one/repo'),
+            ('add', '--asset'),
+        ]
+        for args in invalid:
+            with self.subTest(args=args):
+                self.assertNotEqual(self.run_dots(*args).returncode, 0)
+        self.assertEqual(self.uv_calls(), [])
+        self.assertEqual(self.install_calls(), [])
+
+    def test_http_github_url_fails_in_resolver_without_install(self):
+        result = self.run_dots('add', 'http://github.com/owner/repo')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.uv_calls()), 1)
+        self.assertEqual(self.install_calls(), [])
 
     def test_test_runs_the_setup_suite_with_suite_arguments(self):
         result = self.run_dots('test', 'python', 'shell')
