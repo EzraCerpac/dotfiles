@@ -57,6 +57,17 @@ class PackageRemovalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-app artifacts"):
             self.plan("brew-cask", "pkg", ["", json.dumps({"casks": [{"artifacts": [{"pkg": ["Example.pkg"]}]}]})])
 
+    def test_unregistered_cask_with_mixed_artifacts_refuses_even_when_app_is_absent(self):
+        for artifacts in [
+            [{"app": ["Example.app"]}, {"pkg": ["Example.pkg"]}],
+            [{"app": ["Example.app"]}, {"binary": ["example"]}],
+            [{"app": ["Example.app"], "pkg": ["Example.pkg"]}],
+        ]:
+            metadata = json.dumps({"casks": [{"artifacts": artifacts}]})
+            with self.subTest(artifacts=artifacts), patch.object(PACKAGES.Path, "exists", return_value=False):
+                with self.assertRaisesRegex(ValueError, "non-app artifacts"):
+                    self.plan("brew-cask", "example", ["", metadata])
+
     def test_brew_dependencies_and_ambiguity_refused(self):
         with self.assertRaisesRegex(ValueError, "installed dependents"):
             self.plan("brew", "foo", ["foo\n", "bar\n"])
@@ -69,6 +80,17 @@ class PackageRemovalTests(unittest.TestCase):
         plan, calls = self.plan("apt", "foo", ["foo:amd64 installed\nbar config-files\n", "Remv foo:amd64 [1.0]\n"])
         self.assertEqual(plan["commands"], [["sudo", "apt-get", "--yes", "--no-auto-remove", "remove", "foo"]])
         self.assertIn("--simulate", calls[-1])
+        plan, _ = self.plan("apt", "foo:amd64", ["foo:amd64 installed\n", "Remv foo:amd64 [1.0]\n"])
+        self.assertEqual(plan["commands"][0][-1], "foo:amd64")
+
+    def test_apt_refuses_duplicate_and_mismatched_architecture_rows(self):
+        for name, preview in [
+            ("foo", "Remv foo:amd64 [1.0]\nRemv foo:i386 [1.0]\n"),
+            ("foo", "Remv foo:amd64 [1.0]\nRemv foo:amd64 [1.0]\n"),
+            ("foo:amd64", "Remv foo:i386 [1.0]\n"),
+        ]:
+            with self.subTest(name=name, preview=preview), self.assertRaises(ValueError):
+                self.plan("apt", name, ["foo:amd64 installed\nfoo:i386 installed\n", preview])
 
     def test_apt_refuses_other_removals_or_installs(self):
         for preview in ["Remv foo [1]\nRemv bar [2]\n", "Remv foo [1]\nInst bar (2)\n", "unknown format\n"]:

@@ -59,6 +59,44 @@ class RemoveTests(unittest.TestCase):
                 remove.main(["mise", str(self.root), "node", "missing"])
             execute.assert_not_called()
 
+    def test_builtin_homebrew_aliases_resolve_and_preserve_original_keys(self):
+        for manager, tap in (("brew", "homebrew/core"), ("brew-cask", "homebrew/cask")):
+            short, qualified = f"{manager}:foo", f"{manager}:{tap}/foo"
+            for key in (short, qualified):
+                with self.subTest(key=key):
+                    self.base.write_text(f'[tools]\n"{key}" = "latest"\n')
+                    declarations = remove.discover([self.base])
+                    self.assertEqual(remove.resolve([short, qualified], declarations, {}), [short])
+                    self.assertEqual(declarations[short][0]["key"], key)
+                    plan = remove.prepare(short, declarations[short], {}, True, self.packages)
+                    def run(command, **kwargs):
+                        self.assertEqual(command[-1], key)
+                        remove.remove_entry(declarations[short][0])
+                    with patch.object(remove.subprocess, "run", side_effect=run):
+                        remove.execute(plan, "mise", self.root, True, self.packages)
+                    self.assertNotIn(short, remove.discover([self.base]))
+        for key in ("brew:other/tap/foo", "brew-cask:other/tap/foo", "brew:homebrew/cask/foo", "brew-cask:homebrew/core/foo"):
+            with self.subTest(key=key):
+                self.assertEqual(remove.canonical(key), key)
+
+    def test_selected_builtin_homebrew_alias_retains_shared_package(self):
+        for manager, tap in (("brew", "homebrew/core"), ("brew-cask", "homebrew/cask")):
+            short, qualified = f"{manager}:foo", f"{manager}:{tap}/foo"
+            for selected, other in ((short, qualified), (qualified, short)):
+                for selector in (["--base"], ["--path", str(self.base)]):
+                    with self.subTest(selected=selected, selector=selector):
+                        self.base.write_text(f'[bootstrap.packages]\n"{selected}" = "*"\n')
+                        self.local.write_text(f'[bootstrap.packages]\n"{other}" = "*"\n')
+                        self.packages.reset_mock()
+                        other_contents = self.local.read_bytes()
+                        with patch.object(remove, "active_configs", return_value=[self.base, self.local]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+                            self.assertEqual(remove.main(["mise", str(self.root), *selector, selected]), 0)
+                        self.packages.plan_remove.assert_not_called()
+                        self.packages.execute_remove.assert_not_called()
+                        self.assertNotIn(short, remove.discover([self.base]))
+                        self.assertEqual(self.local.read_bytes(), other_contents)
+                        self.assertIn(short, remove.discover([self.local]))
+
     def test_dry_run_all_active_configs_and_selector(self):
         original = self.local.read_bytes()
         with patch.object(remove, "active_configs", return_value=[self.base, self.local]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), patch.object(remove, "execute") as execute:

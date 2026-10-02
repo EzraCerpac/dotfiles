@@ -29,7 +29,7 @@ def privileged(command):
 
 
 def only_target(names, name):
-    if not names or set(names) != {name}:
+    if len(names) != 1 or names[0] != name:
         raise ValueError(f"refusing transaction for {name}: expected only that package, got {', '.join(names) or 'no removals'}")
 
 
@@ -73,8 +73,8 @@ def brew_plan(manager, name):
                 raise ValueError(f"cannot verify unregistered cask {name} is absent")
             app_paths = []
             for artifact in casks[0].get("artifacts", []):
-                if "app" not in artifact:
-                    continue
+                if "app" not in artifact or set(artifact) - {"app", "target"}:
+                    raise ValueError(f"cask {name} has no Homebrew receipt; cannot verify its non-app artifacts are absent; use its reviewed uninstall recipe")
                 source = artifact["app"][0]
                 target = artifact.get("target")
                 options = next((item for item in artifact["app"] if isinstance(item, dict)), {})
@@ -114,6 +114,7 @@ def plan_remove(manager, name):
         if manager == "apt":
             preview = probe(["apt-get", "--simulate", "--no-auto-remove", "remove", name]).stdout
             removals = re.findall(r"^Remv (\S+)", preview, re.MULTILINE)
+            # Keep every row while normalizing only unqualified requests.
             only_target([item.split(":")[0] if ":" not in name else item for item in removals], name)
             if re.search(r"^(Inst|Conf) ", preview, re.MULTILINE):
                 raise ValueError("refusing apt transaction that installs or configures other packages")

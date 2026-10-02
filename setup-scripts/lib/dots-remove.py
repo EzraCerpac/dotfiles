@@ -48,6 +48,9 @@ def active_configs(mise, root):
 def canonical(key):
     if key.startswith("github:"):
         return "github:" + github.repository("https://github.com/" + key[7:])
+    for prefix, manager in (("brew:homebrew/core/", "brew:"), ("brew-cask:homebrew/cask/", "brew-cask:")):
+        if key.startswith(prefix):
+            return manager + key[len(prefix):]
     return key
 
 
