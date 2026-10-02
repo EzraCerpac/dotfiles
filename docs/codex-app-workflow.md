@@ -11,6 +11,11 @@ session that must keep its existing checkout. Respect the user's requested
 environment and the task-creation tool's requirements. Local task creation never
 transfers another writer's checkout to the new task.
 
+Separate worktree directories still share Git refs; adopted JJ workspaces can
+also share a history store. Do not move or rewrite another active task's branch,
+bookmark or ancestors without a coordinated handoff. Serialize history changes
+and coordinator integration even when file edits occur in separate checkouts.
+
 The app's [Git settings](https://learn.chatgpt.com/docs/developer-settings) expose
 branch naming, force-push behavior, commit generation and PR generation prompts.
 Those UI preferences have no verified `config.toml` key in the installed CLI
