@@ -227,9 +227,7 @@ def execute(plan, mise, root, keep, packages):
         for entry in entries:
             attempted.append(entry)
             if entry["section"] == ("tools",):
-                command = [mise, "-C", str(root), "unuse", "--path", str(entry["path"])]
-                if keep:
-                    command.append("--no-prune")
+                command = [mise, "-C", str(root), "unuse", "--path", str(entry["path"]), "--no-prune"]
                 command.append(entry["key"])
                 subprocess.run(command, check=True)
                 document = editor.read_toml(entry["path"])
@@ -237,16 +235,16 @@ def execute(plan, mise, root, keep, packages):
                     raise ValueError(f"mise unuse did not remove {entry['key']} from {entry['path']}")
             else:
                 remove_entry(entry)
-        if not keep and (any(entry["section"] == ("tools",) for entry in entries) or plan["apps"]):
-            # Some backends leave installed versions after unuse. Native targeted
-            # pruning also handles marker-only removal and retains tracked users.
-            subprocess.run([mise, "-C", str(root), "prune", "--yes", "--tools", plan["identity"]], check=True)
         for marker, owner, _ in plan["apps"]:
             if marker.is_symlink() or json.loads(marker.read_text()) != owner:
                 raise ValueError(f"managed app ownership changed during removal: {marker}")
             contents = marker.read_bytes()
             marker.unlink()
             removed_markers.append((marker, contents))
+        if not keep and (any(entry["section"] == ("tools",) for entry in entries) or plan["apps"]):
+            # Finish reversible edits before pruning installed releases. Native
+            # targeted pruning also handles marker-only removal and tracked users.
+            subprocess.run([mise, "-C", str(root), "prune", "--yes", "--tools", plan["identity"]], check=True)
     except BaseException as original:
         errors = []
         try:

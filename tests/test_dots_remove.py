@@ -172,12 +172,81 @@ class RemoveTests(unittest.TestCase):
                 remove.remove_entry(entries[0])
             else:
                 self.assertIn("prune", command)
+                self.assertFalse(marker.exists())
                 raise subprocess.CalledProcessError(1, command)
         with patch.object(remove, "validate_app", side_effect=lambda identity, mark, own: validate(identity, mark, own, applications)), patch.object(remove.Path, "home", return_value=self.root), patch.object(remove.subprocess, "run", side_effect=run), self.assertRaises(subprocess.CalledProcessError):
             remove.execute(plan, "mise", self.root, False, self.packages)
         self.assertTrue(app.exists())
         self.assertTrue(marker.exists())
         self.assertIn("github:jaskirat1616/mactap-app", remove.discover([self.local]))
+
+    def test_full_removal_second_unuse_failure_preserves_installed_release(self):
+        applications, app, marker, owner = self.make_owned_app()
+        identity = "github:jaskirat1616/mactap-app"
+        self.base.write_text(f'[tools]\n"{identity}" = "latest"\n')
+        entries = remove.discover([self.base, self.local])[identity]
+        plan = {"identity": identity, "entries": entries, "apps": [(marker, owner, app)], "package": None}
+        release = self.root / "installed-release"
+        release.write_bytes(b"installed artifact")
+        validate = remove.validate_app
+        calls = []
+        def run(command, **kwargs):
+            calls.append(command)
+            self.assertIn("unuse", command)
+            # Model the installer's implicit pruning, so this catches omitted flags.
+            if "--no-prune" not in command:
+                release.unlink()
+            self.assertEqual(release.read_bytes(), b"installed artifact")
+            self.assertFalse(app.exists())
+            remove.remove_entry(entries[len(calls) - 1])
+            if len(calls) == 2:
+                raise subprocess.CalledProcessError(1, command)
+        with patch.object(remove, "validate_app", side_effect=lambda identity, mark, own: validate(identity, mark, own, applications)), patch.object(remove.Path, "home", return_value=self.root), patch.object(remove.subprocess, "run", side_effect=run), self.assertRaises(subprocess.CalledProcessError):
+            remove.execute(plan, "mise", self.root, False, self.packages)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(release.read_bytes(), b"installed artifact")
+        self.assertTrue(app.exists())
+        self.assertEqual(json.loads(marker.read_text()), owner)
+        for path in (self.base, self.local):
+            self.assertIn(identity, remove.discover([path]))
+        self.assertEqual(list((self.root / ".Trash").iterdir()), [])
+
+    def test_marker_cleanup_failure_restores_prior_marker_before_pruning(self):
+        applications, app, marker, owner = self.make_owned_app()
+        import shutil
+        second_app = applications / "MacTap-copy.app"
+        shutil.copytree(app, second_app)
+        second_marker = self.root / (hashlib.sha256(second_app.name.encode()).hexdigest() + ".json")
+        second_owner = dict(owner, path=str(second_app))
+        second_marker.write_text(json.dumps(second_owner))
+        identity = "github:jaskirat1616/mactap-app"
+        entries = remove.discover([self.local])[identity]
+        plan = {"identity": identity, "entries": entries, "apps": [(marker, owner, app), (second_marker, second_owner, second_app)], "package": None}
+        release = self.root / "installed-release"
+        release.write_bytes(b"installed artifact")
+        validate, unlink = remove.validate_app, Path.unlink
+        calls = []
+        def run(command, **kwargs):
+            calls.append(command)
+            if "prune" in command or "--no-prune" not in command:
+                release.unlink()
+            if "unuse" in command:
+                remove.remove_entry(entries[0])
+        def remove_marker(path, *args, **kwargs):
+            if path == second_marker:
+                self.assertFalse(marker.exists())
+                self.assertEqual(release.read_bytes(), b"installed artifact")
+                raise OSError("marker cleanup failed")
+            return unlink(path, *args, **kwargs)
+        with patch.object(remove, "validate_app", side_effect=lambda identity, mark, own: validate(identity, mark, own, applications)), patch.object(remove.Path, "home", return_value=self.root), patch.object(remove.subprocess, "run", side_effect=run), patch.object(Path, "unlink", new=remove_marker), self.assertRaisesRegex(OSError, "marker cleanup failed"):
+            remove.execute(plan, "mise", self.root, False, self.packages)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(release.read_bytes(), b"installed artifact")
+        self.assertIn(identity, remove.discover([self.local]))
+        for owned_app, owned_marker, expected_owner in ((app, marker, owner), (second_app, second_marker, second_owner)):
+            self.assertTrue(owned_app.exists())
+            self.assertEqual(json.loads(owned_marker.read_text()), expected_owner)
+        self.assertEqual(list((self.root / ".Trash").iterdir()), [])
 
     def test_app_success_trashes_app_preserves_settings_and_clears_marker(self):
         applications, app, marker, owner = self.make_owned_app()
