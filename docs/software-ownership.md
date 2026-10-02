@@ -1,13 +1,14 @@
 # Current policy
 
 The manifests are authoritative: shared terminal tools, Neovim, and pagers load
-for both roles. Tools track latest releases except the workstation JJ source
-pin and the Kanata and Karabiner versions held for the known input bug.
+for both roles. Tools track latest releases except an explicitly activated
+workstation JJ source pin and the Kanata and Karabiner versions held for the known input bug.
 Herdr updates defer while its server is running. Older Python interpreters are
 application compatibility dependencies. The inventory
 below records the migration baseline; it is not a list of current version pins.
 
-The shared base retains `jj = "latest"`. Workstation overrides that same tool
+The shared base, workstation and NAS retain `jj = "latest"` by default.
+The staged recipe `resources/jj-pr9943/workstation.toml` overrides that same tool
 identity with the Cargo backend for the official `jj-vcs/jj` repository at
 `ede10cda453017def68e672a5715220ddf10c09b`, the tested head of
 [PR #9943](https://github.com/jj-vcs/jj/pull/9943). The source build selects
@@ -17,20 +18,27 @@ identity with the Cargo backend for the official `jj-vcs/jj` repository at
 may build the same JJ revision with a different compiler. Linux compilation
 and installation through mise remain unverified.
 
-Routine updates retain this full SHA. Replacing it requires a reviewed source
-edit. To return workstation to the shared stable release selection, remove
-its `jj` tool entry and `[tool_alias.jj]` together, then install the inherited
-release through the normal mise workflow and verify the selected executable.
-Changing these source files alone does not install or activate the new binary.
+No selected profile loads the staged recipe. Merging it cannot activate the pin
+through routine source sync or `dots up`. After coordinated activation, routine
+updates retain the full SHA; replacing it requires a reviewed edit. To return
+that host to stable, remove its `jj` tool entry and `[tool_alias.jj]` together,
+then install the inherited release through the normal mise workflow and verify
+the selected executable. Switching versions does not reverse adoption metadata.
 
 Coordinate activation with every active JJ writer and let those writers yield
 before adopting worktrees or switching the binary. Capture the latest local
-metadata and delta against the reviewed source after they yield. Before
-adoption, the ownership-aware `jw` build must pass its adopted-worktree
-removal, prune, and reconciliation tests, and the corresponding agent
-instructions must be applied. Direct `jj workspace forget` remains unsafe
+metadata and delta against the reviewed source after they yield. Deploy the
+ownership-aware `jw` build and apply the corresponding agent instructions first.
+The deployed build must pass its adopted-worktree
+removal, prune, and reconciliation tests. Then inspect the ignored
+`config.host-<machine-id>.toml` for the selected workstation and merge the two
+recipe sections into it, preserving existing sections and unrelated settings.
+Do not copy the recipe over the whole host file. Confirm mise selects exactly
+one JJ at the full SHA before installing it explicitly and checking its version.
+Direct `jj workspace forget` remains unsafe
 for Codex-owned worktrees; agents must use the app's lifecycle controls.
-Do not switch binaries underneath active tasks. This pin is staged only.
+Do not switch binaries underneath active tasks. The pin remains staged until
+this explicit host opt-in; no bootstrap or routine update installs jw for it.
 
 # Software ownership inventory
 

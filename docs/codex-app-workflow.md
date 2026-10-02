@@ -5,6 +5,12 @@ Codex owns its worktree lifecycle. JJ adoption does not authorize removal throug
 JJ, jw or a gardener. A coordinator needs an editing checkout only when it owns
 integration work. The global AGENTS file retains these ownership boundaries.
 
+Choose a native worktree for a new authorized coding task in a Git repository.
+A read-only coordinator can stay local, as can work without Git and an interactive
+session that must keep its existing checkout. Respect the user's requested
+environment and the task-creation tool's requirements. Local task creation never
+transfers another writer's checkout to the new task.
+
 The app's [Git settings](https://learn.chatgpt.com/docs/developer-settings) expose
 branch naming, force-push behavior, commit generation and PR generation prompts.
 Those UI preferences have no verified `config.toml` key in the installed CLI
@@ -77,5 +83,8 @@ supported. Promote selected outputs deliberately. Do not port shared writable
 
 Activate the workstation JJ pin only after active JJ writers yield and latest
 local metadata is preserved. Install the verified ownership-aware jw and apply
-the instructions first. This draft changes no live security grants, private app
-preferences, installed tools or thesis primary state.
+the instructions first. The pin recipe in `resources/jj-pr9943/workstation.toml`
+is not loaded by routine profiles; explicit host activation is documented in
+[software ownership](software-ownership.md). Merging these source files cannot
+silently select it through `dots up`. This change applies no live security grants,
+private app preferences, installed tools or thesis primary state.

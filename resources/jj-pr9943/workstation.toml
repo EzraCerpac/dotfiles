@@ -1,0 +1,11 @@
+# Staged recipe: this file is not loaded by any routine profile or update.
+# After active JJ writers yield and ownership-aware jw is deployed, merge these
+# two sections into the workstation's ignored config.host-<machine-id>.toml.
+# Inspect existing sections first; retain one jj identity, not duplicate keys.
+
+[tool_alias.jj]
+backend = "cargo:https://github.com/jj-vcs/jj"
+
+[tools]
+# Official PR #9943 at the tested full revision, using locked dependencies.
+jj = { version = "rev:ede10cda453017def68e672a5715220ddf10c09b", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"], crate = "jj-cli", bin = "jj", locked = true }
