@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 from copy import deepcopy
 import hashlib
 import importlib.util
@@ -14,6 +15,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+from types import SimpleNamespace
 import uuid
 
 import tomlkit
@@ -62,15 +65,20 @@ def aliases(key):
     return result
 
 
-def app_records(state):
+def app_records(state, errors=None):
     records = {}
     for marker in state.glob("*.json"):
         try:
             owner = json.loads(marker.read_text())
-            if not isinstance(owner, dict) or not isinstance(owner.get("repo"), str):
-                continue
+            if (marker.is_symlink() or not isinstance(owner, dict)
+                    or set(owner) != {"repo", "path", "bundle_id"}
+                    or any(not isinstance(value, str) or not value for value in owner.values())
+                    or not Path(owner["path"]).is_absolute() or not owner["path"].endswith(".app")):
+                raise ValueError("invalid ownership schema")
             identity = canonical("github:" + owner["repo"])
-        except (ValueError, OSError):
+        except (ValueError, OSError) as exc:
+            if errors is not None:
+                errors.append(f"{marker}: {exc}")
             continue
         records.setdefault(identity, []).append((marker, owner))
     return records
@@ -208,6 +216,20 @@ def prepare(identity, entries, records, keep, packages, shared=False):
 
 
 def execute(plan, mise, root, keep, packages):
+    # External configs can contain executable hooks, env and includes. Give mise
+    # only static tool declarations, then surgically merge its deletion ourselves.
+    with ExitStack() as stages:
+        staged_paths = {}
+        for entry in plan["entries"]:
+            if entry["section"] == ("tools",) and not entry["path"].resolve().is_relative_to(root.resolve()):
+                directory = stages.enter_context(tempfile.TemporaryDirectory(prefix="dots-remove-", dir=root))
+                staged = Path(directory) / "mise.toml"
+                editor.stage_tools(SimpleNamespace(source=entry["path"], staged_config=staged, request=entry["key"]))
+                staged_paths[(entry["path"], entry["key"])] = staged
+        _execute(plan, mise, root, keep, packages, staged_paths)
+
+
+def _execute(plan, mise, root, keep, packages, staged_paths):
     entries, moved = plan["entries"], []
     removed_markers = []
     check_entries(entries)
@@ -230,12 +252,15 @@ def execute(plan, mise, root, keep, packages):
         for entry in entries:
             attempted.append(entry)
             if entry["section"] == ("tools",):
-                command = [mise, "-C", str(root), "unuse", "--path", str(entry["path"]), "--no-prune"]
+                target = staged_paths.get((entry["path"], entry["key"]), entry["path"])
+                command = [mise, "-C", str(root), "unuse", "--path", str(target), "--no-prune"]
                 command.append(entry["key"])
                 subprocess.run(command, check=True)
-                document = editor.read_toml(entry["path"])
+                document = editor.read_toml(target)
                 if editor.get_path(document, ("tools", entry["key"])) is not editor.MISSING:
-                    raise ValueError(f"mise unuse did not remove {entry['key']} from {entry['path']}")
+                    raise ValueError(f"mise unuse did not remove {entry['key']} from {target}")
+                if target != entry["path"]:
+                    remove_entry(entry)
             else:
                 remove_entry(entry)
         for marker, owner, _ in plan["apps"]:
@@ -297,11 +322,19 @@ def main(argv=None):
         selected_paths = paths
     declarations = discover(selected_paths)
     all_declarations = discover(list(dict.fromkeys(paths + selected_paths)))
-    records = app_records(state_directory())
+    ownership_errors = []
+    records = app_records(state_directory(), ownership_errors)
     # Explicit selectors may only resolve marker aliases for declarations in that selection.
     if args.path or args.base or args.profile:
         records = {key: value for key, value in records.items() if key in declarations}
-    identities = resolve(args.targets, declarations, records)
+    try:
+        identities = resolve(args.targets, declarations, records)
+    except ValueError:
+        if ownership_errors and not args.keep_installed and any(target.startswith(("github:", "https://")) for target in args.targets):
+            raise ValueError("unknown managed app ownership; refusing removal: " + "; ".join(ownership_errors)) from None
+        raise
+    if ownership_errors and not args.keep_installed and any(identity.startswith("github:") for identity in identities):
+        raise ValueError("unknown managed app ownership; refusing removal: " + "; ".join(ownership_errors))
     removed_entries = {
         (entry["path"], entry["section"], entry["key"])
         for identity in identities for entry in declarations.get(identity, [])

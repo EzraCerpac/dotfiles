@@ -113,6 +113,29 @@ class PackageRemovalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-app artifacts"):
             self.plan("brew-cask", "pkg", ["", json.dumps({"casks": [{"artifacts": [{"pkg": ["Example.pkg"]}]}]})])
 
+    def test_unregistered_nested_cask_source_checks_installed_app_basename(self):
+        metadata = json.dumps({"casks": [{"artifacts": [{"app": ["Payload/Foo.app"]}]}]})
+        expected = [Path("/Applications/Foo.app"), Path.home() / "Applications/Foo.app"]
+        for present in expected:
+            with self.subTest(present=present), patch.object(PACKAGES.Path, "exists", autospec=True, side_effect=lambda path: path == present):
+                with self.assertRaisesRegex(ValueError, "app remains"):
+                    self.plan("brew-cask", "foo", ["", metadata])
+        with patch.object(PACKAGES.Path, "exists", autospec=True, return_value=False) as exists:
+            plan, _ = self.plan("brew-cask", "foo", ["", metadata])
+            self.assertFalse(plan["installed"])
+            self.assertEqual([call.args[0] for call in exists.call_args_list], expected)
+
+    def test_unregistered_cask_preserves_explicit_nested_target(self):
+        metadata = json.dumps({"casks": [{"artifacts": [{"app": ["Payload/Foo.app", {"target": "Nested/Renamed.app"}]}]}]})
+        expected = [Path("/Applications/Nested/Renamed.app"), Path.home() / "Applications/Nested/Renamed.app"]
+        with patch.object(PACKAGES.Path, "exists", autospec=True, return_value=False) as exists:
+            plan, _ = self.plan("brew-cask", "foo", ["", metadata])
+            self.assertFalse(plan["installed"])
+            self.assertEqual([call.args[0] for call in exists.call_args_list], expected)
+        with patch.object(PACKAGES.Path, "exists", autospec=True, side_effect=lambda path: path == expected[0]):
+            with self.assertRaisesRegex(ValueError, "app remains"):
+                self.plan("brew-cask", "foo", ["", metadata])
+
     def test_unregistered_cask_with_mixed_artifacts_refuses_even_when_app_is_absent(self):
         for artifacts in [
             [{"app": ["Example.app"]}, {"pkg": ["Example.pkg"]}],

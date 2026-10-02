@@ -60,6 +60,48 @@ class RemoveTests(unittest.TestCase):
                 remove.main(["mise", str(self.root), "node", "missing"])
             execute.assert_not_called()
 
+    def test_unknown_ownership_blocks_github_removal_before_mutation(self):
+        marker = self.root / "state/unknown.json"
+        marker.parent.mkdir()
+        invalid_owners = ("{", "[]", "{}", '{"repo": "o/r"}', '{"repo": "o/r", "path": 3, "bundle_id": "id"}')
+        for contents in invalid_owners:
+            for target in ("github:jaskirat1616/mactap-app", "github:unknown/repo", "https://github.com/unknown/repo"):
+                with self.subTest(contents=contents, target=target):
+                    marker.write_text(contents)
+                    original = self.local.read_bytes()
+                    with patch.object(remove, "active_configs", return_value=[self.local.resolve()]), patch.object(remove, "state_directory", return_value=marker.parent), patch.object(remove, "execute") as execute, patch.object(remove, "prepare") as prepare, self.assertRaisesRegex(ValueError, "unknown managed app ownership"):
+                        remove.main(["mise", str(self.root), target])
+                    prepare.assert_not_called()
+                    execute.assert_not_called()
+                    self.assertEqual(self.local.read_bytes(), original)
+                    self.assertEqual(marker.read_text(), contents)
+
+    def test_unreadable_ownership_blocks_full_github_removal(self):
+        _, _, marker, _ = self.make_owned_app()
+        read_text = Path.read_text
+        def read(path, *args, **kwargs):
+            if path == marker:
+                raise PermissionError("unreadable marker")
+            return read_text(path, *args, **kwargs)
+        with patch.object(Path, "read_text", new=read), patch.object(remove, "active_configs", return_value=[self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root), patch.object(remove, "execute") as execute, self.assertRaisesRegex(ValueError, "unknown managed app ownership.*unreadable marker"):
+            remove.main(["mise", str(self.root), "github:jaskirat1616/mactap-app"])
+        execute.assert_not_called()
+
+    def test_unknown_ownership_allows_native_and_keep_installed_removal(self):
+        state = self.root / "state"
+        state.mkdir()
+        (state / "unknown.json").write_text("{")
+        for arguments in (["node"], ["--keep-installed", "github:jaskirat1616/mactap-app"]):
+            with self.subTest(arguments=arguments), patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=state), patch.object(remove, "load_module", return_value=self.packages), patch.object(remove, "execute") as execute, contextlib.redirect_stdout(io.StringIO()):
+                remove.main(["mise", str(self.root), *arguments])
+                execute.assert_called_once()
+
+    def test_unrelated_valid_ownership_does_not_validate_installed_bundle(self):
+        _, _, _, _ = self.make_owned_app()
+        with patch.object(remove, "active_configs", return_value=[self.base.resolve()]), patch.object(remove, "state_directory", return_value=self.root), patch.object(remove, "load_module", return_value=self.packages), patch.object(remove, "validate_app") as validate, patch.object(remove, "execute"), contextlib.redirect_stdout(io.StringIO()):
+            remove.main(["mise", str(self.root), "node"])
+        validate.assert_not_called()
+
     def test_builtin_homebrew_aliases_resolve_and_preserve_original_keys(self):
         for manager, tap in (("brew", "homebrew/core"), ("brew-cask", "homebrew/cask")):
             short, qualified = f"{manager}:foo", f"{manager}:{tap}/foo"
@@ -430,6 +472,80 @@ class RemoveTests(unittest.TestCase):
             execute.reset_mock()
             remove.main(["mise", str(self.root), "--path", str(external), "node"])
             self.assertEqual([entry["path"] for entry in execute.call_args.args[0]["entries"]], [external.resolve()])
+
+    def make_external_config(self, name="mise.toml", version="22"):
+        if not hasattr(self, "external_root"):
+            temporary = tempfile.TemporaryDirectory()
+            self.addCleanup(temporary.cleanup)
+            self.external_root = Path(temporary.name).resolve()
+        external = self.external_root / name
+        external.write_text('[tools]\nnode = "' + version + '" # selected\nruby = "3"\n[env]\nCANARY = "{{ exec(command=\'touch canary\') }}"\n[hooks]\nenter = "touch canary"\n[settings]\nexperimental = true\n[task_config]\nincludes = ["untrusted.toml"]\n')
+        return external
+
+    def test_external_path_stages_only_tools_and_surgically_removes_declaration(self):
+        external = self.make_external_config()
+        original = external.read_bytes()
+        staged_paths = []
+        def run(command, **kwargs):
+            self.assertEqual(command[1:3], ["-C", str(self.root.resolve())])
+            if "unuse" in command:
+                target = Path(command[command.index("--path") + 1])
+                staged_paths.append(target)
+                self.assertNotEqual(target, external)
+                self.assertTrue(target.is_relative_to(self.root.resolve()))
+                self.assertEqual(external.read_bytes(), original)
+                self.assertIn("--no-prune", command)
+                document = remove.editor.read_toml(target)
+                self.assertEqual(set(document), {"tools"})
+                self.assertEqual(set(document["tools"]), {"node"})
+                remove.remove_entry(remove.discover([target])["node"][0])
+            else:
+                self.assertIn("prune", command)
+        with patch.object(remove, "active_configs", return_value=[]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), patch.object(remove.subprocess, "run", side_effect=run), contextlib.redirect_stdout(io.StringIO()):
+            remove.main(["mise", str(self.root), "--path", str(external), "node"])
+        document = remove.editor.read_toml(external)
+        self.assertNotIn("node", document["tools"])
+        expected = tomlkit.parse(original.decode())
+        del expected["tools"]["node"]
+        self.assertEqual(external.read_text(), tomlkit.dumps(expected))
+        self.assertFalse((self.external_root / "canary").exists())
+        self.assertFalse((self.root / "canary").exists())
+        self.assertTrue(staged_paths)
+        self.assertTrue(all(not path.parent.exists() for path in staged_paths))
+
+    def test_external_staging_failure_rolls_back_prior_deletion_and_cleans_temps(self):
+        first, second = self.make_external_config("first.toml"), self.make_external_config("second.toml", "20")
+        entries = remove.discover([first, second])["node"]
+        plan = remove.prepare("node", entries, {}, False, self.packages)
+        originals = [path.read_bytes() for path in (first, second)]
+        staged_paths = []
+        def run(command, **kwargs):
+            self.assertIn("unuse", command)
+            target = Path(command[command.index("--path") + 1])
+            staged_paths.append(target)
+            remove.remove_entry(remove.discover([target])["node"][0])
+            if len(staged_paths) == 2:
+                raise subprocess.CalledProcessError(1, command)
+        with patch.object(remove.subprocess, "run", side_effect=run), self.assertRaises(subprocess.CalledProcessError):
+            remove.execute(plan, "mise", self.root, False, self.packages)
+        # Surgical restoration preserves the complete declaration values and
+        # executable config without sending either original config to mise.
+        for path, original in zip((first, second), originals):
+            self.assertEqual(remove.editor.plain(remove.editor.read_toml(path)), remove.editor.plain(tomlkit.parse(original.decode())))
+            self.assertIn("# selected", path.read_text())
+        self.assertEqual(len(staged_paths), 2)
+        self.assertTrue(all(not path.parent.exists() for path in staged_paths))
+
+    def test_external_templated_tool_refused_before_native_mutation(self):
+        external = self.make_external_config(version="{{ exec(command='touch canary') }}")
+        entries = remove.discover([external])["node"]
+        plan = remove.prepare("node", entries, {}, False, self.packages)
+        original = external.read_bytes()
+        with patch.object(remove.subprocess, "run") as run, self.assertRaisesRegex(ValueError, "templated tool declarations"):
+            remove.execute(plan, "mise", self.root, False, self.packages)
+        run.assert_not_called()
+        self.assertEqual(external.read_bytes(), original)
+        self.assertEqual(list(self.root.glob("dots-remove-*")), [])
 
     def test_batch_stops_at_first_failure_and_reports_completed_targets(self):
         self.base.write_text('[tools]\nnode = "20"\nruby = "3"\npython = "3"\n')

@@ -187,7 +187,7 @@ def brew_plan(manager, name):
                 source = artifact["app"][0]
                 target = artifact.get("target")
                 options = next((item for item in artifact["app"] if isinstance(item, dict)), {})
-                app_name = options.get("target", source)
+                app_name = options.get("target", Path(source).name)
                 app_paths.extend([Path("/Applications") / app_name, Path.home() / "Applications" / app_name])
                 if target:
                     app_paths.append(Path(target).expanduser())
