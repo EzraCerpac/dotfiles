@@ -178,16 +178,16 @@ local opts = dofile(root .. "/dotfiles/.config/nvim/lua/plugins/blink.lua")[1].o
   },
 })
 require("blink.cmp.config").merge_with(opts)
-local lsp_requests, replied = 0, false
+local lsp_requests, replied, release_reply = 0, false, nil
 clients[1].offset_encoding = "utf-16"
 clients[1].server_capabilities = { completionProvider = { triggerCharacters = { "@", ":" } } }
 clients[1].request = function(_, method, _, callback)
   assert(method == "textDocument/completion")
   lsp_requests = lsp_requests + 1
-  vim.defer_fn(function()
+  release_reply = function()
     replied = true
     callback(nil, {})
-  end, 350)
+  end
   return true, 1
 end
 clients[1].cancel_request = function() end
@@ -228,8 +228,8 @@ assert(
   "Blink must apply fresh UTF-8 reference edits"
 )
 sources.cancel_completions()
-vim.wait(500, function()
-  return replied
-end, 5)
+assert(release_reply, "The stalled LSP request should provide a late reply")
+release_reply()
+assert(replied, "The simulated LSP reply should arrive after the fallback")
 vim.fn.delete(state, "rf")
 print("Typst reference fallback tests passed")
