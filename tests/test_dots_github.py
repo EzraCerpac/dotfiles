@@ -286,6 +286,18 @@ class ReleaseTests(unittest.TestCase):
             if expected == "tool-*.zip":
                 self.assertTrue(github.fnmatch.fnmatchcase(filename.replace("1.2.3", "1.2.4"), expected))
 
+    def test_single_component_prefixed_version_upgrades(self):
+        release = {"tag_name": "release-2", "assets": assets("tool-2-linux-x64.tar.gz")}
+        with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value=None), patch.object(github.platform, "system", return_value="Linux"), patch.object(github.platform, "machine", return_value="x86_64"):
+            request = github.resolve("https://github.com/owner/repo")
+        self.assertIn('platform_linux_x64_asset_pattern="tool-*-linux-x64.tar.gz"', request)
+        self.assertIn('version_prefix="release-"', request)
+        self.assertTrue(github.fnmatch.fnmatchcase("tool-3-linux-x64.tar.gz", "tool-*-linux-x64.tar.gz"))
+        release["assets"] = assets("tool-12-linux-x64.tar.gz")
+        with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value=None), patch.object(github.platform, "system", return_value="Linux"), patch.object(github.platform, "machine", return_value="x86_64"):
+            request = github.resolve("https://github.com/owner/repo")
+        self.assertIn('_asset_pattern="tool-12-linux-x64.tar.gz"', request)
+
     def test_explicit_asset_pattern_is_preserved_for_prefixed_tag(self):
         release = {"tag_name": "release-1.2.3", "assets": assets("tool-1.2.3.zip")}
         with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"):

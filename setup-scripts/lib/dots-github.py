@@ -240,7 +240,7 @@ def resolve(url, override=None):
             app = archive_app(path)
     pattern = override or asset["name"]
     tag = release["tag_name"]
-    numeric_version = re.search(r"(?<![\d.])\d+\.\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$", tag)
+    numeric_version = re.search(r"(?<![\d.])\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$", tag)
     if not override:
         versions = {tag, tag.removeprefix("v")}
         if numeric_version:
