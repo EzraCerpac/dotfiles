@@ -66,12 +66,23 @@ class ReleaseTests(unittest.TestCase):
 
     def test_other_architectures_do_not_select_x64(self):
         for machine in ("riscv64", "ppc64le", "i686"):
-            for suffix in ("x64", "amd64", "x86_64"):
+            for suffix in ("x64", "amd64", "x86_64", "x86-64"):
                 with self.subTest(machine=machine, suffix=suffix):
                     self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
                     self.assertIsNone(github.asset_score(f"tool-linux-{suffix}-universal.zip", "linux", machine))
         self.assertEqual(github.asset_score("tool-linux-x64.zip", "linux", "x86_64"), 30)
         self.assertIsNotNone(github.asset_score("tool-macos-x64-universal.zip", "darwin", "arm64"))
+
+    def test_hyphenated_x86_64_is_excluded_on_arm(self):
+        self.assertIsNone(github.asset_score("tool-darwin-x86-64.tar.gz", "darwin", "arm64"))
+        self.assertEqual(github.asset_score("tool-darwin-x86-64.tar.gz", "darwin", "x86_64"), 30)
+
+    def test_other_operating_system_assets_are_excluded(self):
+        for system in ("darwin", "linux"):
+            for asset_system in ("freebsd", "netbsd", "openbsd", "android"):
+                with self.subTest(system=system, asset_system=asset_system):
+                    self.assertIsNone(github.asset_score(f"tool-{asset_system}-arm64.zip", system, "arm64"))
+        self.assertEqual(github.asset_score("tool-freebsd-x64.zip", "freebsd", "x86_64"), 30)
 
     def test_metadata_words_do_not_filter_product_names(self):
         self.assertEqual(github.choose_asset(assets("mydebugger-linux-x64.zip", "mydebugger-linux-x64-debug.zip"), system="linux", machine="x86_64")["name"], "mydebugger-linux-x64.zip")

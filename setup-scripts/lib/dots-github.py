@@ -59,7 +59,8 @@ def fetch_release(repo):
 def asset_score(name, system, machine):
     name = name.lower()
     words = set(re.split(r"[^a-z0-9]+", name))
-    families = {"darwin": {"macos", "darwin", "osx", "mac"}, "linux": {"linux"}, "windows": {"windows", "win", "win32", "win64"}}
+    families = {"darwin": {"macos", "darwin", "osx", "mac"}, "linux": {"linux"}, "windows": {"windows", "win", "win32", "win64"},
+                "freebsd": {"freebsd"}, "netbsd": {"netbsd"}, "openbsd": {"openbsd"}, "android": {"android"}}
     current = families.get(system, {system})
     if any(words & tokens for key, tokens in families.items() if key != system):
         return None
@@ -67,7 +68,7 @@ def asset_score(name, system, machine):
     x64 = machine in {"x86_64", "amd64", "x64"}
     arm_tokens = {"arm64", "aarch64"}
     x64_tokens = {"x64", "amd64"}
-    has_x64 = bool(words & x64_tokens) or "x86_64" in name
+    has_x64 = bool(words & x64_tokens) or bool(re.search(r"(?:^|[^a-z0-9])x86[_-]64(?:$|[^a-z0-9])", name))
     universal = "universal" in words and (arm or x64)
     if ((not x64 and has_x64) or (not arm and words & arm_tokens)) and not universal:
         return None
