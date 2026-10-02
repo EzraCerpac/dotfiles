@@ -77,6 +77,20 @@ class ReleaseTests(unittest.TestCase):
         self.assertIsNone(github.asset_score("tool-darwin-x86-64.tar.gz", "darwin", "arm64"))
         self.assertEqual(github.asset_score("tool-darwin-x86-64.tar.gz", "darwin", "x86_64"), 30)
 
+    def test_32bit_architectures_are_excluded_on_64bit_hosts(self):
+        for machine in ("arm64", "x86_64"):
+            for suffix in ("arm", "armv6", "armv7", "armv7l", "armhf", "x86", "i386", "i686", "386"):
+                with self.subTest(machine=machine, suffix=suffix):
+                    self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
+
+    def test_zstandard_tar_is_rejected_before_cli_registration(self):
+        for name in ("Example.tar.zst", "Example.tzst"):
+            release = {"tag_name": "v1.2.3", "assets": assets(name)}
+            with self.subTest(name=name), patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset") as download:
+                with self.assertRaisesRegex(ValueError, "Zstandard tar archives"):
+                    github.resolve("https://github.com/owner/repo")
+                download.assert_not_called()
+
     def test_other_operating_system_assets_are_excluded(self):
         for system in ("darwin", "linux"):
             for asset_system in ("freebsd", "netbsd", "openbsd", "android"):

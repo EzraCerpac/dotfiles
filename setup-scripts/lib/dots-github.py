@@ -66,9 +66,15 @@ def asset_score(name, system, machine):
         return None
     arm = machine in {"arm64", "aarch64"}
     x64 = machine in {"x86_64", "amd64", "x64"}
+    arm32_tokens = {"arm", "armv6", "armv6l", "armv7", "armv7l", "armhf"}
+    x86_tokens = {"x86", "i386", "i486", "i586", "i686", "386"}
+    # x86_64 and x86-64 split into x86/64, so exclude those spellings first.
+    has_x86_64 = bool(re.search(r"(?:^|[^a-z0-9])x86[_-]64(?:$|[^a-z0-9])", name))
+    if (arm or x64) and (words & arm32_tokens or words & (x86_tokens - {"x86"}) or ("x86" in words and not has_x86_64)):
+        return None
     arm_tokens = {"arm64", "aarch64"}
     x64_tokens = {"x64", "amd64"}
-    has_x64 = bool(words & x64_tokens) or bool(re.search(r"(?:^|[^a-z0-9])x86[_-]64(?:$|[^a-z0-9])", name))
+    has_x64 = bool(words & x64_tokens) or has_x86_64
     universal = "universal" in words and (arm or x64)
     if ((not x64 and has_x64) or (not arm and words & arm_tokens)) and not universal:
         return None
@@ -103,6 +109,8 @@ def choose_asset(assets, override=None, system=None, machine=None):
     asset = candidates[0]
     if not re.fullmatch(r"[A-Za-z0-9_.+ -]+", asset["name"]):
         raise ValueError("release asset name contains unsupported characters")
+    if asset["name"].lower().endswith((".tar.zst", ".tzst")):
+        raise ValueError("Zstandard tar archives cannot be inspected safely by this installer; select a ZIP or gzip/bzip2/xz tar asset with --asset")
     if asset["name"].lower().endswith((".dmg", ".pkg", ".msi", ".deb", ".rpm", ".apk")):
         raise ValueError("this installer format is not supported; select a ZIP/tar app bundle or prebuilt CLI asset with --asset")
     return asset
