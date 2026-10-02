@@ -25,7 +25,7 @@ import urllib.request
 import zipfile
 
 REPO = re.compile(r"https://github\.com/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+?)(?:\.git)?/?\Z")
-ARCHIVES = (".zip", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2", ".tar")
+ARCHIVES = (".zip", ".tar.gz", ".tgz", ".tar.xz", ".txz", ".tar.bz2", ".tbz", ".tbz2", ".tar")
 MAX_DOWNLOAD = 512 * 1024 * 1024
 
 

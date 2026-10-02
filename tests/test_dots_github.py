@@ -98,6 +98,26 @@ class ReleaseTests(unittest.TestCase):
                     github.resolve("https://github.com/owner/repo")
                 download.assert_not_called()
 
+    def test_compressed_tar_aliases_are_inspected_for_app_bundles(self):
+        for suffix, compression in (("txz", "xz"), ("tbz", "bz2"), ("tbz2", "bz2")):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as temp:
+                archive = Path(temp) / f"Example-1.2.3.{suffix}"
+                with tarfile.open(archive, f"w:{compression}") as stream:
+                    info = tarfile.TarInfo("Example.app/Contents/Info.plist")
+                    info.size = len(b"fixture")
+                    stream.addfile(info, io.BytesIO(b"fixture"))
+                self.assertEqual(github.archive_app(archive), "Example.app")
+                release = {"tag_name": "v1.2.3", "assets": assets(archive.name)}
+
+                def download(asset, repo, destination):
+                    shutil.copyfile(archive, destination)
+
+                with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset", side_effect=download), patch.object(github.platform, "system", return_value="Darwin"):
+                    request = github.resolve("https://github.com/owner/repo")
+                self.assertIn(f'_asset_pattern="Example-*.{suffix}"', request)
+                self.assertIn("postinstall={run=", request)
+                self.assertIn("strip_components=0", request)
+
     def test_other_operating_system_assets_are_excluded(self):
         for system in ("darwin", "linux"):
             for asset_system in ("freebsd", "netbsd", "openbsd", "android"):
