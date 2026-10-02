@@ -33,11 +33,19 @@ def only_target(names, name):
         raise ValueError(f"refusing transaction for {name}: expected only that package, got {', '.join(names) or 'no removals'}")
 
 
+def validate_name(manager, name):
+    if manager not in MANAGERS:
+        raise ValueError(f"unsupported package manager: {manager}")
+    expression = r"[A-Za-z0-9][A-Za-z0-9_.+@/-]*" if manager.startswith("brew") else r"[A-Za-z0-9][A-Za-z0-9_.+:-]*"
+    if not re.fullmatch(expression, name) or (manager == "mas" and not name.isdigit()):
+        raise ValueError(f"invalid {manager} package name: {name!r}")
+
+
 def installed_names(manager):
     # Query entire installed-name lists so a missing target cannot hide a broken
     # manager/database behind the same exit code as 'not installed'.
     commands = {
-        "apt": ["dpkg-query", "-W", "-f=${binary:Package} ${db:Status-Status}\\n"],
+        "apt": ["dpkg-query", "-W", "-f=${Package}:${Architecture} ${db:Status-Status}\\n"],
         "dnf": ["rpm", "-qa", "--qf", "%{NAME}\\n"],
         "pacman": ["pacman", "-Qq"],
         "apk": ["apk", "info"],
@@ -54,18 +62,92 @@ def installed_names(manager):
     return set(output.splitlines())
 
 
-def brew_plan(manager, name):
+def brew_installed_names(manager):
     kind = "--formula" if manager == "brew" else "--cask"
     # --full-name distinguishes identical tokens from different taps and works
     # even when a formula has disappeared from the upstream catalog.
-    names = probe(["brew", "list", kind, "--full-name", "-1"]).stdout.splitlines()
+    return probe(["brew", "list", kind, "--full-name", "-1"]).stdout.splitlines()
+
+
+def brew_identity(manager, name, names):
     builtin = "homebrew/core/" if manager == "brew" else "homebrew/cask/"
+    canonical = lambda item: item[len(builtin):] if item.startswith(builtin) else item
     matches = [item for item in names if item == name or
                ("/" not in name and item.rsplit("/", 1)[-1] == name) or
-               (name.startswith(builtin) and item == name[len(builtin):])]
+               canonical(item) == canonical(name)]
     if len(matches) > 1:
         raise ValueError(f"ambiguous installed Homebrew package {name}: {', '.join(matches)}")
-    if not matches:
+    return matches[0] if matches else None
+
+
+def apt_preview(name):
+    preview = probe(["apt-get", "--simulate", "--no-auto-remove", "remove", name]).stdout
+    return preview, re.findall(r"^Remv (\S+)", preview, re.MULTILINE)
+
+
+def apt_qualified_name(name, names):
+    if ":" in name:
+        return name
+    identities = [item for item in names if item.startswith(name + ":")]
+    if len(identities) == 1:
+        return identities[0]
+    architecture = probe(["dpkg", "--print-architecture"]).stdout.strip()
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", architecture):
+        raise ValueError("cannot verify native dpkg architecture")
+    return f"{name}:{architecture}"
+
+
+def apt_identity(name, names):
+    if name not in names:
+        return None
+    if ":" in name:
+        return name
+    _, removals = apt_preview(name)
+    # Dependencies may also be removed in the preview. They are irrelevant to
+    # shared ownership, but the requested package must resolve to one identity.
+    targets = [item for item in removals if item.split(":")[0] == name]
+    if len(targets) != 1:
+        raise ValueError(f"ambiguous apt removal identity for {name}: {', '.join(targets) or 'no target'}")
+    selected = apt_qualified_name(targets[0], names)
+    if selected not in names:
+        raise ValueError(f"cannot verify installed apt package {selected}")
+    return selected
+
+
+def shares_installation(manager, name, other_names):
+    """Compare declarations against native installed identities without removing."""
+    validate_name(manager, name)
+    for other in other_names:
+        validate_name(manager, other)
+    if name in other_names:
+        return True
+    if manager.startswith("brew"):
+        candidates = [other for other in other_names
+                      if name.rsplit("/", 1)[-1] == other.rsplit("/", 1)[-1]
+                      and ("/" not in name or "/" not in other)]
+        if not candidates:
+            return False
+        names = brew_installed_names(manager)
+        selected = brew_identity(manager, name, names)
+        return selected is not None and any(brew_identity(manager, other, names) == selected
+                                           for other in candidates)
+    if manager == "apt":
+        candidates = [other for other in other_names
+                      if name.split(":")[0] == other.split(":")[0]
+                      and (":" not in name or ":" not in other)]
+        if not candidates:
+            return False
+        names = installed_names(manager)
+        selected = apt_identity(name, names)
+        return selected is not None and any(apt_identity(other, names) == selected
+                                           for other in candidates)
+    return False
+
+
+def brew_plan(manager, name):
+    kind = "--formula" if manager == "brew" else "--cask"
+    selected = brew_identity(manager, name, brew_installed_names(manager))
+    if selected is None:
         if manager == "brew-cask":
             metadata = json.loads(probe(["brew", "info", "--json=v2", "--cask", name]).stdout)
             casks = metadata.get("casks", [])
@@ -88,7 +170,6 @@ def brew_plan(manager, name):
             if existing:
                 raise ValueError(f"cask {name} has no Homebrew receipt but an app remains at {', '.join(sorted(set(existing)))}; review ownership before uninstalling it")
         return []
-    selected = matches[0]
     if manager == "brew":
         users = probe(["brew", "uses", "--installed", "--recursive", selected]).stdout.strip()
         if users:
@@ -98,11 +179,7 @@ def brew_plan(manager, name):
 
 def plan_remove(manager, name):
     """Read-only preflight. Return commands, installed status and display summary."""
-    if manager not in MANAGERS:
-        raise ValueError(f"unsupported package manager: {manager}")
-    expression = r"[A-Za-z0-9][A-Za-z0-9_.+@/-]*" if manager.startswith("brew") else r"[A-Za-z0-9][A-Za-z0-9_.+:-]*"
-    if not re.fullmatch(expression, name) or (manager == "mas" and not name.isdigit()):
-        raise ValueError(f"invalid {manager} package name: {name!r}")
+    validate_name(manager, name)
     token = name.rsplit("/", 1)[-1]
     if (manager == "brew" and token.split("@")[0] == "kanata") or (manager == "brew-cask" and token.split("@")[0] == "karabiner-elements"):
         raise ValueError("Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead")
@@ -110,12 +187,12 @@ def plan_remove(manager, name):
     commands = []
     if manager.startswith("brew"):
         commands = brew_plan(manager, name)
-    elif name in installed_names(manager):
+    elif name in (installed := installed_names(manager)):
         if manager == "apt":
-            preview = probe(["apt-get", "--simulate", "--no-auto-remove", "remove", name]).stdout
-            removals = re.findall(r"^Remv (\S+)", preview, re.MULTILINE)
-            # Keep every row while normalizing only unqualified requests.
-            only_target([item.split(":")[0] if ":" not in name else item for item in removals], name)
+            preview, removals = apt_preview(name)
+            # Keep every row, including dependents and duplicate architectures.
+            only_target([item.split(":")[0] if ":" not in name else apt_qualified_name(item, installed)
+                         for item in removals], name)
             if re.search(r"^(Inst|Conf) ", preview, re.MULTILINE):
                 raise ValueError("refusing apt transaction that installs or configures other packages")
             commands = [privileged(["apt-get", "--yes", "--no-auto-remove", "remove", name])]

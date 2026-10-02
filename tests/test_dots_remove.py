@@ -34,6 +34,7 @@ class RemoveTests(unittest.TestCase):
         self.local.write_text('[tools]\n"github:jaskirat1616/mactap-app" = "latest"\n')
         self.packages = Mock()
         self.packages.plan_remove.return_value = {"summary": "uninstall jq", "commands": [], "installed": True}
+        self.packages.shares_installation.return_value = False
 
     def test_discovery_and_url_short_resolution(self):
         entries = remove.discover([self.base, self.local])
@@ -89,13 +90,65 @@ class RemoveTests(unittest.TestCase):
                         self.local.write_text(f'[bootstrap.packages]\n"{other}" = "*"\n')
                         self.packages.reset_mock()
                         other_contents = self.local.read_bytes()
-                        with patch.object(remove, "active_configs", return_value=[self.base, self.local]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+                        with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
                             self.assertEqual(remove.main(["mise", str(self.root), *selector, selected]), 0)
                         self.packages.plan_remove.assert_not_called()
                         self.packages.execute_remove.assert_not_called()
                         self.assertNotIn(short, remove.discover([self.base]))
                         self.assertEqual(self.local.read_bytes(), other_contents)
                         self.assertIn(short, remove.discover([self.local]))
+
+    def test_selected_native_equivalent_retains_shared_package(self):
+        for manager, qualified in (("brew", "owner/tap/foo"), ("brew-cask", "owner/tap/foo"), ("apt", "foo:amd64")):
+            for selected, other in (("foo", qualified), (qualified, "foo")):
+                for selector in (["--base"], ["--path", str(self.base)]):
+                    with self.subTest(manager=manager, selected=selected, selector=selector):
+                        key = f"{manager}:{selected}"
+                        self.base.write_text(f'[bootstrap.packages]\n"{key}" = "*"\n')
+                        self.local.write_text(f'[bootstrap.packages]\n"{manager}:{other}" = "*"\n')
+                        other_contents = self.local.read_bytes()
+                        self.packages.reset_mock()
+                        self.packages.shares_installation.return_value = True
+                        with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+                            self.assertEqual(remove.main(["mise", str(self.root), *selector, key]), 0)
+                        self.packages.shares_installation.assert_called_once_with(manager, selected, [other])
+                        self.packages.plan_remove.assert_not_called()
+                        self.packages.execute_remove.assert_not_called()
+                        self.assertNotIn(key, remove.discover([self.base]))
+                        self.assertEqual(self.local.read_bytes(), other_contents)
+
+    def test_native_identity_mismatch_uses_normal_package_removal(self):
+        self.base.write_text('[bootstrap.packages]\n"brew:foo" = "*"\n')
+        self.local.write_text('[bootstrap.packages]\n"brew:owner/tap/foo" = "*"\n"apt:foo" = "*"\n')
+        other_contents = self.local.read_bytes()
+        with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+            remove.main(["mise", str(self.root), "--base", "brew:foo"])
+        self.packages.shares_installation.assert_called_once_with("brew", "foo", ["owner/tap/foo"])
+        self.packages.plan_remove.assert_called_once_with("brew", "foo")
+        self.packages.execute_remove.assert_called_once_with(self.packages.plan_remove.return_value)
+        self.assertNotIn("brew:foo", remove.discover([self.base]))
+        self.assertEqual(self.local.read_bytes(), other_contents)
+
+    def test_native_identity_probe_skipped_without_outside_scope_or_when_keep_installed(self):
+        for selector in ([], ["--base", "--keep-installed"]):
+            with self.subTest(selector=selector):
+                self.base.write_text('[bootstrap.packages]\n"brew:foo" = "*"\n')
+                self.local.write_text('[bootstrap.packages]\n"brew:owner/tap/foo" = "*"\n')
+                self.packages.reset_mock()
+                with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+                    remove.main(["mise", str(self.root), *selector, "brew:foo"])
+                self.packages.shares_installation.assert_not_called()
+
+    def test_native_identity_probe_failure_preserves_declarations(self):
+        self.base.write_text('[bootstrap.packages]\n"apt:foo" = "*"\n')
+        self.local.write_text('[bootstrap.packages]\n"apt:foo:amd64" = "*"\n')
+        originals = [path.read_bytes() for path in (self.base, self.local)]
+        self.packages.shares_installation.side_effect = ValueError("native identity unavailable")
+        with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), self.assertRaisesRegex(ValueError, "native identity unavailable"):
+            remove.main(["mise", str(self.root), "--base", "apt:foo"])
+        self.packages.plan_remove.assert_not_called()
+        self.packages.execute_remove.assert_not_called()
+        self.assertEqual([path.read_bytes() for path in (self.base, self.local)], originals)
 
     def test_dry_run_all_active_configs_and_selector(self):
         original = self.local.read_bytes()

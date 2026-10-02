@@ -307,6 +307,17 @@ def main(argv=None):
     for identity in identities:
         entries = declarations.get(identity, [])
         shared = any(entry["path"] not in selected_paths for entry in all_declarations.get(identity, []))
+        package_entries = [entry for entry in entries if entry["section"] != ("tools",)]
+        if not shared and not args.keep_installed and package_entries:
+            manager, _, name = package_entries[0]["key"].partition(":")
+            other_names = list(dict.fromkeys(
+                entry["key"].partition(":")[2]
+                for other_entries in all_declarations.values() for entry in other_entries
+                if entry["path"] not in selected_paths and entry["section"] != ("tools",)
+                and entry["key"].partition(":")[0] == manager
+            ))
+            if other_names:
+                shared = packages.shares_installation(manager, name, other_names)
         if records.get(identity) and not args.keep_installed:
             shared = shared or bool(release_sources(args.mise, root, identity) - set(selected_paths))
         plan = prepare(identity, entries, records, args.keep_installed, packages, shared)
