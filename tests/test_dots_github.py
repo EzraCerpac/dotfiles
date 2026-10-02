@@ -83,6 +83,13 @@ class ReleaseTests(unittest.TestCase):
                 with self.subTest(machine=machine, suffix=suffix):
                     self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
 
+    def test_foreign_architectures_are_excluded_on_supported_hosts(self):
+        for machine in ("arm64", "x86_64"):
+            for suffix in ("riscv64", "ppc64le", "powerpc64", "s390x", "loongarch64", "mips", "mipsel", "mips64", "mips64el", "sparc", "sparc64"):
+                with self.subTest(machine=machine, suffix=suffix):
+                    self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
+                    self.assertIsNone(github.asset_score(f"tool-linux-{suffix}-universal.zip", "linux", machine))
+
     def test_zstandard_tar_is_rejected_before_cli_registration(self):
         for name in ("Example.tar.zst", "Example.tzst"):
             release = {"tag_name": "v1.2.3", "assets": assets(name)}
@@ -264,7 +271,18 @@ class ReleaseTests(unittest.TestCase):
         with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"):
             request = github.resolve("https://github.com/owner/repo", "tool-1.2.3.zip")
         self.assertIn('asset_pattern="tool-1.2.3.zip"', request)
+        self.assertNotIn("[asset_pattern=", request)
         self.assertIn('version_prefix="release-"', request)
+
+    def test_explicit_app_asset_pattern_is_scoped_to_host(self):
+        release = {"tag_name": "v1.2.3", "assets": assets("Tool-macos-arm64.zip")}
+        with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"), patch.object(github.platform, "machine", return_value="arm64"):
+            request = github.resolve("https://github.com/owner/repo", "Tool-macos-arm64.zip")
+        self.assertIn('platform_macos_arm64_asset_pattern="Tool-macos-arm64.zip"', request)
+        self.assertNotIn("[asset_pattern=", request)
+        with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value=None):
+            cli_request = github.resolve("https://github.com/owner/repo", "Tool-macos-arm64.zip")
+        self.assertIn('[asset_pattern="Tool-macos-arm64.zip"', cli_request)
 
 
 class PublishingTests(unittest.TestCase):

@@ -70,6 +70,9 @@ def asset_score(name, system, machine):
     x64 = machine in {"x86_64", "amd64", "x64"}
     arm32_tokens = {"arm", "armv6", "armv6l", "armv7", "armv7l", "armhf"}
     x86_tokens = {"x86", "i386", "i486", "i586", "i686", "386"}
+    foreign_arch_tokens = {"riscv64", "ppc64", "ppc64le", "powerpc64", "powerpc64le", "s390x", "loongarch64", "mips", "mipsel", "mips64", "mips64el", "sparc", "sparc64"}
+    if (arm or x64) and words & foreign_arch_tokens:
+        return None
     # x86_64 and x86-64 split into x86/64, so exclude those spellings first.
     has_x86_64 = bool(re.search(r"(?:^|[^a-z0-9])x86[_-]64(?:$|[^a-z0-9])", name))
     if (arm or x64) and (words & arm32_tokens or words & (x86_tokens - {"x86"}) or ("x86" in words and not has_x86_64)):
@@ -253,6 +256,9 @@ def resolve(url, override=None):
     if app:
         if platform.system() != "Darwin":
             raise ValueError("this release contains a macOS app; install it on a Mac")
+        if override:
+            options.pop("asset_pattern")
+            options[f"platform_{system}_{machine}_asset_pattern"] = override
         hook = 'uv run --no-project python "${MISE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}/setup-scripts/lib/dots-github.py" install-app ' + shlex.quote(repo)
         options.update(strip_components=0, bin_path=".dots-no-bin", os=["macos"], postinstall={"run": hook, "when": "always"})
     if numeric_version and tag[:numeric_version.start()] not in {"", "v"}:
