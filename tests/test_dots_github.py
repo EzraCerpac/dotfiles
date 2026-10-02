@@ -148,6 +148,19 @@ class ReleaseTests(unittest.TestCase):
                     github.download_asset({"id": asset_id, "browser_download_url": "https://github.com/owner/repo/releases/download/v1/tool.zip"}, "owner/repo", Path("unused"))
                 download.assert_not_called()
 
+    def test_download_repository_identity_is_case_insensitive(self):
+        url = "https://github.com/BurntSushi/ripgrep/releases/download/v1/tool.zip"
+        with tempfile.TemporaryDirectory() as temp, patch.dict(github.os.environ, {}, clear=True), patch.object(github.urllib.request, "urlopen", return_value=io.BytesIO(b"asset")) as download:
+            github.download_asset({"browser_download_url": url}, "burntsushi/Ripgrep", Path(temp) / "tool.zip")
+        self.assertEqual(download.call_args.args[0].full_url, url)
+
+    def test_download_rejects_other_origins_and_repositories(self):
+        for url in ("https://github.com.evil/owner/repo/releases/download/v1/tool.zip", "https://github.com/other/repo/releases/download/v1/tool.zip", "https://github.com/owner/repo-other/releases/download/v1/tool.zip", "https://github.com/owner/repo/releases/download-evil/v1/tool.zip", "https://u@github.com/owner/repo/releases/download/v1/tool.zip", "http://github.com/owner/repo/releases/download/v1/tool.zip"):
+            with self.subTest(url=url), patch.object(github.urllib.request, "urlopen") as download:
+                with self.assertRaisesRegex(ValueError, "official GitHub"):
+                    github.download_asset({"browser_download_url": url}, "owner/repo", Path("unused"))
+                download.assert_not_called()
+
     def test_prefixed_tags_generate_upgrade_patterns(self):
         for tag, filename, expected in (("release-1.2.3", "tool-1.2.3.zip", "tool-*.zip"), ("version-1.2.3", "tool-1.2.3.zip", "tool-*.zip"), ("release-1.2.3", "tool-release-1.2.3.zip", "tool-*.zip"), ("release-1.2.3", "tool-11.2.3.zip", "tool-11.2.3.zip"), ("release-1.2.3", "tool-1.2.30.zip", "tool-1.2.30.zip"), ("release-1.2.3", "tool-9.1.2.3.zip", "tool-9.1.2.3.zip")):
             release = {"tag_name": tag, "assets": assets(filename)}

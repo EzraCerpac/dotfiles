@@ -20,6 +20,7 @@ import tarfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -172,7 +173,11 @@ def add_entry(entries, name, size):
 
 def download_asset(asset, repo, destination):
     url = asset.get("browser_download_url", "")
-    if not url.startswith(f"https://github.com/{repo}/releases/download/"):
+    parsed = urllib.parse.urlsplit(url)
+    path = parsed.path.split("/", 4)
+    if (parsed.scheme != "https" or parsed.netloc.lower() != "github.com"
+            or len(path) != 5 or "/".join(path[1:3]).casefold() != repo.casefold()
+            or path[3] != "releases" or not path[4].startswith("download/")):
         raise ValueError("asset is not an official GitHub release download")
     if asset.get("size", 0) > MAX_DOWNLOAD:
         raise ValueError("release archive is too large to inspect (limit 512 MiB)")
