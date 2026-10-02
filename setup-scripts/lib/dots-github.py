@@ -59,7 +59,9 @@ def fetch_release(repo):
 def asset_score(name, system, machine):
     name = name.lower()
     words = set(re.split(r"[^a-z0-9]+", name))
-    families = {"darwin": {"macos", "darwin", "osx", "mac"}, "linux": {"linux"}, "windows": {"windows", "win", "win32", "win64"},
+    families = {"darwin": {"macos", "darwin", "osx", "mac"},
+                "linux": {"linux", "ubuntu", "debian", "alpine", "fedora", "centos", "rhel", "archlinux", "opensuse", "suse", "nixos", "gentoo", "rockylinux", "almalinux"},
+                "windows": {"windows", "win", "win32", "win64"},
                 "freebsd": {"freebsd"}, "netbsd": {"netbsd"}, "openbsd": {"openbsd"}, "android": {"android"}}
     current = families.get(system, {system})
     if any(words & tokens for key, tokens in families.items() if key != system):
@@ -219,6 +221,13 @@ def download_asset(asset, repo, destination):
 def resolve(url, override=None):
     repo = repository(url)
     release = fetch_release(repo)
+    # GitHub redirects old repository names after a rename or ownership transfer.
+    if "url" in release:
+        canonical_url = release["url"]
+        canonical = re.fullmatch(r"https://api\.github\.com/repos/([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9_.-]+)/releases/[1-9][0-9]*", canonical_url) if isinstance(canonical_url, str) else None
+        if not canonical:
+            raise ValueError("release metadata lacks an official GitHub release API URL")
+        repo = repository(f"https://github.com/{canonical[1]}/{canonical[2]}")
     asset = choose_asset(release["assets"], override)
     app = None
     if asset["name"].lower().endswith(ARCHIVES):

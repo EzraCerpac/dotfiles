@@ -98,6 +98,31 @@ class ReleaseTests(unittest.TestCase):
                     self.assertIsNone(github.asset_score(f"tool-{asset_system}-arm64.zip", system, "arm64"))
         self.assertEqual(github.asset_score("tool-freebsd-x64.zip", "freebsd", "x86_64"), 30)
 
+    def test_linux_distribution_assets_are_excluded_on_other_systems(self):
+        for distribution in ("ubuntu", "debian", "alpine", "fedora", "archlinux", "opensuse"):
+            for system in ("darwin", "windows"):
+                with self.subTest(distribution=distribution, system=system):
+                    self.assertIsNone(github.asset_score(f"tool-{distribution}-x64.zip", system, "x86_64"))
+            self.assertEqual(github.asset_score(f"tool-{distribution}-x64.zip", "linux", "x86_64"), 30)
+
+    def test_renamed_repository_uses_canonical_release_identity(self):
+        asset = {"name": "Tool-1.2.3.zip", "browser_download_url": "https://github.com/NewOwner/NewRepo/releases/download/v1.2.3/Tool-1.2.3.zip"}
+        release = {"url": "https://api.github.com/repos/NewOwner/NewRepo/releases/123", "tag_name": "v1.2.3", "assets": [asset]}
+        with patch.object(github, "fetch_release", return_value=release) as lookup, patch.object(github, "download_asset") as download, patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"):
+            request = github.resolve("https://github.com/oldowner/oldrepo")
+        lookup.assert_called_once_with("oldowner/oldrepo")
+        self.assertEqual(download.call_args.args[1], "newowner/newrepo")
+        self.assertTrue(request.startswith("github:newowner/newrepo["))
+        self.assertIn("install-app newowner/newrepo", request)
+
+    def test_canonical_release_identity_rejects_spoofed_api_urls(self):
+        for url in ("https://api.github.com.evil/repos/owner/repo/releases/1", "https://u@api.github.com/repos/owner/repo/releases/1", "https://api.github.com/repos/owner/repo/releases/1?repo=other", "https://api.github.com/repos/owner/../releases/1", "http://api.github.com/repos/owner/repo/releases/1"):
+            release = {"url": url, "tag_name": "v1", "assets": assets("tool.zip")}
+            with self.subTest(url=url), patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset") as download:
+                with self.assertRaises(ValueError):
+                    github.resolve("https://github.com/owner/repo")
+                download.assert_not_called()
+
     def test_metadata_words_do_not_filter_product_names(self):
         self.assertEqual(github.choose_asset(assets("mydebugger-linux-x64.zip", "mydebugger-linux-x64-debug.zip"), system="linux", machine="x86_64")["name"], "mydebugger-linux-x64.zip")
         for name in ("tool-debug.zip", "tool-symbols.zip", "tool-checksums.txt", "tool.zip.sha256", "tool.zip.sig", "tool.zip.asc", "tool-sbom.json", "tool-provenance.json", "tool-intoto.json"):
