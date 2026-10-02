@@ -64,12 +64,14 @@ def asset_score(name, system, machine):
     if any(words & tokens for key, tokens in families.items() if key != system):
         return None
     arm = machine in {"arm64", "aarch64"}
+    x64 = machine in {"x86_64", "amd64", "x64"}
     arm_tokens = {"arm64", "aarch64"}
     x64_tokens = {"x64", "amd64"}
     has_x64 = bool(words & x64_tokens) or "x86_64" in name
-    if ((arm and has_x64) or (not arm and words & arm_tokens)) and "universal" not in words:
+    universal = "universal" in words and (arm or x64)
+    if ((not x64 and has_x64) or (not arm and words & arm_tokens)) and not universal:
         return None
-    if words & {"source", "sources"} or any(token in name for token in ("checksum", "sha256", "sha512", ".sig", ".asc", "debug", "symbols", "sbom", "intoto", "provenance")):
+    if words & {"source", "sources", "checksum", "checksums", "sha256", "sha512", "debug", "symbols", "sbom", "intoto", "provenance"} or name.endswith((".sig", ".asc")):
         return None
     if name.endswith((".dmg", ".pkg")) and system != "darwin":
         return None
@@ -78,7 +80,7 @@ def asset_score(name, system, machine):
     if name.endswith((".msi", ".deb", ".rpm", ".apk", ".pkg")):
         return None
     score = 20 if words & current else 0
-    score += 10 if (arm and words & arm_tokens) or (not arm and has_x64) else 0
+    score += 10 if (arm and words & arm_tokens) or (x64 and has_x64) else 0
     return score
 
 
@@ -287,19 +289,8 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
     marker = state / (hashlib.sha256(source.name.encode()).hexdigest() + ".json")
     target = applications / source.name
     previous = marker.read_bytes() if marker.exists() else None
-    if target.exists() or target.is_symlink():
-        try:
-            owner = json.loads(previous or b"{}")
-        except (ValueError, TypeError):
-            owner = {}
-        if isinstance(owner, dict) and isinstance(owner.get("repo"), str):
-            owner["repo"] = owner["repo"].casefold()
-        if target.is_symlink() or owner != {"repo": repo, "path": str(target), "bundle_id": identifier}:
-            raise ValueError(f"{target} already exists and is not managed by dots for {repo}; keep or move it before installing")
-        if validate_bundle(target) != identifier:
-            raise ValueError("installed app identity differs; refusing to replace it")
     old_target, old_marker = target, marker
-    if not target.exists():
+    if not target.exists() or previous is None:
         # A release may rename its bundle while retaining its application identity.
         matches = []
         for candidate in state.glob("*.json"):
@@ -322,6 +313,8 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
                     or owner != {"repo": repo, "path": str(path), "bundle_id": identifier}):
                 raise ValueError("invalid managed app ownership; refusing to migrate it")
             if path.exists():
+                if target.exists() and not path.samefile(target):
+                    continue
                 if validate_bundle(path) != identifier:
                     raise ValueError("installed app identity differs; refusing to replace it")
                 matches.append((path, candidate))
@@ -329,6 +322,17 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
             raise ValueError("multiple managed apps have this identity; migration is ambiguous")
         if matches:
             old_target, old_marker = matches[0]
+    if target.exists() or target.is_symlink():
+        try:
+            owner = json.loads(old_marker.read_bytes() if old_marker.exists() else b"{}")
+        except (ValueError, TypeError):
+            owner = {}
+        if isinstance(owner, dict) and isinstance(owner.get("repo"), str):
+            owner["repo"] = owner["repo"].casefold()
+        if target.is_symlink() or owner != {"repo": repo, "path": str(old_target), "bundle_id": identifier}:
+            raise ValueError(f"{target} already exists and is not managed by dots for {repo}; keep or move it before installing")
+        if validate_bundle(target) != identifier:
+            raise ValueError("installed app identity differs; refusing to replace it")
     with tempfile.TemporaryDirectory(prefix=".dots-github-", dir=applications) as temporary:
         stage = Path(temporary) / source.name
         subprocess.run(["/usr/bin/ditto", "--rsrc", "--extattr", str(source), str(stage)], check=True)

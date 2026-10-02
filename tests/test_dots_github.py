@@ -64,6 +64,21 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIsNone(github.asset_score(name, "darwin", "arm64"))
 
+    def test_other_architectures_do_not_select_x64(self):
+        for machine in ("riscv64", "ppc64le", "i686"):
+            for suffix in ("x64", "amd64", "x86_64"):
+                with self.subTest(machine=machine, suffix=suffix):
+                    self.assertIsNone(github.asset_score(f"tool-linux-{suffix}.zip", "linux", machine))
+                    self.assertIsNone(github.asset_score(f"tool-linux-{suffix}-universal.zip", "linux", machine))
+        self.assertEqual(github.asset_score("tool-linux-x64.zip", "linux", "x86_64"), 30)
+        self.assertIsNotNone(github.asset_score("tool-macos-x64-universal.zip", "darwin", "arm64"))
+
+    def test_metadata_words_do_not_filter_product_names(self):
+        self.assertEqual(github.choose_asset(assets("mydebugger-linux-x64.zip", "mydebugger-linux-x64-debug.zip"), system="linux", machine="x86_64")["name"], "mydebugger-linux-x64.zip")
+        for name in ("tool-debug.zip", "tool-symbols.zip", "tool-checksums.txt", "tool.zip.sha256", "tool.zip.sig", "tool.zip.asc", "tool-sbom.json", "tool-provenance.json", "tool-intoto.json"):
+            with self.subTest(name=name):
+                self.assertIsNone(github.asset_score(name, "linux", "x86_64"))
+
     def test_ambiguity_and_override(self):
         candidates = assets("one-macos-arm64.zip", "two-macos-arm64.zip")
         with self.assertRaisesRegex(ValueError, "--asset"):
@@ -230,6 +245,19 @@ class PublishingTests(unittest.TestCase):
         markers = list(self.state.glob("*.json"))
         self.assertEqual(len(markers), 1)
         self.assertEqual(json.loads(markers[0].read_text())["path"], str(self.apps / "Renamed.app"))
+
+    def test_case_only_bundle_rename_replaces_managed_app(self):
+        self.publish()
+        old_marker = next(self.state.glob("*.json"))
+        # Temp storage is on the native macOS volume; case-insensitive lookup
+        # exposes the original failure before the differently hashed marker exists.
+        self.source = self.source.rename(self.root / "example.app")
+        (self.source / "Contents/MacOS/Example").write_bytes(b"updated")
+        self.publish()
+        self.assertEqual([path.name for path in self.apps.iterdir()], ["example.app"])
+        self.assertFalse(old_marker.exists())
+        marker = next(self.state.glob("*.json"))
+        self.assertEqual(json.loads(marker.read_text())["path"], str(self.apps / "example.app"))
 
     def test_existing_mixed_case_ownership_upgrades_same_name_and_rename(self):
         for rename in (False, True):
