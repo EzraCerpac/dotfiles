@@ -4,6 +4,7 @@ complete -c dots -n '__fish_seen_subcommand_from test' -a 'python node shell lua
 complete -c dots -n '__fish_seen_subcommand_from add' -l base -d 'Record in the shared base'
 complete -c dots -n '__fish_seen_subcommand_from add' -l profile -x -a 'workstation nas' -d 'Record in this role'
 complete -c dots -n '__fish_seen_subcommand_from add' -l path -r -d 'Record in an explicit config file'
+complete -c dots -n '__fish_seen_subcommand_from add' -l asset -x -d 'GitHub release asset name or glob (one repository URL)'
 complete -c dots -n '__fish_seen_subcommand_from remote' -l profile -x -a 'workstation nas'
 complete -c dots -n '__fish_seen_subcommand_from remote bootstrap' -l dry-run -d 'Preview without applying resources'
 complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l bundle -r -d 'Encrypted bootstrap bundle'

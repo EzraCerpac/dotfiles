@@ -178,16 +178,16 @@ local opts = dofile(root .. "/dotfiles/.config/nvim/lua/plugins/blink.lua")[1].o
   },
 })
 require("blink.cmp.config").merge_with(opts)
-local lsp_requests, replied = 0, false
+local lsp_requests, replied, release_reply = 0, false, nil
 clients[1].offset_encoding = "utf-16"
 clients[1].server_capabilities = { completionProvider = { triggerCharacters = { "@", ":" } } }
 clients[1].request = function(_, method, _, callback)
   assert(method == "textDocument/completion")
   lsp_requests = lsp_requests + 1
-  vim.defer_fn(function()
+  release_reply = function()
     replied = true
     callback(nil, {})
-  end, 350)
+  end
   return true, 1
 end
 clients[1].cancel_request = function() end
@@ -202,6 +202,7 @@ ctx.id, ctx.mode = 100, "default"
 ctx.bounds = { start_col = 16, length = 5, line_number = 1 }
 ctx.trigger = { kind = "trigger_character", initial_kind = "trigger_character", character = ":" }
 ctx.providers = opts.sources.default(ctx)
+vim.uv.update_time()
 local started = vim.uv.hrtime()
 sources.request_completions(ctx)
 assert(
@@ -211,10 +212,9 @@ assert(
   "Blink never reached the fallback"
 )
 local elapsed = (vim.uv.hrtime() - started) / 1000000
-assert(
-  elapsed >= 100 and not replied and lsp_requests == 1,
-  "The cached fallback must arrive after timeout, before the stalled reply"
-)
+assert(elapsed >= 100, ("The cached fallback arrived before the timeout (%.1fms)"):format(elapsed))
+assert(not replied, "The cached fallback must arrive before the stalled LSP reply")
+assert(lsp_requests == 1, ("Expected one stalled LSP request, got %d"):format(lsp_requests))
 assert(
   not emitted.buffer and not emitted.lsp,
   "Reference completions must not expose ordinary buffer words"
@@ -228,8 +228,8 @@ assert(
   "Blink must apply fresh UTF-8 reference edits"
 )
 sources.cancel_completions()
-vim.wait(500, function()
-  return replied
-end, 5)
+assert(release_reply, "The stalled LSP request should provide a late reply")
+release_reply()
+assert(replied, "The simulated LSP reply should arrive after the fallback")
 vim.fn.delete(state, "rf")
 print("Typst reference fallback tests passed")
