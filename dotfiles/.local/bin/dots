@@ -20,6 +20,8 @@ Your machine setup, from any directory.
   dots backup                     Publish encrypted settings snapshots
   dots restore [ARGS...]          Restore private settings
   dots add [OPTIONS] TOOL...       Install and record tools or native packages
+  dots remove [OPTIONS] TOOL...    Uninstall software and remove its declarations
+  dots uninstall [OPTIONS] TOOL... Alias of remove
 
 Examples:
   dots add watchexec
@@ -30,6 +32,9 @@ Examples:
   dots add --base watchexec
   dots add --profile nas ripgrep
   dots add --path ~/other/config.toml watchexec
+  dots remove mactap
+  dots remove --dry-run brew-cask:firefox
+  dots remove --keep-installed npm:prettier
 
 Add defaults to the selected machine profile; --base targets shared config.
 Bare tool names use mise's preferred backend and latest version.
@@ -91,6 +96,25 @@ case "$command_name" in
     remote) exec bash "$root/setup-scripts/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
     bundle) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/bootstrap/bundle.mjs" "$@" ;;
     apply) exec "$mise_bin" -C "$root" bootstrap dotfiles apply "$@" ;;
+    remove|uninstall)
+        remove_args=()
+        while (($#)); do
+            case "$1" in
+                --path)
+                    [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+                    case "$2" in /*) remove_args+=(--path "$2") ;; *) remove_args+=(--path "$PWD/$2") ;; esac
+                    shift 2 ;;
+                --path=*)
+                    path="${1#--path=}"
+                    [[ -n "$path" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+                    case "$path" in /*) remove_args+=(--path "$path") ;; *) remove_args+=(--path "$PWD/$path") ;; esac
+                    shift ;;
+                *) remove_args+=("$1"); shift ;;
+            esac
+        done
+        cd "$root"
+        exec uv run --script "$root/setup-scripts/lib/dots-remove.py" "$mise_bin" "$root" ${remove_args[@]+"${remove_args[@]}"}
+        ;;
     add) ;;
     *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
 esac
