@@ -48,7 +48,7 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         helper.parent.mkdir(parents=True)
         helper.write_text('#!/usr/bin/env bash\n"$1" -C "$2" PACKAGE_HELPER "$3" "${@:4}"\n')
         tool_helper = helper.with_name('dots-tool-add.sh')
-        tool_helper.write_text('#!/usr/bin/env bash\nset -e\nfor request in "${@:4}"; do "$1" -C "$2" use --path "$3" "$request"; done\n')
+        tool_helper.write_text('#!/usr/bin/env bash\nset -e\nfor request in "${@:4}"; do "$1" -C "$2" use --path "$3" "$request"; printf "%s\\n" "$request" >> "$3"; done\n')
         bootstrap = self.root / 'setup-scripts/bootstrap'
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
@@ -147,6 +147,23 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(len(self.uv_calls()), 1)
         self.assertEqual(self.install_calls(), [])
         self.assertEqual(target.read_text(), before)
+
+    def test_later_url_failure_keeps_earlier_tool_recorded(self):
+        result = self.run_dots('add', 'watchexec', 'https://github.com/missing/repo', 'cargo:hexyl', UV_EXIT='23')
+        self.assertEqual(result.returncode, 23)
+        self.assertEqual([c['args'][-1] for c in self.install_calls()], ['watchexec'])
+        self.assertEqual((self.root/'config.workstation.toml').read_text(), 'watchexec\n')
+
+    def test_earlier_install_failure_does_not_resolve_later_url(self):
+        result = self.run_dots('add', 'watchexec', 'https://github.com/owner/repo', FAIL_USE='7')
+        self.assertEqual(result.returncode, 7)
+        self.assertEqual(self.uv_calls(), [])
+        self.assertEqual((self.root/'config.workstation.toml').read_text(), '')
+
+    def test_mixed_requests_install_in_argument_order(self):
+        result = self.run_dots('add', 'brew:libmagic', 'https://github.com/owner/repo', 'watchexec', 'brew-cask:firefox')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([c['args'][-1] for c in self.install_calls()], ['brew:libmagic', 'github:owner/repo', 'watchexec', 'brew-cask:firefox'])
 
     def test_asset_requires_one_github_url_and_one_asset_option(self):
         invalid = [

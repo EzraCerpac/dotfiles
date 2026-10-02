@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run --script
 """Focused release selection and safe application publishing checks."""
 import importlib.util
+import io
 import json
 from pathlib import Path
 import plistlib
@@ -117,6 +118,52 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('when="always"', request)
         self.assertIn("postinstall={run=", request)
         self.assertNotIn(str(ROOT), request)
+
+    def test_private_asset_download_and_redirect_do_not_leak_token(self):
+        asset = {"name": "tool.zip", "id": 123, "browser_download_url": "https://github.com/owner/repo/releases/download/v1/tool.zip"}
+        for token_name in ("GITHUB_TOKEN", "GH_TOKEN"):
+            with self.subTest(token=token_name), tempfile.TemporaryDirectory() as temp:
+                path = Path(temp) / "tool.zip"
+                with patch.dict(github.os.environ, {token_name: "secret"}, clear=True), patch.object(github.urllib.request, "urlopen", return_value=io.BytesIO(b"asset")) as download:
+                    github.download_asset(asset, "owner/repo", path)
+                request = download.call_args.args[0]
+                self.assertEqual(request.full_url, "https://api.github.com/repos/owner/repo/releases/assets/123")
+                self.assertEqual(request.get_header("Accept"), "application/octet-stream")
+                self.assertEqual(request.get_header("Authorization"), "Bearer secret")
+                redirected = github.urllib.request.HTTPRedirectHandler().redirect_request(request, None, 302, "Found", {}, "https://release-assets.githubusercontent.com/signed")
+                self.assertIsNone(redirected.get_header("Authorization"))
+                self.assertEqual(path.read_bytes(), b"asset")
+
+    def test_public_asset_uses_browser_download_without_token(self):
+        url = "https://github.com/owner/repo/releases/download/v1/tool.zip"
+        with tempfile.TemporaryDirectory() as temp, patch.dict(github.os.environ, {}, clear=True), patch.object(github.urllib.request, "urlopen", return_value=io.BytesIO(b"asset")) as download:
+            github.download_asset({"browser_download_url": url}, "owner/repo", Path(temp) / "tool.zip")
+        self.assertEqual(download.call_args.args[0].full_url, url)
+        self.assertIsNone(download.call_args.args[0].get_header("Authorization"))
+
+    def test_authenticated_asset_requires_valid_id(self):
+        for asset_id in (None, "123", -1, True):
+            with self.subTest(asset_id=asset_id), patch.dict(github.os.environ, {"GH_TOKEN": "secret"}, clear=True), patch.object(github.urllib.request, "urlopen") as download:
+                with self.assertRaisesRegex(ValueError, "asset ID"):
+                    github.download_asset({"id": asset_id, "browser_download_url": "https://github.com/owner/repo/releases/download/v1/tool.zip"}, "owner/repo", Path("unused"))
+                download.assert_not_called()
+
+    def test_prefixed_tags_generate_upgrade_patterns(self):
+        for tag, filename, expected in (("release-1.2.3", "tool-1.2.3.zip", "tool-*.zip"), ("version-1.2.3", "tool-1.2.3.zip", "tool-*.zip"), ("release-1.2.3", "tool-release-1.2.3.zip", "tool-*.zip"), ("release-1.2.3", "tool-11.2.3.zip", "tool-11.2.3.zip"), ("release-1.2.3", "tool-1.2.30.zip", "tool-1.2.30.zip"), ("release-1.2.3", "tool-9.1.2.3.zip", "tool-9.1.2.3.zip")):
+            release = {"tag_name": tag, "assets": assets(filename)}
+            with self.subTest(tag=tag, filename=filename), patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value=None):
+                request = github.resolve("https://github.com/owner/repo")
+            self.assertIn(f'_asset_pattern="{expected}"', request)
+            self.assertIn(f'version_prefix="{tag.rsplit("-", 1)[0]}-"', request)
+            if expected == "tool-*.zip":
+                self.assertTrue(github.fnmatch.fnmatchcase(filename.replace("1.2.3", "1.2.4"), expected))
+
+    def test_explicit_asset_pattern_is_preserved_for_prefixed_tag(self):
+        release = {"tag_name": "release-1.2.3", "assets": assets("tool-1.2.3.zip")}
+        with patch.object(github, "fetch_release", return_value=release), patch.object(github, "download_asset"), patch.object(github, "archive_app", return_value="Tool.app"), patch.object(github.platform, "system", return_value="Darwin"):
+            request = github.resolve("https://github.com/owner/repo", "tool-1.2.3.zip")
+        self.assertIn('asset_pattern="tool-1.2.3.zip"', request)
+        self.assertIn('version_prefix="release-"', request)
 
 
 class PublishingTests(unittest.TestCase):

@@ -176,9 +176,19 @@ def download_asset(asset, repo, destination):
         raise ValueError("asset is not an official GitHub release download")
     if asset.get("size", 0) > MAX_DOWNLOAD:
         raise ValueError("release archive is too large to inspect (limit 512 MiB)")
+    request = urllib.request.Request(url, headers={"User-Agent": "dots"})
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        asset_id = asset.get("id")
+        if type(asset_id) is not int or asset_id <= 0:
+            raise ValueError("release asset lacks a valid GitHub asset ID")
+        request = urllib.request.Request(f"https://api.github.com/repos/{repo}/releases/assets/{asset_id}",
+                                         headers={"User-Agent": "dots", "Accept": "application/octet-stream"})
+        # GitHub redirects to a signed storage URL. urllib must not forward the token.
+        request.add_unredirected_header("Authorization", f"Bearer {token}")
     digest = hashlib.sha256()
     size = 0
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "dots"}), timeout=60) as response, destination.open("wb") as stream:
+    with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as stream:
         while chunk := response.read(1024 * 1024):
             size += len(chunk)
             if size > MAX_DOWNLOAD:
@@ -201,11 +211,16 @@ def resolve(url, override=None):
             download_asset(asset, repo, path)
             app = archive_app(path)
     pattern = override or asset["name"]
+    tag = release["tag_name"]
+    numeric_version = re.search(r"(?<![\d.])\d+\.\d+(?:\.\d+)*(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$", tag)
     if not override:
-        tag = release["tag_name"]
-        for version in sorted({tag, tag.removeprefix("v")}, key=len, reverse=True):
-            if version and version in pattern:
-                pattern = pattern.replace(version, "*")
+        versions = {tag, tag.removeprefix("v")}
+        if numeric_version:
+            versions.add(numeric_version[0])
+        for version in sorted(versions, key=len, reverse=True):
+            version_pattern = r"(?<![\d.])" + re.escape(version) + r"(?!\d|\.\d)"
+            if version and re.search(version_pattern, pattern):
+                pattern = re.sub(version_pattern, "*", pattern)
                 break
     system = {"Darwin": "macos", "Windows": "windows"}.get(platform.system(), platform.system().lower())
     machine = {"aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(platform.machine().lower(), platform.machine().lower())
@@ -215,6 +230,8 @@ def resolve(url, override=None):
             raise ValueError("this release contains a macOS app; install it on a Mac")
         hook = 'uv run --no-project python "${MISE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}/setup-scripts/lib/dots-github.py" install-app ' + shlex.quote(repo)
         options = dict(asset_pattern=pattern, strip_components=0, bin_path=".dots-no-bin", os=["macos"], postinstall={"run": hook, "when": "always"})
+    if numeric_version and tag[:numeric_version.start()] not in {"", "v"}:
+        options["version_prefix"] = tag[:numeric_version.start()]
     def toml_value(value):
         if isinstance(value, dict):
             return "{" + ",".join(f"{key}={toml_value(item)}" for key, item in value.items()) + "}"

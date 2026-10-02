@@ -97,9 +97,8 @@ esac
 
 target=""
 selector_count=0
-tools=()
-packages=()
-github_requests=()
+requests=()
+github_count=0
 github_asset=""
 while (($#)); do
     case "$1" in
@@ -120,14 +119,14 @@ while (($#)); do
         -*) echo "dots: unknown add option '$1'" >&2; exit 2 ;;
         brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
             echo 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead' >&2; exit 2 ;;
-        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) packages+=("$1"); shift ;;
-        https://github.com/*|http://github.com/*) github_requests+=("$1"); shift ;;
-        *) tools+=("$1"); shift ;;
+        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) requests+=("$1"); shift ;;
+        https://github.com/*|http://github.com/*) requests+=("$1"); github_count=$((github_count + 1)); shift ;;
+        *) requests+=("$1"); shift ;;
     esac
 done
 [[ "$selector_count" -le 1 ]] || { echo 'dots: choose one of --base, --profile or --path' >&2; exit 2; }
-[[ ${#tools[@]} -gt 0 || ${#packages[@]} -gt 0 || ${#github_requests[@]} -gt 0 ]] || { echo 'dots: add needs at least one tool or package' >&2; exit 2; }
-if [[ -n "$github_asset" && ${#github_requests[@]} -ne 1 ]]; then
+[[ ${#requests[@]} -gt 0 ]] || { echo 'dots: add needs at least one tool or package' >&2; exit 2; }
+if [[ -n "$github_asset" && $github_count -ne 1 ]]; then
     echo 'dots: --asset requires exactly one GitHub repository URL' >&2; exit 2
 fi
 if [[ -z "$target" ]]; then
@@ -138,16 +137,18 @@ if [[ -z "$target" ]]; then
     esac
 fi
 printf 'Config destination: %s\n' "$target"
-for request in ${github_requests[@]+"${github_requests[@]}"}; do
-    resolve_args=(resolve "$request")
-    [[ -z "$github_asset" ]] || resolve_args+=(--asset "$github_asset")
-    resolved="$(cd "$root" && uv run --script "$root/setup-scripts/lib/dots-github.py" "${resolve_args[@]}")"
-    [[ -n "$resolved" ]] || { echo 'dots: GitHub resolver returned no install request' >&2; exit 1; }
-    tools+=("$resolved")
+for request in "${requests[@]}"; do
+    case "$request" in
+        https://github.com/*|http://github.com/*)
+            resolve_args=(resolve "$request")
+            [[ -z "$github_asset" ]] || resolve_args+=(--asset "$github_asset")
+            request="$(cd "$root" && uv run --script "$root/setup-scripts/lib/dots-github.py" "${resolve_args[@]}")"
+            [[ -n "$request" ]] || { echo 'dots: GitHub resolver returned no install request' >&2; exit 1; }
+            ;;
+    esac
+    case "$request" in
+        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*)
+            bash "$root/setup-scripts/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "$request" ;;
+        *) bash "$root/setup-scripts/lib/dots-tool-add.sh" "$mise_bin" "$root" "$target" "$request" ;;
+    esac
 done
-if [[ ${#tools[@]} -gt 0 ]]; then
-    bash "$root/setup-scripts/lib/dots-tool-add.sh" "$mise_bin" "$root" "$target" "${tools[@]}"
-fi
-if [[ ${#packages[@]} -gt 0 ]]; then
-    bash "$root/setup-scripts/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "${packages[@]}"
-fi
