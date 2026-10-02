@@ -209,6 +209,67 @@ class PublishingTests(unittest.TestCase):
         marker = next(self.state.glob("*.json"))
         self.assertEqual(json.loads(marker.read_text())["repo"], "owner/repo")
 
+    def test_bundle_rename_replaces_previous_app_and_marker(self):
+        self.publish()
+        self.source = make_app(self.root, "Renamed.app")
+        self.publish()
+        self.assertEqual([path.name for path in self.apps.iterdir()], ["Renamed.app"])
+        markers = list(self.state.glob("*.json"))
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(json.loads(markers[0].read_text())["path"], str(self.apps / "Renamed.app"))
+
+    def test_bundle_rename_preserves_unmanaged_destination(self):
+        self.publish()
+        self.source = make_app(self.root, "Renamed.app")
+        make_app(self.apps, "Renamed.app")
+        with self.assertRaisesRegex(ValueError, "not managed"):
+            self.publish()
+        self.assertEqual({path.name for path in self.apps.iterdir()}, {"Example.app", "Renamed.app"})
+        self.assertEqual(len(list(self.state.glob("*.json"))), 1)
+
+    def test_bundle_rename_state_failure_restores_previous_app(self):
+        self.publish()
+        old_marker = next(self.state.glob("*.json"))
+        old_state = old_marker.read_bytes()
+        self.source = make_app(self.root, "Renamed.app")
+        with patch.object(github.os, "replace", side_effect=OSError("state write failed")):
+            with self.assertRaisesRegex(OSError, "state write failed"):
+                self.publish()
+        self.assertEqual([path.name for path in self.apps.iterdir()], ["Example.app"])
+        self.assertEqual(old_marker.read_bytes(), old_state)
+        self.assertEqual(len(list(self.state.iterdir())), 1)
+
+    def test_bundle_rename_marker_cleanup_failure_rolls_back(self):
+        self.publish()
+        old_marker = next(self.state.glob("*.json"))
+        old_state = old_marker.read_bytes()
+        self.source = make_app(self.root, "Renamed.app")
+        unlink = Path.unlink
+
+        def fail_old_marker(path, *args, **kwargs):
+            if path == old_marker:
+                raise OSError("marker cleanup failed")
+            return unlink(path, *args, **kwargs)
+
+        with patch.object(Path, "unlink", fail_old_marker):
+            with self.assertRaisesRegex(OSError, "marker cleanup failed"):
+                self.publish()
+        self.assertEqual([path.name for path in self.apps.iterdir()], ["Example.app"])
+        self.assertEqual(old_marker.read_bytes(), old_state)
+        self.assertEqual(len(list(self.state.iterdir())), 1)
+
+    def test_bundle_rename_rejects_ownership_outside_applications(self):
+        self.publish()
+        marker = next(self.state.glob("*.json"))
+        owner = json.loads(marker.read_text())
+        owner["path"] = str(self.source)
+        marker.write_text(json.dumps(owner))
+        self.source = make_app(self.root, "Renamed.app")
+        with self.assertRaisesRegex(ValueError, "ownership"):
+            self.publish()
+        self.assertTrue((self.apps / "Example.app").exists())
+        self.assertFalse((self.apps / "Renamed.app").exists())
+
     def test_unmanaged_bundle_preserved(self):
         make_app(self.apps)
         with self.assertRaisesRegex(ValueError, "not managed"):

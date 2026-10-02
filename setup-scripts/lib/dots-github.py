@@ -295,6 +295,35 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
             raise ValueError(f"{target} already exists and is not managed by dots for {repo}; keep or move it before installing")
         if validate_bundle(target) != identifier:
             raise ValueError("installed app identity differs; refusing to replace it")
+    old_target, old_marker = target, marker
+    if not target.exists():
+        # A release may rename its bundle while retaining its application identity.
+        matches = []
+        for candidate in state.glob("*.json"):
+            if candidate == marker:
+                continue
+            try:
+                owner = json.loads(candidate.read_bytes())
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(owner, dict) or owner.get("repo") != repo or owner.get("bundle_id") != identifier:
+                continue
+            if not isinstance(owner.get("path"), str):
+                raise ValueError("invalid managed app ownership; refusing to migrate it")
+            path = Path(owner["path"])
+            expected_marker = hashlib.sha256(path.name.encode()).hexdigest() + ".json"
+            if (path.parent != applications or not path.name.endswith(".app") or path.is_symlink()
+                    or candidate.name != expected_marker
+                    or owner != {"repo": repo, "path": str(path), "bundle_id": identifier}):
+                raise ValueError("invalid managed app ownership; refusing to migrate it")
+            if path.exists():
+                if validate_bundle(path) != identifier:
+                    raise ValueError("installed app identity differs; refusing to replace it")
+                matches.append((path, candidate))
+        if len(matches) > 1:
+            raise ValueError("multiple managed apps have this identity; migration is ambiguous")
+        if matches:
+            old_target, old_marker = matches[0]
     with tempfile.TemporaryDirectory(prefix=".dots-github-", dir=applications) as temporary:
         stage = Path(temporary) / source.name
         subprocess.run(["/usr/bin/ditto", "--rsrc", "--extattr", str(source), str(stage)], check=True)
@@ -305,10 +334,11 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
         # Preserve Gatekeeper checks even when mise's downloader did not add quarantine.
         subprocess.run(["/usr/bin/xattr", "-w", "com.apple.quarantine", f"0081;{int(time.time()):08x};dots;", str(stage)], check=True)
         backup = Path(temporary) / "previous.app"
-        had_target = target.exists()
+        had_target = old_target.exists()
         if had_target:
-            target.rename(backup)
+            old_target.rename(backup)
         marker_temp = None
+        marker_written = False
         try:
             stage.rename(target)
             # State can live on a different filesystem.
@@ -316,13 +346,21 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
                 marker_temp = Path(stream.name)
                 stream.write(json.dumps({"repo": repo, "path": str(target), "bundle_id": identifier}).encode())
             os.replace(marker_temp, marker)
+            marker_written = True
+            if old_marker != marker:
+                old_marker.unlink()
         except BaseException:
             if marker_temp:
                 marker_temp.unlink(missing_ok=True)
             if target.exists():
                 shutil.rmtree(target)
             if had_target:
-                backup.rename(target)
+                backup.rename(old_target)
+            if marker_written:
+                if previous is None:
+                    marker.unlink(missing_ok=True)
+                else:
+                    marker.write_bytes(previous)
             raise
     print(f"dots: installed {target} from {repo}", file=sys.stderr)
 
