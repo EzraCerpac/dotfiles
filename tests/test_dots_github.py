@@ -38,7 +38,7 @@ def make_app(root, name="Example.app"):
 
 class ReleaseTests(unittest.TestCase):
     def test_url_scope(self):
-        self.assertEqual(github.repository("https://github.com/Owner/repo.git/"), "Owner/repo")
+        self.assertEqual(github.repository("https://github.com/Owner/Repo.git/"), "owner/repo")
         for url in ("http://github.com/a/b", "https://github.com.evil/a/b", "https://github.com/a/b/tree/main", "https://github.com/a/b?token=x", "https://github.com/a/..", "https://u@github.com/a/b"):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 github.repository(url)
@@ -217,6 +217,24 @@ class PublishingTests(unittest.TestCase):
         markers = list(self.state.glob("*.json"))
         self.assertEqual(len(markers), 1)
         self.assertEqual(json.loads(markers[0].read_text())["path"], str(self.apps / "Renamed.app"))
+
+    def test_existing_mixed_case_ownership_upgrades_same_name_and_rename(self):
+        for rename in (False, True):
+            with self.subTest(rename=rename):
+                self.publish()
+                old_marker = next(self.state.glob("*.json"))
+                owner = json.loads(old_marker.read_text())
+                owner["repo"] = "Owner/Repo"
+                old_marker.write_text(json.dumps(owner))
+                if rename:
+                    self.source = make_app(self.root, "Renamed.app")
+                (self.source / "Contents/MacOS/Example").write_bytes(b"updated")
+                self.publish("OWNER/REPO")
+                self.assertEqual([path.name for path in self.apps.iterdir()], [self.source.name])
+                self.assertEqual((self.apps / self.source.name / "Contents/MacOS/Example").read_bytes(), b"updated")
+                markers = list(self.state.glob("*.json"))
+                self.assertEqual(len(markers), 1)
+                self.assertEqual(json.loads(markers[0].read_text())["repo"], "owner/repo")
 
     def test_bundle_rename_preserves_unmanaged_destination(self):
         self.publish()

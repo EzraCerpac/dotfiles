@@ -33,7 +33,7 @@ def repository(url):
     match = REPO.fullmatch(url)
     if not match or match[2] in {".", ".."}:
         raise ValueError("use an HTTPS GitHub repository URL: https://github.com/OWNER/REPO")
-    return f"{match[1]}/{match[2]}"
+    return f"{match[1]}/{match[2]}".casefold()
 
 
 def fetch_release(repo):
@@ -278,6 +278,7 @@ def validate_bundle(source, verify_signature=True):
 def publish_app(source, repo, applications=Path("/Applications"), state=None):
     """Replace only a bundle previously installed by dots from this repository."""
     source = Path(source)
+    repo = repo.casefold()
     identifier = validate_bundle(source, verify_signature=False)
     if not source.name.endswith(".app") or source.name in {".app", "..app"}:
         raise ValueError("invalid app bundle name")
@@ -291,6 +292,8 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
             owner = json.loads(previous or b"{}")
         except (ValueError, TypeError):
             owner = {}
+        if isinstance(owner, dict) and isinstance(owner.get("repo"), str):
+            owner["repo"] = owner["repo"].casefold()
         if target.is_symlink() or owner != {"repo": repo, "path": str(target), "bundle_id": identifier}:
             raise ValueError(f"{target} already exists and is not managed by dots for {repo}; keep or move it before installing")
         if validate_bundle(target) != identifier:
@@ -306,6 +309,8 @@ def publish_app(source, repo, applications=Path("/Applications"), state=None):
                 owner = json.loads(candidate.read_bytes())
             except (ValueError, TypeError):
                 continue
+            if isinstance(owner, dict) and isinstance(owner.get("repo"), str):
+                owner["repo"] = owner["repo"].casefold()
             if not isinstance(owner, dict) or owner.get("repo") != repo or owner.get("bundle_id") != identifier:
                 continue
             if not isinstance(owner.get("path"), str):
