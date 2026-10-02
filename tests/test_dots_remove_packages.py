@@ -147,6 +147,45 @@ class PackageRemovalTests(unittest.TestCase):
                 self.assertTrue(shared)
                 self.assertEqual(calls[-1], ["apt-get", "--simulate", "--no-auto-remove", "remove", "foo"])
 
+    def test_apt_wildcard_selectors_target_resolved_installed_architecture(self):
+        for selector in ["native", "any"]:
+            for architecture in ["amd64", "all"]:
+                with self.subTest(selector=selector, architecture=architecture):
+                    plan, calls = self.plan("apt", f"foo:{selector}", [f"foo:{architecture} installed\n", "Remv foo [1]\n"])
+                    self.assertEqual(calls[-1], ["apt-get", "--simulate", "--no-auto-remove", "remove", f"foo:{selector}"])
+                    self.assertEqual(plan["commands"], [["sudo", "apt-get", "--yes", "--no-auto-remove", "remove", f"foo:{architecture}"]])
+
+    def test_apt_wildcard_selectors_missing_package_or_architecture_are_noops(self):
+        for selector in ["native", "any"]:
+            for responses in [[""], ["foo:i386 installed\n", "Package foo is not installed, so not removed\n"]]:
+                with self.subTest(selector=selector, responses=responses):
+                    plan, _ = self.plan("apt", f"foo:{selector}", responses)
+                    self.assertFalse(plan["installed"])
+
+    def test_apt_wildcard_selectors_share_actual_architecture_both_directions(self):
+        for selector in ["native", "any"]:
+            for architecture in ["amd64", "all"]:
+                selected, qualified = f"foo:{selector}", f"foo:{architecture}"
+                for name, other in [(selected, qualified), (qualified, selected)]:
+                    with self.subTest(selector=selector, architecture=architecture, name=name):
+                        shared, _ = self.shared("apt", name, [other], [f"{qualified} installed\n", "Remv foo [1]\n"])
+                        self.assertTrue(shared)
+
+    def test_apt_wildcard_selectors_do_not_share_different_foreign_architecture(self):
+        for selector in ["native", "any"]:
+            for name, other in [(f"foo:{selector}", "foo:i386"), ("foo:i386", f"foo:{selector}")]:
+                with self.subTest(selector=selector, name=name):
+                    shared, _ = self.shared("apt", name, [other], ["foo:amd64 installed\nfoo:i386 installed\n", "Remv foo:amd64 [1]\n"])
+                    self.assertFalse(shared)
+
+    def test_apt_wildcard_plan_refuses_dependents_or_multiple_architectures(self):
+        for selector in ["native", "any"]:
+            for preview in ["Remv foo:amd64 [1]\nRemv bar:amd64 [1]\n", "Remv foo:amd64 [1]\nRemv foo:i386 [1]\n", "Remv foo:amd64 [1]\nInst bar (1)\n"]:
+                with self.subTest(selector=selector, preview=preview), self.assertRaises(ValueError):
+                    self.plan("apt", f"foo:{selector}", ["foo:amd64 installed\nfoo:i386 installed\nbar:amd64 installed\n", preview])
+            shared, _ = self.shared("apt", f"foo:{selector}", ["foo:amd64"], ["foo:amd64 installed\nbar:amd64 installed\n", "Remv foo:amd64 [1]\nRemv bar:amd64 [1]\n"])
+            self.assertTrue(shared)
+
     def test_apt_shared_identity_does_not_conflate_foreign_architecture(self):
         for name, other in [("foo", "foo:i386"), ("foo:i386", "foo")]:
             with self.subTest(name=name):

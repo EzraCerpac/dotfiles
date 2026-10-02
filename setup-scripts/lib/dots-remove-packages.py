@@ -97,21 +97,48 @@ def apt_qualified_name(name, names):
     return f"{name}:{architecture}"
 
 
-def apt_identity(name, names):
-    if name not in names:
+def apt_selector(name):
+    return ":" not in name or name.rsplit(":", 1)[-1] in {"native", "any"}
+
+
+def apt_identity(name, names, removals=None):
+    base = name.split(":")[0]
+    if not apt_selector(name):
+        return name if name in names else None
+    if base not in names:
         return None
-    if ":" in name:
-        return name
-    _, removals = apt_preview(name)
+    if removals is None:
+        _, removals = apt_preview(name)
     # Dependencies may also be removed in the preview. They are irrelevant to
     # shared ownership, but the requested package must resolve to one identity.
-    targets = [item for item in removals if item.split(":")[0] == name]
+    targets = [item for item in removals if item.split(":")[0] == base]
+    if not targets and ":" in name:
+        return None
     if len(targets) != 1:
         raise ValueError(f"ambiguous apt removal identity for {name}: {', '.join(targets) or 'no target'}")
     selected = apt_qualified_name(targets[0], names)
     if selected not in names:
         raise ValueError(f"cannot verify installed apt package {selected}")
     return selected
+
+
+def apt_plan(name):
+    installed = installed_names("apt")
+    if (name.split(":")[0] if apt_selector(name) else name) not in installed:
+        return []
+    preview, removals = apt_preview(name)
+    wildcard = ":" in name and apt_selector(name)
+    selected = apt_identity(name, installed, removals) if wildcard else name
+    # A selector may select no installed architecture. Other changes still
+    # cannot be accepted as an absence check.
+    if selected is None and not removals and not re.search(r"^(Inst|Conf) ", preview, re.MULTILINE):
+        return []
+    # Keep every row, including dependents and duplicate architectures.
+    only_target([item.split(":")[0] if ":" not in name else apt_qualified_name(item, installed)
+                 for item in removals], name if ":" not in name else selected)
+    if re.search(r"^(Inst|Conf) ", preview, re.MULTILINE):
+        raise ValueError("refusing apt transaction that installs or configures other packages")
+    return [privileged(["apt-get", "--yes", "--no-auto-remove", "remove", selected if wildcard else name])]
 
 
 def shares_installation(manager, name, other_names):
@@ -134,7 +161,7 @@ def shares_installation(manager, name, other_names):
     if manager == "apt":
         candidates = [other for other in other_names
                       if name.split(":")[0] == other.split(":")[0]
-                      and (":" not in name or ":" not in other)]
+                      and (apt_selector(name) or apt_selector(other))]
         if not candidates:
             return False
         names = installed_names(manager)
@@ -187,16 +214,10 @@ def plan_remove(manager, name):
     commands = []
     if manager.startswith("brew"):
         commands = brew_plan(manager, name)
-    elif name in (installed := installed_names(manager)):
-        if manager == "apt":
-            preview, removals = apt_preview(name)
-            # Keep every row, including dependents and duplicate architectures.
-            only_target([item.split(":")[0] if ":" not in name else apt_qualified_name(item, installed)
-                         for item in removals], name)
-            if re.search(r"^(Inst|Conf) ", preview, re.MULTILINE):
-                raise ValueError("refusing apt transaction that installs or configures other packages")
-            commands = [privileged(["apt-get", "--yes", "--no-auto-remove", "remove", name])]
-        elif manager == "dnf":
+    elif manager == "apt":
+        commands = apt_plan(name)
+    elif name in installed_names(manager):
+        if manager == "dnf":
             # Native RPM dependency checking refuses removal of packages needed
             # by others; DNF defaults to cascading removal, so disable cleanup.
             probe(privileged(["rpm", "-e", "--test", name]))

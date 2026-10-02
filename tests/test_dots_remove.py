@@ -129,15 +129,37 @@ class RemoveTests(unittest.TestCase):
         self.assertNotIn("brew:foo", remove.discover([self.base]))
         self.assertEqual(self.local.read_bytes(), other_contents)
 
-    def test_native_identity_probe_skipped_without_outside_scope_or_when_keep_installed(self):
-        for selector in ([], ["--base", "--keep-installed"]):
-            with self.subTest(selector=selector):
+    def test_default_exact_request_preserves_native_equivalent_declaration(self):
+        for manager, qualified in (("brew", "owner/tap/foo"), ("brew-cask", "owner/tap/foo"), ("apt", "foo:amd64")):
+            for selected, other in (("foo", qualified), (qualified, "foo")):
+                for same_config in (True, False):
+                    with self.subTest(manager=manager, selected=selected, same_config=same_config):
+                        key, other_key = f"{manager}:{selected}", f"{manager}:{other}"
+                        self.base.write_text(f'[bootstrap.packages]\n"{key}" = "*"\n' + (f'"{other_key}" = "*"\n' if same_config else ""))
+                        self.local.write_text('[bootstrap.packages]\n' + ("" if same_config else f'"{other_key}" = "*"\n'))
+                        self.packages.reset_mock()
+                        self.packages.shares_installation.return_value = True
+                        with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
+                            self.assertEqual(remove.main(["mise", str(self.root), key]), 0)
+                        self.packages.shares_installation.assert_called_once_with(manager, selected, [other])
+                        self.packages.plan_remove.assert_not_called()
+                        self.packages.execute_remove.assert_not_called()
+                        remaining = remove.discover([self.base, self.local])
+                        self.assertNotIn(key, remaining)
+                        self.assertIn(other_key, remaining)
+
+    def test_native_identity_probe_skipped_when_all_aliases_removed_or_keep_installed(self):
+        for arguments in (["brew:foo", "brew:owner/tap/foo"], ["--base", "--keep-installed", "brew:foo"]):
+            with self.subTest(arguments=arguments):
                 self.base.write_text('[bootstrap.packages]\n"brew:foo" = "*"\n')
                 self.local.write_text('[bootstrap.packages]\n"brew:owner/tap/foo" = "*"\n')
                 self.packages.reset_mock()
                 with patch.object(remove, "active_configs", return_value=[self.base.resolve(), self.local.resolve()]), patch.object(remove, "state_directory", return_value=self.root / "state"), patch.object(remove, "load_module", return_value=self.packages), contextlib.redirect_stdout(io.StringIO()):
-                    remove.main(["mise", str(self.root), *selector, "brew:foo"])
+                    remove.main(["mise", str(self.root), *arguments])
                 self.packages.shares_installation.assert_not_called()
+                if "--keep-installed" not in arguments:
+                    self.assertNotIn("brew:foo", remove.discover([self.base]))
+                    self.assertNotIn("brew:owner/tap/foo", remove.discover([self.local]))
 
     def test_native_identity_probe_failure_preserves_declarations(self):
         self.base.write_text('[bootstrap.packages]\n"apt:foo" = "*"\n')

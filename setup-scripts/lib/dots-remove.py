@@ -302,18 +302,24 @@ def main(argv=None):
     if args.path or args.base or args.profile:
         records = {key: value for key, value in records.items() if key in declarations}
     identities = resolve(args.targets, declarations, records)
+    removed_entries = {
+        (entry["path"], entry["section"], entry["key"])
+        for identity in identities for entry in declarations.get(identity, [])
+    }
     packages = load_module("dots_remove_packages", "dots-remove-packages.py")
     plans = []
     for identity in identities:
         entries = declarations.get(identity, [])
-        shared = any(entry["path"] not in selected_paths for entry in all_declarations.get(identity, []))
+        shared = any((entry["path"], entry["section"], entry["key"]) not in removed_entries
+                     for entry in all_declarations.get(identity, []))
         package_entries = [entry for entry in entries if entry["section"] != ("tools",)]
         if not shared and not args.keep_installed and package_entries:
             manager, _, name = package_entries[0]["key"].partition(":")
             other_names = list(dict.fromkeys(
                 entry["key"].partition(":")[2]
                 for other_entries in all_declarations.values() for entry in other_entries
-                if entry["path"] not in selected_paths and entry["section"] != ("tools",)
+                if (entry["path"], entry["section"], entry["key"]) not in removed_entries
+                and entry["section"] != ("tools",)
                 and entry["key"].partition(":")[0] == manager
             ))
             if other_names:
