@@ -111,6 +111,9 @@ fi
 if [[ "${FAIL_PACKAGES:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "upgrade" ]]; then
     exit 41
 fi
+if [[ "${FAIL_MAS_UPGRADE:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "upgrade" && "${5:-}" == "mas" ]]; then
+    exit 49
+fi
 if [[ "${FAIL_PULL:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "dotfiles" && "${3:-}" == "pull" ]]; then
     exit 42
 fi
@@ -804,6 +807,35 @@ esac
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
 
+    def test_update_options_are_checked_before_source_sync_or_checkpoint(self) -> None:
+        for flags in (['--dry-run'], ['--mas', '--unknown'], ['mas']):
+            with self.subTest(flags=flags):
+                result = self._run("update", *flags)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("unknown update option", result.stderr)
+        result = self._run("update", "--help", extra_env={"SETUP_PROFILE": None})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("setup:update [--mas]", result.stdout)
+        self.assertIn("skipped by default", result.stdout)
+        self.assertEqual(self._calls(), [])
+
+    def test_mas_flag_preserves_other_platforms_and_profiles(self) -> None:
+        for platform, profile in (("Linux", "workstation"), ("Linux", "nas"), ("Darwin", "nas")):
+            self._write_executable(self.bin / "uname", f"#!/usr/bin/env bash\nprintf '{platform}\\n'\n")
+            for flags in ([], ["--mas"]):
+                with self.subTest(platform=platform, profile=profile, flags=flags):
+                    self.log.unlink(missing_ok=True)
+                    result = self._run("update", *flags, extra_env={"SETUP_PROFILE": profile})
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    commands = [call[4:] for call in self._calls()]
+                    self.assertIn(["bootstrap", "packages", "apply", "--yes"], commands)
+                    self.assertIn(["bootstrap", "packages", "upgrade", "--yes"], commands)
+                    self.assertIn(["upgrade", "--no-prune"], commands)
+                    self.assertIn(["self-update", "--yes"], commands)
+                    self.assertEqual(commands.count(["bootstrap", "dotfiles", "save"]), 2)
+                    self.assertFalse(any("--manager" in command for command in commands))
+                    self.assertNotIn("Mac App Store", result.stdout)
+
     def test_post_dotfiles_hook_retires_links_left_by_removed_declarations(self) -> None:
         # Every apply runs this hook from the incoming source, even when the
         # sync that triggered it is still the previous source's code.
@@ -924,7 +956,31 @@ esac
         self.assertIn(["self-update", "--yes"], calls)
         self.assertFalse(any(call[:2] == ["bootstrap", "user"] for call in calls))
 
-    def test_macos_update_defers_mas_noninteractively_but_runs_other_managers(self) -> None:
+    def test_macos_update_skips_mas_by_default_but_runs_other_managers(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        sudo_log = self.base / "sudo.log"
+        self._write_executable(
+            self.bin / "sudo",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$SUDO_LOG\"\nexit 0\n",
+        )
+        result = self._run("update", extra_env={"SUDO_LOG": str(sudo_log)})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Skipped: Mac App Store updates (use dots up --mas", result.stdout)
+        self.assertNotIn("Waiting for Mac App Store updates", result.stdout)
+        self.assertFalse(sudo_log.exists())
+        commands = [call[4:] for call in self._calls()]
+        self.assertFalse(any("mas" in command or "brew:mas" in command for command in commands))
+        self.assertIn(["bootstrap", "packages", "apply", "--manager", "brew", "--yes", "brew:fish"], commands)
+        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:fish"], commands)
+        self.assertIn(["bootstrap", "packages", "apply", "--manager", "brew-cask", "--yes"], commands)
+        self.assertIn(["bootstrap", "packages", "upgrade", "--manager", "brew-cask", "--yes", "brew-cask:rustdesk"], commands)
+        self.assertFalse(any("brew-cask:codexbar" in command or "brew-cask:google-chrome" in command for command in commands))
+        self.assertIn(["upgrade", "--no-prune"], commands)
+        self.assertIn(["self-update", "--yes"], commands)
+        self.assertEqual(commands.count(["bootstrap", "dotfiles", "save"]), 2)
+        self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
+
+    def test_macos_update_defers_opted_in_mas_noninteractively_but_runs_other_managers(self) -> None:
         platform_bin = self.base / "macos-update-bin"
         platform_bin.mkdir()
         self._write_executable(
@@ -939,6 +995,7 @@ esac
 
         result = self._run(
             "update",
+            "--mas",
             extra_env={
                 "PATH": f"{platform_bin}{os.pathsep}{self.env['PATH']}",
                 "SUDO_LOG": str(sudo_log),
@@ -969,7 +1026,7 @@ esac
         platform_bin.mkdir()
         self._write_executable(platform_bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
         self._write_executable(platform_bin / "sudo", "#!/usr/bin/env bash\nexit 0\n")
-        result = self._run("update", extra_env={
+        result = self._run("update", "--mas", extra_env={
             "PATH": f"{platform_bin}{os.pathsep}{self.env['PATH']}",
             "MAS_START_MARKER": str(self.base / "mas-started"),
             "MAS_FINISH_MARKER": str(self.base / "mas-finished"),
@@ -979,6 +1036,29 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.base / "mas-finished").exists())
         self.assertIn("Waiting for Mac App Store updates", result.stdout)
+        commands = [call[4:] for call in self._calls()]
+        reload = ["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/setup/update"), "--mas"]
+        self.assertIn(reload, commands)
+        self.assertIn(["bootstrap", "packages", "apply", "--manager", "brew", "--yes", "brew:mas"], commands)
+        mas_upgrade = ["bootstrap", "packages", "upgrade", "--manager", "mas", "--yes"]
+        self.assertIn(["bootstrap", "packages", "apply", "--manager", "mas", "--yes"], commands)
+        self.assertIn(mas_upgrade, commands)
+        self.assertLess(commands.index(mas_upgrade), commands.index(["self-update", "--yes"]))
+        self.assertEqual(commands.count(["bootstrap", "dotfiles", "save"]), 2)
+        self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
+
+    def test_opted_in_mas_failure_is_reported_after_other_updates_and_checkpoint(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        self._write_executable(self.bin / "sudo", "#!/usr/bin/env bash\nexit 0\n")
+        result = self._run("update", "--mas", extra_env={"FAIL_MAS_UPGRADE": "1"})
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Mac App Store result", result.stdout)
+        self.assertIn("Result: failed (exit 49)", result.stdout)
+        commands = [call[4:] for call in self._calls()]
+        self.assertIn(["upgrade", "--no-prune"], commands)
+        self.assertIn(["self-update", "--yes"], commands)
+        self.assertEqual(commands.count(["bootstrap", "dotfiles", "save"]), 2)
+        self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
 
     def test_cask_upgrade_skips_empty_selection_and_fails_closed_on_bad_status(self) -> None:
         platform_bin = self.base / "macos-update-bin"
@@ -1344,7 +1424,7 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(
             any(
-                call[-7:] == ["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:mas"]
+                call[-7:] == ["bootstrap", "packages", "upgrade", "--manager", "brew", "--yes", "brew:fish"]
                 for call in self._calls()
             ),
             self._calls(),
