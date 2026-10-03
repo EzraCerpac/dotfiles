@@ -78,6 +78,35 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(call['root'], str(self.root))
         self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
 
+    def test_update_alias_and_mas_opt_in_are_rooted(self):
+        for command, flags in [('update', []), ('up', ['--mas']), ('update', ['--mas'])]:
+            with self.subTest(command=command, flags=flags):
+                result = self.run_dots(command, *flags)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                call = self.calls()[-1]
+                self.assertEqual(call['args'], ['-C', str(self.root), 'run', 'setup:update', *flags])
+                self.assertIsNone(call['env'])
+                self.assertEqual(call['root'], str(self.root))
+
+    def test_update_rejects_other_options_before_dispatch(self):
+        for command in ('up', 'update'):
+            for flags in (['--dry-run'], ['--mas', '--dry-run'], ['mas'], ['--mas=true']):
+                with self.subTest(command=command, flags=flags):
+                    result = self.run_dots(command, *flags)
+                    self.assertEqual(result.returncode, 2)
+                    self.assertIn('accepts only --mas', result.stderr)
+        for command in ('sync', 'status', 'backup', 'plan'):
+            self.assertEqual(self.run_dots(command, '--mas').returncode, 2)
+        self.assertEqual(self.calls(), [])
+
+    def test_update_help_describes_mas_opt_in_without_dispatch(self):
+        for args in (['--help'], ['up', '--help'], ['update', '-h']):
+            result = self.run_dots(*args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('dots up [--mas]', result.stdout)
+            self.assertIn('skips Mac App Store updates by default', result.stdout)
+        self.assertEqual(self.calls(), [])
+
     def test_source_routes_are_rooted_when_called_from_an_unrelated_project(self):
         expected = {
             'sync': ['-C', str(self.root), 'exec', '--', 'node', str(self.root / 'setup-scripts/lib/source-repo.mjs'), 'sync', str(self.root)],
