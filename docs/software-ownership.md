@@ -155,7 +155,7 @@ registry or belong in the shared host prefix. Their intended native owner is a
 | `ffmpeg` 8.1.2_1; `librsvg` 2.62.3; `openfst` 1.8.4; `pillow` 12.3.0; `poppler` 26.08.0; `pulseaudio` 17.0; `tesseract` 5.5.3 | Native libraries/media stack; retain dependency closure in the Homebrew prefix |
 | `gitlogue` 0.10.0; `harper` 2.8.0; `himalaya` 2.0.0; `modem-dev/tap/hunk` 0.17.0 | Existing application CLIs without a registry backend selected here |
 | `antoniorodr/memo/memo` 0.6.0; `dastrobu/tap/mail-mcp` 0.5.0; `mole` 1.48.1; `openai-whisper` 20250625_5; `pdfpc` 4.7.0 | Keep current native recipes pending direct replacement evidence |
-| `steipete/tap/peekaboo` 3.9.8; `summarize` 0.21.11; `pngpaste` 0.2.3 | Mac-specific applications/helpers without a selected portable backend |
+| `steipete/tap/peekaboo` 3.9.8; `pngpaste` 0.2.3 | Mac-specific applications/helpers without a selected portable backend |
 | `graphviz` 15.1.0; `llvm` 22.1.8; `lua` 5.5.0; `pkgconf` 3.0.7 | Build/runtime support in the native prefix |
 | `ezracerpac/tap/typst-time-machine` 0.1.3 | Existing tap recipe; keep separate from versioned Typst tools |
 
