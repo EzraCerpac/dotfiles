@@ -293,6 +293,7 @@ The role selection and private history origin belong in ignored local mise confi
 | Corne keyboard and Kanata | [Keyboard](docs/keyboard.md) |
 | CerpacNAS and remote Codex tasks | [NAS guide](docs/cerpacnas.md) |
 | Tests and CI | [Testing](docs/testing.md) |
+| Presentation Mode and preserving a running demo (`present showcase`) | [Presentation modes](docs/present.md) |
 | Secret scanning, signing, leaked-credential rotation | [Security](docs/security.md) |
 | Window managers | [Runbook](docs/window-manager-runbook.md) |
 | Settings history internals | [History](docs/history.md) |
