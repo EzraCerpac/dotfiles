@@ -149,7 +149,6 @@ claude-code = "latest"
 "brew:pulseaudio" = { os = "macos/arm64" }
 "brew:rsync" = { os = "macos/arm64" }
 "brew:sshpass" = { os = "macos/arm64" }
-"brew:summarize" = { os = "macos/arm64" }
 "brew:tesseract" = { os = "macos/arm64" }
 "brew:tree" = { os = "macos/arm64" }
 "brew:unbound" = { os = "macos/arm64" }
