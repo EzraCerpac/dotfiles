@@ -5,11 +5,14 @@ The registered tasks call these scripts from the setup root. They require
 `SETUP_MACHINE_ID` to load the corresponding `host-<id>` environment. Each
 child mise process is pinned to this setup directory and those environments.
 
-`setup:update` saves tracked settings before and after updates. On macOS it
-prepares the Homebrew `mas` formula first, then runs App Store updates alongside
-other Homebrew formulae, casks, mise tools, named exceptions, and editor plugins.
-It waits for App Store updates before updating standalone mise and saving the
-final checkpoint. The cask stage installs missing declared casks, then
+`setup:update` saves tracked settings before and after updates. Mac App Store
+updates are skipped by default. `dots up --mas` (or `setup:update --mas`) includes
+them on macOS workstations: it prepares the Homebrew `mas` formula first, then
+runs App Store updates alongside other Homebrew formulae, casks, mise tools,
+named exceptions, and editor plugins. It waits for opted-in App Store updates
+before updating standalone mise and saving the final checkpoint. The flag has
+no effect on other platforms or profiles. The cask stage installs missing
+declared casks, then
 upgrades only casks without `auto_updates: true`; self-updating casks are left
 to their vendor updaters. CodexBar is explicitly excluded from routine upgrades
 because its cask omits that flag; setup still installs it when missing.
@@ -23,9 +26,9 @@ make the final task result nonzero once the pre-update save succeeds. The task
 does not prune software, update project dependencies, publish source, or
 restart services.
 
-If the Mac App Store stage has no cached administrator authorization, a
+If the opted-in Mac App Store stage has no cached administrator authorization, a
 noninteractive run defers that stage and continues. An interactive
-`dots up` can prompt through `sudo -v`. A
+`dots up --mas` can prompt through `sudo -v`. A
 deferred App Store stage is not a task failure.
 
 If a wanted app has no suitable mise package backend, add one executable script

@@ -70,7 +70,7 @@ dots restore
 | Need | Native mise workflow | Effect |
 | --- | --- | --- |
 | Inspect machine setup | `dots status` | Reports selected profile, declared packages and tools, dotfiles/history, and installer exceptions. |
-| Update declared setup | `dots up` | Saves local settings before and after updates. On Mac, the `mas` formula is prepared first; App Store updates then overlap other package and tool stages. Later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
+| Update declared setup | `dots up [--mas]` | Saves local settings before and after updates. App Store updates are skipped by default; `--mas` prepares the `mas` formula and overlaps App Store updates with other package and tool stages on macOS workstations. Later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
 | Edit an ordinary linked file | `mise -C ~/.config/mise bootstrap dotfiles edit <target>` | Opens the native linked target, which is the source file. |
 | Edit and apply a template | `mise -C ~/.config/mise bootstrap dotfiles edit --apply <target>` | Edits the Tera template and applies the rendered target. |
 | Add a global symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g <target>` | Adds a link shared across profiles. |
@@ -81,8 +81,8 @@ dots restore
 
 `setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `setup-scripts/bootstrap/enroll-history`.
 
-The Mac update prepares the `mas` formula, then overlaps App Store updates with
-other formulae, casks, tools, and exceptions. With no cached
+With `dots up --mas`, the Mac update prepares the `mas` formula, then overlaps
+App Store updates with other formulae, casks, tools, and exceptions. With no cached
 administrator authorization, a noninteractive run defers the Mac App Store
 stage and continues. An interactive run can prompt through `sudo -v`. A deferred
 stage is not a failure; updater failures are collected and make the final task
