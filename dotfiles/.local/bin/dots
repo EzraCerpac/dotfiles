@@ -5,7 +5,7 @@ usage() {
     cat <<'HELP'
 Your machine setup, from any directory.
 
-  dots up                         Sync configuration, then update tools and plugins
+  dots up [--mas]                  Sync configuration, then update tools and plugins
   dots sync                       Fetch main and apply shared configuration
   dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
@@ -37,6 +37,7 @@ Examples:
   dots remove --keep-installed npm:prettier
 
 Add defaults to the selected machine profile; --base targets shared config.
+Up skips Mac App Store updates by default; --mas includes them on macOS workstations.
 Bare tool names use mise's preferred backend and latest version.
 brew: names prefer formulas and resolve to casks when no formula exists.
 New requests are recorded after installation; failures ask before recording.
@@ -59,7 +60,12 @@ command_name="$1"
 shift
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 case "$command_name" in
-    up|update|sync|status|backup|plan)
+    up|update)
+        for argument in "$@"; do
+            [[ "$argument" == --mas ]] || { echo "dots: $command_name accepts only --mas" >&2; exit 2; }
+        done
+        ;;
+    sync|status|backup|plan)
         [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
         ;;
 esac

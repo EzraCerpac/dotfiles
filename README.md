@@ -109,6 +109,10 @@ When you want the installed setup brought up to date, run:
 dots up
 ```
 
+Mac App Store updates are skipped by default. On a macOS workstation, use
+`dots up --mas` to include them; this may request administrator authorization.
+The flag has no effect on other platforms or profiles.
+
 Let it finish and read the result. It synchronizes the shared source, checkpoints
 app-written settings, installs newly declared packages and tools, runs upgrades
 and named installer exceptions, updates editor plugins, then updates mise. Tools track the latest stable release by default.
