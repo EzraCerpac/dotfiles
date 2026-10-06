@@ -172,6 +172,24 @@ function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
       const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', '.gitignore'], root);
       if (!/^100(?:644|755) blob [a-f0-9]+\t\.gitignore$/.test(entry)) throw new Error('Incoming .gitignore must be a regular source file');
       const ignore = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:.gitignore`], root, { trimOutput: false, encoding: null });
+      const rules = ignore.toString('utf8').split(/\r?\n/);
+      const hostRule = rules.findLastIndex(rule => rule === '/config.host-*.toml' || rule === 'config.host-*.toml');
+      if (hostRule < 0) throw new SourceDeferred('Incoming ignore rules must protect every config.host-*.toml selector');
+      // Conservatively reject later root-file negations whose literal prefix can
+      // overlap the host namespace. Directory-only and other literal namespaces
+      // cannot unignore a root selector. One probe cannot cover future host IDs.
+      for (const rule of rules.slice(hostRule + 1)) {
+        if (!rule.startsWith('!')) continue;
+        let pattern = rule.slice(1);
+        if (pattern.endsWith('/')) continue;
+        if (pattern.startsWith('/')) pattern = pattern.slice(1);
+        while (/^\*{2,}\//.test(pattern)) pattern = pattern.replace(/^\*{2,}\//, '');
+        if (pattern.includes('/')) continue;
+        let length = 0;
+        while (length < pattern.length && !['*', '?', '[', '\\'].includes(pattern[length])) length++;
+        const prefix = pattern.slice(0, length), namespace = 'config.host-';
+        if (namespace.startsWith(prefix) || prefix.startsWith(namespace)) throw new SourceDeferred('Incoming ignore negations could expose a future host selector; preserving the current source');
+      }
       fs.writeFileSync(path.join(preview, '.gitignore'), ignore, { mode: 0o600 });
     }
     // An isolated Git index checks only public incoming rules. No private files,

@@ -571,7 +571,7 @@ repoTest('source-only rejects incoming config.toml symlinks before source moveme
 
 repoTest('source-only rejects removed or negated incoming private ignore rules before advancement', () => {
   const names = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
-  for (const kind of ['removed', 'negated', 'symlink', 'absent', 'leading-space']) {
+  for (const kind of ['removed', 'negated', 'symlink', 'absent', 'leading-space', 'host-probe-only', 'future-host-negation', 'globstar-host-negation']) {
     const fixture = sourceOnlyFixture();
     try {
       ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
@@ -581,9 +581,12 @@ repoTest('source-only rejects removed or negated incoming private ignore rules b
       if (kind === 'removed' || kind === 'absent') fs.rmSync(path.join(fixture.seed, '.gitignore'));
       else if (kind === 'negated') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.local.toml\n');
       else if (kind === 'leading-space') fs.writeFileSync(path.join(fixture.seed, '.gitignore'), ' config.local.toml\nmiserc.toml\nconfig.host-*.toml\n*.lock\n');
+      else if (kind === 'host-probe-only') fs.writeFileSync(path.join(fixture.seed, '.gitignore'), 'config.local.toml\nmiserc.toml\nconfig.host-source-only.toml\nconfig.host-fixture.toml\n*.lock\n');
+      else if (kind === 'future-host-negation') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.host-future.toml\n');
+      else if (kind === 'globstar-host-negation') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!***/config.host-future.toml\n');
       else { fs.rmSync(path.join(fixture.seed, '.gitignore')); fs.symlinkSync('config.toml', path.join(fixture.seed, '.gitignore')); }
       commit(fixture.seed, 'change incoming ignores');
-      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'symlink' ? /\.gitignore must be a regular/ : /ignore rules would expose/);
+      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'symlink' ? /\.gitignore must be a regular/ : /ignore rules would expose|every config.host|future host selector/);
       assert.equal(parentRevision(fixture), before);
       if (kind === 'absent') assert(names.every(name => !fs.existsSync(path.join(fixture.root, name))));
       else assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), metadata);

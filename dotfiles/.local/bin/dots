@@ -81,6 +81,7 @@ case "$command_name" in
                 set -- "$@" --expected-main "$DOTS_EXPECTED_MAIN"
             fi
             export MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1
+            exec "$mise_bin" -C "$root" exec -- /usr/bin/env MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1 node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" "$@"
         fi
         exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" "$@"
         ;;

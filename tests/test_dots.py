@@ -23,7 +23,20 @@ class DotsTest(unittest.TestCase):
         self.log = self.base / 'calls.jsonl'
         self.uv_log = self.base / 'uv-calls.jsonl'
         self.mise = self.base / 'mise'
-        self.mise.write_text('#!/usr/bin/env python3\nimport os,sys,json\nwith open(os.environ["CALL_LOG"],"a") as f: f.write(json.dumps({"args":sys.argv[1:],"env":os.environ.get("MISE_ENV"),"root":os.environ.get("MISE_CONFIG_DIR"),"automatic":{k:os.environ.get(k) for k in ["MISE_AUTO_INSTALL","MISE_EXEC_AUTO_INSTALL","MISE_AUTO_UPDATE","MISE_NO_HOOKS"]}})+"\\n")\nif "get" in sys.argv: print("workstation")\nsys.exit(int(os.environ.get("FAIL_USE","0")) if "use" in sys.argv else 0)\n')
+        self.mise.write_text('''#!/usr/bin/env python3
+import os, sys, json, subprocess
+with open(os.environ["CALL_LOG"], "a") as f:
+    f.write(json.dumps({"args": sys.argv[1:], "env": os.environ.get("MISE_ENV"),
+                       "root": os.environ.get("MISE_CONFIG_DIR"),
+                       "automatic": {k: os.environ.get(k) for k in ["MISE_AUTO_INSTALL", "MISE_EXEC_AUTO_INSTALL", "MISE_AUTO_UPDATE", "MISE_NO_HOOKS"]}}) + "\\n")
+if os.environ.get("EXEC_CHILD") == "1" and "--" in sys.argv:
+    child_env = dict(os.environ, MISE_AUTO_INSTALL="1", MISE_EXEC_AUTO_INSTALL="1",
+                     MISE_AUTO_UPDATE="1", MISE_NO_HOOKS="0")
+    sys.exit(subprocess.run(sys.argv[sys.argv.index("--") + 1:], env=child_env).returncode)
+if "get" in sys.argv:
+    print("workstation")
+sys.exit(int(os.environ.get("FAIL_USE", "0")) if "use" in sys.argv else 0)
+''')
         self.mise.chmod(0o755)
         self.bin_dir = self.base / 'bin'
         self.bin_dir.mkdir()
@@ -137,7 +150,7 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         result = self.run_dots('sync', '--source-only', MISE_AUTO_INSTALL='1', MISE_EXEC_AUTO_INSTALL='1', MISE_AUTO_UPDATE='1', MISE_NO_HOOKS='0')
         self.assertEqual(result.returncode, 0, result.stderr)
         call = self.calls()[0]
-        self.assertEqual(call['args'], ['-C', str(self.root), 'exec', '--', 'node',
+        self.assertEqual(call['args'], ['-C', str(self.root), 'exec', '--', '/usr/bin/env', 'MISE_AUTO_INSTALL=0', 'MISE_EXEC_AUTO_INSTALL=0', 'MISE_AUTO_UPDATE=0', 'MISE_NO_HOOKS=1', 'node',
                                       str(self.root / 'setup-scripts/lib/source-repo.mjs'), 'sync', str(self.root), '--source-only'])
         self.assertIsNone(call['env'])
         self.assertEqual(call['automatic'], {'MISE_AUTO_INSTALL': '0', 'MISE_EXEC_AUTO_INSTALL': '0', 'MISE_AUTO_UPDATE': '0', 'MISE_NO_HOOKS': '1'})
@@ -145,6 +158,21 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
             with self.subTest(flags=flags):
                 self.assertEqual(self.run_dots('sync', *flags).returncode, 2)
         self.assertEqual(len(self.calls()), 1)
+
+    def test_source_only_reasserts_controls_after_mise_overrides_child_environment(self):
+        child_log = self.base / 'child-controls.json'
+        node = self.bin_dir / 'node'
+        node.write_text('''#!/usr/bin/env python3
+import json, os
+with open(os.environ["CHILD_LOG"], "w") as f:
+    json.dump({k: os.environ.get(k) for k in ["MISE_AUTO_INSTALL", "MISE_EXEC_AUTO_INSTALL", "MISE_AUTO_UPDATE", "MISE_NO_HOOKS"]}, f)
+''')
+        node.chmod(0o755)
+        result = self.run_dots('sync', '--source-only', EXEC_CHILD='1', CHILD_LOG=str(child_log))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(child_log.read_text()),
+                         {'MISE_AUTO_INSTALL': '0', 'MISE_EXEC_AUTO_INSTALL': '0',
+                          'MISE_AUTO_UPDATE': '0', 'MISE_NO_HOOKS': '1'})
 
     def test_bare_tool_defaults_to_role_and_native_latest_resolution(self):
         result = self.run_dots('add', 'watchexec')
