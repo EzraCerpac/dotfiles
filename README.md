@@ -107,6 +107,8 @@ requires ordinary `dots sync`. Incoming ignore rules must protect local selector
 and lockfiles. If settings change during advancement, the previous source revision
 is restored when the new child is still empty; concurrent public edits are retained
 for manual reconciliation. Run ordinary `dots sync` when deployment is wanted.
+For an exact reviewed revision, set `DOTS_EXPECTED_MAIN` to its full commit ID when
+running source-only sync; a changed remote main then defers before advancement.
 
 Local edits or unpublished history are preserved. When they prevent a safe
 source advance, `dots up` says “source sync deferred” and still updates tools
