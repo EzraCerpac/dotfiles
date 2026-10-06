@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
-import { requires } from './lib/prereq.mjs';
+import { ensureRepository, parseSourceArguments, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
+import { miseBinary, requires } from './lib/prereq.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
 const jjConfig = path.join(testState, 'jj.toml');
@@ -58,8 +58,18 @@ case "\${FAKE_MISE_MODE:-ok}:$*" in
   validate-fail:*" config ls "*) printf '%s\\n' 'fixture config validation failed' >&2; exit 17 ;;
   validate-fail:*" bootstrap dotfiles apply --dry-run "*) printf '%s\\n' 'fixture dry run failed' >&2; exit 18 ;;
   apply-fail:*" bootstrap dotfiles apply --yes"*) printf '%s\\n' 'fixture apply failed' >&2; exit 19 ;;
+  version-mutate:--version) printf 'concurrent source edit\\n' > config.toml ;;
+  version-private-mutate:--version) printf 'concurrent private edit\\n' >> config.local.toml ;;
 esac
 if [ "$#" -eq 1 ] && [ "$1" = '--version' ]; then printf '%s\\n' 'mise 2026.9.0'; fi
+if [ "\${1-}" = config ] && [ "\${2-}" = get ]; then
+  if [ "$5" = min_version ]; then
+    value="$(awk -F '\"' '/^min_version[[:space:]]*=/{print $2; exit}' "$4")"
+    if [ -n "$value" ]; then printf '%s\\n' "$value"; exit 0; fi
+  fi
+  printf 'mise ERROR Key not found: %s in fixture public TOML\\n' "$5" >&2
+  exit 1
+fi
 `);
   fs.chmodSync(bin, 0o755);
   return { bin, log };
@@ -118,9 +128,13 @@ function updateRemote(fixture, name, contents) {
   return commit(fixture.seed, `update ${name}`);
 }
 
-function sync(fixture, mode = 'ok') {
+function sourceOnlyFixture(options = {}) {
+  return makeFixture({ ...options, ignored: ['config.local.toml', 'miserc.toml', 'config.host-*.toml', '*.lock', ...(options.ignored || [])] });
+}
+
+function sync(fixture, mode = 'ok', options = {}) {
   return withEnvironment({ FAKE_MISE_LOG: fixture.fakeMise.log, FAKE_MISE_MODE: mode }, () =>
-    syncSource(fixture.root, { miseBin: fixture.fakeMise.bin, expectedRemote: fixture.expectedRemote }));
+    syncSource(fixture.root, { miseBin: fixture.fakeMise.bin, expectedRemote: fixture.expectedRemote, ...options }));
 }
 
 function assertDeferred(callback, pattern) {
@@ -389,6 +403,241 @@ repoTest('ordinary ignored lockfiles do not count as source edits', () => {
     assert.equal(fs.readFileSync(path.join(fixture.root, 'mise.lock'), 'utf8'), 'machine-local ignored lock\n');
     assert.equal(fs.readFileSync(path.join(fixture.root, 'config.toml'), 'utf8'), 'min_version = "1.0.0"\nbase = "B"\n');
   } finally { fixture.close(); }
+});
+
+test('source CLI accepts only the explicit sync option', () => {
+  assert.deepEqual(parseSourceArguments(['sync', '/fixture', '--source-only']), { action: 'sync', root: '/fixture', sourceOnly: true });
+  assert.deepEqual(parseSourceArguments(['sync', '/fixture']), { action: 'sync', root: '/fixture', sourceOnly: false });
+  for (const args of [['sync'], ['sync', '/fixture', '--dry-run'], ['sync', '/fixture', '--source-only', '--source-only'], ['status', '/fixture', '--source-only'], ['init', '/fixture', '--source-only']]) {
+    assert.throws(() => parseSourceArguments(args), /Usage/);
+  }
+});
+
+repoTest('unknown direct CLI flags fail before source operations', () => {
+  const fixture = makeFixture();
+  try {
+    const script = new URL('../setup-scripts/lib/source-repo.mjs', import.meta.url);
+    const result = run(process.execPath, [script.pathname, 'sync', fixture.root, '--dry-run'], fixture.root, { allowFailure: true });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Usage/);
+    assert(!fs.existsSync(path.join(fixture.root, '.jj')));
+    assert(!fs.existsSync(path.join(fixture.root, '.git', 'dots-source.lock')));
+  } finally { fixture.close(); }
+});
+
+repoTest('source-only advancement and current sync preserve private files without reading or copying them', () => {
+  const policy = 'published canonical NAS policy\n';
+  const fixture = sourceOnlyFixture({ files: {
+    'config.toml': 'min_version = "1.0.0"\nbase = "A"\n',
+    'dotfiles/.codex/AGENTS.cerpacnas.md': policy,
+  }, ignored: ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', '*.lock'] });
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    const original = parentRevision(fixture);
+    jj(fixture.root, 'bookmark', 'create', 'wip/unrelated', '-r', original);
+    const names = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock'];
+    for (const name of names) fs.writeFileSync(path.join(fixture.root, name), `private fixture ${name}\n`, { mode: 0o600 });
+    const before = names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true }));
+    const denied = path.join(fixture.state, 'home', '.codex');
+    fs.mkdirSync(path.dirname(denied), { recursive: true, mode: 0o700 });
+    fs.mkdirSync(denied, { mode: 0o000 });
+    const incoming = updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+    const read = fs.readFileSync, copy = fs.copyFileSync;
+    const isPrivate = file => names.some(name => String(file) === path.join(fixture.root, name)) || String(file).startsWith(denied);
+    fs.readFileSync = (file, ...args) => { assert(!isPrivate(file), `unexpected private read: ${file}`); return read(file, ...args); };
+    fs.copyFileSync = (file, ...args) => { assert(!isPrivate(file), `unexpected private copy: ${file}`); return copy(file, ...args); };
+    try {
+      withEnvironment({ HOME: path.join(fixture.state, 'home') }, () => {
+        assert.equal(sync(fixture, 'ok', { sourceOnly: true }), incoming);
+        const current = jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id');
+        assert.equal(sync(fixture, 'ok', { sourceOnly: true }), incoming);
+        assert.equal(jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id'), current);
+      });
+    } finally { fs.readFileSync = read; fs.copyFileSync = copy; fs.chmodSync(denied, 0o700); }
+    assert.equal(parentRevision(fixture), incoming);
+    assert.equal(jj(fixture.root, 'log', '-r', 'wip/unrelated', '--no-graph', '-T', 'commit_id'), original);
+    assert.equal(fs.readFileSync(path.join(fixture.root, 'dotfiles/.codex/AGENTS.cerpacnas.md'), 'utf8'), policy);
+    assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), before);
+    assert(!fs.existsSync(path.join(fixture.root, '.setup-state')));
+    const calls = fs.readFileSync(fixture.fakeMise.log, 'utf8').split('\n').filter(Boolean);
+    assert(calls.every(line => line === '--version' || line.endsWith('args=--version') || line.includes('config get --file ')));
+  } finally { fixture.close(); }
+});
+
+repoTest('source-only retains dirty and unpublished ancestry deferral', () => {
+  for (const kind of ['dirty', 'unpublished']) {
+    const fixture = makeFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      if (kind === 'dirty') fs.writeFileSync(path.join(fixture.root, 'config.toml'), 'local edit\n');
+      else { jj(fixture.root, 'new'); jj(fixture.root, 'new'); }
+      updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      const before = parentRevision(fixture);
+      assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'dirty' ? /Local source edits/ : /unpublished or divergent/);
+      assert.equal(parentRevision(fixture), before);
+      assert(!fs.existsSync(fixture.fakeMise.log));
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only can pin reviewed main across the synchronizer fetch', () => {
+  const fixture = sourceOnlyFixture();
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    const before = parentRevision(fixture);
+    const incoming = updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+    assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true, expectedMain: before }), /changed after review/);
+    assert.equal(parentRevision(fixture), before);
+    assert(!fs.existsSync(fixture.fakeMise.log));
+    assert.throws(() => sync(fixture, 'ok', { sourceOnly: true, expectedMain: 'invalid' }), /full lowercase commit ID/);
+    assert.equal(sync(fixture, 'ok', { sourceOnly: true, expectedMain: incoming }), incoming);
+  } finally { fixture.close(); }
+});
+
+repoTest('source-only refuses incoming private selectors and legacy tracked lock migration', () => {
+  for (const name of ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock']) {
+    const fixture = makeFixture({ files: {
+      'config.toml': 'min_version = "1.0.0"\nbase = "A"\n',
+      ...(name === 'mise.lock' ? { 'mise.lock': 'legacy lock\n' } : {}),
+    } });
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      const before = parentRevision(fixture);
+      if (name === 'mise.lock') fs.rmSync(path.join(fixture.seed, name));
+      else fs.writeFileSync(path.join(fixture.seed, name), 'must remain private\n');
+      updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), name === 'mise.lock' ? /Tracked lockfiles/ : /must not track private/);
+      assert.equal(parentRevision(fixture), before);
+      assert(!fs.existsSync(path.join(fixture.root, '.setup-state')));
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only keeps minimum-version and source/private concurrency guards', () => {
+  for (const mode of ['minimum', 'version-mutate', 'version-private-mutate']) {
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      fs.writeFileSync(path.join(fixture.root, 'config.local.toml'), 'private fixture\n');
+      const before = parentRevision(fixture);
+      updateRemote(fixture, 'config.toml', `min_version = "${mode === 'minimum' ? '2999.1.0' : '1.0.0'}"\nbase = "B"\n`);
+      assertDeferred(() => sync(fixture, mode === 'minimum' ? 'ok' : mode, { sourceOnly: true }), mode === 'minimum' ? /requires mise/ : /changed during validation/);
+      assert.equal(parentRevision(fixture), before);
+      assert(!fs.readFileSync(fixture.fakeMise.log, 'utf8').includes('bootstrap'));
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only rejects tracked selector removal and reserved directory/case collisions before advancement', () => {
+  for (const name of ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'CONFIG.LOCAL.TOML', 'config.local.toml/nested', 'mise.lock']) {
+    const removed = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml'].includes(name);
+    const fixture = makeFixture({ files: {
+      'config.toml': 'min_version = "1.0.0"\nbase = "A"\n',
+      ...(removed ? { [name]: 'tracked private fixture\n' } : {}),
+    } });
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      const before = parentRevision(fixture);
+      const privateBefore = removed ? fs.lstatSync(path.join(fixture.root, name), { bigint: true }) : undefined;
+      if (removed) fs.rmSync(path.join(fixture.seed, name));
+      else {
+        const file = path.join(fixture.seed, name);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, 'incoming reserved file\n');
+      }
+      updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), removed ? /Tracked private selectors/ : /private setup selectors|Tracked lockfiles/);
+      assert.equal(parentRevision(fixture), before);
+      if (removed) assert.deepEqual(fs.lstatSync(path.join(fixture.root, name), { bigint: true }), privateBefore);
+      else assert(!fs.existsSync(path.join(fixture.root, name)));
+      assert(!fs.existsSync(fixture.fakeMise.log));
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only rejects incoming config.toml symlinks before source movement', () => {
+  const fixture = makeFixture({ files: { 'config.toml': 'min_version = "1.0.0"\n', 'other.toml': 'public fixture\n' } });
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    const before = parentRevision(fixture);
+    fs.rmSync(path.join(fixture.seed, 'config.toml'));
+    fs.symlinkSync('other.toml', path.join(fixture.seed, 'config.toml'));
+    commit(fixture.seed, 'replace config with a symlink');
+    assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), /config.toml must be a regular/);
+    assert.equal(parentRevision(fixture), before);
+    assert(!fs.existsSync(fixture.fakeMise.log));
+  } finally { fixture.close(); }
+});
+
+repoTest('source-only rejects removed or negated incoming private ignore rules before advancement', () => {
+  const names = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
+  for (const kind of ['removed', 'negated', 'symlink', 'absent', 'leading-space', 'host-probe-only', 'future-host-negation', 'globstar-host-negation']) {
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      if (kind !== 'absent') for (const name of names) fs.writeFileSync(path.join(fixture.root, name), 'opaque fixture\n', { mode: 0o600 });
+      const before = parentRevision(fixture);
+      const metadata = kind === 'absent' ? [] : names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true }));
+      if (kind === 'removed' || kind === 'absent') fs.rmSync(path.join(fixture.seed, '.gitignore'));
+      else if (kind === 'negated') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.local.toml\n');
+      else if (kind === 'leading-space') fs.writeFileSync(path.join(fixture.seed, '.gitignore'), ' config.local.toml\nmiserc.toml\nconfig.host-*.toml\n*.lock\n');
+      else if (kind === 'host-probe-only') fs.writeFileSync(path.join(fixture.seed, '.gitignore'), 'config.local.toml\nmiserc.toml\nconfig.host-source-only.toml\nconfig.host-fixture.toml\n*.lock\n');
+      else if (kind === 'future-host-negation') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.host-future.toml\n');
+      else if (kind === 'globstar-host-negation') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!***/config.host-future.toml\n');
+      else { fs.rmSync(path.join(fixture.seed, '.gitignore')); fs.symlinkSync('config.toml', path.join(fixture.seed, '.gitignore')); }
+      commit(fixture.seed, 'change incoming ignores');
+      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'symlink' ? /\.gitignore must be a regular/ : /ignore rules would expose|every config.host|future host selector/);
+      assert.equal(parentRevision(fixture), before);
+      if (kind === 'absent') assert(names.every(name => !fs.existsSync(path.join(fixture.root, name))));
+      else assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), metadata);
+      assert(!fs.existsSync(fixture.fakeMise.log));
+    } finally { fixture.close(); }
+  }
+});
+
+test('source-only parses public TOML hard minimum variants using real isolated mise', { concurrency: false, ...requires('jj', 'mise') }, () => {
+  const binary = miseBinary();
+  for (const declaration of ["min_version='2999.1.0'", "min_version={hard='2999.1.0',soft='3000.1.0'}", "[min_version]\nhard='2999.1.0'\nsoft='3000.1.0'", "'min_version'='2999.1.0'", "min_version={soft='2999.1.0'}", "min_version='1.0.0'\nbroken=\"Key not found: min_version in", "min_version={soft='invalid'}"]) {
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      const before = parentRevision(fixture);
+      const incoming = updateRemote(fixture, 'config.toml', declaration + '\n');
+      const execute = () => syncSource(fixture.root, { sourceOnly: true, miseBin: binary, expectedRemote: fixture.expectedRemote });
+      if (declaration.includes("soft='invalid'")) { assert.throws(execute, /soft minimum/); assert.equal(parentRevision(fixture), before); }
+      else if (declaration.includes('={soft=')) assert.equal(execute(), incoming);
+      else if (declaration.includes('broken=')) { assert.throws(execute, /public TOML/); assert.equal(parentRevision(fixture), before); }
+      else { assertDeferred(execute, /requires mise/); assert.equal(parentRevision(fixture), before); }
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only recovers raced advancement while preserving changed private settings and concurrent public edits', () => {
+  const realJj = run('sh', ['-c', 'command -v jj'], testState).stdout.trim();
+  for (const race of ['private', 'public-early', 'public-at-edit', 'public-at-new']) {
+    const publicEdit = race !== 'private';
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      fs.writeFileSync(path.join(fixture.root, 'config.local.toml'), 'original private fixture\n');
+      const beforeParent = parentRevision(fixture);
+      const beforeRevision = jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id');
+      const incoming = updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      const bin = path.join(fixture.state, 'bin');
+      fs.mkdirSync(bin);
+      const wrapper = path.join(bin, 'jj');
+      fs.writeFileSync(wrapper, `#!/bin/sh\nset -eu\nfor argument in "$@"; do\n  if [ "$argument" = edit ]; then\n    ${race === 'public-at-edit' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\n  if [ "$argument" = new ]; then\n    ${race === 'public-at-new' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\ndone\n"$REAL_JJ" "$@"\nfor argument in "$@"; do\n  if [ "$argument" = new ]; then\n    printf 'concurrent private fixture\\n' >> config.local.toml\n    ${race === 'public-early' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n    break\n  fi\ndone\n`);
+      fs.chmodSync(wrapper, 0o755);
+      withEnvironment({ PATH: `${bin}${path.delimiter}${process.env.PATH}`, REAL_JJ: realJj }, () => {
+        assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true }), race === 'public-early' ? /prevents automatic recovery/ : race === 'public-at-edit' ? /changed before recovery/ : race === 'public-at-new' ? /changed before advancement/ : /restored the prior source revision/);
+      });
+      assert.equal(parentRevision(fixture), publicEdit && race !== 'public-at-new' ? incoming : beforeParent);
+      assert.equal(jj(fixture.root, 'log', '-r', beforeRevision, '--no-graph', '-T', 'commit_id'), beforeRevision);
+      if (!publicEdit) assert.equal(jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id'), beforeRevision);
+      else assert.equal(fs.readFileSync(path.join(fixture.root, 'config.toml'), 'utf8'), 'concurrent public fixture\n');
+      assert.equal(fs.readFileSync(path.join(fixture.root, 'config.local.toml'), 'utf8'), race === 'public-at-new' ? 'original private fixture\n' : 'original private fixture\nconcurrent private fixture\n');
+    } finally { fixture.close(); }
+  }
 });
 
 test.after(() => {

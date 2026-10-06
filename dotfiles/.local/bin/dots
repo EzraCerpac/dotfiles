@@ -6,7 +6,7 @@ usage() {
 Your machine setup, from any directory.
 
   dots up [--mas]                  Sync configuration, then update tools and plugins
-  dots sync                       Fetch main and apply shared configuration
+  dots sync [--source-only]        Fetch main; optionally advance source without apply
   dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
   dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
@@ -65,13 +65,26 @@ case "$command_name" in
             [[ "$argument" == --mas ]] || { echo "dots: $command_name accepts only --mas" >&2; exit 2; }
         done
         ;;
-    sync|status|backup|plan)
+    sync)
+        [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; }
+        ;;
+    status|backup|plan)
         [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
         ;;
 esac
 case "$command_name" in
     up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
-    sync) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" ;;
+    sync)
+        if [[ "${1:-}" == --source-only ]]; then
+            if [[ -n "${DOTS_EXPECTED_MAIN:-}" ]]; then
+                [[ "$DOTS_EXPECTED_MAIN" =~ ^[a-f0-9]{40}$ ]] || { echo 'dots: DOTS_EXPECTED_MAIN needs a full lowercase commit ID' >&2; exit 2; }
+                set -- "$@" --expected-main "$DOTS_EXPECTED_MAIN"
+            fi
+            export MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1
+            exec "$mise_bin" -C "$root" exec -- /usr/bin/env MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1 node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" "$@"
+        fi
+        exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" "$@"
+        ;;
     publish) exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/setup/publish.mjs" "$root" "$@" ;;
     atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$root/setup-scripts/bootstrap/atuin-bundle" "$@" ;;
     atuin-login)
