@@ -82,6 +82,13 @@ codex = "latest"
 # These files are useful on every workstation and on the NAS. Keep each file
 # as an individual entry so application state beside it remains unmanaged.
 [dotfiles]
+
+# Personal implementation planning skill; individual links preserve neighboring state.
+"~/.codex/skills/implementation-planning/SKILL.md" = { source = "dotfiles/.codex/skills/implementation-planning/SKILL.md", mode = "symlink" }
+"~/.codex/skills/implementation-planning/agents/openai.yaml" = { source = "dotfiles/.codex/skills/implementation-planning/agents/openai.yaml", mode = "symlink" }
+"~/.codex/skills/implementation-planning/references/plan-source.md" = { source = "dotfiles/.codex/skills/implementation-planning/references/plan-source.md", mode = "symlink" }
+"~/.codex/skills/implementation-planning/scripts/plan.py" = { source = "dotfiles/.codex/skills/implementation-planning/scripts/plan.py", mode = "symlink" }
+"~/.codex/skills/implementation-planning/assets/dependencies.html" = { source = "dotfiles/.codex/skills/implementation-planning/assets/dependencies.html", mode = "symlink" }
 "~/.config/kanata/config.kbd" = { source = "dotfiles/.config/kanata/config.kbd", mode = "symlink" }
 "~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink" }
 "~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template" }
