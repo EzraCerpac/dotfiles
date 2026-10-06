@@ -97,7 +97,8 @@ when you want to render one locally edited template.
 
 Use `dots sync --source-only` to fetch and advance only the reviewed shared source.
 It keeps the repository, ancestry, local-edit and concurrent-change guards, and
-checks the incoming public source and minimum mise version. It does not copy or
+checks the incoming public source and minimum mise version through an isolated
+stored-value TOML read of the public incoming config. It does not copy or
 save private settings, render/apply dotfiles, run bootstrap hooks, or upgrade tools.
 It uses the existing selected mise environment to run the synchronizer, with
 automatic installs, updates and hooks disabled for that invocation.
@@ -109,7 +110,8 @@ and lockfiles. If settings change during advancement, the previous source revisi
 is restored when the new child is still empty; concurrent public edits are retained
 for manual reconciliation. Run ordinary `dots sync` when deployment is wanted.
 For an exact reviewed revision, set `DOTS_EXPECTED_MAIN` to its full commit ID when
-running source-only sync; a changed remote main then defers before advancement.
+running source-only sync. The wrapper captures that value before mise selects its
+environment; a changed remote main then defers before advancement.
 
 Local edits or unpublished history are preserved. When they prevent a safe
 source advance, `dots up` says “source sync deferred” and still updates tools

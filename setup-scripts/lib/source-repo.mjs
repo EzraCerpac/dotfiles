@@ -11,9 +11,10 @@ const isLocalConfig = name => name === 'config.local.toml' || name === 'miserc.t
 const isLocalConfigPath = name => isLocalConfig(name.split('/')[0].toLowerCase());
 const origins = new Set(['https://github.com/EzraCerpac/dotfiles', 'https://github.com/EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles', 'ssh://git@github.com/EzraCerpac/dotfiles.git']);
 const command = (bin, args, root, options = {}) => {
-  const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', ...options });
-  if (result.error || result.status !== 0) throw new Error(`${bin} failed: ${result.error?.message || result.stderr?.trim() || `exit ${result.status}`}`);
-  return result.stdout?.trim() || '';
+  const { trimOutput = true, ...spawnOptions } = options;
+  const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', ...spawnOptions });
+  if (result.error || result.status !== 0) throw new Error(`${bin} failed: ${result.error?.message || String(result.stderr || '').trim() || `exit ${result.status}`}`);
+  return trimOutput ? result.stdout?.trim() || '' : result.stdout || '';
 };
 const jj = (root, args) => command('jj', ['-R', root, ...args], root);
 const lines = value => value.split('\n').map(x => x.trim()).filter(Boolean);
@@ -110,14 +111,49 @@ export function resolveMiseBin({ env = process.env, home = os.homedir() } = {}) 
   throw new Error('mise: no executable found in DOTS_MISE_BIN, SETUP_MISE_BIN, MISE_BIN, ~/.local/bin, or PATH');
 }
 
-function validateMiseVersion(root, config, miseBin) {
-  const minimum = config.match(/^min_version\s*=\s*"([\d.]+)"/m)?.[1];
+function validateMiseVersion(root, config, miseBin, parsedMinimum) {
+  const minimum = parsedMinimum === undefined ? config.match(/^min_version\s*=\s*"([\d.]+)"/m)?.[1] : parsedMinimum;
   if (!minimum) return;
   const version = command(miseBin, ['--version'], root).match(/\d+\.\d+\.\d+/)?.[0];
   if (!version) throw new Error('Cannot determine the installed mise version');
   const a = version.split('.').map(Number), b = minimum.split('.').map(Number);
   const difference = a.map((n, i) => n - b[i]).find(n => n !== 0) || 0;
   if (difference < 0) throw new SourceDeferred(`Incoming configuration requires mise ${minimum}; update standalone mise before source sync`);
+}
+
+function publicMinimumVersion(config, miseBin) {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-toml-'));
+  try {
+    const input = path.join(work, 'input.toml'), empty = path.join(work, 'empty.toml');
+    fs.writeFileSync(input, config, { mode: 0o600 });
+    fs.writeFileSync(empty, '', { mode: 0o600 });
+    const env = { ...process.env };
+    for (const key of Object.keys(env)) if (key.startsWith('MISE_') || key.startsWith('__MISE_')) delete env[key];
+    Object.assign(env, { HOME: work, MISE_CONFIG_DIR: work, MISE_GLOBAL_CONFIG_FILE: empty,
+      MISE_GLOBAL_CONFIG_ROOT: work, MISE_SYSTEM_CONFIG_DIR: work, MISE_CEILING_PATHS: work,
+      MISE_DATA_DIR: path.join(work, 'data'), MISE_CACHE_DIR: path.join(work, 'cache'), MISE_STATE_DIR: path.join(work, 'state'),
+      MISE_ENV: '', MISE_AUTO_ENV: '0', MISE_NO_ENV: '1', MISE_NO_HOOKS: '1', MISE_AUTO_INSTALL: '0',
+      MISE_EXEC_AUTO_INSTALL: '0', MISE_AUTO_UPDATE: '0', MISE_TRUSTED_CONFIG_PATHS: work, NO_COLOR: '1' });
+    const get = key => {
+      const result = spawnSync(miseBin, ['config', 'get', '--file', input, key], { cwd: work, env, encoding: 'utf8' });
+      if (result.error) throw new Error('Cannot parse incoming public TOML');
+      if (result.status === 0) return result.stdout.replace(/\r?\n$/, '');
+      if (result.status === 1 && result.stderr.startsWith(`mise ERROR Key not found: ${key} in `)) return null;
+      throw new Error('Incoming public TOML could not be parsed');
+    };
+    const value = get('min_version');
+    if (value === null) return null;
+    if (/^\d+\.\d+\.\d+$/.test(value)) return value;
+    const hard = get('min_version.hard');
+    const soft = get('min_version.soft');
+    if (soft !== null && !/^\d+\.\d+\.\d+$/.test(soft)) throw new Error('Incoming soft minimum must be a full numeric version');
+    if (hard === null) {
+      if (soft !== null) return null;
+      throw new Error('Incoming min_version must be a version string or hard/soft table');
+    }
+    if (!/^\d+\.\d+\.\d+$/.test(hard)) throw new Error('Incoming hard minimum must be a full numeric version');
+    return hard;
+  } finally { fs.rmSync(work, { recursive: true }); }
 }
 
 function localFileMetadata(root) {
@@ -135,7 +171,7 @@ function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
     if (incomingFiles.has('.gitignore')) {
       const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', '.gitignore'], root);
       if (!/^100(?:644|755) blob [a-f0-9]+\t\.gitignore$/.test(entry)) throw new Error('Incoming .gitignore must be a regular source file');
-      const ignore = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:.gitignore`], root);
+      const ignore = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:.gitignore`], root, { trimOutput: false, encoding: null });
       fs.writeFileSync(path.join(preview, '.gitignore'), ignore, { mode: 0o600 });
     }
     // An isolated Git index checks only public incoming rules. No private files,
@@ -179,9 +215,9 @@ function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRe
   }
   const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', 'config.toml'], root);
   if (!/^100(?:644|755) blob [a-f0-9]+\tconfig\.toml$/.test(entry)) throw new Error('Incoming config.toml must be a regular source file');
-  const config = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:config.toml`], root);
+  const config = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:config.toml`], root, { trimOutput: false, encoding: null });
   validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local);
-  validateMiseVersion(root, config, miseBin);
+  validateMiseVersion(root, config, miseBin, publicMinimumVersion(config, miseBin));
   if (revisions(root, '@')[0] !== inspectedRevision || JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) {
     throw new SourceDeferred('Source or local settings changed during validation; preserving them. Rerun sync when ready');
   }
@@ -289,15 +325,16 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
 export function parseSourceArguments(args) {
   const [action, root, ...options] = args;
   if (!root || !['init', 'sync', 'status'].includes(action)
-      || (options.length && (action !== 'sync' || options.length !== 1 || options[0] !== '--source-only'))) {
-    throw new Error('Usage: source-repo.mjs init|status ROOT, or sync ROOT [--source-only]');
+      || (options.length && (action !== 'sync' || options[0] !== '--source-only'
+        || ![1, 3].includes(options.length) || (options.length === 3 && (options[1] !== '--expected-main' || !/^[a-f0-9]{40}$/.test(options[2])))))) {
+    throw new Error('Usage: source-repo.mjs init|status ROOT, or sync ROOT [--source-only [--expected-main COMMIT]]');
   }
-  return { action, root, sourceOnly: options.length === 1 };
+  return { action, root, sourceOnly: options.length > 0, ...(options.length === 3 ? { expectedMain: options[2] } : {}) };
 }
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const { action, root, sourceOnly } = parseSourceArguments(process.argv.slice(2));
+    const { action, root, sourceOnly, expectedMain } = parseSourceArguments(process.argv.slice(2));
     if (action === 'status') {
       const info = metadata(root);
       const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
@@ -307,7 +344,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
       if (!info.hasJj) process.exitCode = 3;
     }
     else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));
-    else syncSource(root, { sourceOnly, expectedMain: sourceOnly ? process.env.DOTS_EXPECTED_MAIN : undefined });
+    else syncSource(root, { sourceOnly, expectedMain });
   } catch (error) {
     console.error(`${error.code === 3 ? 'Source sync deferred' : 'Source operation failed'}: ${error.message}`);
     process.exitCode = error.code === 3 ? 3 : 1;

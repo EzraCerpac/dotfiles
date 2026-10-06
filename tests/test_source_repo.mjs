@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { ensureRepository, parseSourceArguments, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
-import { requires } from './lib/prereq.mjs';
+import { miseBinary, requires } from './lib/prereq.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
 const jjConfig = path.join(testState, 'jj.toml');
@@ -62,6 +62,14 @@ case "\${FAKE_MISE_MODE:-ok}:$*" in
   version-private-mutate:--version) printf 'concurrent private edit\\n' >> config.local.toml ;;
 esac
 if [ "$#" -eq 1 ] && [ "$1" = '--version' ]; then printf '%s\\n' 'mise 2026.9.0'; fi
+if [ "\${1-}" = config ] && [ "\${2-}" = get ]; then
+  if [ "$5" = min_version ]; then
+    value="$(awk -F '\"' '/^min_version[[:space:]]*=/{print $2; exit}' "$4")"
+    if [ -n "$value" ]; then printf '%s\\n' "$value"; exit 0; fi
+  fi
+  printf 'mise ERROR Key not found: %s in fixture public TOML\\n' "$5" >&2
+  exit 1
+fi
 `);
   fs.chmodSync(bin, 0o755);
   return { bin, log };
@@ -452,7 +460,7 @@ repoTest('source-only advancement and current sync preserve private files withou
     assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), before);
     assert(!fs.existsSync(path.join(fixture.root, '.setup-state')));
     const calls = fs.readFileSync(fixture.fakeMise.log, 'utf8').split('\n').filter(Boolean);
-    assert(calls.every(line => line === '--version' || line.endsWith('args=--version')));
+    assert(calls.every(line => line === '--version' || line.endsWith('args=--version') || line.includes('config get --file ')));
   } finally { fixture.close(); }
 });
 
@@ -563,7 +571,7 @@ repoTest('source-only rejects incoming config.toml symlinks before source moveme
 
 repoTest('source-only rejects removed or negated incoming private ignore rules before advancement', () => {
   const names = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
-  for (const kind of ['removed', 'negated', 'symlink', 'absent']) {
+  for (const kind of ['removed', 'negated', 'symlink', 'absent', 'leading-space']) {
     const fixture = sourceOnlyFixture();
     try {
       ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
@@ -572,6 +580,7 @@ repoTest('source-only rejects removed or negated incoming private ignore rules b
       const metadata = kind === 'absent' ? [] : names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true }));
       if (kind === 'removed' || kind === 'absent') fs.rmSync(path.join(fixture.seed, '.gitignore'));
       else if (kind === 'negated') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.local.toml\n');
+      else if (kind === 'leading-space') fs.writeFileSync(path.join(fixture.seed, '.gitignore'), ' config.local.toml\nmiserc.toml\nconfig.host-*.toml\n*.lock\n');
       else { fs.rmSync(path.join(fixture.seed, '.gitignore')); fs.symlinkSync('config.toml', path.join(fixture.seed, '.gitignore')); }
       commit(fixture.seed, 'change incoming ignores');
       assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'symlink' ? /\.gitignore must be a regular/ : /ignore rules would expose/);
@@ -579,6 +588,23 @@ repoTest('source-only rejects removed or negated incoming private ignore rules b
       if (kind === 'absent') assert(names.every(name => !fs.existsSync(path.join(fixture.root, name))));
       else assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), metadata);
       assert(!fs.existsSync(fixture.fakeMise.log));
+    } finally { fixture.close(); }
+  }
+});
+
+test('source-only parses public TOML hard minimum variants using real isolated mise', { concurrency: false, ...requires('jj', 'mise') }, () => {
+  const binary = miseBinary();
+  for (const declaration of ["min_version='2999.1.0'", "min_version={hard='2999.1.0',soft='3000.1.0'}", "[min_version]\nhard='2999.1.0'\nsoft='3000.1.0'", "'min_version'='2999.1.0'", "min_version={soft='2999.1.0'}", "min_version='1.0.0'\nbroken=\"Key not found: min_version in", "min_version={soft='invalid'}"]) {
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      const before = parentRevision(fixture);
+      const incoming = updateRemote(fixture, 'config.toml', declaration + '\n');
+      const execute = () => syncSource(fixture.root, { sourceOnly: true, miseBin: binary, expectedRemote: fixture.expectedRemote });
+      if (declaration.includes("soft='invalid'")) { assert.throws(execute, /soft minimum/); assert.equal(parentRevision(fixture), before); }
+      else if (declaration.includes('={soft=')) assert.equal(execute(), incoming);
+      else if (declaration.includes('broken=')) { assert.throws(execute, /public TOML/); assert.equal(parentRevision(fixture), before); }
+      else { assertDeferred(execute, /requires mise/); assert.equal(parentRevision(fixture), before); }
     } finally { fixture.close(); }
   }
 });

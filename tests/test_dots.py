@@ -151,6 +151,14 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[-1]['args'], ['-C', str(self.root), 'use', '--path', str(self.root/'config.workstation.toml'), 'watchexec'])
 
+    def test_source_only_commit_pin_is_captured_before_mise_environment_selection(self):
+        expected = 'a' * 40
+        result = self.run_dots('sync', '--source-only', DOTS_EXPECTED_MAIN=expected)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[-1]['args'][-3:], ['--source-only', '--expected-main', expected])
+        self.assertEqual(self.run_dots('sync', '--source-only', DOTS_EXPECTED_MAIN='invalid').returncode, 2)
+        self.assertEqual(len(self.calls()), 1)
+
     def test_target_overrides_and_backend_versions(self):
         for flags, target in [(['--base'], self.root/'config.toml'), (['--profile','nas'], self.root/'config.nas.toml'), (['--path','local.toml'], self.project/'local.toml')]:
             result = self.run_dots('add', *flags, 'npm:prettier@3', 'cargo:hexyl')
