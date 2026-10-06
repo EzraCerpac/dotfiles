@@ -472,6 +472,20 @@ repoTest('source-only retains dirty and unpublished ancestry deferral', () => {
   }
 });
 
+repoTest('source-only can pin reviewed main across the synchronizer fetch', () => {
+  const fixture = sourceOnlyFixture();
+  try {
+    ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+    const before = parentRevision(fixture);
+    const incoming = updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+    assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true, expectedMain: before }), /changed after review/);
+    assert.equal(parentRevision(fixture), before);
+    assert(!fs.existsSync(fixture.fakeMise.log));
+    assert.throws(() => sync(fixture, 'ok', { sourceOnly: true, expectedMain: 'invalid' }), /full lowercase commit ID/);
+    assert.equal(sync(fixture, 'ok', { sourceOnly: true, expectedMain: incoming }), incoming);
+  } finally { fixture.close(); }
+});
+
 repoTest('source-only refuses incoming private selectors and legacy tracked lock migration', () => {
   for (const name of ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock']) {
     const fixture = makeFixture({ files: {

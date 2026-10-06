@@ -225,7 +225,8 @@ function validateIncoming(root, gitDir, commit, miseBin) {
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
-export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false } = {}) {
+export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
+  if (expectedMain && (!sourceOnly || !/^[a-f0-9]{40}$/.test(expectedMain))) throw new Error('expectedMain requires source-only mode and a full lowercase commit ID');
   miseBin ||= resolveMiseBin();
   if (!executable(miseBin)) invalidMiseOverride('miseBin', miseBin);
   miseBin = path.resolve(miseBin);
@@ -236,6 +237,7 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false }
     catch (error) { throw new SourceDeferred(`Could not fetch origin/main; keeping the current source. ${error.message}`); }
     const incoming = revisions(root, 'main@origin');
     if (incoming.length !== 1) throw new Error('origin/main must resolve to one revision');
+    if (expectedMain && incoming[0] !== expectedMain) throw new SourceDeferred('origin/main changed after review; preserving the current source');
     const base = revisions(root, '@-');
     if (base.length !== 1) throw new SourceDeferred('The working copy has multiple parents; reconcile the source manually');
     if (revisions(root, '@ & conflicts()').length) throw new SourceDeferred('The source has unresolved conflicts');
@@ -299,7 +301,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
       if (!info.hasJj) process.exitCode = 3;
     }
     else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));
-    else syncSource(root, { sourceOnly });
+    else syncSource(root, { sourceOnly, expectedMain: sourceOnly ? process.env.DOTS_EXPECTED_MAIN : undefined });
   } catch (error) {
     console.error(`${error.code === 3 ? 'Source sync deferred' : 'Source operation failed'}: ${error.message}`);
     process.exitCode = error.code === 3 ? 3 : 1;
