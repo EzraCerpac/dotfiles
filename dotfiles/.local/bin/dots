@@ -76,6 +76,10 @@ case "$command_name" in
     up|update) exec "$mise_bin" -C "$root" run setup:update "$@" ;;
     sync)
         if [[ "${1:-}" == --source-only ]]; then
+            if [[ -n "${DOTS_EXPECTED_MAIN:-}" ]]; then
+                [[ "$DOTS_EXPECTED_MAIN" =~ ^[a-f0-9]{40}$ ]] || { echo 'dots: DOTS_EXPECTED_MAIN needs a full lowercase commit ID' >&2; exit 2; }
+                set -- "$@" --expected-main "$DOTS_EXPECTED_MAIN"
+            fi
             export MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1
         fi
         exec "$mise_bin" -C "$root" exec -- node "$root/setup-scripts/lib/source-repo.mjs" sync "$root" "$@"
