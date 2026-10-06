@@ -76,16 +76,17 @@ Use native package status for current ownership and update results.
 
 ## Later management changes
 
-After this snapshot, Blender, CrossOver, Helium Browser, MEGAsync, Mattermost,
+After this snapshot, Blender, CrossOver, Helium Browser, Mattermost,
 Grammarly Desktop, and Cotabby were removed from the workstation declarations.
 They remain installed on the Mac and are no longer installed or updated by
 `dots`. Their rows and receipts above/below are retained as historical evidence
 from the 2026-09-14 inventory. Cotabby's receipt remains part of the historical
 25-receipt inventory; it is not a current mise declaration.
 
-Raycast Glaze and Wispr Flow were removed from the Mac and from the current
-workstation declarations after the snapshot. Their rows above record the
-previous installed versions and cask targets only.
+MEGAsync, Raycast Glaze, and Wispr Flow were removed from the Mac and from the
+current workstation declarations after the snapshot. Their rows above record
+the previous installed versions and cask targets only. MEGAsync settings and
+synced files were retained.
 
 ## App Store, local, and vendor exceptions
 

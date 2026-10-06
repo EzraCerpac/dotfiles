@@ -1,0 +1,150 @@
+<div id="implementation-dependencies">
+  <h3 data-heading></h3>
+  <div class="viz-controls" data-controls></div>
+  <div class="text-small" data-summary></div>
+  <div class="text-small" data-status aria-live="polite"></div>
+  <div class="dependency-field">
+    <svg class="dependency-edges" aria-hidden="true"></svg>
+    <div data-layers></div>
+  </div>
+  <div class="text-small">★ critical chain · ← predecessor · → successor · ◆ selected · ○ unrelated</div>
+  <details data-detail open><summary data-selected>Task detail</summary><div data-detail-body aria-live="polite"></div></details>
+  <noscript>JavaScript is unavailable. Use the generated dependencies.md adjacency list and plan.md task details.</noscript>
+</div>
+<style>
+#implementation-dependencies { color: var(--foreground); }
+#implementation-dependencies .dependency-field { position: relative; margin-block: 16px; }
+#implementation-dependencies .dependency-edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#implementation-dependencies .dependency-layer { position: relative; display: flex; flex-wrap: wrap; gap: 12px; padding-block: 18px; }
+#implementation-dependencies .dependency-node { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; max-width: 100%; }
+#implementation-dependencies .dependency-relation { color: var(--foreground); }
+#implementation-dependencies [data-relation="predecessor"] .dependency-relation { color: var(--viz-series-2); }
+#implementation-dependencies [data-relation="successor"] .dependency-relation { color: var(--viz-series-3); }
+#implementation-dependencies [data-relation="selected"] .dependency-relation { color: var(--viz-series-1); }
+#implementation-dependencies [data-detail-body] { overflow-wrap: anywhere; }
+#implementation-dependencies .dependency-edge { fill: none; stroke: var(--border); stroke-width: 1.5; }
+#implementation-dependencies .dependency-edge[data-relation="predecessor"] { stroke: var(--viz-series-2); stroke-width: 2; }
+#implementation-dependencies .dependency-edge[data-relation="successor"] { stroke: var(--viz-series-3); stroke-width: 2; }
+#implementation-dependencies .dependency-edge[data-critical="true"] { stroke-dasharray: 5 3; }
+</style>
+<script type="application/json" id="implementation-dependencies-data">__PLAN_DATA__</script>
+<script>
+(() => {
+  const root = document.getElementById('implementation-dependencies');
+  const {plan, graph} = JSON.parse(document.getElementById('implementation-dependencies-data').textContent);
+  const byId = new Map(plan.tasks.map(t => [t.id, t]));
+  const critical = new Set(graph.critical);
+  const criticalEdges = new Set(graph.critical_edges.map(([a,b]) => `${a}:${b}`));
+  const el = (name, text, cls) => { const e = document.createElement(name); if(text !== undefined) e.textContent = text; if(cls) e.className = cls; return e; };
+  const one = sel => root.querySelector(sel);
+  let selected = graph.chain[0], phase = '', workstream = '';
+  const controls = one('[data-controls]');
+  const selects = {};
+  for(const field of ['phase', 'workstream']) {
+    const values = [...new Set(plan.tasks.map(t => t[field]))];
+    if(values.length < 2) continue;
+    const label = el('label', field === 'phase' ? 'Phase' : 'Workstream', 'form-label');
+    const select = el('select', undefined, 'form-select');
+    select.append(el('option', 'All'));
+    select.firstChild.value = '';
+    values.forEach(value => { const option = el('option', value); option.value = value; select.append(option); });
+    select.addEventListener('change', () => { if(field === 'phase') phase = select.value; else workstream = select.value; render(); save(); });
+    label.append(select); controls.append(label); selects[field] = select;
+  }
+  one('[data-heading]').textContent = `${plan.title} — dependencies`;
+  one('[data-summary]').textContent = graph.mode === 'duration'
+    ? `Critical path: ${graph.total} ${plan.duration_unit || 'effort units'}; estimates exclude external/resource waits.`
+    : 'Structural dependency chain; incomplete durations, no schedule implied.';
+  function closure(id, direction) {
+    const result = new Set(), pending = [...direction(id)];
+    while(pending.length) { const key = pending.pop(); if(result.has(key)) continue; result.add(key); pending.push(...direction(key)); }
+    return result;
+  }
+  let before = new Set(), after = new Set();
+  const relation = key => key === selected ? 'selected' : before.has(key) ? 'predecessor' : after.has(key) ? 'successor' : 'unrelated';
+  function drawEdges() {
+    const svg = one('.dependency-edges'), bounds = one('.dependency-field').getBoundingClientRect();
+    svg.replaceChildren(); svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
+    const positions = new Map([...root.querySelectorAll('[data-task]')].map(button => [button.dataset.task, button.getBoundingClientRect()]));
+    for(const task of plan.tasks) {
+      const end = positions.get(task.id); if(!end) continue;
+      for(const pred of task.depends_on) {
+        const start = positions.get(pred); if(!start) continue;
+        const x1 = start.left + start.width/2 - bounds.left, y1 = start.bottom - bounds.top;
+        const x2 = end.left + end.width/2 - bounds.left, y2 = end.top - bounds.top;
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M${x1},${y1} C${x1},${y1+12} ${x2},${y2-12} ${x2},${y2}`);
+        path.classList.add('dependency-edge');
+        path.dataset.from = pred; path.dataset.to = task.id;
+        path.dataset.critical = String(criticalEdges.has(`${pred}:${task.id}`));
+        path.dataset.relation = (before.has(pred) && (before.has(task.id) || task.id === selected)) ? 'predecessor'
+          : ((pred === selected || after.has(pred)) && after.has(task.id)) ? 'successor' : 'unrelated';
+        svg.append(path);
+      }
+    }
+  }
+  function detail() {
+    const task = byId.get(selected), body = one('[data-detail-body]'); body.replaceChildren();
+    one('[data-selected]').textContent = `${task.id} · ${task.title}`;
+    body.append(el('p', `${task.owner} · ${task.phase} / ${task.workstream} · ${task.kind || 'task'}${task.optional ? ' · optional' : ''}`));
+    for(const [label, values] of [['Deliverables',task.deliverables], ['Acceptance',task.acceptance], ['External prerequisites',task.prerequisites]]) {
+      body.append(el('strong',label)); const list = el('ul'); (values.length ? values : ['None']).forEach(v => list.append(el('li',v))); body.append(list);
+    }
+    for(const [label, ids] of [['Direct predecessors',task.depends_on],['Direct successors',graph.successors[selected]]]) {
+      const row = el('div'); row.append(el('strong', `${label}: `));
+      if(!ids.length) row.append(el('span','None'));
+      for(const id of ids) {
+        const link = el('button',id,'btn btn-ghost'); link.type='button'; link.dataset.relatedTask=id;
+        link.setAttribute('aria-label',`${id}: ${byId.get(id).title}`);
+        link.addEventListener('click',() => choose(id)); row.append(link);
+      }
+      body.append(row);
+    }
+  }
+  function render() {
+    before = closure(selected, id => byId.get(id).depends_on);
+    after = closure(selected, id => graph.successors[id]);
+    const layers = one('[data-layers]'); layers.replaceChildren();
+    let shown=0;
+    graph.layers.forEach((ids,index) => {
+      const visible = ids.filter(id => { const t=byId.get(id); return (!phase || t.phase===phase) && (!workstream || t.workstream===workstream); });
+      if(!visible.length) return;
+      const section = el('section'); section.append(el('div',`Readiness layer ${index+1}`,'text-small'));
+      const row = el('div',undefined,'dependency-layer');
+      for(const id of visible) {
+        shown++; const task=byId.get(id), rel=relation(id);
+        const node=el('div',undefined,'dependency-node'); node.dataset.relation=rel;
+        const button=el('button',id,'btn'); button.type='button'; button.dataset.task=id;
+        button.setAttribute('aria-pressed',String(id===selected));
+        button.setAttribute('aria-label',`${id}: ${task.title}; ${rel}${critical.has(id) ? '; critical chain' : ''}`);
+        button.dataset.tooltip=task.title;
+        button.addEventListener('click',() => choose(id));
+        const symbols={selected:'◆',predecessor:'←',successor:'→',unrelated:'○'};
+        node.append(button,el('span',`${symbols[rel]} ${rel}${critical.has(id) ? ' ★' : ''}${task.optional ? ' optional' : ''}`,'text-small dependency-relation'));
+        row.append(node);
+      }
+      section.append(row); layers.append(section);
+    });
+    const hidden=plan.tasks.length-shown;
+    one('[data-status]').textContent=`${shown} shown · ${hidden} hidden${hidden ? '; hidden dependencies remain in task detail' : ''}${!root.querySelector(`[data-task="${selected}"]`) ? '; selected task is outside filters' : ''}`;
+    detail(); requestAnimationFrame(drawEdges);
+  }
+  function save() {
+    if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{selectedTask:selected},privateContent:{phase,workstream}}).catch(() => {});
+  }
+  function choose(id) {
+    selected=id; render(); save();
+    (root.querySelector(`[data-task="${id}"]`) || one('[data-selected]')).focus();
+  }
+  function restore(state) {
+    selected=byId.has(state?.modelContent?.selectedTask) ? state.modelContent.selectedTask : graph.chain[0];
+    const valid=(field,value) => typeof value==='string' && plan.tasks.some(t=>t[field]===value) ? value : '';
+    phase=valid('phase',state?.privateContent?.phase); workstream=valid('workstream',state?.privateContent?.workstream);
+    if(selects.phase) selects.phase.value=phase; if(selects.workstream) selects.workstream.value=workstream;
+    render();
+  }
+  window.addEventListener('openai:set_globals',event => { if(event.detail?.globals && 'widgetState' in event.detail.globals) restore(event.detail.globals.widgetState); });
+  restore(window.openai?.widgetState);
+  new ResizeObserver(drawEdges).observe(one('.dependency-field'));
+})();
+</script>

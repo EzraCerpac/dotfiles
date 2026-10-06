@@ -1,0 +1,4 @@
+interface:
+  display_name: "Implementation Planning"
+  short_description: "Grounded plans with interactive dependency views"
+  default_prompt: "Use $implementation-planning to plan this implementation from current evidence and show its dependencies."
