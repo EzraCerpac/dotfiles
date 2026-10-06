@@ -23,7 +23,7 @@ class DotsTest(unittest.TestCase):
         self.log = self.base / 'calls.jsonl'
         self.uv_log = self.base / 'uv-calls.jsonl'
         self.mise = self.base / 'mise'
-        self.mise.write_text('#!/usr/bin/env python3\nimport os,sys,json\nwith open(os.environ["CALL_LOG"],"a") as f: f.write(json.dumps({"args":sys.argv[1:],"env":os.environ.get("MISE_ENV"),"root":os.environ.get("MISE_CONFIG_DIR")})+"\\n")\nif "get" in sys.argv: print("workstation")\nsys.exit(int(os.environ.get("FAIL_USE","0")) if "use" in sys.argv else 0)\n')
+        self.mise.write_text('#!/usr/bin/env python3\nimport os,sys,json\nwith open(os.environ["CALL_LOG"],"a") as f: f.write(json.dumps({"args":sys.argv[1:],"env":os.environ.get("MISE_ENV"),"root":os.environ.get("MISE_CONFIG_DIR"),"automatic":{k:os.environ.get(k) for k in ["MISE_AUTO_INSTALL","MISE_EXEC_AUTO_INSTALL","MISE_AUTO_UPDATE","MISE_NO_HOOKS"]}})+"\\n")\nif "get" in sys.argv: print("workstation")\nsys.exit(int(os.environ.get("FAIL_USE","0")) if "use" in sys.argv else 0)\n')
         self.mise.chmod(0o755)
         self.bin_dir = self.base / 'bin'
         self.bin_dir.mkdir()
@@ -134,12 +134,13 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(self.calls()[-1]['args'][-2:], ['--identity', '/external/key.txt'])
 
     def test_source_only_sync_forwards_one_explicit_option(self):
-        result = self.run_dots('sync', '--source-only')
+        result = self.run_dots('sync', '--source-only', MISE_AUTO_INSTALL='1', MISE_EXEC_AUTO_INSTALL='1', MISE_AUTO_UPDATE='1', MISE_NO_HOOKS='0')
         self.assertEqual(result.returncode, 0, result.stderr)
         call = self.calls()[0]
         self.assertEqual(call['args'], ['-C', str(self.root), 'exec', '--', 'node',
                                       str(self.root / 'setup-scripts/lib/source-repo.mjs'), 'sync', str(self.root), '--source-only'])
         self.assertIsNone(call['env'])
+        self.assertEqual(call['automatic'], {'MISE_AUTO_INSTALL': '0', 'MISE_EXEC_AUTO_INSTALL': '0', 'MISE_AUTO_UPDATE': '0', 'MISE_NO_HOOKS': '1'})
         for flags in (['--source-only', '--source-only'], ['--source-only', '--mas'], ['--dry-run']):
             with self.subTest(flags=flags):
                 self.assertEqual(self.run_dots('sync', *flags).returncode, 2)
