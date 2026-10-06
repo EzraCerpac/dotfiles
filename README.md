@@ -103,7 +103,10 @@ It uses the existing selected mise environment to run the synchronizer.
 Existing symlinks immediately reflect changes to their source files, so source
 advancement can still change configuration read by applications. Private selector
 files and ignored local lockfiles stay in place; legacy tracked-lock migration
-requires ordinary `dots sync`. Run ordinary `dots sync` when deployment is wanted.
+requires ordinary `dots sync`. Incoming ignore rules must protect local selectors
+and lockfiles. If settings change during advancement, the previous source revision
+is restored when the new child is still empty; concurrent public edits are retained
+for manual reconciliation. Run ordinary `dots sync` when deployment is wanted.
 
 Local edits or unpublished history are preserved. When they prevent a safe
 source advance, `dots up` says “source sync deferred” and still updates tools

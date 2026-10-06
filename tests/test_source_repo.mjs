@@ -120,6 +120,10 @@ function updateRemote(fixture, name, contents) {
   return commit(fixture.seed, `update ${name}`);
 }
 
+function sourceOnlyFixture(options = {}) {
+  return makeFixture({ ...options, ignored: ['config.local.toml', 'miserc.toml', 'config.host-*.toml', '*.lock', ...(options.ignored || [])] });
+}
+
 function sync(fixture, mode = 'ok', options = {}) {
   return withEnvironment({ FAKE_MISE_LOG: fixture.fakeMise.log, FAKE_MISE_MODE: mode }, () =>
     syncSource(fixture.root, { miseBin: fixture.fakeMise.bin, expectedRemote: fixture.expectedRemote, ...options }));
@@ -415,7 +419,7 @@ repoTest('unknown direct CLI flags fail before source operations', () => {
 
 repoTest('source-only advancement and current sync preserve private files without reading or copying them', () => {
   const policy = 'published canonical NAS policy\n';
-  const fixture = makeFixture({ files: {
+  const fixture = sourceOnlyFixture({ files: {
     'config.toml': 'min_version = "1.0.0"\nbase = "A"\n',
     'dotfiles/.codex/AGENTS.cerpacnas.md': policy,
   }, ignored: ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', '*.lock'] });
@@ -489,7 +493,7 @@ repoTest('source-only refuses incoming private selectors and legacy tracked lock
 
 repoTest('source-only keeps minimum-version and source/private concurrency guards', () => {
   for (const mode of ['minimum', 'version-mutate', 'version-private-mutate']) {
-    const fixture = makeFixture({ ignored: ['config.local.toml'] });
+    const fixture = sourceOnlyFixture();
     try {
       ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
       fs.writeFileSync(path.join(fixture.root, 'config.local.toml'), 'private fixture\n');
@@ -541,6 +545,56 @@ repoTest('source-only rejects incoming config.toml symlinks before source moveme
     assert.equal(parentRevision(fixture), before);
     assert(!fs.existsSync(fixture.fakeMise.log));
   } finally { fixture.close(); }
+});
+
+repoTest('source-only rejects removed or negated incoming private ignore rules before advancement', () => {
+  const names = ['config.local.toml', 'miserc.toml', 'config.host-fixture.toml', 'mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
+  for (const kind of ['removed', 'negated', 'symlink', 'absent']) {
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      if (kind !== 'absent') for (const name of names) fs.writeFileSync(path.join(fixture.root, name), 'opaque fixture\n', { mode: 0o600 });
+      const before = parentRevision(fixture);
+      const metadata = kind === 'absent' ? [] : names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true }));
+      if (kind === 'removed' || kind === 'absent') fs.rmSync(path.join(fixture.seed, '.gitignore'));
+      else if (kind === 'negated') fs.appendFileSync(path.join(fixture.seed, '.gitignore'), '!config.local.toml\n');
+      else { fs.rmSync(path.join(fixture.seed, '.gitignore')); fs.symlinkSync('config.toml', path.join(fixture.seed, '.gitignore')); }
+      commit(fixture.seed, 'change incoming ignores');
+      assert.throws(() => sync(fixture, 'ok', { sourceOnly: true }), kind === 'symlink' ? /\.gitignore must be a regular/ : /ignore rules would expose/);
+      assert.equal(parentRevision(fixture), before);
+      if (kind === 'absent') assert(names.every(name => !fs.existsSync(path.join(fixture.root, name))));
+      else assert.deepEqual(names.map(name => fs.lstatSync(path.join(fixture.root, name), { bigint: true })), metadata);
+      assert(!fs.existsSync(fixture.fakeMise.log));
+    } finally { fixture.close(); }
+  }
+});
+
+repoTest('source-only recovers raced advancement while preserving changed private settings and concurrent public edits', () => {
+  const realJj = run('sh', ['-c', 'command -v jj'], testState).stdout.trim();
+  for (const race of ['private', 'public-early', 'public-at-edit']) {
+    const publicEdit = race !== 'private';
+    const fixture = sourceOnlyFixture();
+    try {
+      ensureRepository(fixture.root, { expectedRemote: fixture.expectedRemote });
+      fs.writeFileSync(path.join(fixture.root, 'config.local.toml'), 'original private fixture\n');
+      const beforeParent = parentRevision(fixture);
+      const beforeRevision = jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id');
+      const incoming = updateRemote(fixture, 'config.toml', 'min_version = "1.0.0"\nbase = "B"\n');
+      const bin = path.join(fixture.state, 'bin');
+      fs.mkdirSync(bin);
+      const wrapper = path.join(bin, 'jj');
+      fs.writeFileSync(wrapper, `#!/bin/sh\nset -eu\nfor argument in "$@"; do\n  if [ "$argument" = edit ]; then\n    ${race === 'public-at-edit' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\ndone\n"$REAL_JJ" "$@"\nfor argument in "$@"; do\n  if [ "$argument" = new ]; then\n    printf 'concurrent private fixture\\n' >> config.local.toml\n    ${race === 'public-early' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n    break\n  fi\ndone\n`);
+      fs.chmodSync(wrapper, 0o755);
+      withEnvironment({ PATH: `${bin}${path.delimiter}${process.env.PATH}`, REAL_JJ: realJj }, () => {
+        assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true }), race === 'public-early' ? /prevents automatic recovery/ : race === 'public-at-edit' ? /changed before recovery/ : /restored the prior source revision/);
+      });
+      assert.equal(parentRevision(fixture), publicEdit ? incoming : beforeParent);
+      assert.equal(jj(fixture.root, 'log', '-r', beforeRevision, '--no-graph', '-T', 'commit_id'), beforeRevision);
+      if (!publicEdit) assert.equal(jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id'), beforeRevision);
+      else assert.equal(fs.readFileSync(path.join(fixture.root, 'config.toml'), 'utf8'), 'concurrent public fixture\n');
+      assert.equal(fs.readFileSync(path.join(fixture.root, 'config.local.toml'), 'utf8'), 'original private fixture\nconcurrent private fixture\n');
+    } finally { fixture.close(); }
+  }
 });
 
 test.after(() => {
