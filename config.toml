@@ -1,5 +1,5 @@
 # Shared settings. The base is always loaded; select workstation or nas with -E.
-min_version = "2026.9.10"
+min_version = "2026.10.3"
 
 [settings]
 dotfiles.root = "~/.config/mise/dotfiles"
@@ -93,11 +93,6 @@ codex = "latest"
 "~/.codex/skills/jj-waltz/references/codex.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/codex.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/references/lifecycle.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/lifecycle.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/references/links.md" = { source = "dotfiles/.codex/skills/jj-waltz/references/links.md", mode = "symlink" }
-"~/.config/bat/config" = { source = "dotfiles/.config/bat/config", mode = "symlink" }
-"~/.config/bat/themes/Catppuccin Frappe.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Frappe.tmTheme", mode = "symlink" }
-"~/.config/bat/themes/Catppuccin Latte.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Latte.tmTheme", mode = "symlink" }
-"~/.config/bat/themes/Catppuccin Macchiato.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Macchiato.tmTheme", mode = "symlink" }
-"~/.config/bat/themes/Catppuccin Mocha.tmTheme" = { source = "dotfiles/.config/bat/themes/Catppuccin Mocha.tmTheme", mode = "symlink" }
 "~/.config/fish/completions/dots.fish" = { source = "dotfiles/.config/fish/completions/dots.fish", mode = "symlink" }
 "~/.config/fish/completions/eza.fish" = { source = "dotfiles/.config/fish/completions/eza.fish", mode = "symlink" }
 "~/.config/fish/completions/ls.fish" = { source = "dotfiles/.config/fish/completions/ls.fish", mode = "symlink" }
@@ -112,90 +107,6 @@ codex = "latest"
 "~/.config/jj/agent-config.toml" = { source = "dotfiles/.config/jj/agent-config.toml", mode = "symlink" }
 "~/.config/jj/config.toml" = { source = "dotfiles/.config/jj/config.toml", mode = "symlink" }
 "~/.config/hunk/config.toml" = { source = "dotfiles/.config/hunk/config.toml", mode = "symlink" }
-"~/.config/nvim/CLAUDE.md" = { source = "dotfiles/.config/nvim/CLAUDE.md", mode = "symlink" }
-"~/.config/nvim/LICENSE" = { source = "dotfiles/.config/nvim/LICENSE", mode = "symlink" }
-"~/.config/nvim/README.md" = { source = "dotfiles/.config/nvim/README.md", mode = "symlink" }
-"~/.config/nvim/cheatsheet.txt" = { source = "dotfiles/.config/nvim/cheatsheet.txt", mode = "symlink" }
-"~/.config/nvim/.gitignore" = { source = "dotfiles/.config/nvim/.gitignore", mode = "symlink" }
-"~/.config/nvim/.neoconf.json" = { source = "dotfiles/.config/nvim/.neoconf.json", mode = "symlink" }
-"~/.config/nvim/init.lua" = { source = "dotfiles/.config/nvim/init.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/autocmds.lua" = { source = "dotfiles/.config/nvim/lua/config/autocmds.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/keymaps.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/keymaps/jabref.lua" = { source = "dotfiles/.config/nvim/lua/config/keymaps/jabref.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/lazy.lua" = { source = "dotfiles/.config/nvim/lua/config/lazy.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/modules/mini-files-git.lua" = { source = "dotfiles/.config/nvim/lua/config/modules/mini-files-git.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/modules/mini-files-km.lua" = { source = "dotfiles/.config/nvim/lua/config/modules/mini-files-km.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/options.lua" = { source = "dotfiles/.config/nvim/lua/config/options.lua", mode = "symlink" }
-"~/.config/nvim/lua/config/root-overide.lua" = { source = "dotfiles/.config/nvim/lua/config/root-overide.lua", mode = "symlink" }
-"~/.config/nvim/lua/custom/grammarly_bridge.lua" = { source = "dotfiles/.config/nvim/lua/custom/grammarly_bridge.lua", mode = "symlink" }
-"~/.config/nvim/lua/custom/latex_to_typst.lua" = { source = "dotfiles/.config/nvim/lua/custom/latex_to_typst.lua", mode = "symlink" }
-"~/.config/nvim/lua/custom/superfile.lua" = { source = "dotfiles/.config/nvim/lua/custom/superfile.lua", mode = "symlink" }
-"~/.config/nvim/lua/custom/typst_guard.lua" = { source = "dotfiles/.config/nvim/lua/custom/typst_guard.lua", mode = "symlink" }
-"~/.config/nvim/lua/custom/typst_references.lua" = { source = "dotfiles/.config/nvim/lua/custom/typst_references.lua", mode = "symlink" }
-"~/.config/nvim/lua/helpers/julials.jl" = { source = "dotfiles/.config/nvim/lua/helpers/julials.jl", mode = "symlink" }
-"~/.config/nvim/lua/overseer/component/uvpy/env.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/env.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/component/uvpy/open_list.lua" = { source = "dotfiles/.config/nvim/lua/overseer/component/uvpy/open_list.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/julia/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/init.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/julia/repl.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/repl.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/julia/repl_current_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/repl_current_file.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/julia/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/julia/util.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/typst/compile.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/compile.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/typst/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/init.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/typst/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/util.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/typst/watch.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/typst/watch.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/init.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/init.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/pickers.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/pickers.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/util.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_current_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_current_file.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_main_file.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_main_file.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_current_scene.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_current_scene.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_export.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_export.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_pick_scene.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_pick_scene.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_manim_util.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_manim_util.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_module.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_module.lua", mode = "symlink" }
-"~/.config/nvim/lua/overseer/template/uvpy/uv_repl.lua" = { source = "dotfiles/.config/nvim/lua/overseer/template/uvpy/uv_repl.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/ai.lua" = { source = "dotfiles/.config/nvim/lua/plugins/ai.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/blink.lua" = { source = "dotfiles/.config/nvim/lua/plugins/blink.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/color-picker.lua" = { source = "dotfiles/.config/nvim/lua/plugins/color-picker.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/colorscheme.lua" = { source = "dotfiles/.config/nvim/lua/plugins/colorscheme.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/compiler.lua" = { source = "dotfiles/.config/nvim/lua/plugins/compiler.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/conform.lua" = { source = "dotfiles/.config/nvim/lua/plugins/conform.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/core.lua" = { source = "dotfiles/.config/nvim/lua/plugins/core.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/csv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/csv.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/disabled.lua" = { source = "dotfiles/.config/nvim/lua/plugins/disabled.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/explorer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/explorer.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/fzf.lua" = { source = "dotfiles/.config/nvim/lua/plugins/fzf.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/games.lua" = { source = "dotfiles/.config/nvim/lua/plugins/games.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/git.lua" = { source = "dotfiles/.config/nvim/lua/plugins/git.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/grammarly.lua" = { source = "dotfiles/.config/nvim/lua/plugins/grammarly.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/hop.lua" = { source = "dotfiles/.config/nvim/lua/plugins/hop.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/image.lua" = { source = "dotfiles/.config/nvim/lua/plugins/image.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/iron.lua" = { source = "dotfiles/.config/nvim/lua/plugins/iron.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/jujitsu.lua" = { source = "dotfiles/.config/nvim/lua/plugins/jujitsu.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/legendary.lua" = { source = "dotfiles/.config/nvim/lua/plugins/legendary.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/lsp.lua" = { source = "dotfiles/.config/nvim/lua/plugins/lsp.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/markdown.lua" = { source = "dotfiles/.config/nvim/lua/plugins/markdown.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/mini-move.lua" = { source = "dotfiles/.config/nvim/lua/plugins/mini-move.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/multicursor.lua" = { source = "dotfiles/.config/nvim/lua/plugins/multicursor.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/overseer.lua" = { source = "dotfiles/.config/nvim/lua/plugins/overseer.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/project.lua" = { source = "dotfiles/.config/nvim/lua/plugins/project.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/quickfix.lua" = { source = "dotfiles/.config/nvim/lua/plugins/quickfix.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/smart-splits.lua" = { source = "dotfiles/.config/nvim/lua/plugins/smart-splits.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/snacks.lua" = { source = "dotfiles/.config/nvim/lua/plugins/snacks.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/split.lua" = { source = "dotfiles/.config/nvim/lua/plugins/split.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/start.lua" = { source = "dotfiles/.config/nvim/lua/plugins/start.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/surround.lua" = { source = "dotfiles/.config/nvim/lua/plugins/surround.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/test.lua" = { source = "dotfiles/.config/nvim/lua/plugins/test.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/tex.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tex.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/tree-sitter.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tree-sitter.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/trouble.lua" = { source = "dotfiles/.config/nvim/lua/plugins/trouble.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/tv.lua" = { source = "dotfiles/.config/nvim/lua/plugins/tv.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/ui.lua" = { source = "dotfiles/.config/nvim/lua/plugins/ui.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/undotree.lua" = { source = "dotfiles/.config/nvim/lua/plugins/undotree.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/wakatime.lua" = { source = "dotfiles/.config/nvim/lua/plugins/wakatime.lua", mode = "symlink" }
-"~/.config/nvim/lua/plugins/which-key.lua" = { source = "dotfiles/.config/nvim/lua/plugins/which-key.lua", mode = "symlink" }
-"~/.config/nvim/lua/queries/toml/injections.scm" = { source = "dotfiles/.config/nvim/lua/queries/toml/injections.scm", mode = "symlink" }
-"~/.config/nvim/stylua.toml" = { source = "dotfiles/.config/nvim/stylua.toml", mode = "symlink" }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink" }
@@ -208,3 +119,18 @@ pre-packages = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local
 
 [bootstrap.brew.taps]
 "modem-dev/tap" = "https://github.com/modem-dev/homebrew-tap"
+
+[bootstrap]
+dotfile_groups = ["bat", "nvim"]
+
+[dotfile_groups.bat]
+root = ".config/bat"
+target = "~/.config/bat"
+mode = "symlink-each"
+relative = false
+
+[dotfile_groups.nvim]
+root = ".config/nvim"
+target = "~/.config/nvim"
+mode = "symlink-each"
+relative = false
