@@ -1,9 +1,8 @@
 """Every managed source file is declared, and every declaration has a source.
 
-Neovim and other trees are declared file by file so application state beside
-them stays unmanaged. The cost is that a new file does nothing until it is
-declared; this test makes that omission fail instead of silently shipping
-nothing.
+Static app trees can use selected groups; individual files and templates keep
+their explicit declarations. Application state beside group links stays
+unmanaged. This test catches missing source ownership in either form.
 """
 
 from __future__ import annotations
@@ -32,8 +31,24 @@ INDIRECT = {
 def declarations() -> dict[str, dict]:
     entries: dict[str, dict] = {}
     for name in CONFIGS:
-        for target, entry in tomllib.loads((ROOT / name).read_text()).get("dotfiles", {}).items():
+        config = tomllib.loads((ROOT / name).read_text())
+        for target, entry in config.get("dotfiles", {}).items():
             entries[f"{name}:{target}"] = entry
+        groups = config.get("dotfile_groups", {})
+        selected = config.get("bootstrap", {}).get("dotfile_groups", list(groups))
+        for group_name in selected:
+            group = groups[group_name]
+            source_root = ROOT / 'dotfiles' / group['root']
+            if not source_root.is_dir():
+                raise ValueError(f"missing group source: {source_root}")
+            # These groups deliberately own complete static trees, without
+            # templates, exclusions, renames or explicit entry overrides.
+            if set(group) != {'root', 'target', 'mode', 'relative'} or group['mode'] != 'symlink-each':
+                raise ValueError(f"unsupported static group shape: {group_name}")
+            for source in source_root.rglob('*'):
+                if source.is_file():
+                    target = group['target'].rstrip('/') + '/' + source.relative_to(source_root).as_posix()
+                    entries[f"{name}:{target}"] = {'source': source.relative_to(ROOT).as_posix(), 'mode': 'symlink'}
     return entries
 
 

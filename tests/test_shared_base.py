@@ -23,8 +23,15 @@ class SharedBaseTests(unittest.TestCase):
             profile=tomllib.loads((ROOT/f'config.{role}.toml').read_text())
             self.assertFalse(tools.keys() & profile.get('tools',{}).keys())
             self.assertFalse(base['dotfiles'].keys() & profile.get('dotfiles',{}).keys())
-        for path in ('~/.config/fish/config.fish','~/.config/jj/config.toml','~/.config/git/config','~/.config/nvim/init.lua','~/.local/bin/dots'):
+        for path in ('~/.config/fish/config.fish','~/.config/jj/config.toml','~/.config/git/config','~/.local/bin/dots'):
             self.assertIn(path, base['dotfiles'])
+        self.assertEqual(base['min_version'], '2026.10.3')
+        self.assertEqual(base['bootstrap']['dotfile_groups'], ['bat', 'nvim'])
+        for name in ('bat', 'nvim'):
+            self.assertEqual(base['dotfile_groups'][name], {
+                'root': f'.config/{name}', 'target': f'~/.config/{name}',
+                'mode': 'symlink-each', 'relative': False,
+            })
         self.assertIn('github:fish-shell/fish-shell', tools)
         for package in ('fish','git'):
             self.assertIn(f'brew:{package}', base['bootstrap']['packages'])
