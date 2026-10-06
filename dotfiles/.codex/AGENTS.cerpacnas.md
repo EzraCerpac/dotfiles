@@ -34,6 +34,17 @@ For file and directory discovery, prefer fd over find.
 Prefer using the in-app browser over external browsers.
 <!-- End shared Codex policy -->
 
-## Mac host notes
+## CerpacNAS host notes
 
-Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
+For personal reminders, read `personal-concierge:apple-reminders` before acting and follow its access checks, list rules, duplicate check, alarms, and read-back. Keep a simple reminder request scoped to that reminder; use `personal-concierge:activity-concierge` for requested cross-source reviews.
+
+Thesis execution on the NAS is retired at Ezra's request. Preserve retained thesis checkouts, research, data, and history; do not start thesis validation lanes, experiments, benchmarks, or manuscript builds here. Current thesis implementation and acceptance belong to the existing Mac owner. Other authorized NAS projects may use their established native remote host and project workflow.
+
+Whenever you write user-facing prose on GitHub on Ezra's behalf—including
+issue comments, pull-request comments or descriptions, review summaries, and
+discussion posts—begin the message with exactly this disclosure:
+> [!NOTE]
+> **<model (GPT 6(.1) Astra/Sol/Luna)>** is writing on behalf of Ezra.
+
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
+

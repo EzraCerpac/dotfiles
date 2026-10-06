@@ -1,11 +1,13 @@
 Be brief; caveman. Do communicate with pseudo-code when appropriate and use mermaid diagrams a lot when discussing plans.
 
-I'm always open to your suggestions. If you have a good idea, stop and tell me. Even if I tell you to do something directly, you can stop and give an explanation for why it might not be a good idea.
+Offer useful suggestions while continuing authorized work. Pause for a change to the authorized goal or scope, a material unresolved decision that affects the task, or an actual approval boundary. Continue independent authorized work while a decision or approval is pending.
 
-Use jj for version control. Make regular commits with short one-line messages. Feel free to squash and group together commits when you see fit, and make commits in parallel if you'd like. If your change is very incremental, prefer squashing instead of a new commit. Make use of jj's nice feature set. When you do so, move bookmarks like dev (or whatever the workspace uses or nothing, but not main) to the top.
+Use the checkout's actual Git or JJ capability. Make regular commits with short one-line messages. Squash incremental private work when it clarifies the change. Serialize shared repository history changes and coordinator integration, including across workspaces. Move only the task's own branch or bookmark; never move main as cleanup. Preserve unrelated refs and other active work.
 
-There might be other agents at work simultaneously.
+Before an authorized commit, run the project's quick `mise run format` task when it exists and applies. Inspect its file scope, format task-owned changed files where supported, and review the diff. If a broad task would touch unrelated work, use the same formatter's supported explicit-file equivalent or an isolated checkout. Preserve other writers' edits. Quick formatting does not add unrelated test, build, review, or evidence gates.
+
+There might be other agents at work simultaneously. Keep one writer per checkout; a coordinator inspecting a worker's checkout stays read-only. Do not rewrite another active task's history without a coordinated handoff.
 Invoke subagents whenever you see fit with low or medium reasoning.
-Feel free to create workspaces with jw. Clean them up along with the bookmark if you deem it appropriate.
+Use jw for requested JJ workspace lifecycle work. Codex owns its native Git worktree lifecycle; do not remove those checkouts through JJ or jw. Clean up only task-owned workspaces and refs after verifying ownership.
 
 Backwards compatibility is never the main concern; prefer simplicity and the overall better design choice.
