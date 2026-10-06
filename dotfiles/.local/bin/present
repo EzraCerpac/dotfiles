@@ -209,7 +209,6 @@ ai.openclaw.gateway
 com.google.GoogleUpdater.wake
 com.google.keystone.agent
 com.google.keystone.xpcservice
-mega.mac.megaupdater
 EOF
 }
 
@@ -322,7 +321,6 @@ TypeWhisper	com.typewhisper.mac
 Raycast	com.raycast.macos
 Raycast Beta	com.raycast-x.macos
 Ollama	com.electron.ollama
-MEGAsync	mega.mac
 Aegis	Aegis.Aegis
 BoringNotch	theboringteam.boringnotch
 Homerow	com.superultra.Homerow
@@ -525,7 +523,7 @@ write_report() {
         print_status
         echo
         echo "presentation process matches:"
-        ps -Ao pid=,ppid=,%cpu=,%mem=,command= | grep -Ei 'vite dev|next dev|pnpm dev|npm run dev|uvicorn|cargo watch|scripts/serve_api.jl|qlmanage -t|CodexBar|Cotabby|VoiceInk|TypeWhisper|Ollama|MEGAsync|Raycast|Mattermost|Steam' || true
+        ps -Ao pid=,ppid=,%cpu=,%mem=,command= | grep -Ei 'vite dev|next dev|pnpm dev|npm run dev|uvicorn|cargo watch|scripts/serve_api.jl|qlmanage -t|CodexBar|Cotabby|VoiceInk|TypeWhisper|Ollama|Raycast|Mattermost|Steam' || true
     } >"${REPORT_FILE}"
 }
 

@@ -78,6 +78,7 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 # Linux workstation never inherits Mac system integration or GUI packages.
 claude-code = "latest"
 "npm:yoinks" = "latest"
+"cargo:repgrep" = "latest"
 [bootstrap.packages]
 "brew:terminal-notifier" = { os = "macos/arm64" }
 "apt:git" = { os = ["linux/x64", "linux/arm64"] }
