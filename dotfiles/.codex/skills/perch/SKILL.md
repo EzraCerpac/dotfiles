@@ -1,24 +1,54 @@
 ---
 name: perch
-description: Semantic linting with perch. Use it to verify code changes in flight. Scan a branch or a diff. Check one method right after editing it. Confirm a fix landed before opening a pull request. Use it to lint behavior a compiler cannot check: bugs, vulnerabilities, swallowed errors, and a method that does not do what its name says. Use it to act on what a scan found. Use it to write rules that turn a repeated mistake into verifiable behavior.
+description: Use Perch on explicit request for scoped semantic linting or high-volume screening against narrow criteria. Treat Jev results as advisory candidate flags for stronger-model or source verification. Use for a requested scan, targeted check, or existing finding; routine edits do not trigger it.
 ---
 
 # perch
 
+## Intended use
+
+When configured for Jev, use it as a cheap, fast screening model for high-volume,
+narrow semantic classification or linting. Keep each criterion explicit and bounded. Treat flagged
+candidates as leads for a stronger model or direct source verification. This is the
+user's intended role, not a measured accuracy or throughput claim.
+
+Perch is code-oriented; arbitrary large text/record classification would use a
+separate direct TypeSafe workflow. Do not set that up merely because this skill was
+invoked. Perch is not the reviewer for subtle concurrency, distributed-sync races,
+or nuanced architectural judgment. Do not attach it to Capd/Tinymist review or
+set up SemBr linting unless the user later explicitly requests that work.
+
 ## This machine
 
 Use `~/.local/bin/perch` from the repository being checked. This mise-managed
-launcher loads the private Jev credential only into the Perch process and preserves
-the current directory. Do not print the key or place it in project `.env` files.
+launcher preserves the current directory and supplies a private credential only
+to the process. Do not print the key or put it in project `.env` files.
 
-Run scans on demand, scoped with `--paths` or `--since`; do not add automatic hooks
-or CI gates as part of using this skill. Scans send the selected source and its
-context to TypeSafe. Findings are advisory; confirm them against the code and tests.
+Run only the requested, bounded scan or check. Scope scans with `--paths` or
+`--since`. Do not add automatic hooks, CI gates, a second-review ritual or mandatory
+checks for routine edits. Findings remain advisory; verify flagged candidates
+against source and, where appropriate, affected behavior.
 
-The workflow below comes from the installed upstream Perch 0.3.3 skill.
+The inspected installed package was Perch **0.4.1** on 2026-10-05. In that version,
+the default route is Perch Cloud; an explicit `PERCH_BASE_URL` selects a direct
+System One endpoint, such as TypeSafe. `PERCH_MODEL_ID` selects a model; the direct
+client defaults to `jev-latest`. The effective runtime endpoint/model has not been
+verified. Do not change it as part of using this skill or assume the private
+credential proves the endpoint. Prefer installed CLI/source documentation if the
+package version changes.
 
-perch asks a model about the code in a repository. It reports what it believes, as a probability on
-every finding.
+A scan or check sends selected source and context to the configured external
+provider. Perch includes method source and nearby caller/callee context, bounded
+to the request budget. `scan` reads the repository at **HEAD** and writes local
+results/cache; `check` reads from **disk**, including uncommitted work, and does not
+record a scan result. Both can make network requests. Provider/account billing
+and data handling apply; this is not an offline check.
+
+The examples below were adapted from the upstream **0.3.3** skill. Example costs,
+request counts and output percentages are illustrations, not current pricing,
+measured performance on this user's work, or calibrated defect rates. Use actual
+reported usage and the selected provider's current terms when discussing cost.
+Perch reports a model's probability, not proof that code is correct or defective.
 
 ## Scan what changed
 
@@ -33,30 +63,32 @@ perch at commit 5e9d910: 3 methods, read 3
 3 requests  10k tokens in / 2k out  $0.0004
 ```
 
-`--since <ref>` covers what moved since that ref. That is what you want on a branch
-and in CI. `--paths a,b` covers named files or directories. Add `--json` for the full
-detail: `perch scan --since origin/main --json`.
+`--since <ref>` covers what changed since that ref in the HEAD snapshot;
+uncommitted edits are outside that scan. `--paths a,b` covers named files or
+directories. Add `--json` for full detail:
+`perch scan --since origin/main --json`. Confirm the requested ref and scope.
 
-A whole repository is hundreds of model requests. A branch is a handful. Never scan
-everything to check one change.
+Request volume depends on methods, context, rules and cache state. A repository
+scan can be large; use the requested subset to check a bounded change.
 
-A method whose code and neighbours have not moved is skipped next run. Scanning again
-after a fix costs almost nothing.
+Cached answers are reused when source, context, endpoint/model and question
+wording match. A changed method, neighbour, model or rule can require new requests;
+do not promise that a rescan is free or almost free.
 
 | Exit | |
 | --- | --- |
-| `0` | Nothing to act on. |
-| `3` | Something that fails was found. |
-| `1` | perch could not run. |
-| `2` | The command was typed wrong. |
+| `0` | Command completed; scan/check reported no issue affecting its exit status. |
+| `3` | Scan/check found issues affecting its exit status; they remain advisory. |
+| `1` | Command failed or some methods/rules could not be read after retrying. |
+| `2` | Invalid arguments or a setup overwrite needs explicit force. |
 
 `3` is a result rather than an error, so report what it found. Only `1` and `2` are
 failures.
 
 ## Read the JSON
 
-Every command takes `--json`. The table is rounded off for a terminal, and the JSON
-carries the detail.
+Use `--json` on supported report-producing commands. The table is rounded off for
+a terminal, and the JSON carries the detail.
 
 ```console
 $ perch issues
@@ -85,15 +117,12 @@ defect for you.
 The number is model belief, not a verified defect rate. How bad the problem would
 be is a separate field.
 
-Probabilities spread across several kinds mean the model is sure something is wrong
-and cannot say what. Say 0.4 on one kind and 0.3 on another. Read the method. Leave
-the label alone.
+Probabilities spread across several kinds can signal an ambiguous classification;
+they do not establish that a defect exists. Read the method and verify the claim
+before adopting a label.
 
-The line it points at carries its own confidence. A low one puts the problem somewhere
-in the method.
-
-Expect the real problem to sit adjacent to what was reported. A `missing_null_handling`
-at 70% is often an unchecked error a few lines off.
+A reported location has its own confidence and may be imprecise. Treat it as a
+navigation hint. Neither a location nor a percentage proves a nearby defect.
 
 Answers below a question's `min` stay out of the report and stay in the JSON. A 56%
 `secret_exposure` is worth a look while the report is silent about it.
@@ -114,12 +143,14 @@ src/store.js:74  openStore.scanDir
 2 requests  5k tokens in / 767 out  $0.0002
 ```
 
-`perch check src/store.js::openStore.scanDir --json` gives the same reading in full,
-and an issue id works in place of a target.
+`perch check src/store.js::openStore.scanDir --json` gives the reading in full,
+and an issue id works in place of a target. `--rules <name>` restricts the check to
+an existing narrow rule rather than asking every applicable question.
 
-This reads the file off disk, so it works on uncommitted code. It records nothing, so
-it will not move the numbers on the issue you are fixing. It exits `3` while something
-is still wrong.
+This reads the file off disk, so it works on uncommitted code. It makes an external
+model request but does not record a scan result or update/close the stored issue.
+Exit `3` means it reported an issue affecting exit status, not that the issue has
+been independently verified.
 
 ## Close a finding you have judged
 
@@ -136,8 +167,9 @@ Always give a reason. That is what the next person reads instead of reopening it
 
 ## Write a rule when a mistake repeats
 
-The second time the same thing is corrected, write it down. Ask the user before adding
-a rule to their repository.
+Add or edit persistent repository rules only when that setup is requested or
+already authorized. An ordinary scan/check request does not itself authorize
+new rules. A recurring issue can suggest a narrow rule for later use.
 
 ```console
 $ perch rules add no-silent-failure --where "src/**/*.js" --each method \
@@ -151,8 +183,8 @@ for that rule alone. `--gate no` reports a rule without failing runs.
 `--ensure_absent` is for a claim about the codebase as a whole. It searches the
 likeliest places and stops at the answer.
 
-Rules ride in the request perch was already making about a method. Five rules on one
-method is one reading.
+Rules can share a method request. They may be split across requests when model
+limits or the context budget require it; do not assume any number of rules is free.
 
 Say what breaks a rule and what satisfies it. A rule answering in the sixties about
 everything cannot tell anything apart. Reword it or drop it. Raising its floor until
@@ -166,11 +198,16 @@ A rule is a sentence put to a model, so a new one is a draft. Test it against tw
 inputs before you trust it. One should pass. The other is a copy you broke in the way
 the rule is meant to catch.
 
-`perch check <path> --rules <name>` reads off disk and costs a fraction of a cent, so
-the loop is fast.
+`perch check <path> --rules <name>` reads off disk and makes a model request. Keep
+validation bounded; cost and latency depend on the selected provider, input size
+and request count.
 
 The gap between the two readings is the rule's whole value. A rule that answers about
 the same on both is measuring something other than what it says.
+
+The upstream examples below illustrate rule design, not measured performance on
+this user's files. Two controls can reveal a bad rule; they do not establish
+calibration or general accuracy.
 
 **Too broad.** A file rule worded as a universal gets you there. "Every sentence is
 short" asks whether a counterexample exists anywhere in the file. Those odds rise with
