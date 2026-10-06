@@ -133,6 +133,18 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls()[-1]['args'][-2:], ['--identity', '/external/key.txt'])
 
+    def test_source_only_sync_forwards_one_explicit_option(self):
+        result = self.run_dots('sync', '--source-only')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        call = self.calls()[0]
+        self.assertEqual(call['args'], ['-C', str(self.root), 'exec', '--', 'node',
+                                      str(self.root / 'setup-scripts/lib/source-repo.mjs'), 'sync', str(self.root), '--source-only'])
+        self.assertIsNone(call['env'])
+        for flags in (['--source-only', '--source-only'], ['--source-only', '--mas'], ['--dry-run']):
+            with self.subTest(flags=flags):
+                self.assertEqual(self.run_dots('sync', *flags).returncode, 2)
+        self.assertEqual(len(self.calls()), 1)
+
     def test_bare_tool_defaults_to_role_and_native_latest_resolution(self):
         result = self.run_dots('add', 'watchexec')
         self.assertEqual(result.returncode, 0, result.stderr)

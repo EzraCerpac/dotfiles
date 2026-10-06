@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 export class SourceDeferred extends Error { constructor(message) { super(message); this.code = 3; } }
 const lockfiles = ['mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
+const isLocalConfig = name => name === 'config.local.toml' || name === 'miserc.toml' || /^config\.host-[a-z0-9-]+\.toml$/.test(name);
+const isLocalConfigPath = name => isLocalConfig(name.split('/')[0].toLowerCase());
 const origins = new Set(['https://github.com/EzraCerpac/dotfiles', 'https://github.com/EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles', 'ssh://git@github.com/EzraCerpac/dotfiles.git']);
 const command = (bin, args, root, options = {}) => {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', ...options });
@@ -108,6 +110,46 @@ export function resolveMiseBin({ env = process.env, home = os.homedir() } = {}) 
   throw new Error('mise: no executable found in DOTS_MISE_BIN, SETUP_MISE_BIN, MISE_BIN, ~/.local/bin, or PATH');
 }
 
+function validateMiseVersion(root, config, miseBin) {
+  const minimum = config.match(/^min_version\s*=\s*"([\d.]+)"/m)?.[1];
+  if (!minimum) return;
+  const version = command(miseBin, ['--version'], root).match(/\d+\.\d+\.\d+/)?.[0];
+  if (!version) throw new Error('Cannot determine the installed mise version');
+  const a = version.split('.').map(Number), b = minimum.split('.').map(Number);
+  const difference = a.map((n, i) => n - b[i]).find(n => n !== 0) || 0;
+  if (difference < 0) throw new SourceDeferred(`Incoming configuration requires mise ${minimum}; update standalone mise before source sync`);
+}
+
+function localFileMetadata(root) {
+  const names = fs.readdirSync(root).filter(name => isLocalConfigPath(name) || lockfiles.includes(name.toLowerCase())).sort();
+  return names.map(name => {
+    const stat = fs.lstatSync(path.join(root, name), { bigint: true });
+    if (!stat.isFile()) throw new Error(`Local setup configuration must be a regular file: ${name}`);
+    return [name, ...['dev', 'ino', 'mode', 'uid', 'gid', 'size', 'mtimeNs', 'ctimeNs'].map(key => String(stat[key]))];
+  });
+}
+
+function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRevision, changed, miseBin) {
+  if ([...incomingFiles].some(isLocalConfigPath)) throw new Error('Incoming source must not track private setup selectors');
+  const local = localFileMetadata(root);
+  const previousFiles = new Set(lines(command('git', [`--git-dir=${gitDir}`, 'ls-tree', '-r', '--name-only', base], root)));
+  if ([...previousFiles].some(isLocalConfigPath)) throw new SourceDeferred('Tracked private selectors require manual reconciliation; source-only sync preserves local settings');
+  if ([...incomingFiles, ...previousFiles].some(name => lockfiles.includes(name.split('/')[0].toLowerCase()))) {
+    throw new SourceDeferred('Tracked lockfiles require ordinary dots sync; source-only sync preserves local files without migration');
+  }
+  const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', 'config.toml'], root);
+  if (!/^100(?:644|755) blob [a-f0-9]+\tconfig\.toml$/.test(entry)) throw new Error('Incoming config.toml must be a regular source file');
+  const config = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:config.toml`], root);
+  validateMiseVersion(root, config, miseBin);
+  if (revisions(root, '@')[0] !== inspectedRevision || JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) {
+    throw new SourceDeferred('Source or local settings changed during validation; preserving them. Rerun sync when ready');
+  }
+  if (base !== incoming || changed.length) jj(root, ['new', incoming]);
+  if (JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) throw new Error('Local settings metadata changed during source-only synchronization');
+  console.log(`Source synchronized to ${incoming.slice(0, 12)} (source only; dotfiles not applied).`);
+  return incoming;
+}
+
 function validateIncoming(root, gitDir, commit, miseBin) {
   const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-preview-'));
   try {
@@ -115,15 +157,8 @@ function validateIncoming(root, gitDir, commit, miseBin) {
     if (archive.status !== 0) throw new Error('Could not prepare the incoming source preview');
     command('tar', ['-xf', '-', '-C', preview], root, { input: archive.stdout });
     const config = fs.readFileSync(path.join(preview, 'config.toml'), 'utf8');
-    const minimum = config.match(/^min_version\s*=\s*"([\d.]+)"/m)?.[1];
-    if (minimum) {
-      const version = command(miseBin, ['--version'], root).match(/\d+\.\d+\.\d+/)?.[0];
-      if (!version) throw new Error('Cannot determine the installed mise version');
-      const a = version.split('.').map(Number), b = minimum.split('.').map(Number);
-      const difference = a.map((n, i) => n - b[i]).find(n => n !== 0) || 0;
-      if (difference < 0) throw new SourceDeferred(`Incoming configuration requires mise ${minimum}; update standalone mise before source sync`);
-    }
-    for (const name of fs.readdirSync(root).filter(name => name === 'config.local.toml' || name === 'miserc.toml' || /^config\.host-[a-z0-9-]+\.toml$/.test(name))) {
+    validateMiseVersion(root, config, miseBin);
+    for (const name of fs.readdirSync(root).filter(isLocalConfig)) {
       const source = path.join(root, name);
       if (!fs.lstatSync(source).isFile()) throw new Error(`Local setup configuration must be a regular file: ${name}`);
       // Local selectors never belong to public source. Exclusive creation also
@@ -139,7 +174,7 @@ function validateIncoming(root, gitDir, commit, miseBin) {
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
-export function syncSource(root, { miseBin, expectedRemote } = {}) {
+export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false } = {}) {
   miseBin ||= resolveMiseBin();
   if (!executable(miseBin)) invalidMiseOverride('miseBin', miseBin);
   miseBin = path.resolve(miseBin);
@@ -161,6 +196,7 @@ export function syncSource(root, { miseBin, expectedRemote } = {}) {
     if (changed.length && !(migratesLocks && changed.every(line => /^M (mise(?:\.nas|\.workstation)?\.lock)$/.test(line)))) {
       throw new SourceDeferred('Local source edits need review; preserving them. Use dots publish when ready');
     }
+    if (sourceOnly) return syncSourceOnly(root, gitDir, incoming[0], base[0], incomingFiles, inspectedRevision, changed, miseBin);
     validateIncoming(root, gitDir, incoming[0], miseBin);
     const env = miseEnvironment(root);
     command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save'], root, { env });
@@ -191,10 +227,18 @@ export function syncSource(root, { miseBin, expectedRemote } = {}) {
   });
 }
 
+export function parseSourceArguments(args) {
+  const [action, root, ...options] = args;
+  if (!root || !['init', 'sync', 'status'].includes(action)
+      || (options.length && (action !== 'sync' || options.length !== 1 || options[0] !== '--source-only'))) {
+    throw new Error('Usage: source-repo.mjs init|status ROOT, or sync ROOT [--source-only]');
+  }
+  return { action, root, sourceOnly: options.length === 1 };
+}
+
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [action, root] = process.argv.slice(2);
   try {
-    if (!root || !['init', 'sync', 'status'].includes(action)) throw new Error('Usage: source-repo.mjs init|sync|status ROOT');
+    const { action, root, sourceOnly } = parseSourceArguments(process.argv.slice(2));
     if (action === 'status') {
       const info = metadata(root);
       const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
@@ -204,7 +248,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
       if (!info.hasJj) process.exitCode = 3;
     }
     else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));
-    else syncSource(root);
+    else syncSource(root, { sourceOnly });
   } catch (error) {
     console.error(`${error.code === 3 ? 'Source sync deferred' : 'Source operation failed'}: ${error.message}`);
     process.exitCode = error.code === 3 ? 3 : 1;
