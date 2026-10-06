@@ -585,7 +585,7 @@ repoTest('source-only rejects removed or negated incoming private ignore rules b
 
 repoTest('source-only recovers raced advancement while preserving changed private settings and concurrent public edits', () => {
   const realJj = run('sh', ['-c', 'command -v jj'], testState).stdout.trim();
-  for (const race of ['private', 'public-early', 'public-at-edit']) {
+  for (const race of ['private', 'public-early', 'public-at-edit', 'public-at-new']) {
     const publicEdit = race !== 'private';
     const fixture = sourceOnlyFixture();
     try {
@@ -597,16 +597,16 @@ repoTest('source-only recovers raced advancement while preserving changed privat
       const bin = path.join(fixture.state, 'bin');
       fs.mkdirSync(bin);
       const wrapper = path.join(bin, 'jj');
-      fs.writeFileSync(wrapper, `#!/bin/sh\nset -eu\nfor argument in "$@"; do\n  if [ "$argument" = edit ]; then\n    ${race === 'public-at-edit' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\ndone\n"$REAL_JJ" "$@"\nfor argument in "$@"; do\n  if [ "$argument" = new ]; then\n    printf 'concurrent private fixture\\n' >> config.local.toml\n    ${race === 'public-early' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n    break\n  fi\ndone\n`);
+      fs.writeFileSync(wrapper, `#!/bin/sh\nset -eu\nfor argument in "$@"; do\n  if [ "$argument" = edit ]; then\n    ${race === 'public-at-edit' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\n  if [ "$argument" = new ]; then\n    ${race === 'public-at-new' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n  fi\ndone\n"$REAL_JJ" "$@"\nfor argument in "$@"; do\n  if [ "$argument" = new ]; then\n    printf 'concurrent private fixture\\n' >> config.local.toml\n    ${race === 'public-early' ? "printf 'concurrent public fixture\\n' > config.toml" : ':'}\n    break\n  fi\ndone\n`);
       fs.chmodSync(wrapper, 0o755);
       withEnvironment({ PATH: `${bin}${path.delimiter}${process.env.PATH}`, REAL_JJ: realJj }, () => {
-        assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true }), race === 'public-early' ? /prevents automatic recovery/ : race === 'public-at-edit' ? /changed before recovery/ : /restored the prior source revision/);
+        assertDeferred(() => sync(fixture, 'ok', { sourceOnly: true }), race === 'public-early' ? /prevents automatic recovery/ : race === 'public-at-edit' ? /changed before recovery/ : race === 'public-at-new' ? /changed before advancement/ : /restored the prior source revision/);
       });
-      assert.equal(parentRevision(fixture), publicEdit ? incoming : beforeParent);
+      assert.equal(parentRevision(fixture), publicEdit && race !== 'public-at-new' ? incoming : beforeParent);
       assert.equal(jj(fixture.root, 'log', '-r', beforeRevision, '--no-graph', '-T', 'commit_id'), beforeRevision);
       if (!publicEdit) assert.equal(jj(fixture.root, 'log', '-r', '@', '--no-graph', '-T', 'commit_id'), beforeRevision);
       else assert.equal(fs.readFileSync(path.join(fixture.root, 'config.toml'), 'utf8'), 'concurrent public fixture\n');
-      assert.equal(fs.readFileSync(path.join(fixture.root, 'config.local.toml'), 'utf8'), 'original private fixture\nconcurrent private fixture\n');
+      assert.equal(fs.readFileSync(path.join(fixture.root, 'config.local.toml'), 'utf8'), race === 'public-at-new' ? 'original private fixture\n' : 'original private fixture\nconcurrent private fixture\n');
     } finally { fixture.close(); }
   }
 });

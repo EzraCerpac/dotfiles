@@ -186,7 +186,13 @@ function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRe
     throw new SourceDeferred('Source or local settings changed during validation; preserving them. Rerun sync when ready');
   }
   const advances = base !== incoming || changed.length;
-  if (advances) jj(root, ['new', incoming]);
+  if (advances) {
+    // new snapshots and resolves the target within one native JJ operation.
+    // Late public edits change @ and make this guarded target empty.
+    const target = `${incoming} & descendants(parents(@ & ${inspectedRevision} & empty()))`;
+    try { jj(root, ['new', target]); }
+    catch { throw new SourceDeferred('Source changed before advancement or JJ could not advance; current source is retained. Rerun sync when ready'); }
+  }
   let settingsChanged;
   try { settingsChanged = JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local); }
   catch (error) {

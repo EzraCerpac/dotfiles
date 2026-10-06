@@ -99,7 +99,8 @@ Use `dots sync --source-only` to fetch and advance only the reviewed shared sour
 It keeps the repository, ancestry, local-edit and concurrent-change guards, and
 checks the incoming public source and minimum mise version. It does not copy or
 save private settings, render/apply dotfiles, run bootstrap hooks, or upgrade tools.
-It uses the existing selected mise environment to run the synchronizer.
+It uses the existing selected mise environment to run the synchronizer, with
+automatic installs, updates and hooks disabled for that invocation.
 Existing symlinks immediately reflect changes to their source files, so source
 advancement can still change configuration read by applications. Private selector
 files and ignored local lockfiles stay in place; legacy tracked-lock migration
