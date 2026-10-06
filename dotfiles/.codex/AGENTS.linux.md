@@ -33,7 +33,3 @@ For file and directory discovery, prefer fd over find.
 
 Prefer using the in-app browser over external browsers.
 <!-- End shared Codex policy -->
-
-## Mac host notes
-
-Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.

@@ -7,8 +7,13 @@ and rejects bootstrap; the historical rollout notes below describe its earlier
 preservation and tests, not an active supported profile.
 
 The native mise setup is live on the Mac, with acceptance still staged.
-CerpacNAS is unreachable; leave all NAS state unchanged and do not retry until
-network access returns. A fresh Fedora 44 ARM64 bootstrap and reapply passed,
+On 2026-10-05, read-only checks reached CerpacNAS and Driehuis NAS and verified
+that their selected Codex instruction paths resolve to local mise sources.
+The reviewed instruction cleanup preserves each host's adapters; see
+[agent instruction ownership](agent-instructions.md). This does not establish
+full package, service, or machine acceptance. Preserve existing NAS services
+and system software; do not use this status update to rerun bootstrap or apply
+unrelated dotfiles. A fresh Fedora 44 ARM64 bootstrap and reapply passed,
 including all 67 native tools and the typ2docx installer exception. The Arch check
 was incidental and Ubuntu testing was canceled; no three-distribution matrix is claimed. Seven
 native-history tests and production restore integration passed; these checks do
@@ -175,7 +180,7 @@ This table reports observed readiness separately from the intended workflows abo
 | Area | Current status |
 | --- | --- |
 | Mac workstation | Native source is live; canonical `setup:update` exited 0 with explicit deferrals. Seventeen direct-app adoptions and the WezTerm transfer are complete; overall acceptance remains staged. |
-| CerpacNAS | Network is unavailable. Defer all NAS work and leave its configuration and live state unchanged until network access returns. |
+| CerpacNAS | Selected Codex instruction ownership verified 2026-10-05; full package, service, and machine acceptance remains unverified. Preserve services and avoid blanket apply. |
 | DelftBlue | The cluster has not been deployed. Existing `.bashrc` and `.bash_profile` conflicts require explicit review and targeted deployment; the profile does not auto-adopt skeleton files. |
 | Linux profiles | Fresh Fedora 44 ARM64 bootstrap and persisted-role reapply passed, including shell/tool checks and private-file permissions. Its task container was removed. The Arch check was incidental; only Fedora is the required baseline. |
 | Private mise history | Mac exact-file enrollment, backup, and private push are complete; the local automatic watcher and edit capture passed checks. NAS history setup is deferred. Use `--initialize-history` only for a reviewed, unconnected local store. |
@@ -183,7 +188,7 @@ This table reports observed readiness separately from the intended workflows abo
 | Mac inventories | The pre-cutover snapshot recorded 99 Homebrew formula receipts; 44 redundant formulae have since been retired. The [direct app inventory](direct-apps.md) remains the dated bundle snapshot. |
 | Grok CLI | The `1.0.4` pin was used during the native mise migration because registry latest-version discovery was unavailable. Grok was later removed from package configuration and its executable installs were uninstalled. |
 | Removed CLI packages | Claude Code, Grok, Antigravity CLI, Remindctl, Copilot CLI, Pi, and the npm Codex CLI were removed from package configuration and the Mac. The native base-profile `codex` tool remains. |
-| Host identity | Mac role, stable ID, and encrypted enrollment are complete. NAS host enrollment is deferred while it is unreachable. |
+| Host identity | Mac role, stable ID, and encrypted enrollment are complete. Current NAS encrypted-history enrollment was not assessed by this instruction audit; preserve its existing state. |
 | Rollback snapshot | Protected local snapshot is available at `~/.local/state/mise-migration/latest/`. |
 
 ## Rollback

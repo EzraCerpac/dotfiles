@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-10-06",
+  "purpose": "Reviewed postdeployment instruction paths only; no automatic apply, watcher, credential lookup, config parsing, settings update or deployment.",
+  "shared_repository_identity": "EzraCerpac/dotfiles",
+  "shared_policy_revision": "agentic-cleanup-20261005",
+  "hosts": {
+    "mac": {
+      "id": "mac",
+      "home": "/Users/ezracerpac",
+      "entries": [
+        {
+          "id": "mac-codex",
+          "client": "Codex",
+          "authority": "active mise symlink selected by macOS workstation role and native OS variant",
+          "source": {
+            "path": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md",
+            "sha256": "64e448303a69568af3b9486af45aca3fbb2d1ddcdf7fbba2be170c5dedcb8599",
+            "is_symlink": false,
+            "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md"
+          },
+          "target": {
+            "path": "/Users/ezracerpac/.codex/AGENTS.md",
+            "sha256": "64e448303a69568af3b9486af45aca3fbb2d1ddcdf7fbba2be170c5dedcb8599",
+            "is_symlink": true,
+            "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md"
+          },
+          "shared_block_required": true
+        },
+        {
+          "id": "mac-opencode",
+          "client": "OpenCode",
+          "authority": "active mise symlink",
+          "source": {
+            "path": "/Users/ezracerpac/.config/mise/dotfiles/.config/opencode/AGENTS.md",
+            "sha256": "9ca653f975ca5cbf33a1c486fd239c7895b5ea7f6f430f5c2c2ed8b7159a5060",
+            "is_symlink": false,
+            "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.config/opencode/AGENTS.md"
+          },
+          "target": {
+            "path": "/Users/ezracerpac/.config/opencode/AGENTS.md",
+            "sha256": "9ca653f975ca5cbf33a1c486fd239c7895b5ea7f6f430f5c2c2ed8b7159a5060",
+            "is_symlink": true,
+            "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.config/opencode/AGENTS.md"
+          }
+        },
+        {
+          "id": "mac-claude",
+          "client": "Claude",
+          "authority": "user-owned standalone file; actual Git/JJ capability and scoped formatter cleanup",
+          "source": {
+            "path": "/Users/ezracerpac/.claude/CLAUDE.md",
+            "sha256": "1ca40462e552860000c1163f319f87cbca23a74f77459a6b4e36fc5c02a20bab",
+            "is_symlink": false,
+            "realpath": "/Users/ezracerpac/.claude/CLAUDE.md"
+          },
+          "target": {
+            "path": "/Users/ezracerpac/.claude/CLAUDE.md",
+            "sha256": "1ca40462e552860000c1163f319f87cbca23a74f77459a6b4e36fc5c02a20bab",
+            "is_symlink": false,
+            "realpath": "/Users/ezracerpac/.claude/CLAUDE.md"
+          }
+        }
+      ]
+    },
+    "cerpacnas": {
+      "id": "cerpacnas",
+      "home": "/root",
+      "entries": [
+        {
+          "id": "cerpacnas-codex",
+          "client": "Codex",
+          "authority": "active mise symlink selected by NAS role and native OS variant",
+          "source": {
+            "path": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md",
+            "sha256": "a935063baa01a2a5ac1ae60814246a6cdec33dccd253c2ced149b1df3fdab75e",
+            "is_symlink": false,
+            "realpath": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md"
+          },
+          "target": {
+            "path": "/root/.codex/AGENTS.md",
+            "sha256": "a935063baa01a2a5ac1ae60814246a6cdec33dccd253c2ced149b1df3fdab75e",
+            "is_symlink": true,
+            "realpath": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md"
+          },
+          "shared_block_required": true
+        },
+        {
+          "id": "cerpacnas-opencode",
+          "client": "OpenCode",
+          "authority": "standalone host override; nas profile has no OpenCode deployment declaration; workstation source candidate excluded from active authority",
+          "source": {
+            "path": "/root/.config/opencode/AGENTS.md",
+            "sha256": "c3b3f22b76fcf2239b7f37675556e02f7eb960e24dcef8f72d45c75aaaba92f7",
+            "is_symlink": false,
+            "realpath": "/root/.config/opencode/AGENTS.md"
+          },
+          "target": {
+            "path": "/root/.config/opencode/AGENTS.md",
+            "sha256": "c3b3f22b76fcf2239b7f37675556e02f7eb960e24dcef8f72d45c75aaaba92f7",
+            "is_symlink": false,
+            "realpath": "/root/.config/opencode/AGENTS.md"
+          }
+        }
+      ],
+      "ssh_alias": "cerpacnas"
+    },
+    "driehuisnas": {
+      "id": "driehuisnas",
+      "home": "/Users/server",
+      "entries": [
+        {
+          "id": "driehuisnas-codex",
+          "client": "Codex",
+          "authority": "active mise symlink selected by NAS role and native OS variant",
+          "source": {
+            "path": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md",
+            "sha256": "a498a51f6147e3be61751d1b9328b41b5f972594d30b3035114c9705863f2793",
+            "is_symlink": false,
+            "realpath": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md"
+          },
+          "target": {
+            "path": "/Users/server/.codex/AGENTS.md",
+            "sha256": "a498a51f6147e3be61751d1b9328b41b5f972594d30b3035114c9705863f2793",
+            "is_symlink": true,
+            "realpath": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md"
+          },
+          "shared_block_required": true
+        }
+      ],
+      "ssh_alias": "driehuisnas"
+    }
+  },
+  "excluded_source_candidates": [
+    {
+      "host": "cerpacnas",
+      "path": "/root/.config/mise/dotfiles/.config/opencode/AGENTS.md",
+      "reason": "workstation-only declared source; no nas target declaration"
+    },
+    {
+      "host": "driehuisnas",
+      "path": "/Users/server/.config/mise/dotfiles/.config/opencode/AGENTS.md",
+      "reason": "workstation-only source candidate; deployed OpenCode AGENTS absent"
+    },
+    {
+      "host": "cerpacnas",
+      "path": "/root/.local/share/chezmoi",
+      "reason": "older source checkout; recovery only under documented current mise ownership; never blanket apply"
+    },
+    {
+      "host": "cerpacnas",
+      "path": "/root/Projects/dotfiles",
+      "reason": "distinct older source checkout; not runtime instruction authority"
+    }
+  ],
+  "shared_block": {
+    "start_marker": "<!-- Shared Codex policy: agentic-cleanup-20261005 -->",
+    "end_marker": "<!-- End shared Codex policy -->",
+    "sha256": "bfa39df80db00fd5faba07451d8ee6c4833c4d373e12463f421622173142f415",
+    "includes_end_marker_newline": true
+  }
+}

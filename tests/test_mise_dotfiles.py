@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -16,6 +17,64 @@ MISE = mise_binary() or 'mise'
 
 @requires('mise')
 class DotfileFixtures(unittest.TestCase):
+    def test_codex_policy_selects_one_role_and_os_source(self):
+        shared = tomllib.loads((ROOT / 'config.toml').read_text())
+        policies = {key: entry for key, entry in shared['dotfiles'].items()
+                    if entry.get('source', '').startswith('dotfiles/.codex/AGENTS')}
+        expected = {
+            ('Darwin', 'workstation'): 'AGENTS.md',
+            ('Linux', 'workstation'): 'AGENTS.linux.md',
+            ('Darwin', 'nas'): 'AGENTS.driehuisnas.md',
+            ('Linux', 'nas'): 'AGENTS.cerpacnas.md',
+        }
+        for role in ('workstation', 'nas', None):
+            with self.subTest(role=role), tempfile.TemporaryDirectory(prefix='mise-codex-policy-') as tmp:
+                fixture = Path(tmp).resolve()
+                destination = fixture / 'home/.codex/AGENTS.md'
+                lines = ['[settings]', 'dotfiles.root = ' + json.dumps(str(ROOT / 'dotfiles')), '[dotfiles]']
+                for key, entry in policies.items():
+                    target = str(destination) if key == '~/.codex/AGENTS.md' else key
+                    variants = []
+                    for variant in entry['variants']:
+                        fields = {**variant}
+                        if 'target' in fields:
+                            fields['target'] = str(destination)
+                        variants.append('{ ' + ', '.join(k + ' = ' + json.dumps(v) for k, v in fields.items()) + ' }')
+                    lines.append(json.dumps(target) + ' = { source = ' + json.dumps(str(ROOT / entry['source']))
+                                 + ', mode = "symlink", variants = [' + ', '.join(variants) + '] }')
+                (fixture / 'config.toml').write_text('\n'.join(lines))
+                env = {key: os.environ[key] for key in ('PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM') if key in os.environ}
+                for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
+                    env[f'MISE_{name}_DIR'] = str(fixture if name == 'CONFIG' else fixture / name.lower())
+                (fixture / 'empty-system-config').mkdir()
+                env.update(MISE_TRUSTED_CONFIG_PATHS=str(fixture), MISE_SYSTEM_CONFIG_DIR=str(fixture / 'empty-system-config'),
+                           MISE_CEILING_PATHS=str(fixture), MISE_ENV='', MISE_AUTO_ENV='0', MISE_NO_ENV='1',
+                           MISE_AUTO_INSTALL='0', MISE_NO_HOOKS='1', MISE_AUTO_UPDATE='0')
+                command = [MISE, '-C', str(fixture)]
+                if role:
+                    command += ['-E', role]
+                status = subprocess.run(command + ['bootstrap', 'dotfiles', 'status', '--json'], env=env, cwd=fixture,
+                                        text=True, capture_output=True, timeout=60)
+                self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
+                files = json.loads(status.stdout)['files']
+                self.assertEqual(len(files), 0 if role is None else 1)
+                if role:
+                    source = ROOT / 'dotfiles/.codex' / expected[(platform.system(), role)]
+                    self.assertEqual(files[0]['target'], str(destination))
+                    self.assertEqual(files[0]['origin']['source'], str(source))
+                result = subprocess.run(command + ['bootstrap', 'dotfiles', 'apply'], env=env, cwd=fixture,
+                                        text=True, capture_output=True, timeout=60)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                if role is None:
+                    self.assertFalse(os.path.lexists(destination))
+                else:
+                    source = ROOT / 'dotfiles/.codex' / expected[(platform.system(), role)]
+                    self.assertTrue(destination.is_symlink())
+                    self.assertEqual(destination.resolve(), source.resolve())
+                    self.assertEqual(destination.read_bytes(), source.read_bytes())
+                    if platform.system() == 'Linux':
+                        self.assertNotIn(b'macOS Keychain', destination.read_bytes())
+
     def test_profile_sources_and_native_link_lifecycle(self):
         for role in ('workstation', 'nas'):
             with self.subTest(role=role), tempfile.TemporaryDirectory(prefix='mise-dotfiles-') as tmp:
