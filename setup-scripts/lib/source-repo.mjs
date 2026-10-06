@@ -129,6 +129,46 @@ function localFileMetadata(root) {
   });
 }
 
+function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
+  const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-ignore-'));
+  try {
+    if (incomingFiles.has('.gitignore')) {
+      const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', '.gitignore'], root);
+      if (!/^100(?:644|755) blob [a-f0-9]+\t\.gitignore$/.test(entry)) throw new Error('Incoming .gitignore must be a regular source file');
+      const ignore = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:.gitignore`], root);
+      fs.writeFileSync(path.join(preview, '.gitignore'), ignore, { mode: 0o600 });
+    }
+    // An isolated Git index checks only public incoming rules. No private files,
+    // global excludes, or repository-local excludes are copied into the preview.
+    command('git', ['init', '--quiet', '--template=', preview], root);
+    const names = [...new Set(['config.local.toml', 'miserc.toml', 'config.host-source-only.toml', ...lockfiles, ...local.map(([name]) => name)])];
+    const result = spawnSync('git', ['-c', `core.excludesFile=${os.devNull}`, 'check-ignore', '--no-index', '-z', '--stdin'], {
+      cwd: preview, encoding: 'utf8', input: names.join('\0') + '\0',
+    });
+    if (result.error || ![0, 1].includes(result.status)) throw new Error(`Cannot validate incoming ignore rules: ${result.error?.message || result.stderr?.trim()}`);
+    const ignored = new Set(result.stdout.split('\0').filter(Boolean));
+    if (names.some(name => !ignored.has(name))) throw new SourceDeferred('Incoming ignore rules would expose local settings or lockfiles; preserving the current source');
+  } finally { fs.rmSync(preview, { recursive: true }); }
+}
+
+function restoreSourceAfterRace(root, inspectedRevision, incoming) {
+  // Keep any concurrent public edits and their revision. Recovery is safe only
+  // while the newly created child is still empty and has the expected parent.
+  const parents = revisions(root, '@-');
+  if (parents.length !== 1 || parents[0] !== incoming || lines(jj(root, ['diff', '-r', '@', '--summary'])).length) {
+    throw new SourceDeferred('Local settings changed during advancement; concurrent source work prevents automatic recovery. All edits are retained; reconcile the source before retrying');
+  }
+  const expected = lines(command('jj', ['--ignore-working-copy', '-R', root, 'log', '-r', '@ & empty()', '--no-graph', '-T', 'commit_id ++ "\\n"'], root));
+  if (expected.length !== 1) throw new SourceDeferred('Source changed before recovery; current source and settings are retained for reconciliation');
+  // edit snapshots and resolves this gate within the same JJ operation. A public
+  // write or JJ move after the checks makes the target empty instead of replacing
+  // the writer's checkout. The prior child belongs to children of base ancestors.
+  const target = `${inspectedRevision} & children(ancestors(@ & ${expected[0]} & empty()))`;
+  try { jj(root, ['edit', target]); }
+  catch { throw new SourceDeferred('Source changed before recovery; current source and settings are retained for reconciliation'); }
+  throw new SourceDeferred('Local settings changed during advancement; restored the prior source revision and retained the changed settings. Rerun sync when ready');
+}
+
 function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRevision, changed, miseBin) {
   if ([...incomingFiles].some(isLocalConfigPath)) throw new Error('Incoming source must not track private setup selectors');
   const local = localFileMetadata(root);
@@ -140,12 +180,23 @@ function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRe
   const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', 'config.toml'], root);
   if (!/^100(?:644|755) blob [a-f0-9]+\tconfig\.toml$/.test(entry)) throw new Error('Incoming config.toml must be a regular source file');
   const config = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:config.toml`], root);
+  validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local);
   validateMiseVersion(root, config, miseBin);
   if (revisions(root, '@')[0] !== inspectedRevision || JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) {
     throw new SourceDeferred('Source or local settings changed during validation; preserving them. Rerun sync when ready');
   }
-  if (base !== incoming || changed.length) jj(root, ['new', incoming]);
-  if (JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) throw new Error('Local settings metadata changed during source-only synchronization');
+  const advances = base !== incoming || changed.length;
+  if (advances) jj(root, ['new', incoming]);
+  let settingsChanged;
+  try { settingsChanged = JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local); }
+  catch (error) {
+    if (advances) restoreSourceAfterRace(root, inspectedRevision, incoming);
+    throw error;
+  }
+  if (settingsChanged) {
+    if (advances) restoreSourceAfterRace(root, inspectedRevision, incoming);
+    throw new SourceDeferred('Local settings changed during source-only synchronization; preserving the current source and changed settings');
+  }
   console.log(`Source synchronized to ${incoming.slice(0, 12)} (source only; dotfiles not applied).`);
   return incoming;
 }
