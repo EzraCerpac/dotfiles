@@ -95,6 +95,16 @@ the shortcut. If you only want configuration, use `dots sync`; this does not
 upgrade software or activate services. `dots apply ~/.ssh/config` remains useful
 when you want to render one locally edited template.
 
+Use `dots sync --source-only` to fetch and advance only the reviewed shared source.
+It keeps the repository, ancestry, local-edit and concurrent-change guards, and
+checks the incoming public source and minimum mise version. It does not copy or
+save private settings, render/apply dotfiles, run bootstrap hooks, or upgrade tools.
+It uses the existing selected mise environment to run the synchronizer.
+Existing symlinks immediately reflect changes to their source files, so source
+advancement can still change configuration read by applications. Private selector
+files and ignored local lockfiles stay in place; legacy tracked-lock migration
+requires ordinary `dots sync`. Run ordinary `dots sync` when deployment is wanted.
+
 Local edits or unpublished history are preserved. When they prevent a safe
 source advance, `dots up` says “source sync deferred” and still updates tools
 using the current configuration. It returns status 3 for that partial result;
