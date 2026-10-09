@@ -145,6 +145,16 @@ function M.is_reference(context)
     bufnr = context.bufnr,
     pos = { context.cursor[1] - 1, math.max(0, context.cursor[2] - 1) },
   })
+  if context.tree then
+    ok, node =
+      true,
+      context.tree:descendant_for_range(
+        context.cursor[1] - 1,
+        math.max(0, context.cursor[2] - 1),
+        context.cursor[1] - 1,
+        math.max(0, context.cursor[2] - 1)
+      )
+  end
   if ok and node then
     while node do
       local kind = node:type()
@@ -250,21 +260,56 @@ function M.warm(client)
   for bufnr in pairs(client.attached_buffers or {}) do
     if vim.api.nvim_buf_is_loaded(bufnr) then
       local root, main = identity(client, bufnr)
-      if root and vim.api.nvim_buf_get_name(bufnr) == main then
+      if root then
         local labels, key = load(root, main)
         client._typst_references_pending = client._typst_references_pending or {}
-        if #labels == 0 and not client._typst_references_pending[key] then
+        if #labels > 0 or client._typst_references_pending[key] then
+          return
+        end
+        local main_buf = vim.fn.bufnr(main)
+        local lines, tree
+        if main_buf >= 0 and vim.api.nvim_buf_is_loaded(main_buf) then
+          lines = vim.api.nvim_buf_get_lines(main_buf, 0, -1, false)
+        else
+          local stat = uv.fs_stat(main)
+          if stat and stat.type == "file" and stat.size < 1024 * 1024 then
+            local ok, value = pcall(vim.fn.readfile, main)
+            if ok then
+              lines = value
+              local parsed, parser = pcall(vim.treesitter.get_string_parser, table.concat(lines, "\n"), "typst")
+              if parsed then
+                local ok_trees, trees = pcall(parser.parse, parser)
+                if ok_trees then
+                  tree = trees[1] and trees[1]:root()
+                end
+              end
+            end
+          end
+        end
+        if lines and (main_buf >= 0 or tree) then
           local anchor
-          for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+          for row, line in ipairs(lines) do
             for column in line:gmatch("()@" .. label_chars .. "+") do
-              if M.is_reference({ bufnr = bufnr, line = line, cursor = { row, column } }) then
+              if
+                M.is_reference({
+                  bufnr = main_buf >= 0 and main_buf or bufnr,
+                  line = line,
+                  cursor = { row, column },
+                  tree = tree,
+                })
+              then
                 anchor = { row = row, column = column, line = line }
                 break
               end
             end
             if not anchor then
               for column in line:gmatch("()<" .. label_chars .. "+>") do
-                local ok, node = pcall(vim.treesitter.get_node, { bufnr = bufnr, pos = { row - 1, column } })
+                local ok, node
+                if tree then
+                  ok, node = true, tree:descendant_for_range(row - 1, column, row - 1, column)
+                elseif main_buf >= 0 then
+                  ok, node = pcall(vim.treesitter.get_node, { bufnr = main_buf, pos = { row - 1, column } })
+                end
                 if ok and node and node:type() == "label" then
                   anchor = { row = row, column = column, line = line }
                   break
@@ -278,7 +323,7 @@ function M.warm(client)
           if anchor then
             client._typst_references_pending[key] = true
             local sent = client:request("textDocument/completion", {
-              textDocument = { uri = vim.uri_from_bufnr(bufnr) },
+              textDocument = { uri = vim.uri_from_fname(main) },
               position = {
                 line = anchor.row - 1,
                 character = vim.str_utfindex(anchor.line, client.offset_encoding or "utf-16", anchor.column, false),

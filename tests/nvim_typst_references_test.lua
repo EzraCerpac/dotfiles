@@ -372,6 +372,65 @@ m.warm(warm)
 assert(warm_params.textDocument.uri == vim.uri_from_bufnr(buf), "Warming must query the selected main, never an attached sibling")
 warm_reply(nil, { items = { { kind = 18, label = "third:label" } } })
 
+-- A directly opened chapter can warm the pinned main without loading/editing it.
+local disk_root = vim.fn.tempname()
+vim.fn.mkdir(disk_root, "p")
+local disk_main = disk_root .. "/main.typ"
+vim.fn.writefile({ "über <disk:label>" }, disk_main)
+local disk_client = {
+  id = 14,
+  root_dir = disk_root,
+  offset_encoding = "utf-16",
+  attached_buffers = { [buf] = true },
+  request = function(_, _, params, cb)
+    warm_requests, warm_params, warm_reply = warm_requests + 1, params, cb
+    return true, warm_requests
+  end,
+}
+local string_parser = vim.treesitter.get_string_parser
+vim.treesitter.get_string_parser = function()
+  return {
+    parse = function()
+      return {
+        {
+          root = function()
+            return {
+              descendant_for_range = function()
+                return {
+                  type = function()
+                    return "label"
+                  end,
+                }
+              end,
+            }
+          end,
+        },
+      }
+    end,
+  }
+end
+clients = { disk_client }
+m.set_main(14, disk_root, disk_main)
+local buffers_before = #vim.api.nvim_list_bufs()
+before_tick, before_cursor = vim.api.nvim_buf_get_changedtick(buf), vim.api.nvim_win_get_cursor(0)
+m.warm(disk_client)
+assert(
+  warm_params.textDocument.uri == vim.uri_from_fname(disk_main),
+  "Query the pinned main on disk, never chapter syntax"
+)
+assert(warm_params.position.character == 6, "Disk anchors also use UTF-16")
+assert(
+  #vim.api.nvim_list_bufs() == buffers_before and vim.fn.bufnr(disk_main) == -1,
+  "Warming must not create a hidden main buffer"
+)
+assert(
+  vim.api.nvim_buf_get_changedtick(buf) == before_tick and vim.deep_equal(before_cursor, vim.api.nvim_win_get_cursor(0))
+)
+warm_reply(nil, { items = { { kind = 18, label = "disk:label" } } })
+assert(complete(context("See @"))[1].label == "disk:label")
+vim.treesitter.get_string_parser = string_parser
+vim.fn.delete(disk_root, "rf")
+
 local lsp_opts = dofile(root .. "/dotfiles/.config/nvim/lua/plugins/lsp.lua")[2].opts(nil, {
   servers = { tinymist = { settings = { completion = { postfix = false } } } },
 })

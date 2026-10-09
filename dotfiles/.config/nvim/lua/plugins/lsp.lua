@@ -43,6 +43,13 @@ return {
           completion = { triggerOnSnippetPlaceholders = true },
         }),
       })
+      local previous_tinymist_attach = opts.servers.tinymist.on_attach
+      opts.servers.tinymist.on_attach = function(client, bufnr)
+        if previous_tinymist_attach then
+          previous_tinymist_attach(client, bufnr)
+        end
+        require("custom.typst_main").attach(client, bufnr)
+      end
       local previous_tinymist_init = opts.servers.tinymist.on_init
       opts.servers.tinymist.on_init = function(client, result)
         if previous_tinymist_init then
