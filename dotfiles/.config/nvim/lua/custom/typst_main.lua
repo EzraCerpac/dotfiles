@@ -24,10 +24,20 @@ function M.resolve(path, root)
 end
 
 function M.attach(client, bufnr)
+  if not client._typst_main_observed then
+    client._typst_main_observed = true
+    local request = client.request
+    client.request = function(self, method, params, ...)
+      if method == "workspace/executeCommand" and type(params) == "table" and params.command == "tinymist.pinMain" then
+        -- Preserve explicit pins and unpins, including before a main is found.
+        self._typst_main_selected = true
+      end
+      return request(self, method, params, ...)
+    end
+  end
   if client._typst_main_selected then
     return
   end
-  client._typst_main_selected = true
   -- Explicit project arguments own the entrypoint when supplied.
   if client.settings and client.settings.typstExtraArgs and #client.settings.typstExtraArgs > 0 then
     return
@@ -39,6 +49,7 @@ function M.attach(client, bufnr)
   -- compileStatus owns cache identity and warming, so a late command reply
   -- cannot overwrite a main the user pinned afterwards.
   client:exec_cmd({ title = "Pin project main", command = "tinymist.pinMain", arguments = { main } }, { bufnr = bufnr })
+  client._typst_main_selected = true
 end
 
 return M
