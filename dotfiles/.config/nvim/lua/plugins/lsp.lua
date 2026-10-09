@@ -39,6 +39,8 @@ return {
           compileStatus = "enable",
           -- Tree-sitter provides highlighting without Tinymist's import analysis.
           semanticTokens = "disable",
+          -- Tinymist otherwise rejects ':' triggers, including @ch: references.
+          completion = { triggerOnSnippetPlaceholders = true },
         }),
       })
       local previous_tinymist_init = opts.servers.tinymist.on_init
@@ -49,10 +51,14 @@ return {
         -- Tinymist still advertises this capability when semanticTokens is disabled.
         client.server_capabilities.semanticTokensProvider = nil
         local references = require("custom.typst_references")
+        references.attach(client)
         local previous_status = client.handlers["tinymist/compileStatus"] or vim.lsp.handlers["tinymist/compileStatus"]
         client.handlers["tinymist/compileStatus"] = function(err, result, ctx, config)
           if not err and result and result.path then
             references.set_main(client.id, client.root_dir, result.path)
+            if result.status == "compileSuccess" then
+              references.warm(client)
+            end
           end
           if previous_status then
             return previous_status(err, result, ctx, config)

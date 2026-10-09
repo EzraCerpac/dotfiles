@@ -231,5 +231,151 @@ sources.cancel_completions()
 assert(release_reply, "The stalled LSP request should provide a late reply")
 release_reply()
 assert(replied, "The simulated LSP reply should arrive after the fallback")
+-- A new workspace has no manually seeded fallback. The first compile may still
+-- be pending when Blink asks for '@'; the next prefix must query Tinymist again.
+clients[1].root_dir = "/cold-start"
+vim.api.nvim_buf_set_name(buf, "/cold-start/main.typ")
+local cold_requests = 0
+clients[1].request = function(_, _, _, callback)
+  cold_requests = cold_requests + 1
+  callback(nil, cold_requests == 1 and { items = {}, isIncomplete = false } or {
+    items = { { kind = 18, label = "ch:results" } },
+    isIncomplete = false,
+  })
+  return true, cold_requests
+end
+m.attach(clients[1])
+local wrapped = clients[1].request
+m.attach(clients[1])
+assert(clients[1].request == wrapped, "Attaching twice must not wrap twice")
+ctx = context("See @")
+assert(#complete(ctx) == 0, "The new workspace must begin with an empty cache")
+ctx.id, ctx.mode = 200, "default"
+ctx.bounds = { start_col = 6, length = 0, line_number = 1 }
+ctx.trigger = { kind = "trigger_character", initial_kind = "trigger_character", character = "@" }
+ctx.providers = opts.sources.default(ctx)
+emitted = nil
+sources.request_completions(ctx)
+assert(vim.wait(300, function()
+  return emitted ~= nil
+end, 5))
+local lsp_cache = require("blink.cmp.sources.lsp.cache")
+assert(lsp_cache.entries[5].response.is_incomplete_forward, "Empty reference replies must remain retryable")
+sources.cancel_completions()
+ctx = vim.tbl_extend("force", ctx, context("See @ch:"))
+ctx.bounds = { start_col = 6, length = 3, line_number = 1 }
+ctx.trigger = { kind = "trigger_character", initial_kind = "trigger_character", character = ":" }
+emitted = nil
+sources.request_completions(ctx)
+assert(vim.wait(300, function()
+  return emitted and emitted.lsp and #emitted.lsp > 0
+end, 5))
+assert(cold_requests == 2, "Blink must retry the empty complete response on the next reference prefix")
+assert(emitted.lsp[1].label == "ch:results")
+assert(complete(ctx)[1].label == "ch:results", "A real successful reply must populate the cold fallback")
+sources.cancel_completions()
+m = dofile(module_path)
+source = m.new()
+assert(complete(ctx)[1].label == "ch:results", "Cold-start recovery must survive module restart")
+
+local original_result = { items = {}, isIncomplete = false }
+node_kind = nil
+local handler
+local passthrough = {
+  id = 9,
+  root_dir = "/cold-start",
+  offset_encoding = "utf-16",
+  request = function(_, _, _, cb)
+    handler = cb
+    return true, 99
+  end,
+}
+m.attach(passthrough)
+local function request(line, reply, err)
+  context(line)
+  local received, received_error
+  passthrough:request(
+    "textDocument/completion",
+    { position = { line = 0, character = vim.str_utfindex(line, "utf-16") } },
+    function(e, r)
+      received_error, received = e, r
+    end,
+    buf
+  )
+  handler(err, reply)
+  return received, received_error
+end
+assert(request("ordinary", original_result) == original_result, "Ordinary completion must stay unchanged")
+assert(request("// @", original_result) == original_result, "Comments must stay unchanged")
+local err = { code = -1, message = "failed" }
+local received, received_error = request("See @", nil, err)
+assert(received == nil and received_error == err, "LSP errors must remain errors")
+assert(request("über @", nil).isIncomplete, "UTF-16 positions must recognize references after Unicode")
+
+clients = { passthrough }
+ctx = context("See @")
+passthrough:request("textDocument/completion", {position = {line = 0, character = 5}}, function() end, buf)
+m.set_main(9, "/cold-start", "/cold-start/other.typ")
+local late = { { kind = 18, label = "old:main", client_id = 9 } }
+handler(nil, {items = late, isIncomplete = false})
+m.record(ctx, late)
+assert(#complete(ctx) == 0, "Neither raw recording nor Blink transforms may cache a late old-main reply")
+
+local warm_requests, warm_reply, warm_params = 0
+local warm = {
+  id = 12, root_dir = "/warm-start", offset_encoding = "utf-16", attached_buffers = { [buf] = true },
+  request = function(_, _, params, cb)
+    warm_requests, warm_params, warm_reply = warm_requests + 1, params, cb
+    return true, warm_requests
+  end,
+}
+clients = { warm }
+vim.api.nvim_buf_set_name(buf, "/warm-start/main.typ")
+m.set_main(12, "/warm-start", "/warm-start/main.typ")
+node_kind = "label"
+context("über <known:label>")
+local before_tick, before_cursor = vim.api.nvim_buf_get_changedtick(buf), vim.api.nvim_win_get_cursor(0)
+m.warm(warm)
+m.warm(warm)
+assert(warm_requests == 1, "Duplicate compile notifications must coalesce warming requests")
+assert(warm_params.context.triggerKind == 1 and warm_params.position.character == 6, "Warm at existing UTF-16 label syntax")
+assert(vim.api.nvim_buf_get_changedtick(buf) == before_tick and vim.deep_equal(before_cursor, vim.api.nvim_win_get_cursor(0)), "Warming must not edit or move the author's buffer")
+warm_reply(nil, { items = {}, isIncomplete = false })
+m.warm(warm)
+assert(warm_requests == 2, "An empty warm reply must allow retry on the next successful compile")
+warm_reply(nil, { items = { { kind = 18, label = "ch:warmed" } } })
+m.warm(warm)
+assert(warm_requests == 2, "A populated cache must not issue repeated background queries")
+node_kind = "reference"
+assert(complete(context("See @"))[1].label == "ch:warmed", "Cold warming must supply references during invalid edits")
+
+m.set_main(12, "/warm-start", "/warm-start/other.typ")
+vim.api.nvim_buf_set_name(buf, "/warm-start/other.typ")
+node_kind = "label"
+context("<other:label>")
+m.warm(warm)
+m.set_main(12, "/warm-start", "/warm-start/third.typ")
+warm_reply(nil, { items = { { kind = 18, label = "old:warm" } } })
+node_kind = "reference"
+assert(#complete(context("See @")) == 0, "A late warm reply must not cross main files")
+m.warm(warm)
+assert(warm_requests == 3, "A sibling file's reference must not be used to warm the selected main")
+local sibling = vim.api.nvim_create_buf(false, true)
+vim.bo[sibling].filetype = "typst"
+vim.api.nvim_buf_set_name(sibling, "/warm-start/sibling.typ")
+vim.api.nvim_buf_set_lines(sibling, 0, -1, false, { "See @sibling" })
+warm.attached_buffers[sibling] = true
+vim.api.nvim_buf_set_name(buf, "/warm-start/third.typ")
+node_kind = "label"
+context("<third:label>")
+m.warm(warm)
+assert(warm_params.textDocument.uri == vim.uri_from_bufnr(buf), "Warming must query the selected main, never an attached sibling")
+warm_reply(nil, { items = { { kind = 18, label = "third:label" } } })
+
+local lsp_opts = dofile(root .. "/dotfiles/.config/nvim/lua/plugins/lsp.lua")[2].opts(nil, {
+  servers = { tinymist = { settings = { completion = { postfix = false } } } },
+})
+assert(lsp_opts.servers.tinymist.settings.completion.triggerOnSnippetPlaceholders)
+assert(lsp_opts.servers.tinymist.settings.completion.postfix == false, "Preserve neighboring completion settings")
 vim.fn.delete(state, "rf")
 print("Typst reference fallback tests passed")
