@@ -182,7 +182,11 @@ function M.record(context, items)
         owned[#owned + 1] = item
       end
     end
-    save(client, owned, context.bufnr)
+    -- Attached clients record before Blink transforms the reply, with the main
+    -- captured at request time. Do not reassign a late reply after a main switch.
+    if not client._typst_references_attached then
+      save(client, owned, context.bufnr)
+    end
   end
   return items
 end
@@ -193,6 +197,122 @@ function M.seed(client, items, main_path)
     M.set_main(client.id, root, main_path)
   end
   save(client, items, vim.api.nvim_get_current_buf())
+end
+
+function M.attach(client)
+  if client._typst_references_attached then
+    return
+  end
+  client._typst_references_attached = true
+  local request = client.request
+  client.request = function(self, method, params, callback, bufnr)
+    if method ~= "textDocument/completion" or not callback or not params.position then
+      return request(self, method, params, callback, bufnr)
+    end
+    bufnr = bufnr and bufnr ~= 0 and bufnr
+      or (params.textDocument and vim.uri_to_bufnr(params.textDocument.uri))
+      or vim.api.nvim_get_current_buf()
+    local position = params.position
+    local line = vim.api.nvim_buf_get_lines(bufnr, position.line, position.line + 1, false)[1] or ""
+    local context = {
+      bufnr = bufnr,
+      line = line,
+      cursor = {
+        position.line + 1,
+        vim.str_byteindex(line, self.offset_encoding or "utf-16", position.character, false),
+      },
+    }
+    if not M.is_reference(context) then
+      return request(self, method, params, callback, bufnr)
+    end
+    local root, main = identity(self, bufnr)
+    return request(self, method, params, function(err, result, ...)
+      if not err then
+        local items = result and (result.items or result) or {}
+        if vim.api.nvim_buf_is_valid(bufnr) then
+          local current_root, current_main = identity(self, bufnr)
+          if current_root == root and current_main == main then
+            save(self, items, bufnr)
+          end
+        end
+        -- Before the first successful compile Tinymist returns an empty complete
+        -- list. Blink must retry as the reference prefix advances.
+        if #items == 0 then
+          result = { items = {}, isIncomplete = true }
+        end
+      end
+      return callback(err, result, ...)
+    end, bufnr)
+  end
+end
+
+function M.warm(client)
+  for bufnr in pairs(client.attached_buffers or {}) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      local root, main = identity(client, bufnr)
+      if root and vim.api.nvim_buf_get_name(bufnr) == main then
+        local labels, key = load(root, main)
+        client._typst_references_pending = client._typst_references_pending or {}
+        if #labels == 0 and not client._typst_references_pending[key] then
+          local anchor
+          for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+            for column in line:gmatch("()@" .. label_chars .. "+") do
+              if M.is_reference({ bufnr = bufnr, line = line, cursor = { row, column } }) then
+                anchor = { row = row, column = column, line = line }
+                break
+              end
+            end
+            if not anchor then
+              for column in line:gmatch("()<" .. label_chars .. "+>") do
+                local ok, node = pcall(vim.treesitter.get_node, { bufnr = bufnr, pos = { row - 1, column } })
+                if ok and node and node:type() == "label" then
+                  anchor = { row = row, column = column, line = line }
+                  break
+                end
+              end
+            end
+            if anchor then
+              break
+            end
+          end
+          if anchor then
+            client._typst_references_pending[key] = true
+            local sent = client:request("textDocument/completion", {
+              textDocument = { uri = vim.uri_from_bufnr(bufnr) },
+              position = {
+                line = anchor.row - 1,
+                character = vim.str_utfindex(anchor.line, client.offset_encoding or "utf-16", anchor.column, false),
+              },
+              context = { triggerKind = 1 },
+            }, function(err, result)
+              client._typst_references_pending[key] = nil
+              if not err and result and vim.api.nvim_buf_is_valid(bufnr) then
+                local current_root, current_main = identity(client, bufnr)
+                if current_root == root and current_main == main then
+                  -- Query the compiled main at existing syntax, without editing it.
+                  -- A declaration yields document labels; a reference also yields citations.
+                  save(client, result.items or result, bufnr)
+                  local cmp = package.loaded["blink.cmp"]
+                  if
+                    cmp
+                    and vim.api.nvim_get_mode().mode == "i"
+                    and client.attached_buffers[vim.api.nvim_get_current_buf()]
+                    and M.is_reference()
+                  then
+                    cmp.show({ providers = { "lsp", "typst_references" } })
+                  end
+                end
+              end
+            end, bufnr)
+            if not sent then
+              client._typst_references_pending[key] = nil
+            end
+            return
+          end
+        end
+      end
+    end
+  end
 end
 
 function M.new()
