@@ -11,6 +11,8 @@ history.sync = "manual"
 task.run_auto_install = false
 github.credential_command = 'sh "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/lib/github-credential.sh"'
 auto_update = true
+# Use matching releases immediately; version selectors and pins still apply.
+minimum_release_age = "0s"
 
 # Files in this config directory load globally, and a tasks/ directory here is
 # discovered from projects under HOME. Include setup tasks only at the setup root.
