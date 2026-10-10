@@ -212,6 +212,9 @@ os = "macos/arm64"
 
 [bootstrap.packages."brew-cask:macpacker"]
 os = "macos/arm64"
+
+[bootstrap.packages."brew:fastfetch"]
+os = "macos/arm64"
 [bootstrap.directories]
 "~/Projects" = { mode = "0755" }
 "~/Scripts" = { mode = "0755" }
