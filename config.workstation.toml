@@ -279,8 +279,9 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 
 # Managed files: individual links preserve application-owned neighbors.
 [dotfiles]
-# Keep only Ezra's enrolled Mac awake while leaving display sleep enabled.
-"~/Library/LaunchAgents/com.ezra.mac-idle-awake.plist" = { source = "dotfiles/Library/LaunchAgents/com.ezra.mac-idle-awake.plist", mode = "copy", permissions = "0644", variants = [{ os = "macos", profile = "host-mac-primary" }] }
+# Keep macOS workstations awake while leaving display sleep enabled.
+"~/Library/LaunchAgents/com.ezra.mac-idle-awake.plist" = { source = "dotfiles/Library/LaunchAgents/com.ezra.mac-idle-awake.plist", mode = "copy", permissions = "0644", variants = [{ os = "macos", profile = "workstation" }] }
+"~/.local/bin/awake" = { source = "dotfiles/.local/bin/awake", mode = "copy", permissions = "0755", variants = [{ os = "macos", profile = "workstation" }] }
 "~/.codex/rules/core.rules" = { source = "dotfiles/.codex/rules/core.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/development.rules" = { source = "dotfiles/.codex/rules/development.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/vcs.rules" = { source = "dotfiles/.codex/rules/vcs.rules", mode = "symlink", variants = [{ os = "macos" }] }
