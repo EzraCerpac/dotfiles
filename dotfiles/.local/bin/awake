@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "$(/usr/bin/uname -s)" != Darwin ]]; then
+    printf 'awake is available on macOS workstations.\n' >&2
+    exit 1
+fi
+
+label=com.ezra.mac-idle-awake
+domain="gui/$(/usr/bin/id -u)"
+service="$domain/$label"
+plist="$HOME/Library/LaunchAgents/$label.plist"
+
+case "${1:-status}" in
+    on|enable)
+        if [[ ! -f "$plist" ]]; then
+            printf 'Missing %s; apply workstation dotfiles first.\n' "$plist" >&2
+            exit 1
+        fi
+        if [[ "$(/usr/bin/plutil -extract Label raw -o - "$plist")" != "$label" ]]; then
+            printf 'Unexpected LaunchAgent label in %s.\n' "$plist" >&2
+            exit 1
+        fi
+        /bin/launchctl enable "$service"
+        if /bin/launchctl print "$service" >/dev/null 2>&1; then
+            /bin/launchctl kickstart "$service"
+        else
+            /bin/launchctl bootstrap "$domain" "$plist"
+        fi
+        printf 'Awake: on. Display sleep and locking keep their settings.\n'
+        ;;
+    off|disable)
+        /bin/launchctl disable "$service"
+        if /bin/launchctl print "$service" >/dev/null 2>&1; then
+            /bin/launchctl bootout "$service"
+        fi
+        printf 'Awake: off, including after login.\n'
+        ;;
+    status)
+        if job="$(/bin/launchctl print "$service" 2>/dev/null)" &&
+            [[ "$job" == *'state = running'* ]]; then
+            printf 'Awake: on.\n'
+        else
+            printf 'Awake: off.\n'
+        fi
+        ;;
+    -h|--help|help)
+        printf 'Usage: awake [on|off|status]\n\nPrevent idle system sleep on battery and AC; display sleep and locking stay unchanged.\nOff persists across logins. Keep the lid open when on.\n'
+        ;;
+    *)
+        printf 'Usage: awake [on|off|status]\n' >&2
+        exit 2
+        ;;
+esac
