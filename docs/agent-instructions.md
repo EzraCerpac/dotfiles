@@ -15,6 +15,12 @@ Codex globals contain the same inline block between `Shared Codex policy` marker
 
 After reviewing a deliberate instruction edit, update its expected postimage in `setup-scripts/agent-instructions/manifest.json`. Update the shared-block hash and all four Codex sources together when changing the common block. Preserve host notes. The manifest tracks exactly the six routes above; installed presence does not establish loading, enablement or historical use.
 
+Check source consistency and host notes without reading deployed home files:
+
+```sh
+python3 -m unittest discover -s tests -p 'test_agent_instructions.py'
+```
+
 Run the read-only checker on demand from this setup checkout:
 
 ```sh

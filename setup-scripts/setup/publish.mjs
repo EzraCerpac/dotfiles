@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { ensureRepository, withRepositoryLock, SourceDeferred } from '../lib/source-repo.mjs';
 
 export const EXPECTED_REPOSITORY = 'EzraCerpac/dotfiles';
-export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL || 'dots publish'}** is writing on behalf of Ezra.`;
+// Set DOTS_PUBLISH_MODEL only to an identifier verified from the task's metadata.
+export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL?.trim() || 'model unverified'}** is writing on behalf of Ezra.`;
 
 const DEFAULT_BASE = 'main';
 const SECRET_SCANNER = 'gitleaks';

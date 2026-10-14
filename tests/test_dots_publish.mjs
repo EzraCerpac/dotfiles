@@ -12,6 +12,21 @@ import { requires } from './lib/prereq.mjs';
 // Every fixture is a real colocated JJ repository.
 const needsJj = requires('jj');
 
+test('publication disclosure uses an unverified fallback or explicit verified identifier', () => {
+  const moduleUrl = new URL('../setup-scripts/setup/publish.mjs', import.meta.url).href;
+  for (const [model, expected] of [[undefined, 'model unverified'], ['', 'model unverified'],
+    ['   ', 'model unverified'], ['verified-model-id', 'verified-model-id']]) {
+    const env = { ...process.env };
+    delete env.DOTS_PUBLISH_MODEL;
+    if (model !== undefined) env.DOTS_PUBLISH_MODEL = model;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+      `import { DISCLOSURE } from ${JSON.stringify(moduleUrl)}; process.stdout.write(DISCLOSURE);`],
+    { env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `> [!NOTE]\n> **${expected}** is writing on behalf of Ezra.`);
+  }
+});
+
 function command(root, bin, args) {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 0, `${bin} ${args.join(' ')}\n${result.stderr}`);
@@ -129,6 +144,7 @@ test('default publication previews main@origin, prompts for an undescribed chang
     assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', result.bookmark));
     assert(hasCall(state.calls, 'gh', 'create', '--body-file'));
     assert.equal(state.bodyFiles.length, 1);
+    assert(state.bodyFiles[0].content.startsWith(DISCLOSURE + '\n\n'));
     assert.match(state.bodyFiles[0].content, /Describe public setup/);
     assert(!fs.existsSync(state.bodyFiles[0].path));
   } finally { cleanup(fixture); }
