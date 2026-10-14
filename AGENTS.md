@@ -1,6 +1,6 @@
 # Setup source ownership
 
-On managed hosts, `~/.config/mise` is the active setup source. Static configuration files under `dotfiles/` are linked to their normal home paths. Edit the linked file or its source; use native mise dotfile application for templates. Do not run chezmoi against these destinations. Isolated task checkouts hold reviewed source changes; inspect the selected checkout before editing or deploying.
+On managed hosts, `~/.config/mise` is the active setup source. Native mise deploys static files under `dotfiles/` in their declared symlink or copy mode. For symlinked files, edit the linked file or its source. For copy-mode files, edit the source and reapply only that intentional file through native mise; editing the deployed copy does not update its source. Use native mise dotfile application for templates. Do not run chezmoi against these destinations. Isolated task checkouts hold reviewed source changes; inspect the selected checkout before editing or deploying.
 
 Use JJ where the checkout supports it and Git in Git-only worktrees. Retain the old checkouts and protected backups for rollback.
 

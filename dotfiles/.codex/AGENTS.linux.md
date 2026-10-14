@@ -21,7 +21,7 @@ Small, bounded edits may finish in the lead without mandatory delegation. For su
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
-Use uv for Python and bun for TypeScript. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill when available on the selected host.
+Use uv for Python. Follow a project's declared package manager and existing lockfile workflow, including npm, pnpm or yarn. Prefer bun for new TypeScript projects and projects that already use it, when bun is available on the selected host. Do not migrate an existing project or install bun solely to satisfy this preference. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill when available on the selected host.
 
 At task end, close only task-started resources, including simulators, apps, servers. Preserve pre-existing resources: if a requested browser check was already open or useful to show Ezra, leave it open. Verify ownership first.
 
