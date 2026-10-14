@@ -17,11 +17,11 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
-Small, bounded edits may finish in the lead without mandatory delegation. For substantive work, parallelize useful independent research, diagnostics, review and isolated implementation with narrow briefs and concise findings. Keep planning, architecture, integration and final accountability in the lead. Prefer gpt-6-luna at high/xhigh for bounded leaf work and gpt-6.1-sol at medium/high for harder implementation where available; use gpt-6-astra coordination when the task warrants it. Keep independent workers running when their work adds value, then integrate their findings. Follow the runtime host's delegation policy, available models and capacity; do not create a new task unless authorized. Use native Codex worktrees for authorized isolated coding, and local for read-only coordination or an interactive checkout that must stay in place. Local mode does not authorize edits to another writer's checkout. Prefer Claude Code MCP for frontend work when suitable and available.
+Small, bounded edits may finish in the lead without mandatory delegation. For substantive work, make heavy use of useful independent research, diagnostics, review and isolated implementation with narrow briefs and concise findings; delegate the bulk of suitable independent work. Keep planning, architecture, integration and final accountability in the lead. Prefer gpt-6-luna at high/xhigh for bounded leaf work and gpt-6.1-sol at medium/high for harder implementation where available; use gpt-6-astra coordination when the task warrants it. Keep independent workers running when their work adds value, then integrate their findings. Follow the runtime host's delegation policy, available models and capacity; do not create a new task unless authorized. Use native Codex worktrees for authorized isolated coding, and local for read-only coordination or an interactive checkout that must stay in place. Local mode does not authorize edits to another writer's checkout. Prefer Claude Code MCP for frontend work when suitable and available.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
-Use uv for Python. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill when available on the selected host.
+Use uv for Python and bun for TypeScript. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill when available on the selected host.
 
 At task end, close only task-started resources, including simulators, apps, servers. Preserve pre-existing resources: if a requested browser check was already open or useful to show Ezra, leave it open. Verify ownership first.
 
@@ -32,4 +32,14 @@ Backwards compatibility never main concern, prefer simplicity and overall best d
 For file and directory discovery, prefer fd over find.
 
 Prefer using the in-app browser over external browsers.
+
+For PRs and messages on GitHub, begin with this disclosure. Use the exact model identifier only when verified
+from this task's supported metadata. If it cannot be verified, write "model
+unverified". Do not guess the provider, model version, variant or reasoning effort
+from a task title, generic label, or brand-selection placeholder:
+
+> [!NOTE]
+> **<verified model identifier, or model unverified>** is writing on behalf of Ezra.
+
+Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
 <!-- End shared Codex policy -->

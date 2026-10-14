@@ -8,7 +8,7 @@ application compatibility dependencies. The inventory
 below records the migration baseline; it is not a list of current version pins.
 
 The shared base, workstation and NAS retain `jj = "latest"` by default.
-The staged recipe `resources/jj-pr9943/workstation.toml` overrides that same tool
+The opt-in recipe `resources/jj-pr9943/workstation.toml` overrides that same tool
 identity with the Cargo backend for the official `jj-vcs/jj` repository at
 `ede10cda453017def68e672a5715220ddf10c09b`, the tested head of
 [PR #9943](https://github.com/jj-vcs/jj/pull/9943). The source build selects
@@ -18,8 +18,11 @@ identity with the Cargo backend for the official `jj-vcs/jj` repository at
 may build the same JJ revision with a different compiler. Linux compilation
 and installation through mise remain unverified.
 
-No selected profile loads the staged recipe. Merging it cannot activate the pin
-through routine source sync or `dots up`. After coordinated activation, routine
+Shared profiles do not load the recipe automatically. The Mac workstation
+already selects the full SHA above through its existing ignored host
+configuration; preserve that opt-in. NAS hosts and other workstations still
+require explicit host opt-in. Merging the recipe cannot activate additional
+hosts through routine source sync or `dots up`. After activation, routine
 updates retain the full SHA; replacing it requires a reviewed edit. To return
 that host to stable, remove its `jj` tool entry and `[tool_alias.jj]` together,
 then install the inherited release through the normal mise workflow and verify
@@ -37,8 +40,8 @@ Do not copy the recipe over the whole host file. Confirm mise selects exactly
 one JJ at the full SHA before installing it explicitly and checking its version.
 Direct `jj workspace forget` remains unsafe
 for Codex-owned worktrees; agents must use the app's lifecycle controls.
-Do not switch binaries underneath active tasks. The pin remains staged until
-this explicit host opt-in; no bootstrap or routine update installs jw for it.
+Do not switch binaries underneath active tasks. On hosts without this explicit
+opt-in, the pin remains staged.
 
 # Software ownership inventory
 
