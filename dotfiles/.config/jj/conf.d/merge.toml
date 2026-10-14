@@ -1,0 +1,14 @@
+[ui]
+merge-editor = "mergiraf-nvim"
+
+[merge-tools.mergiraf-nvim]
+program = "jj-merge"
+merge-args = ["$base", "$left", "$right", "$output", "$marker_length", "$path"]
+merge-tool-edits-conflict-markers = true
+conflict-marker-style = "diff"
+
+[merge-tools.diffconflicts]
+program = "nvim"
+merge-args = ["-c", "let g:jj_diffconflicts_marker_length=$marker_length", "-c", "JJDiffConflicts!", "$output", "$base", "$left", "$right"]
+merge-tool-edits-conflict-markers = true
+conflict-marker-style = "diff"

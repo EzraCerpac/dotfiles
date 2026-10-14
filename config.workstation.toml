@@ -16,6 +16,7 @@ ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
 go = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rust = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+"cargo:mergiraf" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"], locked = true }
 # JJ inherits the shared stable release. The native-worktree source pin is an
 # explicit host opt-in; see resources/jj-pr9943/workstation.toml.
 # Latest is the default; older interpreters serve existing global application environments.
@@ -312,6 +313,8 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink" }
 "~/.config/humanize-text/defaults.toml" = { source = "dotfiles/.config/humanize-text/defaults.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/jj/conf.d/signing.toml" = { source = "templates/.config/jj/conf.d/signing.toml.tera", mode = "template" }
+"~/.config/jj/conf.d/merge.toml" = { source = "dotfiles/.config/jj/conf.d/merge.toml", mode = "symlink" }
+"~/.local/bin/jj-merge" = { source = "dotfiles/.local/bin/jj-merge", mode = "symlink" }
 "~/.config/jjui/config.toml" = { source = "dotfiles/.config/jjui/config.toml", mode = "symlink" }
 "~/.config/keyboard/corne-qmk/USAGE" = { source = "dotfiles/.config/keyboard/corne-qmk/USAGE", mode = "symlink" }
 "~/.config/keyboard/corne-qmk/keymap-drawer.yaml" = { source = "dotfiles/.config/keyboard/corne-qmk/keymap-drawer.yaml", mode = "symlink" }
