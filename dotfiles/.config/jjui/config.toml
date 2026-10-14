@@ -39,14 +39,20 @@ desc = "show oplog diff"
 [[actions]]
 name = "resolve"
 lua = '''
-jj_interactive("resolve")
+local id = context.change_id()
+if not id then
+  flash({ text = "No change selected", error = true })
+  return
+end
+-- Native shell-command completion refreshes the graph after the resolver exits.
+exec_shell("jj resolve --revision '" .. id:gsub("'", "'\\''") .. "'")
 '''
 
 [[bindings]]
 action = "resolve"
 key = "R"
 scope = "revisions"
-desc = "resolve"
+desc = "resolve highlighted change (Mergiraf, then Neovim)"
 
 [[actions]]
 name = "new-main"

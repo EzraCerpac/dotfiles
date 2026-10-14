@@ -9,7 +9,7 @@ return {
       signs = { add = "+", delete = "-", change = "~" },
     },
   },
-  -- { "rafikdraoui/jj-diffconflicts" },
+  { "rafikdraoui/jj-diffconflicts", cmd = "JJDiffConflicts" },
   -- Use jjui.nvim to toggle jjui in a floating terminal
   {
     "ReKylee/jjui.nvim",
