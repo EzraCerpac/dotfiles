@@ -31,8 +31,10 @@ owned both `grok` and `agent`. Both recorded executables were later uninstalled.
   Keep those as explicit local-tool owners rather than adding duplicate
   package entries.
 - `portless` is a symlink into its project checkout and remains project-owned.
-- `jw`, `rift`, and `rift-cli` point into the jj-waltz build or the local Rift
-  installation. Their build/signing lifecycle remains task-owned.
+- Existing workstation `jw` installs use the versioned jj-waltz owner under
+  `~/.local/libexec/jj-waltz`; `dots up` builds and activates verified main when
+  its source commit changes, retaining rollback. `rift` and `rift-cli` remain
+  local project installations with an explicit build/signing lifecycle.
 - `maturin` maps to the `github:PyO3/maturin` tool declared in
   `config.workstation.toml`, and `typ2docx` maps to the named isolated UV
   exception. The former `pipx:` CLIs (`keymap`, `mlx-whisper`, `worldlines`,

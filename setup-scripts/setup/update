@@ -171,6 +171,7 @@ if run_stage "newly declared mise tools" setup_mise install; then
 fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true
+    run_stage "jw main source" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-build-install.sh" --update-existing || true
 fi
 
 run_exception() {

@@ -1,7 +1,8 @@
 # Explicit setup tasks
 
 These tasks replace setup hooks that used to run during dotfile application.
-They do not run as part of ordinary bootstrap or `setup:update`. Invoke them
+Most remain explicit; bootstrap installs a missing workstation `jw`, and
+`setup:update` updates an existing workstation `jw`. Invoke explicit tasks
 through the setup checkout so mise reads this configuration:
 
 ```sh
@@ -18,7 +19,7 @@ only configure its settings link and start its service.
 
 | Task script | Replaces | What it does |
 | --- | --- | --- |
-| `setup-scripts/install/jw-build-install.sh` | Local jj-waltz build hook | Builds `~/Projects/jj-waltz` with Cargo's lockfile and installs the verified `jw` binary in `~/.local/bin`. |
+| `setup-scripts/install/jw-build-install.sh` | Workstation jj-waltz build hook | Builds verified `EzraCerpac/jj-waltz` main with Cargo's lockfile in disposable source/build directories and atomically activates a versioned `jw`. `dots up` passes `--update-existing` so it skips hosts without `jw`. |
 | `setup-scripts/install/jw-nas-release.sh` | NAS jj-waltz release branch | Downloads the pinned static x86-64 Linux release, checks its SHA-256 and version, then installs it. |
 | `setup-scripts/install/nas-modern-git.sh` | NAS modern Git hook | Checks and installs the pinned micromamba binary, creates or updates the user-space `git>=2.41` environment, and links `~/.local/bin/git` only when that path is free or already owned by this environment. |
 | `setup-scripts/install/herdr-plugins.sh` | Pinned Herdr plugin hook | Installs the four pinned plugins when their current commit differs. Requires Herdr and `jq`. |
@@ -40,6 +41,31 @@ only configure its settings link and start its service.
 | `setup-scripts/local/private-permissions.sh` | SSH template preparation and explicit permission repair | Before dotfile apply, sets the SSH template source to `0600` so mise renders `~/.ssh/config` with the same mode and reports it as applied. After apply, sets `~/.ssh` and `~/.config/jj` to `0700`, the rendered SSH config to `0600`, and regular jj config copies to `0600`. It skips declared public-source symlinks and refuses directory or SSH-target symlinks. |
 
 ## Operational boundaries
+
+On workstations already using `jw`, `dots up` checks
+`https://github.com/EzraCerpac/jj-waltz.git` main and builds only when its full
+source commit differs. It preserves the development checkout, including
+unpublished work. Each activated binary lives at
+`~/.local/libexec/jj-waltz/<version>-<12-character-commit>/jw`, with a full
+`source-commit` marker and a validated SHA-256 build identity. The active
+`~/.local/bin/jw` symlink changes only after repository, Cargo artifact, version
+and digest validation. Unchanged updates skip Cargo; transient source and target
+directories are removed after success or failure. A concurrent updater reports
+failure without replacing the active binary.
+
+The installer accepts the existing marker-only versioned layout, a regular
+executable identifying as `jw`, or the known
+`~/Projects/jj-waltz/target/release/jw` link. It refuses foreign links and
+symlinked installation directories. Legacy executables are copied into the
+managed root before activation, and `~/.local/libexec/jj-waltz/previous` points
+to the last working binary. Both that binary and older versioned binaries are
+retained for rollback; the updater never prunes them. To roll back, inspect
+`previous`, then atomically repoint `~/.local/bin/jw` to that binary. Network,
+build and validation failures leave the active binary intact and appear in
+the `dots up` failure report. `JW_INSTALL_DIR` still selects the launcher
+directory; `JW_SOURCE_DIR` is no longer used because builds must come from
+verified main. The NAS release installer and the selected `jj` pin retain
+their existing lifecycle.
 
 `setup:update` does not build local Aegis or Rift. It does not restart CLIProxyAPI,
 change the login shell, change sudo PAM settings, update Herdr plugins, or
@@ -182,7 +208,7 @@ and `run_after` scripts. Their replacement responsibilities are:
 | `run_onchange_03-install-packages.sh.tmpl` | Native `[bootstrap.packages]` declarations with platform restrictions. |
 | `run_onchange_05-configure-mission-control.sh.tmpl` | Native Mission Control default for top-edge window drag; no Dock restart. |
 | `run_onchange_05-install-nas-git.sh.tmpl` | Explicit `install:nas-modern-git`, preserving the pinned micromamba user-space recipe. |
-| `run_onchange_06-build-jj-waltz.sh.tmpl` | Explicit locked source build on workstation and checksum-pinned release install on NAS. |
+| `run_onchange_06-build-jj-waltz.sh.tmpl` | Locked isolated main build for existing workstation `jw` during `dots up`; checksum-pinned explicit release install on NAS. |
 | `run_onchange_07-build-antinote-bridge.sh.tmpl` | Explicit `local:antinote-bridge-build`; output and marker stay outside the source checkout. |
 
 Directory setup and native macOS defaults must preserve their observed values.
