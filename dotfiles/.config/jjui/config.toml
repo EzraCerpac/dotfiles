@@ -44,8 +44,8 @@ if not id then
   flash({ text = "No change selected", error = true })
   return
 end
-jj_interactive("resolve", "--revision", id)
-revisions.refresh()
+-- Native shell-command completion refreshes the graph after the resolver exits.
+exec_shell("jj resolve --revision '" .. id:gsub("'", "'\\''") .. "'")
 '''
 
 [[bindings]]
