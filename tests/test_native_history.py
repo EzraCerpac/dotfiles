@@ -206,6 +206,7 @@ class NativeHistoryTests(unittest.TestCase):
         match = __import__("re").search(r"(\d+)\.(\d+)\.(\d+)", version.stdout)
         if version.returncode != 0 or not match or tuple(map(int, match.groups())) < (2026, 9, 7):
             raise RuntimeError(f"{MISE_ENV_VAR} must point to mise 2026.9.7 or newer")
+        cls.mise_version = tuple(map(int, match.groups()))
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="mise-native-history-")
@@ -837,6 +838,11 @@ class NativeHistoryTests(unittest.TestCase):
         )
         self.assert_mise_ok(nas, "bootstrap", "dotfiles", "pull", "--yes", profile=NAS_PROFILE)
         self.assertFalse(nas_live.exists(), "fresh NAS profile applied the inactive Mac variant")
+        if self.mise_version >= (2026, 10, 9):
+            # Since mise PR #14275, a newly selected shared profile must be
+            # applied locally before a protective checkpoint captures edits.
+            self.assert_mise_ok(nas, "bootstrap", "dotfiles", "pull", "--yes", profile=MAC_PROFILE)
+            self.assertEqual(nas_live.read_bytes(), second_content)
         nas_live.write_bytes(b"local-default-before-history-restore\n")
         nas_live.chmod(0o600)
         self.assert_mise_ok(
@@ -1071,10 +1077,12 @@ class NativeHistoryTests(unittest.TestCase):
             "bootstrap",
             "dotfiles",
             "status",
+            "--json",
             profile="host-mac-primary",
         )
-        self.assertIn("mode fetch-only", status.stdout)
-        self.assertIn("last publish never", status.stdout)
+        sync_status = json.loads(status.stdout)["history"]["sync"]
+        self.assertEqual(sync_status["mode"], "fetch-only")
+        self.assertIsNone(sync_status["last_publish"])
 
         self.assert_mise_ok(
             destination,
