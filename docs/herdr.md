@@ -16,9 +16,10 @@ install Herdr on hosts that do not already use it.
 
 Bootstrap prepares and applies this setting after tools are installed, then reloads
 an already-running Herdr server. On workstations, `dots up` does the same for existing
-installations. NAS `dots up` leaves Herdr configuration and any existing server
-untouched while upgrading declared tools. An account-shell change still belongs to
-explicit bootstrap.
+installations. NAS `dots up` skips the Herdr shell configuration stage and does not
+inspect or reload the existing Herdr server. Already-declared dotfiles, including an
+explicitly enrolled Herdr template, still follow ordinary source synchronization.
+An account-shell change still belongs to explicit bootstrap.
 Changing your account's login shell does not change an already-running Herdr
 server's inherited `$SHELL`. After applying a changed Herdr configuration, run
 `herdr server reload-config` on that machine (or
