@@ -14,9 +14,12 @@ configuration, then renders Herdr's `terminal.default_shell`. Workstation keeps 
 keybindings and plugins below; NAS gets only the shell settings. This does not
 install Herdr on hosts that do not already use it.
 
-Both bootstrap and `dots up` prepare and apply this setting after tools are installed,
-then reload an already-running Herdr server. Existing installations migrate through
-`dots up`; an account-shell change still belongs to explicit bootstrap.
+Bootstrap prepares and applies this setting after tools are installed, then reloads
+an already-running Herdr server. On workstations, `dots up` does the same for existing
+installations. NAS `dots up` skips the Herdr shell configuration stage and does not
+inspect or reload the existing Herdr server. Already-declared dotfiles, including an
+explicitly enrolled Herdr template, still follow ordinary source synchronization.
+An account-shell change still belongs to explicit bootstrap.
 Changing your account's login shell does not change an already-running Herdr
 server's inherited `$SHELL`. After applying a changed Herdr configuration, run
 `herdr server reload-config` on that machine (or
