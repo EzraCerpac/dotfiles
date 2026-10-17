@@ -167,7 +167,11 @@ else
 fi
 if run_stage "newly declared mise tools" setup_mise install; then
     run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/upgrade-herdr" || true
-    run_stage "Herdr shell configuration" setup_mise exec -- node "$SETUP_ROOT/setup-scripts/bootstrap/herdr.mjs" "$SETUP_ROOT" || true
+    if [[ "$SETUP_PROFILE" == workstation ]]; then
+        run_stage "Herdr shell configuration" setup_mise exec -- node "$SETUP_ROOT/setup-scripts/bootstrap/herdr.mjs" "$SETUP_ROOT" || true
+    else
+        printf '\nSkipped: Herdr shell configuration (NAS profile does not own Herdr).\n'
+    fi
 fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true

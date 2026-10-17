@@ -670,15 +670,44 @@ esac
         self.assertIn("upgrade\t--no-prune", self.log.read_text())
         self.assertNotIn("--exclude", self.log.read_text())
 
-    def test_nas_upgrades_tools_without_herdr_handoff(self) -> None:
-        result = self._run(
-            "update",
-            extra_env={"SETUP_PROFILE": "nas", "WATCHER_ACTIVE": "1"},
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("upgrade\t--no-prune", self.log.read_text())
-        self.assertIn("Herdr live handoff skipped for the NAS profile", result.stdout)
-        self.assertNotIn("which\therdr", self.log.read_text())
+    def test_nas_upgrades_tools_without_configuring_foreign_herdr(self) -> None:
+        herdr, state, log = self._prepare_herdr(server_version="0.9.1")
+        config = Path(self.env["HOME"]) / ".config/herdr/config.toml"
+        config.parent.mkdir(parents=True)
+        foreign_config = 'owner = "foreign-nas-installation"\n'
+        config.write_text(foreign_config)
+        for platform in ("Linux", "Darwin"):
+            with self.subTest(platform=platform):
+                self.log.unlink(missing_ok=True)
+                log.unlink(missing_ok=True)
+                self._write_executable(
+                    self.bin / "uname",
+                    f"#!/usr/bin/env bash\n[[ \"${{1:-}}\" == -m ]] && printf 'x86_64\\n' || printf '{platform}\\n'\n",
+                )
+                result = self._run(
+                    "update",
+                    extra_env={
+                        "SETUP_PROFILE": "nas",
+                        "WATCHER_ACTIVE": "1",
+                        "PATH": str(herdr.parent) + os.pathsep + self.env["PATH"],
+                        "HERDR_BIN": str(herdr),
+                        "HERDR_VERSION": "0.9.1",
+                        "HERDR_SERVER_STATE": str(state),
+                        "HERDR_LOG": str(log),
+                    },
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                commands = [call[4:] for call in self._calls()]
+                self.assertIn(["install"], commands)
+                self.assertIn(["upgrade", "--no-prune"], commands)
+                self.assertIn(["self-update", "--yes"], commands)
+                self.assertEqual(commands.count(["bootstrap", "dotfiles", "save"]), 2)
+                self.assertIn("Herdr live handoff skipped for the NAS profile", result.stdout)
+                self.assertFalse(any("setup-scripts/bootstrap/herdr.mjs" in arg for call in commands for arg in call))
+                self.assertNotIn(["which", "herdr"], commands)
+                self.assertFalse(log.exists(), "NAS update invoked the foreign Herdr executable")
+                self.assertEqual(config.read_text(), foreign_config)
+                self.assertEqual(state.read_text().strip(), "0.9.1")
 
     def test_nas_exception_wrappers_find_their_installers(self) -> None:
         env = dict(self.env, SETUP_PROFILE="nas", SETUP_NAS_NEOVIM_BUILD="1")
@@ -905,10 +934,11 @@ esac
         self.assertNotIn("install", rendered)
         self.assertNotIn("upgrade --no-prune", rendered)
 
-    def test_update_applies_new_packages_and_installs_new_mise_tools_before_upgrades(self) -> None:
+    def test_workstation_update_installs_tools_before_herdr_configuration(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\nprintf 'Linux\\n'\n")
         result = self._run(
             "update",
-            extra_env={"SETUP_PROFILE": "nas", "SETUP_MACHINE_ID": "cerpacnas"},
+            extra_env={"SETUP_PROFILE": "workstation"},
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = [call[4:] for call in self._calls()]
@@ -920,7 +950,7 @@ esac
         self.assertLess(package_upgrade, tool_install)
         self.assertLess(tool_install, tool_upgrade)
         herdr_config = commands.index(["exec", "--", "node", str(self.root.resolve() / "setup-scripts/bootstrap/herdr.mjs"), str(self.root.resolve())])
-        self.assertLess(tool_install, herdr_config)
+        self.assertLess(tool_upgrade, herdr_config)
         self.assertFalse(any(command[:2] == ["bootstrap", "user"] for command in commands))
 
 
