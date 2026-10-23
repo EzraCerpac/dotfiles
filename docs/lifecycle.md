@@ -112,8 +112,11 @@ Run `mise -C ~/.config/mise run local:capd-update` to fetch `origin/main` into a
 task-owned temporary checkout, build it, and install it with rollback.
 The command does not move local bookmarks or integrate upstream.
 Use `local:capd-build` to create a signed stage without installing it.
-Routine `dots up` continues to report Capd as pinned and never updates it
-implicitly.
+On macOS workstations, `dots up` runs this same updater after the declared tool
+updates. It checks fork `main` and exits without signing, building, or restarting
+Capd when the installed app has matching provenance and a valid signature.
+NAS updates skip the workstation-only app updater. The explicit build task still
+stages a fresh build when requested.
 
 The fork packaging script uses SwiftPM's `swiftbuild` engine,
 preserves the locked dependency resolution,
@@ -145,10 +148,10 @@ three seconds; an immediate startup crash also triggers rollback.
 If stopping or rollback fails, the task reports the retained backup for repair.
 Set `CAPD_BACKUP_ROOT` only when choosing another private backup location.
 
-`dots up` reports capd as pinned through `vendor-apps.tsv`;
-it does not fetch, build, reinstall or adopt the fork.
-Capd's in-app update action points to `local:capd-update`,
-which builds and installs the current fork `main` revision.
+`vendor-apps.tsv` records Capd as managed by `local:capd-update`.
+The workstation `dots up` stage and Capd's in-app update action both invoke
+that updater, which builds and installs the current fork `main` revision only
+when needed.
 The old cask receipt and `/opt/homebrew/bin/capd` link were moved into the
 original rollback backup after the live app, agent and capture checks passed;
 no cask uninstall was run.

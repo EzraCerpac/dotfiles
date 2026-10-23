@@ -176,6 +176,9 @@ fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true
     run_stage "jw main source" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-build-install.sh" --update-existing || true
+    if [[ "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+        run_stage "Capd fork main" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/local/capd-update.sh" || true
+    fi
 fi
 
 run_exception() {

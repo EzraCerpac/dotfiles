@@ -75,7 +75,7 @@ dots restore
 | Need | Native mise workflow | Effect |
 | --- | --- | --- |
 | Inspect machine setup | `dots status` | Reports selected profile, declared packages and tools, dotfiles/history, and installer exceptions. |
-| Update declared setup | `dots up [--mas]` | Saves local settings before and after updates. App Store updates are skipped by default; `--mas` prepares the `mas` formula and overlaps App Store updates with other package and tool stages on macOS workstations. Later stages still run after a stage failure. The task does not prune software, update project dependencies, publish source, or restart services. DelftBlue rejects this task pending its restricted workflow. |
+| Update declared setup | `dots up [--mas]` | Saves local settings before and after updates. App Store updates are skipped by default; `--mas` prepares the `mas` formula and overlaps App Store updates with other package and tool stages on macOS workstations. Later stages still run after a stage failure. The task does not prune software, update project dependencies, or publish source. On macOS workstations it also updates Capd from fork `main` when its revision changes. DelftBlue rejects this task pending its restricted workflow. |
 | Edit an ordinary linked file | `mise -C ~/.config/mise bootstrap dotfiles edit <target>` | Opens the native linked target, which is the source file. |
 | Edit and apply a template | `mise -C ~/.config/mise bootstrap dotfiles edit --apply <target>` | Edits the Tera template and applies the rendered target. |
 | Add a global symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g <target>` | Adds a link shared across profiles. |
