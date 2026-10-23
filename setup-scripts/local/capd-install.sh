@@ -7,6 +7,18 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/capd-common.sh"
 [[ $# -eq 1 ]] || { setup_error 'usage: local:capd-install -- /absolute/path/to/stage'; exit 2; }
 stage="$(cd -- "$1" && pwd -P)"
 require_file "$stage/BUILD-INFO"
+/usr/bin/grep -Fxq 'repository=https://github.com/EzraCerpac/capd' "$stage/BUILD-INFO" || {
+    setup_error 'stage is not from EzraCerpac/capd'; exit 1;
+}
+/usr/bin/grep -Fxq 'branch=main' "$stage/BUILD-INFO" || {
+    setup_error 'stage is not built from fork main'; exit 1;
+}
+revision="$(/usr/bin/sed -n 's/^revision=//p' "$stage/BUILD-INFO")"
+[[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { setup_error 'stage has no valid source revision'; exit 1; }
+/usr/bin/xattr -cr "$stage/capd.app"
+capd_validate_source "$stage/capd.app" "$revision" || {
+    setup_error 'stage app source metadata does not match its fork/main build record'; exit 1;
+}
 capd_validate_app "$stage/capd.app"
 app=/Applications/capd.app
 data="$HOME/Library/Application Support/capd"
@@ -47,12 +59,18 @@ swapped=0
 snapshot=0
 
 stop_capd() {
-    if pgrep -x CapdApp >/dev/null; then
-        /usr/bin/osascript -e 'tell application id "dev.jxd.capd" to quit' >/dev/null 2>&1 || true
-    fi
     if /bin/launchctl print "$agent" >/dev/null 2>&1; then
         /bin/launchctl bootout "$agent" || return 1
     fi
+    local pid command
+    while read -r pid; do
+        command="$(/bin/ps -p "$pid" -o command= 2>/dev/null || true)"
+        if [[ "${command%% *}" == "$app/Contents/MacOS/CapdApp" ]]; then kill -TERM "$pid" 2>/dev/null || true; fi
+    done < <(pgrep -x CapdApp || true)
+    while read -r pid; do
+        command="$(/bin/ps -p "$pid" -o command= 2>/dev/null || true)"
+        if [[ "${command%% *}" == "$app/Contents/MacOS/capd-agent" ]]; then kill -TERM "$pid" 2>/dev/null || true; fi
+    done < <(pgrep -x capd-agent || true)
     # Both writers must exit before copying SQLite's database and WAL together.
     local attempt
     for attempt in {1..50}; do
@@ -127,6 +145,8 @@ printf 'app_running=%s\nagent_loaded=%s\nstage=%s\n' "$app_running" "$agent_load
 if (( had_app )); then mv "$app" "$backup/previous-app"; fi
 swapped=1
 /usr/bin/ditto "$stage/capd.app" "$app"
+/usr/bin/xattr -cr "$app"
+capd_validate_source "$app" "$revision"
 capd_validate_app "$app"
 ln -sfn "$app/Contents/MacOS/capd" "$cli"
 "$cli" --version

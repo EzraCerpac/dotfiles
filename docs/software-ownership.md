@@ -45,9 +45,11 @@ opt-in, the pin remains staged.
 
 # Software ownership inventory
 
-capd is a local fork owned by `~/Projects/capd`, with explicit
-`local:capd-build` and `local:capd-install` tasks. Its previous
-`brew-cask:jamiedavenport/tap/capd` declaration is removed. Native package
+capd is owned by `EzraCerpac/capd` `main`, with explicit
+`local:capd-update`, `local:capd-build` and `local:capd-install` tasks.
+The update task installs the fork's current `main`; the build task only stages
+it. The development checkout at `~/Projects/capd` is not an update source.
+The old `brew-cask:jamiedavenport/tap/capd` declaration was removed. Native package
 bootstrap acts on declared packages, so an old installed Homebrew receipt is
 not an adoption request and routine `dots up` does not reinstall it. The
 receipt and its old CLI link are retained in the rollback backup;

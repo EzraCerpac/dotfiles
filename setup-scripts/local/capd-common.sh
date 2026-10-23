@@ -4,6 +4,8 @@
 source "$(dirname -- "${BASH_SOURCE[0]}")/common"
 require_setup_profile workstation
 require_macos
+# shellcheck source=setup-scripts/local/capd-provenance.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/capd-provenance.sh"
 
 # Signing identities belong to the host; preserve the signer of its current app.
 capd_identity="${CAPD_CODESIGN_IDENTITY:-}"
