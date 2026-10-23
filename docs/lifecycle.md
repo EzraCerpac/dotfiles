@@ -104,48 +104,56 @@ package versions, install or launch VoiceInk, or touch preferences, transcripts,
 recordings, downloaded models, or Parakeet Unified. Live app and Parakeet checks
 remain separate from this build task.
 
-capd is owned by the fork in `~/Projects/capd`. The `origin` remote is
-`EzraCerpac/capd`; `upstream` is `jamiedavenport/capd`. The local
-`wip/local-capd` bookmark adds eager app-state initialization for Xcode 27
-on top of the focused `wip/search-browser` patch. Keep that compatibility
-change separate when submitting Search support upstream. Updates are explicit:
-integrate upstream, test, build, then install a named stage. In-app update notices
-refer to upstream releases and are not the fork update path.
+Capd is owned by `https://github.com/EzraCerpac/capd`,
+with `main` as the install source.
+The working checkout at `~/Projects/capd` remains available for development
+and is not used as the update source.
+Run `mise -C ~/.config/mise run local:capd-update` to fetch `origin/main` into a
+task-owned temporary checkout, build it, and install it with rollback.
+The command does not move local bookmarks or integrate upstream.
+Use `local:capd-build` to create a signed stage without installing it.
+Routine `dots up` continues to report Capd as pinned and never updates it
+implicitly.
 
-Run
-`mise -C ~/.config/mise run local:capd-build` after committing source changes.
-The task runs the upstream `Scripts/package-app.sh` in a clean source copy and
-stages the signed app under `~/.local/state/capd/staged/`. Its CLI, agent and
-share extension are included. The signing identity comes from the current
-installed app or `CAPD_CODESIGN_IDENTITY`. On a new host, supply an existing
-identity explicitly; no identity is provisioned by this task. Set
-`CAPD_SOURCE_DIR` or `CAPD_STAGE_ROOT` to override the source or staging path.
-The packaging script also creates its DMG in task-owned scratch space.
-The local task replaces the archived script's fixed `.build/apple` product
-path with Swift's `--show-bin-path`: Xcode 27 uses `.build/out`. This guarded
-adapter changes only the disposable source copy and stops if the expected
-upstream line changes. The fork's tracked packaging script stays unchanged.
-It also splits Xcode 27's failing multi-architecture `lipo -verify_arch` call
-into separate arm64 and x86_64 checks; both architectures are still required.
+The fork packaging script uses SwiftPM's `swiftbuild` engine,
+preserves the locked dependency resolution,
+packages the app without making a release DMG,
+and records the repository, branch and full source revision in the app's
+`Info.plist`.
+The task checks that provenance before staging.
+The signing identity comes from the installed app or `CAPD_CODESIGN_IDENTITY`;
+on a new host, supply an existing identity explicitly.
+The stage is stored under `~/.local/state/capd/staged/`
+and includes a matching `BUILD-INFO` record.
+`CAPD_STAGE_ROOT` can override the staging path.
 
-Install a stage explicitly with
+Install a stage created by `local:capd-build` explicitly with
 `mise -C ~/.config/mise run local:capd-install -- /absolute/path/to/stage`.
-The install task stops the app and its loaded `dev.jxd.capd.agent`, copies the
-whole `~/Library/Application Support/capd` directory after both writers exit,
-exports preferences, and retains the previous app, CLI link and LaunchAgent
-under `~/.local/state/capd/backups/`. It replaces `/Applications/capd.app`, links
-`~/.local/bin/capd` to the bundled CLI and restores the prior running state.
+The install task accepts only a stage marked as `EzraCerpac/capd` `main`
+and checks that its app metadata matches the recorded revision.
+It removes copied Finder extended attributes before signature validation.
+It stops the app and its loaded `dev.jxd.capd.agent`,
+copies the whole `~/Library/Application Support/capd` directory after both
+writers exit, exports preferences,
+and retains the previous app, CLI link and LaunchAgent under
+`~/.local/state/capd/backups/`.
+It replaces `/Applications/capd.app`, links `~/.local/bin/capd` to the bundled
+CLI and restores the prior running state.
 Any install or restart failure restores the previous app, data and preferences.
 After launching the app, the task requires its process to remain alive for
 three seconds; an immediate startup crash also triggers rollback.
 If stopping or rollback fails, the task reports the retained backup for repair.
 Set `CAPD_BACKUP_ROOT` only when choosing another private backup location.
 
-`dots up` reports capd as pinned through `vendor-apps.tsv`; it does not fetch,
-build, reinstall or adopt the fork. The old cask receipt and `/opt/homebrew/bin/capd`
-link were moved into the original rollback backup after the live app, agent and
-capture checks passed; no cask uninstall was run. The original release and library
-remain in the host's private `~/.local/state/capd/backups/` directory.
+`dots up` reports capd as pinned through `vendor-apps.tsv`;
+it does not fetch, build, reinstall or adopt the fork.
+Capd's in-app update action points to `local:capd-update`,
+which builds and installs the current fork `main` revision.
+The old cask receipt and `/opt/homebrew/bin/capd` link were moved into the
+original rollback backup after the live app, agent and capture checks passed;
+no cask uninstall was run.
+The original release and library remain in the host's private
+`~/.local/state/capd/backups/` directory.
 
 The first switch from the release certificate to the local signing identity required
 removing the stale Capd app entry from macOS Device Control and Data Access, then

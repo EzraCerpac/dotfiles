@@ -242,13 +242,17 @@ run = "bash setup-scripts/local/voiceink-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:capd-build"]
-description = "Build and stage the signed local capd fork"
+description = "Fetch fork main and build a signed Capd stage without installing"
 run = "bash setup-scripts/local/capd-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:capd-install"]
 description = "Install a staged capd build with app and data rollback"
 run = "bash setup-scripts/local/capd-install.sh"
+
+["local:capd-update"]
+description = "Fetch, build and install EzraCerpac/capd main with rollback"
+run = "bash setup-scripts/local/capd-update.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:tinymist-build"]
