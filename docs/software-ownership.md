@@ -51,9 +51,9 @@ The update task installs the fork's current `main`; the build task only stages
 it. The development checkout at `~/Projects/capd` is not an update source.
 The old `brew-cask:jamiedavenport/tap/capd` declaration was removed. Native package
 bootstrap acts on declared packages, so an old installed Homebrew receipt is
-not an adoption request and routine `dots up` does not reinstall it. The
-receipt and its old CLI link are retained in the rollback backup;
-the pinned `vendor-apps.tsv` entry only reports ownership. See
+not an adoption request. Workstation `dots up` invokes `local:capd-update`, which
+checks fork `main` and installs only a changed revision; NAS updates skip Capd.
+The receipt and its old CLI link are retained in the rollback backup. See
 [the capd task lifecycle](lifecycle.md) for build, install and rollback.
 
 Snapshot: 2026-09-14. This pre-cutover inventory uses read-only Homebrew, mise, `npm -g`,

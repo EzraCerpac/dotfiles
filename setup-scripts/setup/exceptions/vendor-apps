@@ -29,7 +29,7 @@ while IFS=$'\t' read -r status app target owner instruction extra || [[ -n "${st
         exit 2
     fi
     case "$status" in
-        pinned|deferred) ;;
+        pinned|managed|deferred) ;;
         *)
             printf 'vendor-apps: invalid status for %s in %s\n' "$app" "$manifest" >&2
             exit 2
@@ -46,9 +46,19 @@ while IFS=$'\t' read -r status app target owner instruction extra || [[ -n "${st
         target_state="target missing"
     fi
 
-    if [[ "$status" == pinned && "$target_state" == "target exists" ]]; then
-        printf 'Pinned: %s — owner %s; %s at %s.\n' "$app" "$owner" "$target_state" "$target_path"
-    else
-        printf 'Deferred: %s — owner %s; %s at %s; %s\n' "$app" "$owner" "$target_state" "$target_path" "$instruction"
-    fi
+    case "$status" in
+        pinned)
+            if [[ "$target_state" == "target exists" ]]; then
+                printf 'Pinned: %s — owner %s; %s at %s.\n' "$app" "$owner" "$target_state" "$target_path"
+            else
+                printf 'Deferred: %s — owner %s; %s at %s; %s\n' "$app" "$owner" "$target_state" "$target_path" "$instruction"
+            fi
+            ;;
+        managed)
+            printf 'Managed: %s — owner %s; %s at %s; %s\n' "$app" "$owner" "$target_state" "$target_path" "$instruction"
+            ;;
+        deferred)
+            printf 'Deferred: %s — owner %s; %s at %s; %s\n' "$app" "$owner" "$target_state" "$target_path" "$instruction"
+            ;;
+    esac
 done < "$manifest"

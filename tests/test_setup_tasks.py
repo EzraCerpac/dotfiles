@@ -29,6 +29,7 @@ class SetupTaskTests(unittest.TestCase):
         self.log = self.base / "mise.log"
         self.herdr_log = self.base / "herdr.log"
         self.git_log = self.base / "git.log"
+        self.capd_security_log = self.base / "capd-security.log"
         self._write_executable(
             self.bin / "mise",
             """#!/usr/bin/env bash
@@ -170,6 +171,11 @@ if [[ "${1:-}" == "clone" ]]; then
     touch "$destination/FIXTURE_BARE"
     exit 0
 fi
+if [[ "${1:-}" == "ls-remote" ]]; then
+    [[ "${FAIL_CAPD_GIT:-0}" != 1 ]] || exit 32
+    printf '%s\trefs/heads/main\n' "${CAPD_REMOTE_REVISION:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
+    exit 0
+fi
 if [[ "${1:-}" == --git-dir=* ]]; then
     store="${1#--git-dir=}"
     shift
@@ -206,6 +212,26 @@ exit 91
             "#!/usr/bin/env bash\n[[ \"${WATCHER_ACTIVE:-0}\" == 1 ]] && exit 0\nexit 1\n",
         )
         self._write_executable(
+            self.bin / "plutil",
+            "#!/usr/bin/env bash\n"
+            "while [[ $# -gt 0 ]]; do case \"$1\" in -extract) key=$2; shift 2;; *) shift;; esac; done\n"
+            "case \"$key\" in CapdSourceRepository) printf '%s\\n' 'https://github.com/EzraCerpac/capd';; "
+            "CapdSourceBranch) printf 'main\\n';; CapdSourceRevision) printf '%s\\n' \"${CAPD_INSTALLED_REVISION:-}\";; "
+            "CFBundleIdentifier) printf 'dev.jxd.capd\\n';; CFBundleShortVersionString) printf '0.0.8\\n';; "
+            "*) exit 1;; esac\n",
+        )
+        self._write_executable(
+            self.bin / "codesign",
+            "#!/usr/bin/env bash\n"
+            "if [[ \"${1:-}\" == -dv ]]; then printf 'Authority=%s\\n' \"${CAPD_CODESIGN_IDENTITY:-Fixture Signer}\" >&2; fi\n"
+            "exit 0\n",
+        )
+        self._write_executable(
+            self.bin / "security",
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"$CAPD_SECURITY_LOG\"\n"
+            "printf '1 valid identity found\\n'\n",
+        )
+        self._write_executable(
             self.bin / "sudo",
             "#!/usr/bin/env bash\nexit 1\n",
         )
@@ -231,6 +257,15 @@ exit 91
                 "MISE_CONFIG_DIR": "/an/irrelevant/global/config",
                 "SETUP_CONFIG_ROOT": str(self.root),
                 "SETUP_MISE_BIN": str(self.bin / "mise"),
+                "CAPD_GIT_BIN": str(self.bin / "git"),
+                "CAPD_PLUTIL_BIN": str(self.bin / "plutil"),
+                "CAPD_CODESIGN_BIN": str(self.bin / "codesign"),
+                "CAPD_SECURITY_BIN": str(self.bin / "security"),
+                "CAPD_SECURITY_LOG": str(self.capd_security_log),
+                "CAPD_APP_PATH": str(self.base / "capd.app"),
+                "CAPD_REMOTE_REVISION": "a" * 40,
+                "CAPD_INSTALLED_REVISION": "a" * 40,
+                "CAPD_CODESIGN_IDENTITY": "Fixture Signer",
                 "SETUP_PROFILE": "workstation",
                 "SETUP_MACHINE_ID": "mac-primary",
                 "HOME": str(self.base / "home"),
@@ -252,6 +287,13 @@ exit 91
             }
         )
         Path(self.env["HOME"]).mkdir()
+        fixture_app = Path(self.env["CAPD_APP_PATH"])
+        fixture_contents = fixture_app / "Contents"
+        for relative in ("MacOS", "PlugIns/CapdShareExtension.appex"):
+            (fixture_contents / relative).mkdir(parents=True, exist_ok=True)
+        (fixture_contents / "Info.plist").write_text("fixture")
+        for name in ("CapdApp", "capd", "capd-agent"):
+            self._write_executable(fixture_contents / "MacOS" / name, "#!/usr/bin/env bash\nexit 0\n")
         codex_acp_modules = self.base / "mise-codex-acp/node_modules"
         codex_acp_cli = codex_acp_modules / ".bin/codex-acp"
         codex_acp_cli.parent.mkdir(parents=True)
@@ -835,6 +877,50 @@ esac
         self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)]])
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
+
+    def test_macos_workstation_update_runs_capd_fork_updater(self) -> None:
+        app = self.base / "capd.app"
+        contents = app / "Contents"
+        for relative in ("MacOS", "PlugIns/CapdShareExtension.appex"):
+            (contents / relative).mkdir(parents=True, exist_ok=True)
+        (contents / "Info.plist").write_text("fixture")
+        for name in ("CapdApp", "capd", "capd-agent"):
+            self._write_executable(contents / "MacOS" / name, "#!/usr/bin/env bash\nexit 0\n")
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        result = self._run(
+            "update",
+            extra_env={
+                "CAPD_APP_PATH": str(app),
+                "CAPD_GIT_BIN": str(self.bin / "git"),
+                "CAPD_PLUTIL_BIN": str(self.bin / "plutil"),
+                "CAPD_CODESIGN_BIN": str(self.bin / "codesign"),
+                "CAPD_REMOTE_REVISION": "a" * 40,
+                "CAPD_INSTALLED_REVISION": "a" * 40,
+                "CAPD_CODESIGN_IDENTITY": "Fixture Signer",
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Capd already matches EzraCerpac/capd main", result.stdout)
+        calls = [call[4:] for call in self._calls()]
+        self.assertIn(["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/local/capd-update.sh")], calls)
+        self.assertNotIn("clone", self.git_log.read_text())
+        self.assertFalse(self.capd_security_log.exists(), "no-op must not require a private signing identity")
+        self.assertNotIn("capd-install.sh", self.log.read_text())
+
+    def test_nas_update_never_runs_capd_even_on_darwin(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\nprintf 'Darwin\\n'\n")
+        result = self._run("update", extra_env={"SETUP_PROFILE": "nas"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("capd-update.sh", self.log.read_text())
+
+    def test_capd_update_failure_is_reported_without_stopping_later_stages(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        result = self._run("update", extra_env={"FAIL_CAPD_GIT": "1"})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Capd fork main", result.stdout)
+        self.assertIn("Result: failed", result.stdout)
+        self.assertIn("Update report: failures", result.stdout)
+        self.assertIn("self-update", self.log.read_text())
 
     def test_update_options_are_checked_before_source_sync_or_checkpoint(self) -> None:
         for flags in (['--dry-run'], ['--mas', '--unknown'], ['mas']):
