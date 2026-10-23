@@ -1,5 +1,6 @@
 import plistlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 VALID_REVISION = "a" * 40
 
 
+@unittest.skipUnless(sys.platform == "darwin", "uses macOS plutil")
 class CapdSourceMetadataTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
