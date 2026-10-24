@@ -21,6 +21,18 @@ return {
       opts = opts or {}
       opts.servers = opts.servers or {}
       opts.servers.pyright = { enabled = false } -- using ty instead
+      opts.servers.mise = {
+        cmd = { "mise", "lsp" },
+        mason = false,
+        filetypes = { "toml" },
+        root_markers = { "mise.toml", ".mise.toml", ".jj", ".git" },
+        -- Taplo handles general TOML features; mise adds diagnostics and task navigation.
+        init_options = {
+          formatting = false,
+          hover = false,
+          completion = false,
+        },
+      }
       -- Typst inlay hints repeatedly analyse package imports on edits and scrolling.
       opts.inlay_hints = opts.inlay_hints or {}
       opts.inlay_hints.exclude = opts.inlay_hints.exclude or {}
