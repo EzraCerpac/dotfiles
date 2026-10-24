@@ -6,7 +6,7 @@ Edit the reviewed source for a specific instruction file. Apply only that file's
 | --- | --- | --- |
 | Mac Codex | `~/.config/mise/dotfiles/.codex/AGENTS.md` | linked `~/.codex/AGENTS.md` |
 | Mac OpenCode | `~/.config/mise/dotfiles/.config/opencode/AGENTS.md` | linked `~/.config/opencode/AGENTS.md` |
-| Mac Claude | standalone `~/.claude/CLAUDE.md` | same file |
+| Mac Claude | `~/.config/mise/dotfiles/.claude/CLAUDE.md` | linked `~/.claude/CLAUDE.md` |
 | CerpacNAS Codex | `/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md` | linked `/root/.codex/AGENTS.md` |
 | CerpacNAS OpenCode | standalone `/root/.config/opencode/AGENTS.md` | same file; host exception |
 | Driehuis Codex | `/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md` | linked `/Users/server/.codex/AGENTS.md` |
