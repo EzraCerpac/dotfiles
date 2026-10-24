@@ -1,9 +1,48 @@
 local M = {}
 
+local markup_scopes = {
+  source_file = true,
+  content = true,
+  heading = true,
+  strong = true,
+  emph = true,
+  item = true,
+  term = true,
+}
+local rendered_content =
+  { text = true, math = true, ref = true, heading = true, strong = true, emph = true, item = true, term = true }
+
+local function markup_attachment(node, bufnr)
+  local preceded = false
+  while node do
+    local previous = node:prev_named_sibling()
+    while previous do
+      if rendered_content[previous:type()] and vim.treesitter.get_node_text(previous, bufnr):find("%S") then
+        preceded = true
+        break
+      end
+      previous = previous:prev_named_sibling()
+    end
+    local parent = node:parent()
+    if not parent then
+      return false
+    end
+    local kind = parent:type()
+    if markup_scopes[kind] then
+      return preceded -- Nested markup scopes cannot borrow an outer element.
+    end
+    if kind ~= "section" then
+      return false -- Code values, math and uncertain contexts need Tinymist.
+    end
+    node = parent
+  end
+  return false
+end
+
 -- Resolve literal references in the current buffer, including unsaved labels.
 function M.local_target(bufnr, row, col)
   local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "typst")
-  if not ok then
+  if not ok or not parser then
     return
   end
   local tree = parser:parse()[1]
@@ -15,7 +54,7 @@ function M.local_target(bufnr, row, col)
   local query = vim.treesitter.query.parse("typst", "(label) @label")
   local target
   for _, candidate in query:iter_captures(tree:root(), bufnr) do
-    if vim.treesitter.get_node_text(candidate, bufnr) == label then
+    if vim.treesitter.get_node_text(candidate, bufnr) == label and markup_attachment(candidate, bufnr) then
       if target then
         return -- Ambiguous labels need the compiler's interpretation.
       end

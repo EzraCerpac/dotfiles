@@ -16,6 +16,38 @@ m.goto_definition()
 assert(vim.deep_equal(vim.api.nvim_win_get_cursor(0), { 2, 10 }), "Jump directly without LSP")
 vim.api.nvim_buf_set_lines(b, 4, 4, false, { "$ z = 3 $ <eq:score>" })
 assert(not m.local_target(b, 0, 8), "Do not guess when labels are ambiguous")
+local ambiguous_lines = vim.api.nvim_buf_get_lines(b, 0, -1, false)
+for _, line in ipairs({
+  "#show <intro>: set text(blue)",
+  "#let selected = <intro>",
+  "#context query(<intro>)",
+  "#{ let selected = <intro> }",
+  "#[<intro>]",
+  "Hello #[<intro>]",
+  "Hello *<intro>*",
+  "Hello _<intro>_",
+}) do
+  vim.api.nvim_buf_set_lines(b, 0, -1, false, { line, "See @intro." })
+  assert(not m.local_target(b, 1, 6), "Do not treat code values or empty content scopes as attachments: " .. line)
+end
+for _, line in ipairs({
+  "= Intro <intro>",
+  "#[= Intro <intro>]",
+  "#block[Heading <intro>]",
+  "Hello *World <intro>*",
+  "Hello _World <intro>_",
+}) do
+  vim.api.nvim_buf_set_lines(b, 0, -1, false, { line, "See @intro." })
+  local column = assert(line:find("<intro>", 1, true)) - 1
+  assert(vim.deep_equal(m.local_target(b, 1, 6), { 1, column }), "Resolve genuine markup attachment: " .. line)
+end
+vim.api.nvim_buf_set_lines(b, 0, -1, false, {
+  "#show <intro>: set text(blue)",
+  "= Intro <intro>",
+  "See @intro.",
+})
+assert(vim.deep_equal(m.local_target(b, 2, 6), { 2, 8 }), "A selector must not make a real attachment ambiguous")
+vim.api.nvim_buf_set_lines(b, 0, -1, false, ambiguous_lines)
 print("Typst local definition tests passed")
 local original_get_clients = vim.lsp.get_clients
 local callback, timeout, cancelled, message
@@ -44,6 +76,23 @@ end
 vim.notify = function(msg)
   message = msg
 end
+local original_get_parser = vim.treesitter.get_parser
+vim.treesitter.get_parser = function()
+  return nil, "No parser available"
+end
+vim.api.nvim_win_set_cursor(0, { 1, 8 })
+m.goto_definition()
+assert(callback and timeout, "A missing parser must fall back to the Tinymist request")
+callback(nil, nil)
+vim.treesitter.get_parser = original_get_parser
+callback, timeout = nil, nil
+vim.api.nvim_buf_set_lines(b, 0, -1, false, { "#show <intro>: set text(blue)", "See @intro." })
+vim.api.nvim_win_set_cursor(0, { 2, 6 })
+m.goto_definition()
+assert(callback and timeout, "A selector-only label must fall back to Tinymist")
+callback(nil, nil)
+vim.api.nvim_buf_set_lines(b, 0, -1, false, ambiguous_lines)
+callback, timeout = nil, nil
 vim.api.nvim_win_set_cursor(0, { 1, 8 })
 m.goto_definition()
 assert(callback and timeout, "Use a bounded server request for ambiguous or external targets")
