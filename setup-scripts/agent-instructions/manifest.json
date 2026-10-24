@@ -50,13 +50,13 @@
           "authority": "user-owned standalone file; actual Git/JJ capability and scoped formatter cleanup",
           "source": {
             "path": "/Users/ezracerpac/.claude/CLAUDE.md",
-            "sha256": "1ca40462e552860000c1163f319f87cbca23a74f77459a6b4e36fc5c02a20bab",
+            "sha256": "971e485ca816a67a8077aa0dc3c8cbbf04b3b47c7c845c60ce4468df71c6d68e",
             "is_symlink": false,
             "realpath": "/Users/ezracerpac/.claude/CLAUDE.md"
           },
           "target": {
             "path": "/Users/ezracerpac/.claude/CLAUDE.md",
-            "sha256": "1ca40462e552860000c1163f319f87cbca23a74f77459a6b4e36fc5c02a20bab",
+            "sha256": "971e485ca816a67a8077aa0dc3c8cbbf04b3b47c7c845c60ce4468df71c6d68e",
             "is_symlink": false,
             "realpath": "/Users/ezracerpac/.claude/CLAUDE.md"
           }
