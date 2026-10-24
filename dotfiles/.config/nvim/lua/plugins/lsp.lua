@@ -34,6 +34,16 @@ return {
         tinymist.mason = false
       end
       opts.servers.tinymist = vim.tbl_deep_extend("force", tinymist, {
+        keys = {
+          {
+            "gd",
+            function()
+              require("custom.typst_definition").goto_definition()
+            end,
+            desc = "Goto Definition",
+            has = "definition",
+          },
+        },
         root_markers = typst_root_markers,
         settings = vim.tbl_deep_extend("force", tinymist.settings or {}, {
           compileStatus = "enable",
@@ -57,6 +67,10 @@ return {
         end
         -- Tinymist still advertises this capability when semanticTokens is disabled.
         client.server_capabilities.semanticTokensProvider = nil
+        -- These background queries can swamp Tinymist's thesis import analysis.
+        client.server_capabilities.colorProvider = nil
+        client.server_capabilities.foldingRangeProvider = nil
+        client.server_capabilities.documentHighlightProvider = nil
         local references = require("custom.typst_references")
         references.attach(client)
         local previous_status = client.handlers["tinymist/compileStatus"] or vim.lsp.handlers["tinymist/compileStatus"]
