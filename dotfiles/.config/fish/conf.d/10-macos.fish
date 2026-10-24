@@ -48,6 +48,12 @@ if test (uname) = Darwin
         end
     end
 
+    # ---------- SSH agent ----------
+    # jj signs every commit with the SSH key, so load it from the Keychain.
+    if command -q ssh-add; and not ssh-add -l >/dev/null 2>&1
+        ssh-add --apple-load-keychain -q 2>/dev/null
+    end
+
     # ---------- Tailscale ----------
     set -l tailscale_cli /Applications/Tailscale.app/Contents/MacOS/Tailscale
     if test -x "$tailscale_cli"
