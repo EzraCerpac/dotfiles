@@ -21,9 +21,9 @@ Delegate heavily, by prompt rather than persona: tell each subagent what to do, 
 - gpt-6-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful (30 is fine), but never let Luna write or edit files.
 - gpt-6.1-sol for implementation and for anything that benefits from computer use or browser and desktop automation, where it is strongest.
 - Never spawn gpt-6-astra as a subagent.
-- Through the Claude Code MCP server (`claude-code`: `claude_code`, `claude_code_reply`, `claude_code_check`; pick `model` and `effort` per thread), when it is enabled: Opus for frontend and UI design and any substantial writing, where it is clearly stronger; Sonnet for routine implementation and research; Haiku for cheap read-only fan-out.
+- Claude agents: Opus for frontend and UI design and any substantial writing, where it is clearly stronger; Sonnet for routine implementation and research; Haiku for cheap read-only fan-out.
 
-Have gpt-6.1-sol review every large change Claude makes, then fix or explain each finding. Keep planning, architecture, integration and final accountability in the lead, and one writer per checkout. Brief narrowly, ask for concise findings with file:line references, and spot-check results you build on. Follow the runtime host's delegation policy, available models and capacity; do not create a new task unless authorized. Use native Codex worktrees for authorized isolated coding, and local for read-only coordination or an interactive checkout that must stay in place. Local mode does not authorize edits to another writer's checkout.
+Have gpt-6.1-sol review every large change Claude makes, then fix or explain each finding. Keep planning, architecture, integration and final accountability in the lead, and one writer per checkout. Brief narrowly, ask for concise findings with file:line references, and spot-check results you build on. Follow the runtime host's delegation policy, available models and capacity. Use native Codex worktrees for authorized isolated coding, and local for read-only coordination or an interactive checkout that must stay in place. Local mode does not authorize edits to another writer's checkout.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
