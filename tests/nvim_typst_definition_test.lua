@@ -33,13 +33,30 @@ end
 for _, line in ipairs({
   "= Intro <intro>",
   "#[= Intro <intro>]",
-  "#block[Heading <intro>]",
+  "#[Heading <intro>]",
   "Hello *World <intro>*",
   "Hello _World <intro>_",
 }) do
   vim.api.nvim_buf_set_lines(b, 0, -1, false, { line, "See @intro." })
   local column = assert(line:find("<intro>", 1, true)) - 1
   assert(vim.deep_equal(m.local_target(b, 1, 6), { 1, column }), "Resolve genuine markup attachment: " .. line)
+end
+for _, line in ipairs({
+  "#let unused = [= Hidden <intro>]",
+  "#let hidden() = [= Hidden <intro>]",
+  "#let hidden = () => [= Hidden <intro>]",
+  "#if false [= Hidden <intro>]",
+  "#for value in () [= Hidden <intro>]",
+  "#block[Heading <intro>]",
+  "#context [= Hidden <intro>]",
+  "#rect() <intro>",
+  "#let hidden = [#rect() <intro>]",
+  "= <intro>",
+}) do
+  vim.api.nvim_buf_set_lines(b, 0, -1, false, { line, "See @intro." })
+  assert(not m.local_target(b, 1, 6), "Uncertain markup emission needs Tinymist: " .. line)
+  vim.api.nvim_buf_set_lines(b, 0, -1, false, { line, "= Intro <intro>", "See @intro." })
+  assert(not m.local_target(b, 2, 6), "An uncertain attachment must not be ignored beside a root heading: " .. line)
 end
 vim.api.nvim_buf_set_lines(b, 0, -1, false, {
   "#show <intro>: set text(blue)",

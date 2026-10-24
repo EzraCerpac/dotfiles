@@ -12,6 +12,22 @@ local markup_scopes = {
 local rendered_content =
   { text = true, math = true, ref = true, heading = true, strong = true, emph = true, item = true, term = true }
 
+local function emitted_markup(node)
+  while node:parent() do
+    local parent = node:parent()
+    local kind = parent:type()
+    if kind == "code" then
+      if node:type() ~= "content" then
+        return -- Only a directly emitted literal content block is provable.
+      end
+    elseif kind ~= "section" and not markup_scopes[kind] then
+      return -- Assignments, functions and conditional or repeated content need Tinymist.
+    end
+    node = parent
+  end
+  return node:type() == "source_file" or nil
+end
+
 local function markup_attachment(node, bufnr)
   local preceded = false
   while node do
@@ -29,7 +45,11 @@ local function markup_attachment(node, bufnr)
     end
     local kind = parent:type()
     if markup_scopes[kind] then
-      return preceded -- Nested markup scopes cannot borrow an outer element.
+      -- Without a proven predecessor, even an empty heading may own the label.
+      if preceded then
+        return emitted_markup(parent)
+      end
+      return
     end
     if kind ~= "section" then
       return false -- Code values, math and uncertain contexts need Tinymist.
@@ -54,12 +74,18 @@ function M.local_target(bufnr, row, col)
   local query = vim.treesitter.query.parse("typst", "(label) @label")
   local target
   for _, candidate in query:iter_captures(tree:root(), bufnr) do
-    if vim.treesitter.get_node_text(candidate, bufnr) == label and markup_attachment(candidate, bufnr) then
-      if target then
-        return -- Ambiguous labels need the compiler's interpretation.
+    if vim.treesitter.get_node_text(candidate, bufnr) == label then
+      local attached = markup_attachment(candidate, bufnr)
+      if attached == nil then
+        return -- An uncertain attachment could render beside a known one.
       end
-      local r, c = candidate:range()
-      target = { r + 1, c }
+      if attached then
+        if target then
+          return -- Ambiguous labels need the compiler's interpretation.
+        end
+        local r, c = candidate:range()
+        target = { r + 1, c }
+      end
     end
   end
   return target
