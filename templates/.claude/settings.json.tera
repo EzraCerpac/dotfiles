@@ -1,0 +1,100 @@
+{#- Claude Code user settings for every managed host. Claude may rewrite the
+    deployed file (e.g. /config); edit this source and reapply instead.
+    The herdr session hook is added only where its script exists. -#}
+{%- set herdr_hook = env.HOME ~ "/.claude/hooks/herdr-agent-state.sh" -%}
+{%- set herdr = herdr_hook is file -%}
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+{%- if herdr %}
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '{{ herdr_hook }}' session",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+{%- endif %}
+  "enableWorkflows": true,
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "codex-subagents@codex-subagents": true
+  },
+  "extraKnownMarketplaces": {
+    "codex-subagents": {
+      "source": {
+        "source": "github",
+        "repo": "xuio/claude-code-codex-subagents"
+      }
+    }
+  },
+  "outputStyle": "Concise",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high",
+      "autoCompactWindow": 500000
+    },
+    "claude-haiku-5-5": {
+      "autoCompactWindow": 100000
+    },
+    "claude-sonnet-5-5": {
+      "autoCompactWindow": 300000
+    },
+    "claude-fable-5-1": {
+      "autoCompactWindow": 400000
+    }
+  },
+  "tui": "fullscreen",
+  "theme": "auto",
+  "editorMode": "vim",
+  "preferredNotifChannel": "auto",
+  "autoContinueAtUsageLimit": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "jj (Jujutsu) operations on local, mutable changes in the user's own repos: status/log/diff/show, new, describe, commit, edit, squash, split, absorb, rebase, abandon, restore, duplicate, resolve, undo/op restore, converge --no-interactive, workspace add/forget/update-stale, bookmark create/set/move for the task's own bookmark, git fetch, and git push of a non-main task bookmark to a GitHub remote (GitLab pushes stay covered by the GitLab soft_deny). Content rules (credential leakage, the secret and thesis rules, the dotfiles hard_deny) still apply to what is pushed. Rewriting immutable or already-pushed shared history, moving main, or deleting others' bookmarks is not covered",
+      "jw / wt workspace and worktree lifecycle commands (create, switch, list, remove task-owned workspaces) in the user's own repos",
+      "Local git housekeeping on the user's own repos: branch/switch/stash/rebase/commit/amend on unpushed task branches, fetch, worktree add/remove for task-owned worktrees, and pushing a non-default task branch to a GitHub remote. Content rules (credential leakage, the secret and thesis rules, the dotfiles hard_deny) still apply to what is pushed",
+      "chezmoi diff/status and chezmoi apply / dots runs when the user asked to apply or sync their dotfiles, even though they overwrite files in the home folder and run the repo's own run_* scripts. Not covered: a diff that overwrites listed secret files (see soft_deny), and chezmoi add / re-add of secret material (see hard_deny)",
+      "Force-pushing main of the dotfiles repo (github.com/EzraCerpac/dotfiles) when the user asks — they are the sole author. The hard_deny secret rule still applies to the content",
+      "Project tooling in the user's own repos: mise run/install/use/trust, uv sync/add/remove/run/lock, julia --project (Pkg instantiate/add/test, running scripts), npm/pnpm/bun install and run scripts, local formatters, linters and test suites",
+      "Starting, stopping and querying local dev servers through Portless or a project's own run task on localhost",
+      "Read-only gh commands (pr/issue/run view, list, checks, api GET) and gh pr create on the user's own repos. Content rules (credential leakage, the secret and thesis rules, the dotfiles hard_deny) still apply to what is pushed; merging PRs is not covered",
+      "Delegating work to OpenAI Codex through the codex-subagents plugin MCP tools (codex_task, codex_task_group, codex_followup, codex_wait_any) with GPT-6 Luna or GPT-6.1 Sol, many in parallel and at any reasoning level, using the read-only or workspace-write sandbox on the user's own repos — the user explicitly wants heavy Codex delegation. full_access: true is covered only when the task needs network or writes outside the project and the lead states why. Content rules (secrets, thesis content, GitLab pushes) still apply to what Codex is asked to do"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Deleting, truncating or overwriting secret material (secrets/ directories, .env / .env.* files, github_tokens.toml, ~/.git-credentials, ssh private keys, and any file whose content is a live credential or token — including their chezmoi source-state names (dot_, private_, executable_, encrypted_ prefixes and .tmpl variants). File names merely containing 'token' (e.g. tokenizer.jl) do not count. The tracked helper scripts setup-scripts/lib/github-credential.sh, setup-scripts/setup/jev-secret and setup-scripts/setup/secrets are secret-handling code, not secrets: editing them is fine as long as no secret value is written into them) that existed before this session, including via chezmoi apply / dots when the diff touches such a file — must name: the specific file. Files the agent created earlier in this session are exempt",
+      "Committing or pushing, in any repo other than the dotfiles repo, a change that adds or alters plaintext secret material (secrets/ directories, .env / .env.* files, github_tokens.toml, ~/.git-credentials, ssh private keys, and any file whose content is a live credential or token — including their chezmoi source-state names (dot_, private_, executable_, encrypted_ prefixes and .tmpl variants). File names merely containing 'token' (e.g. tokenizer.jl) do not count. The tracked helper scripts setup-scripts/lib/github-credential.sh, setup-scripts/setup/jev-secret and setup-scripts/setup/secrets are secret-handling code, not secrets: editing them is fine as long as no secret value is written into them) — must name: the file and the destination repo. Removing secrets or committing encrypted blobs is fine",
+      "Sending, pasting or uploading secret material or thesis content to any external service, gist, artifact or repo other than its own remotes — must name: the destination",
+      "Any push to a GitLab remote, e.g. the thesis origin gitlab.ewi.tudelft.nl:scala/student-projects/master-thesis-projects/ezra-cerpac.git — by git push, jj git push (including --all/--tracked or a bookmark tracking that remote), or glab mr merge — must name: GitLab or origin for this push. Pushes to GitHub remotes, including github.com/EzraCerpac/master-thesis, are not covered by this rule"
+    ],
+    "hard_deny": [
+      "$defaults",
+      "Committing (even locally) or pushing, in the public dotfiles repo ~/.config/mise (github.com/EzraCerpac/dotfiles), any change that adds or alters plaintext secret material (secrets/ directories, .env / .env.* files, github_tokens.toml, ~/.git-credentials, ssh private keys, and any file whose content is a live credential or token — including their chezmoi source-state names (dot_, private_, executable_, encrypted_ prefixes and .tmpl variants). File names merely containing 'token' (e.g. tokenizer.jl) do not count. The tracked helper scripts setup-scripts/lib/github-credential.sh, setup-scripts/setup/jev-secret and setup-scripts/setup/secrets are secret-handling code, not secrets: editing them is fine as long as no secret value is written into them). This includes chezmoi add / re-add that pulls a secret into the source tree, and jj working-copy snapshots that would start tracking one (the repo is jj-colocated; its secret paths are gitignored, so ordinary jj commands are fine while they stay ignored — un-ignoring or force-adding a secret path is what this blocks). Overrides the dotfiles standing-intent carve-out. Not covered: chezmoi age/gpg-encrypted files, removing secrets from tracking, scrubbing a hardcoded secret out of a file"
+    ],
+    "environment": [
+      "$defaults",
+      "**Organization** (supersedes default): None — personal machine of an individual developer (GitHub account EzraCerpac); no employer org, cloud provider, CI/CD deploy targets or internal registry configured",
+      {% if vars.profile == "nas" %}"**Host containment** (supersedes default): always-on headless home server (macOS NAS, e.g. DriehuisNAS) with open internet, running personal services under launchd and Remote Control sessions started from claude.ai projects; no sandbox or network allowlist. Do not stop, restart or reconfigure its services unless the task is about that service"{% else %}"**Host containment** (supersedes default): ordinary macOS developer laptop with open internet; no sandbox or network allowlist"{% endif %},
+      "**Source control** (supersedes default): repositories owned by github.com/EzraCerpac and the user's own TU Delft GitLab projects are the user's own and trusted for their own content only — visibility still governs, and content of one repo does not belong in another (thesis content goes only to the two thesis remotes). Anything else is third-party",
+      "**Internal sharing (supersedes default) / snippet hosting**: none — treat public paste/gist services as outside the trust boundary",
+      "**Sensitive data locations** (supersedes default): personal data and credentials — secrets/ directories, .env / .env.* files, github_tokens.toml, ~/.git-credentials, ssh private keys, setup-scripts/lib/github-credential.sh, setup-scripts/setup/jev-secret, setup-scripts/setup/secrets, or any file whose content is a live credential or token (file names merely containing 'token', such as tokenizer.jl, do not count)",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited)",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything named or tagged `prod`/`production`",
+      "**Trusted repo — dotfiles**: {{ env.HOME }}/.config/mise (personal mise/chezmoi dotfiles), remote origin https://github.com/EzraCerpac/dotfiles.git. PUBLIC: anything committed or pushed there is world-readable. Sole author; no protected branches. Secret handling is governed by the hard_deny rule",
+      "**Trusted repo — thesis**: {{ env.HOME }}/Projects/Thesis/ezra-cerpac (and its sibling worktrees under ~/Projects/Thesis/) — MSc thesis on adaptive solver selection for energy-based nonlinear minimization (Julia package + research web app under code/). Remotes: origin gitlab.ewi.tudelft.nl:scala/student-projects/master-thesis-projects/ezra-cerpac.git and github git@github.com:EzraCerpac/master-thesis.git. Treat both as PRIVATE unpublished academic work (if a remote is ever reported public, pushing there is publishing). Pushing to the GitHub remote is routine; pushing to the GitLab origin needs Ezra to ask for it (soft_deny rule)",
+      "**Personal CLIs (context only; being listed does not exempt any block rule)**: jj/jw (Jujutsu + workspace switcher), wt (git worktree manager for parallel agents), mise, uv, brew, chezmoi and dots (dotfiles apply/setup — overwrite home-folder files), v (alias for nvim), bat, tldr, atuin (shell history), hunk (diff/patch tool), herdr (agent terminal multiplexer), julia, gh. pi, openclaw and ollama are agent/model runners: launching them unattended (full-auto, bypass flags) is still Create Unsafe Agents. Codex is the user's preferred cheap delegate (see allow rules). omlx, vl and codegraph are not identified"
+    ]
+  }
+}

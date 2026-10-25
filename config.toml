@@ -94,7 +94,8 @@ codex = "latest"
 "~/.config/kanata/config.kbd" = { source = "dotfiles/.config/kanata/config.kbd", mode = "symlink" }
 "~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink" }
 "~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template" }
-"~/.claude/CLAUDE.md" = { source = "dotfiles/.claude/CLAUDE.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
+"~/.claude/CLAUDE.md" = { source = "dotfiles/.claude/CLAUDE.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }, { os = "macos", profile = "nas" }] }
+"~/.claude/settings.json" = { source = "templates/.claude/settings.json.tera", mode = "template", permissions = "0600", variants = [{ os = "macos" }] }
 "~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
 ".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
