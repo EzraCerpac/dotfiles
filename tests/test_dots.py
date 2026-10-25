@@ -91,6 +91,29 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(call['root'], str(self.root))
         self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
 
+    def test_houseatlas_unavailable_route_does_not_load_mise_or_update_packages(self):
+        shutil.copy2(SOURCE.parents[3] / 'setup-scripts/lib/houseatlas-maintenance.py',
+                     self.root / 'setup-scripts/lib/houseatlas-maintenance.py')
+        for command in ('up', 'update'):
+            for action in ('check', 'apply', 'status'):
+                with self.subTest(command=command, action=action):
+                    result = self.run_dots(command, 'houseatlas', action)
+                    self.assertEqual(result.returncode, 3, result.stderr)
+                    self.assertEqual(json.loads(result.stdout)['availability'], 'unavailable')
+                    self.assertIn('no request was sent', result.stderr)
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(self.uv_calls(), [])
+
+    def test_houseatlas_rejects_unsupported_actions_options_and_help_extras(self):
+        for args in ([], ['deploy'], ['apply', '--url', 'https://example.invalid'],
+                     ['status', '--mas'], ['--help', 'apply']):
+            result = self.run_dots('up', 'houseatlas', *args)
+            self.assertEqual(result.returncode, 2, result.stderr)
+        result = self.run_dots('up', 'houseatlas', '--help')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('binding is unavailable', result.stdout)
+        self.assertEqual(self.calls(), [])
+
     def test_update_alias_and_mas_opt_in_are_rooted(self):
         for command, flags in [('update', []), ('up', ['--mas']), ('update', ['--mas'])]:
             with self.subTest(command=command, flags=flags):

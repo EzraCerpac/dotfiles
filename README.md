@@ -148,6 +148,31 @@ This does not publish dotfile source, update project dependencies,
 upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
 
+HouseAtlas maintenance is a separate, deliberate caller:
+`dots up houseatlas check`, `dots up houseatlas apply`, or
+`dots up houseatlas status` (`dots update` is also accepted). These currently
+return **unavailable**, exit 3, and send no request. They do not read stdin,
+load mise, synchronize source, install a runtime or run package updates.
+Unsupported actions/options exit 2. Ordinary `dots up` never invokes HouseAtlas.
+
+The source adapter uses HouseAtlas's existing fixed `MaintenanceOwner.call`
+check/apply/status tools, preserving the original bounded UTF-8 request and
+updater result. It supplies no transport, credentials or maintenance authority.
+Check can stage bytes; `ok=true` means handled, and phase, `healthVerified` and
+`recoveryNeeded` determine the outcome. One caller permits at most one apply
+attempt, even when its response is lost. Thereafter it allows only status for
+that original operation ID; it never retries apply or creates another ID.
+Historical success is not fresh installed evidence.
+
+Before enabling an installed binding, the HouseAtlas owner must qualify the
+shared controller, durable operation reconciliation across caller restarts,
+target and action-time authorization. The CLI deliberately has no environment
+override, endpoint option, dynamic import or shell-installer fallback.
+[dotfiles #64](https://github.com/EzraCerpac/dotfiles/issues/64) tracks this caller;
+[HouseAtlas #290](https://github.com/EzraCerpac/HouseAtlas/issues/290) owns the
+controller/API/MCP/app contract. Claude's HouseAtlas deployment tooling remains
+separate and is not invoked by dots.
+
 
 ## Add a tool
 
