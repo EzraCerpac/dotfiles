@@ -115,6 +115,14 @@
 [credential "https://git.overleaf.com"]
 	helper = cache
 	username = e.cerpac@student.tudelft.nl
+# gh supplies GitHub tokens; the empty helper keeps the keychain out of it.
+# The mise shim path survives gh upgrades, unlike `gh auth setup-git`'s.
+[credential "https://github.com"]
+	helper =
+	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
 {%- if os() == "macos" %}
 [credential]
 	helper = osxkeychain
