@@ -126,6 +126,23 @@
             "realpath": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md"
           },
           "shared_block_required": true
+        },
+        {
+          "id": "driehuisnas-claude",
+          "client": "Claude",
+          "authority": "active mise symlink selected by macOS NAS role and native OS variant",
+          "source": {
+            "path": "/Users/server/.config/mise/dotfiles/.claude/CLAUDE.md",
+            "sha256": "971e485ca816a67a8077aa0dc3c8cbbf04b3b47c7c845c60ce4468df71c6d68e",
+            "is_symlink": false,
+            "realpath": "/Users/server/.config/mise/dotfiles/.claude/CLAUDE.md"
+          },
+          "target": {
+            "path": "/Users/server/.claude/CLAUDE.md",
+            "sha256": "971e485ca816a67a8077aa0dc3c8cbbf04b3b47c7c845c60ce4468df71c6d68e",
+            "is_symlink": true,
+            "realpath": "/Users/server/.config/mise/dotfiles/.claude/CLAUDE.md"
+          }
         }
       ],
       "ssh_alias": "driehuisnas"
