@@ -8,7 +8,7 @@ Use `dots status`, `dots up`, `dots backup`, or `dots restore` for routine maint
 
 Capd is a user-authorized exception to the routine update boundary: macOS workstation `dots up` may install a changed, locally built `EzraCerpac/capd` `main` revision and restore its prior running state. Its updater must exit without rebuild or restart when the installed app matches current fork `main`; NAS updates must skip Capd.
 
-`miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored. App-written settings remain regular files with encrypted history in the private `dotfiles-state` repository. Keep private keys and application state out of this public repository.
+`miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored. App-written settings remain regular files with encrypted history in the private `dotfiles-state` repository. Claude Code `settings.json` is the exception: it renders from a reviewed template (see `docs/agent-instructions.md`). Keep private keys and application state out of this public repository.
 
 The shared base loads for every machine. Explicit roles are `workstation` and `nas`; DelftBlue is retired. Codex instructions on the Mac, CerpacNAS, and Driehuis NAS resolve to their local mise sources. This verifies selected instruction ownership, not full machine cutover. Preserve host exceptions, services, and system software. DelftBlue is preserved without a cluster deployment. See `docs/agent-instructions.md` for the selected sources and on-demand drift check.
 

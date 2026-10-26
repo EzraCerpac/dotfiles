@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only check of six reviewed instruction routes and the shared Codex block."""
+"""Read-only check of seven reviewed instruction routes and the shared Codex block."""
 import argparse
 import json
 import shlex
@@ -11,10 +11,11 @@ HOMES = {"mac": "/Users/ezracerpac", "cerpacnas": "/root", "driehuisnas": "/User
 ROUTES = {
     "mac-codex": (".config/mise/dotfiles/.codex/AGENTS.md", ".codex/AGENTS.md"),
     "mac-opencode": (".config/mise/dotfiles/.config/opencode/AGENTS.md", ".config/opencode/AGENTS.md"),
-    "mac-claude": (".claude/CLAUDE.md", ".claude/CLAUDE.md"),
+    "mac-claude": (".config/mise/dotfiles/.claude/CLAUDE.md", ".claude/CLAUDE.md"),
     "cerpacnas-codex": (".config/mise/dotfiles/.codex/AGENTS.cerpacnas.md", ".codex/AGENTS.md"),
     "cerpacnas-opencode": (".config/opencode/AGENTS.md", ".config/opencode/AGENTS.md"),
     "driehuisnas-codex": (".config/mise/dotfiles/.codex/AGENTS.driehuisnas.md", ".codex/AGENTS.md"),
+    "driehuisnas-claude": (".config/mise/dotfiles/.claude/CLAUDE.md", ".claude/CLAUDE.md"),
 }
 
 PROBE = '''import hashlib,json,os,sys

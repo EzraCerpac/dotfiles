@@ -17,7 +17,12 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
-Always make heavy use of subagents; running 30 gpt-6-luna agents if fine and even encouraged. Extremely small, bounded edits may finish in the lead without mandatory delegation. Make heavy use of useful independent research, diagnostics, review and isolated implementation with narrow briefs and concise findings; delegate the bulk of suitable independent work. Keep planning, architecture, integration and final accountability in the lead. Prefer gpt-6-luna at high/xhigh for bounded leaf work and gpt-6.1-sol at medium/high for harder implementation where available. Keep independent workers running when their work adds value, then integrate their findings. Follow the runtime host's delegation policy, available models and capacity; do not create a new task unless authorized. Use native Codex worktrees for authorized isolated coding, and local for read-only coordination or an interactive checkout that must stay in place. Local mode does not authorize edits to another writer's checkout. Prefer Claude Code MCP for frontend work when suitable and available.
+Unless the task is extremely small, delegate heavily: tell each subagent what to do, which model and reasoning effort fit the task, and what to return. Limit the work you do yourself. Choose models by strength:
+- gpt-6-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
+- gpt-6.1-terra for browser and desktop computer use, visual inspection, and routine drafting or revision. Consider it for straightforward, bounded implementation.
+- gpt-6.1-sol for complex implementation, architecture-sensitive changes, difficult debugging, and computer-use tasks that require stronger technical judgment.
+- Never spawn gpt-6-astra as a subagent.
+- Claude agents: use Opus for frontend and UI design and substantial writing.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
