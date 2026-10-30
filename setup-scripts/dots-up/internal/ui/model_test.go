@@ -242,6 +242,24 @@ func TestHierarchicalAreaNavigationKeepsSelectionAndOpensChildDetails(t *testing
 	}
 }
 
+func TestSpaceCollapseFromDetailsRestoresAreaOverview(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
+	m = send(m, Event{V: 1, Kind: "change", Stage: "tools", Item: "ripgrep", Before: "14", After: "15"})
+	m = send(m, Event{V: 1, Kind: "stage_end", ID: "tools", Status: "ok", Summary: "Updated one tool"})
+	m.selectGroup(m.groupIndex("Tools"))
+	m.expandSelectedGroup()
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.DetailFocus || !strings.Contains(m.View().Content, "STAGE DETAILS") {
+		t.Fatal("test did not enter the child detail view")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeySpace})
+	view := m.View().Content
+	if m.ExpandedGroup >= 0 || m.DetailFocus || !strings.Contains(view, "CHANGES  1") || strings.Contains(view, "STAGE DETAILS") || strings.Contains(view, "Updated one tool") {
+		t.Fatalf("Space left stale child details in the collapsed overview: %s", view)
+	}
+}
+
 func TestLargeExpandedAreaKeepsSelectedChildAndFooterVisible(t *testing.T) {
 	root := t.TempDir()
 	lastLog := filepath.Join(root, "managed-app-24.log")
@@ -289,6 +307,30 @@ func TestLargeExpandedAreaKeepsSelectedChildAndFooterVisible(t *testing.T) {
 	m = press(m, tea.KeyPressMsg{Code: 'l'})
 	if !m.ShowLog || !strings.Contains(m.lastLog, "last managed app output") {
 		t.Fatal("logs did not use the selected last child")
+	}
+}
+
+func TestMiddleChildDetailsReserveHeadingRowInLongArea(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	for i := range 25 {
+		id := fmt.Sprintf("app-%02d", i)
+		m = send(m, Event{V: 1, Kind: "stage_start", ID: id, Group: "Managed apps/local builds", Label: fmt.Sprintf("Managed app %02d", i)})
+		m = send(m, Event{V: 1, Kind: "stage_end", ID: id, Status: "ok", Summary: "completed"})
+	}
+	m = send(m, Event{V: 1, Kind: "run_end", ExitCode: 0})
+	m.selectGroup(m.groupIndex("Managed apps/local builds"))
+	m.expandSelectedGroup()
+	for range 17 {
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	view := m.View().Content
+	if !m.DetailFocus || !strings.Contains(view, "earlier update steps") || !strings.Contains(view, "later update steps") || !strings.Contains(view, "STAGE DETAILS") || !strings.Contains(view, "Finished") {
+		t.Fatal("middle child detail view is missing the list window, heading, or footer")
+	}
+	if rows := len(strings.Split(view, "\n")); rows > m.Height {
+		t.Fatalf("middle child detail view used %d rows in a %d-row terminal: %s", rows, m.Height, view)
 	}
 }
 

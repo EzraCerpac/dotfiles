@@ -136,6 +136,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.ExpandedGroup == m.SelectedGroup {
 				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
 				m.collapseGroup()
+				m.refreshDetail()
 			} else {
 				m.expandSelectedGroup()
 			}
@@ -426,11 +427,15 @@ func (m *Model) collapseGroup() {
 
 func (m Model) childCapacity() int {
 	reserved := 3 + 1 + 1 + 1 + 1 // header, area, divider, current stage, and footer
+	reserved++                    // line break after the detail/overview viewport
 	if m.AppStoreIndex >= 0 {
 		reserved++
 	}
 	if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
 		reserved++
+	}
+	if !m.overview() && !m.RawLog {
+		reserved++ // non-raw detail/log heading
 	}
 	if m.Searching {
 		reserved++
