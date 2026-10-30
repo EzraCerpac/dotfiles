@@ -44,7 +44,7 @@ gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 glow = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 jjui = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 lazygit = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-opencode = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+"npm:@opencode/cli" = { version = "latest", allow_builds = ["@opencode/cli"], os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "github:jgm/pandoc" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rclone = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 sccache = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }

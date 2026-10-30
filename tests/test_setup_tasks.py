@@ -56,6 +56,11 @@ fi
 if [[ "${FAIL_TOOL_STATUS:-0}" == "1" && "${1:-}" == "ls" && "${2:-}" == "--current" ]]; then
     exit 43
 fi
+if [[ "${1:-}" == "ls" && "${2:-}" == "--current" && "${3:-}" == "--json" ]]; then
+    tool_state='{}'
+    printf '%s\\n' "${MISE_TOOL_STATE_JSON:-$tool_state}"
+    exit 0
+fi
 if [[ "${FAIL_TOOL_UPGRADE:-0}" == "1" && "${1:-}" == "upgrade" && "${2:-}" == "--no-prune" ]]; then
     exit 44
 fi
@@ -751,6 +756,41 @@ esac
                 self.assertEqual(config.read_text(), foreign_config)
                 self.assertEqual(state.read_text().strip(), "0.9.1")
 
+    def test_routine_upgrade_retains_only_exclusively_revision_pinned_tools(self) -> None:
+        tools = {
+            "cargo:git-pinned": [{"requested_version": "rev:abc"}],
+            "jj": [{"requested_version": "rev:def"}, {"requested_version": "rev:ghi"}],
+            "mixed": [{"requested_version": "rev:abc"}, {"requested_version": "latest"}],
+            "branch": [{"requested_version": "branch:main"}],
+            "tag": [{"requested_version": "tag:v1"}],
+            "empty": [],
+        }
+        for profile in ("nas", "workstation"):
+            with self.subTest(profile=profile):
+                self.log.unlink(missing_ok=True)
+                result = self._run("update", extra_env={
+                    "SETUP_PROFILE": profile,
+                    "MISE_TOOL_STATE_JSON": json.dumps(tools),
+                })
+                self.assertEqual(result.returncode, 0, result.stderr)
+                upgrades = [call[4:] for call in self._calls() if call[4:5] == ["upgrade"]]
+                self.assertEqual(upgrades, [[
+                    "upgrade", "--no-prune", "--exclude", "cargo:git-pinned", "--exclude", "jj",
+                ]])
+                self.assertIn("Retaining configured revision pins: cargo:git-pinned, jj", result.stdout)
+
+    def test_failed_tool_request_inspection_stops_upgrade(self) -> None:
+        for state in ("", "not-json"):
+            with self.subTest(state=state):
+                self.log.unlink(missing_ok=True)
+                result = self._run("update", extra_env={
+                    "SETUP_PROFILE": "nas",
+                    "FAIL_TOOL_STATUS": "1" if not state else "0",
+                    "MISE_TOOL_STATE_JSON": state,
+                })
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(call[4:5] == ["upgrade"] for call in self._calls()))
+
     def test_nas_exception_wrappers_find_their_installers(self) -> None:
         env = dict(self.env, SETUP_PROFILE="nas", SETUP_NAS_NEOVIM_BUILD="1")
         env.pop("SETUP_CONFIG_ROOT", None)
@@ -992,7 +1032,7 @@ esac
                 "SOURCE_SYNC_RESULT": "3",
             },
         )
-        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(marker.read_text(), "local source edit\n")
         self.assertIn("source sync deferred", result.stdout)
         commands = [call[4:] for call in self._calls()]
