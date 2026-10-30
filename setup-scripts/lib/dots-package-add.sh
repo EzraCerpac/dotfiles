@@ -22,6 +22,15 @@ setup_root="$2"
 target_file="$3"
 shift 3
 source "$setup_root/setup-scripts/lib/dots-add-common.sh"
+source "$setup_root/setup-scripts/lib/dots-up-events.sh"
+source "$setup_root/setup-scripts/lib/dots-command-events.sh"
+
+emit_package() {
+    local json
+    json="$(dots_up_event_json --arg id "package:$1" --arg label "$1" --arg status "$2" --arg summary "$3" \
+        '{v:1,kind:"item_upsert",id:$id,group:"Software",label:$label,status:$status,summary:$summary}')"
+    dots_up_emit_event "$json"
+}
 
 [[ -x "$mise_bin" ]] || { printf 'dots: mise executable is missing: %s\n' "$mise_bin" >&2; exit 2; }
 [[ -d "$setup_root" ]] || { printf 'dots: setup root is missing: %s\n' "$setup_root" >&2; exit 2; }
@@ -262,6 +271,7 @@ record_package() {
 
 failed_package() {
     local status="$1" config="$2" key="$3" value="$4"
+    emit_package "$key" failed "Installation or resolution failed"
     printf 'dots: failed to install package: %s\n' "$key" >&2
     if [[ "$status" -ne 130 && "$status" -ne 143 ]] && \
         dots_record_failed "$(describe_declaration "$key" "$value")" "$target_file"; then
@@ -372,17 +382,20 @@ for index in "${!resolved_keys[@]}"; do
     package_key="${resolved_keys[$index]}"
     install_config="${staged_configs[$index]}"
     old_key="${replace_keys[$index]}"
+    emit_package "$package_key" running "Installing"
     printf 'Installing %s\n' "$package_key"
-    if isolated_apply "$install_config" --yes; then
+    if dots_terminal_run "package-install-$index" "Install $package_key" isolated_apply "$install_config" --yes; then
         if record_package "$install_config" "$package_key" "$old_key"; then
-            :
+            emit_package "$package_key" ok "Installed and recorded"
         else
             record_status=$?
+            emit_package "$package_key" failed "Installed, but recording failed"
             printf 'dots: %s installed, but its declaration could not be recorded\n' "$package_key" >&2
             exit "$record_status"
         fi
     else
         install_status=$?
+        [[ "${DOTS_HANDOFF_FAILED:-0}" -eq 0 ]] || exit "$install_status"
         failed_package "$install_status" "$install_config" "$package_key" "${package_declarations[$index]}"
     fi
 done

@@ -285,6 +285,14 @@ function validateIncoming(root, gitDir, commit, miseBin) {
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
+function sourceProgress(id, label, status, summary) {
+  const event = JSON.stringify({ v: 1, kind: 'item_upsert', id: `source:${id}`, group: 'Source', label, status, summary, action: '', before: '', after: '' });
+  try {
+    if (process.env.DOTS_UP_STREAM_NONCE) process.stdout.write(`\x1edots-up/1:${process.env.DOTS_UP_STREAM_NONCE}:${event}\x1f`);
+    else if (process.env.DOTS_UP_EVENT_FD) fs.writeSync(Number(process.env.DOTS_UP_EVENT_FD), `${event}\n`);
+  } catch { /* Progress must not change the source operation. */ }
+}
+
 export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
   if (expectedMain && (!sourceOnly || !/^[a-f0-9]{40}$/.test(expectedMain))) throw new Error('expectedMain requires source-only mode and a full lowercase commit ID');
   miseBin ||= resolveMiseBin();
@@ -293,8 +301,11 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
   root = fs.realpathSync(root);
   return withRepositoryLock(root, () => {
     const { gitDir } = ensureRepository(root, { expectedRemote });
+    sourceProgress('fetch', 'Fetch source', 'unknown', 'running');
     try { jj(root, ['git', 'fetch', '--remote', 'origin', '--branch', 'main']); }
     catch (error) { throw new SourceDeferred(`Could not fetch origin/main; keeping the current source. ${error.message}`); }
+    sourceProgress('fetch', 'Fetch source', 'ok', 'completed');
+    sourceProgress('validate', 'Validate source', 'unknown', 'running');
     const incoming = revisions(root, 'main@origin');
     if (incoming.length !== 1) throw new Error('origin/main must resolve to one revision');
     if (expectedMain && incoming[0] !== expectedMain) throw new SourceDeferred('origin/main changed after review; preserving the current source');
@@ -309,8 +320,15 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
     if (changed.length && !(migratesLocks && changed.every(line => /^M (mise(?:\.nas|\.workstation)?\.lock)$/.test(line)))) {
       throw new SourceDeferred('Local source edits need review; preserving them. Use dots publish when ready');
     }
-    if (sourceOnly) return syncSourceOnly(root, gitDir, incoming[0], base[0], incomingFiles, inspectedRevision, changed, miseBin);
+    if (sourceOnly) {
+      const result = syncSourceOnly(root, gitDir, incoming[0], base[0], incomingFiles, inspectedRevision, changed, miseBin);
+      sourceProgress('validate', 'Validate source', 'ok', 'completed');
+      sourceProgress('advance', 'Advance source', 'ok', 'completed');
+      return result;
+    }
     validateIncoming(root, gitDir, incoming[0], miseBin);
+    sourceProgress('validate', 'Validate source', 'ok', 'completed');
+    sourceProgress('apply', 'Advance and apply source', 'unknown', 'running');
     const env = miseEnvironment(root);
     command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save'], root, { env });
     if (revisions(root, '@')[0] !== inspectedRevision) throw new SourceDeferred('Source changed during validation; preserving the new edits. Rerun sync when ready');
@@ -335,6 +353,7 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
       }
     }
     command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes'], root, { env, stdio: 'inherit' });
+    sourceProgress('apply', 'Advance and apply source', 'ok', 'completed');
     console.log(`Source synchronized to ${incoming[0].slice(0, 12)}; dotfiles applied.`);
     return incoming[0];
   });
@@ -343,22 +362,31 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
 export function parseSourceArguments(args) {
   const [action, root, ...options] = args;
   if (!root || !['init', 'sync', 'status'].includes(action)
-      || (options.length && (action !== 'sync' || options[0] !== '--source-only'
+      || (options.length && !(action === 'status' && options.length === 1 && options[0] === '--json') && (action !== 'sync' || options[0] !== '--source-only'
         || ![1, 3].includes(options.length) || (options.length === 3 && (options[1] !== '--expected-main' || !/^[a-f0-9]{40}$/.test(options[2])))))) {
     throw new Error('Usage: source-repo.mjs init|status ROOT, or sync ROOT [--source-only [--expected-main COMMIT]]');
   }
-  return { action, root, sourceOnly: options.length > 0, ...(options.length === 3 ? { expectedMain: options[2] } : {}) };
+  return { action, root, ...(action === 'status' && options[0] === '--json' ? { json: true } : {}), sourceOnly: action === 'sync' && options.length > 0, ...(options.length === 3 ? { expectedMain: options[2] } : {}) };
 }
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const { action, root, sourceOnly, expectedMain } = parseSourceArguments(process.argv.slice(2));
+    const { action, root, json, sourceOnly, expectedMain } = parseSourceArguments(process.argv.slice(2));
     if (action === 'status') {
       const info = metadata(root);
       const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
       if (!origins.has(remote)) throw new Error('Origin is not EzraCerpac/dotfiles');
-      console.log(`Source: ${info.hasJj ? 'JJ workspace' : 'Git checkout; JJ initialization pending'}`);
-      console.log('Shared source: origin/main; publication is explicit.');
+      if (json) {
+        // Ignore the working copy: status inspection must not snapshot or mutate it.
+        const revision = info.hasJj
+          ? command('jj', ['--ignore-working-copy', '-R', root, 'log', '-r', '@-', '--no-graph', '-T', 'commit_id'], root)
+          : command('git', ['rev-parse', 'HEAD'], root);
+        console.log(JSON.stringify({ workspace: info.hasJj ? 'jj' : 'git', base_revision: revision, shared: 'origin/main', publication: 'explicit' }));
+      }
+      else {
+        console.log(`Source: ${info.hasJj ? 'JJ workspace' : 'Git checkout; JJ initialization pending'}`);
+        console.log('Shared source: origin/main; publication is explicit.');
+      }
       if (!info.hasJj) process.exitCode = 3;
     }
     else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));

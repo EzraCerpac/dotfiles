@@ -14,6 +14,34 @@ export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL?.trim
 const DEFAULT_BASE = 'main';
 const SECRET_SCANNER = 'gitleaks';
 
+// Progress contains only fixed phase labels, never diffs or credentials.
+function publishProgress(id, label, status, summary) {
+  const event = JSON.stringify({ v: 1, kind: 'item_upsert', id: `publish:${id}`, group: 'Publication', label, status, summary, action: '', before: '', after: '' });
+  try {
+    if (process.env.DOTS_UP_STREAM_NONCE) process.stdout.write(`\x1edots-up/1:${process.env.DOTS_UP_STREAM_NONCE}:${event}\x1f`);
+    else if (process.env.DOTS_UP_EVENT_FD) fs.writeSync(Number(process.env.DOTS_UP_EVENT_FD), `${event}\n`);
+  } catch { /* Reporting must not change publication behavior. */ }
+}
+
+function publishPhase(id, label, operation) {
+  publishProgress(id, label, 'unknown', 'running');
+  try {
+    const result = operation();
+    publishProgress(id, label, 'ok', 'completed');
+    return result;
+  } catch (error) {
+    publishProgress(id, label, 'failed', 'failed');
+    throw error;
+  }
+}
+
+function publishConfirmation(confirm, question, id = 'approval') {
+  publishProgress(id, 'Confirmation', 'unknown', 'awaiting confirmation');
+  const accepted = confirm(question);
+  publishProgress(id, 'Confirmation', accepted ? 'ok' : 'attention', accepted ? 'confirmed' : 'declined');
+  return accepted;
+}
+
 function commandError(command, args, result) {
   const detail = String(result?.stderr || result?.stdout || '').trim();
   return new Error(`${command} ${args.join(' ')} failed${detail ? `: ${detail}` : ''}`);
@@ -138,11 +166,13 @@ function scanForSecrets(run, root, output, baseCommit, headCommit) {
 }
 
 function previewChanges(output, revision, changes) {
+  publishProgress('preview', 'Review changes', 'unknown', 'showing preview');
   outputText(output, `Proposed diff for ${revision}, commit by commit (from main@origin):\n`);
   for (const change of changes) {
     outputText(output, `\nCommit ${change.commit.slice(0, 12)} — ${change.description || '(no description)'}\n`);
     outputText(output, `${change.diff}${change.diff.endsWith('\n') ? '' : '\n'}`);
   }
+  publishProgress('preview', 'Review changes', 'ok', 'preview shown');
 }
 
 function allPullRequest(changes) {
@@ -275,7 +305,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
 
   const mainAdvanced = revisionList(run, root, `main@origin ~ ::${revision}`).length > 0;
   if (mainAdvanced) {
-    if (!confirm('Merge main@origin into the current unpublished stack before publishing?')) {
+    if (!publishConfirmation(confirm, 'Merge main@origin into the current unpublished stack before publishing?', 'merge-approval')) {
       throw new Error('publication cancelled; nothing was changed or pushed');
     }
     if (commitIdFor(run, root, revision) !== pinnedCommit || commitIdFor(run, root, '@') !== workingCommit || commitIdFor(run, root, 'main@origin') !== baseCommit) {
@@ -303,8 +333,8 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
   const finalCommit = commitIdFor(run, root, revision);
   const finalWorkingCommit = commitIdFor(run, root, '@');
   outputText(output, `Proposed pull request title: ${title}\nProposed pull request description:\n${body}\n`);
-  scanForSecrets(run, root, output, baseCommit, finalCommit);
-  if (!confirm(`Publish the current stack to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
+  publishPhase('scan', 'Scan commits', () => scanForSecrets(run, root, output, baseCommit, finalCommit));
+  if (!publishConfirmation(confirm, `Publish the current stack to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
 
   // The preview and approval cover this exact source and base, including any merge.
   if (commitIdFor(run, root, revision) !== finalCommit || commitIdFor(run, root, '@') !== finalWorkingCommit ||
@@ -315,8 +345,8 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
   const chosenBookmark = prior?.name || `wip/dotfiles-all-${timestamp(now)}-${shortChangeId(run, root, revision)}`;
   if (prior) invoke(run, 'jj', ['--no-pager', 'bookmark', 'move', chosenBookmark, '--to', revision], root);
   else invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], root);
-  invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root);
-  const pullRequest = publishPullRequest(run, root, chosenBookmark, title, body, prior?.request);
+  publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root));
+  const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, prior?.request));
   if (revision === '@') invoke(run, 'jj', ['--no-pager', 'new'], root);
   outputText(output, `Published ${chosenBookmark}: ${pullRequest.url}\n`);
   return { bookmark: chosenBookmark, url: pullRequest.url, existing: pullRequest.existing, title };
@@ -356,9 +386,9 @@ export function publish({
   if (bookmark) verifyPrivateBookmark(bookmark);
 
   return lock(root, () => {
-    const repository = ensure(root);
+    const repository = publishPhase('validate', 'Validate repository', () => ensure(root));
     if (!repository || !repository.gitDir) throw new Error('source repository helper did not return gitDir');
-    invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], root);
+    publishPhase('fetch', 'Fetch main', () => invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], root));
 
     if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt });
 
@@ -391,8 +421,8 @@ export function publish({
         throw new Error(`refusing to edit ${String(existing.state || 'closed').toLowerCase()} pull request ${existing.number} for ${bookmark}; choose a new bookmark`);
       }
     }
-    scanForSecrets(run, root, output, commitIdFor(run, root, 'main@origin'), pinnedCommit);
-    if (!confirm(`Publish ${revision} to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
+    publishPhase('scan', 'Scan commits', () => scanForSecrets(run, root, output, commitIdFor(run, root, 'main@origin'), pinnedCommit));
+    if (!publishConfirmation(confirm, `Publish ${revision} to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
 
     if (commitIdFor(run, root, revision) !== pinnedCommit || (!explicit && commitIdFor(run, root, '@') !== workingCommit)) {
       throw new Error('the source revision changed while the preview was open; review the new diff and try again');
@@ -403,8 +433,8 @@ export function publish({
       chosenBookmark = defaultBookmark(run, root, now, revision);
       invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], root);
     }
-    invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root);
-    const pullRequest = publishPullRequest(run, root, chosenBookmark, title, body, existing);
+    publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root));
+    const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, existing));
     if (!explicit) invoke(run, 'jj', ['--no-pager', 'new'], root);
     outputText(output, `Published ${chosenBookmark}: ${pullRequest.url}\n`);
     return { bookmark: chosenBookmark, url: pullRequest.url, existing: pullRequest.existing, description, title };

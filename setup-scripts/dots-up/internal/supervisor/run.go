@@ -26,6 +26,10 @@ import (
 
 type Options struct {
 	Root, StateDir              string
+	Command                     string
+	Args                        []string
+	Sensitive                   bool
+	Concise                     bool
 	MAS, Plain, Verbose, NoWait bool
 	Last                        bool
 }
@@ -62,12 +66,19 @@ var (
 )
 
 func Run(opts Options) int {
+	if opts.Command == "" {
+		opts.Command = "up"
+	}
+	if opts.StateDir == "" {
+		opts.StateDir = commandStateDir(opts.Command)
+	}
 	started := time.Now()
 	files, err := newRunFiles(started, opts.StateDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "dots up: reports unavailable: %v\nContinuing without saved logs.\n", err)
 	}
 	if files != nil {
+		files.report.Command = opts.Command
 		defer func() {
 			if files.eventLog != nil {
 				_ = files.eventLog.Close()
@@ -80,7 +91,7 @@ func Run(opts Options) int {
 		stateRoot = opts.StateDir
 	}
 	interactive := hasInteractiveTerminal()
-	dashboard := interactive && !opts.Plain && !opts.Verbose
+	dashboard := interactive && !opts.Plain && !opts.Verbose && !opts.Concise
 	if dashboard {
 		width, height := currentTerminalSize()
 		if width < 64 || height < 16 {
@@ -91,7 +102,7 @@ func Run(opts Options) int {
 	if opts.Verbose {
 		plain = true
 	}
-	if interactive && !dashboard && !opts.Verbose && !opts.Plain {
+	if interactive && !dashboard && !opts.Verbose && !opts.Plain && !opts.Concise {
 		fmt.Fprintln(os.Stderr, "dots up: terminal is too small for the dashboard; using concise output")
 	}
 
@@ -193,7 +204,10 @@ func Run(opts Options) int {
 		go relayTerminalInput(backend.tty, backend.master, &relay, inputStart, manualEnd)
 	}
 
-	globalLog := openLog(files, "backend.log")
+	var globalLog *os.File
+	if !opts.Sensitive {
+		globalLog = openLog(files, "backend.log")
+	}
 	defer func() {
 		if globalLog != nil {
 			_ = globalLog.Close()
@@ -222,6 +236,12 @@ func Run(opts Options) int {
 	emit := func(e ui.Event) {
 		if e.V == 0 {
 			e.V = 1
+		}
+		if e.Kind == "run_start" {
+			e.Command = opts.Command
+		}
+		if opts.Sensitive {
+			e.LogPath = ""
 		}
 		if files != nil {
 			if err := files.record(e); err != nil {
@@ -335,7 +355,7 @@ func Run(opts Options) int {
 				stageLog = nil
 			}
 			stageID = e.ID
-			if files != nil {
+			if files != nil && !opts.Sensitive {
 				e.LogPath = files.logPath(e.ID)
 				stageLog = openStageLog(e.LogPath)
 			}
@@ -505,6 +525,9 @@ func Run(opts Options) int {
 			}
 			if cancelRequested {
 				exitCode = 130
+				if opts.Command == "remote" {
+					emit(ui.Event{V: 1, Kind: "notice", Severity: "attention", Summary: "Remote execution status is unknown after local cancellation; inspect the host before retrying.", Action: "Check the remote host before retrying; local cancellation does not confirm remote termination."})
+				}
 			}
 			if relayKind != "" {
 				_ = stopRelay()
@@ -750,7 +773,12 @@ func updaterCommand(opts Options) (*exec.Cmd, error) {
 		if !filepath.IsAbs(runner) {
 			return nil, fmt.Errorf("DOTS_UP_RUNNER must be absolute: %s", runner)
 		}
-		return exec.Command(runner), nil
+		cmd := exec.Command(runner)
+		if opts.Command != "" && opts.Command != "up" {
+			cmd.Args = append(cmd.Args, opts.Command)
+		}
+		cmd.Args = append(cmd.Args, opts.Args...)
+		return cmd, nil
 	}
 	mise := os.Getenv("DOTS_MISE_BIN")
 	if mise == "" {
@@ -765,7 +793,14 @@ func updaterCommand(opts Options) (*exec.Cmd, error) {
 			}
 		}
 	}
-	return exec.Command(mise, "-C", opts.Root, "run", "setup:update"), nil
+	if opts.Command == "" || opts.Command == "up" {
+		cmd := exec.Command(mise, "-C", opts.Root, "run", "setup:update")
+		cmd.Args = append(cmd.Args, opts.Args...)
+		return cmd, nil
+	}
+	args := []string{filepath.Join(opts.Root, "setup-scripts", "lib", "dots-command-backend"), mise, opts.Root, opts.Command}
+	args = append(args, opts.Args...)
+	return exec.Command("bash", args...), nil
 }
 
 func setEnv(env []string, key, value string) []string {
@@ -897,7 +932,11 @@ func cleanTerminalOutput(data []byte) []byte {
 func printProgress(e ui.Event) {
 	switch e.Kind {
 	case "run_start":
-		fmt.Printf("dots up · %s · %s\n", e.Profile, e.Host)
+		name := e.Command
+		if name == "" {
+			name = "up"
+		}
+		fmt.Printf("dots %s · %s · %s\n", name, e.Profile, e.Host)
 	case "stage_start":
 		fmt.Printf("→ %s\n", e.Label)
 	case "stage_end":

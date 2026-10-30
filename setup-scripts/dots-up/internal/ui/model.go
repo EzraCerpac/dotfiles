@@ -31,6 +31,7 @@ type Stage struct {
 }
 
 type Model struct {
+	Command                                                                  string
 	RunID, Profile, Host                                                     string
 	Stages                                                                   []Stage
 	Notices                                                                  []Event
@@ -197,6 +198,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.refreshDetail()
 			}
 		case "t":
+			if m.Command == "status" {
+				break
+			}
 			if m.Running {
 				if !m.TerminalRequested {
 					m.TerminalRequested = true
@@ -247,10 +251,33 @@ func (m *Model) apply(e Event) {
 	switch e.Kind {
 	case "run_start":
 		m.RunID, m.Profile, m.Host, m.Running = e.ID, e.Profile, e.Host, true
+		m.Command = cleanLine(e.Command)
 		m.StartedAt = time.Now()
+	case "item_upsert":
+		i := m.stageIndex(e.ID)
+		if i < 0 {
+			m.Stages = append(m.Stages, Stage{ID: e.ID})
+			i = len(m.Stages) - 1
+		}
+		s := &m.Stages[i]
+		s.Group, s.Label, s.Status, s.Summary, s.Action = e.Group, e.Label, e.Status, e.Summary, e.Action
+		if e.Before != "" || e.After != "" {
+			s.Changes = []Change{{e.Label, e.Before, e.After}}
+		}
+		if m.Selected < 0 {
+			m.Selected = i
+			m.SelectedGroup = m.groupIndex(stageGroup(*s))
+		}
 	case "stage_start":
-		m.Stages = append(m.Stages, Stage{ID: e.ID, Group: e.Group, Label: e.Label, Terminal: e.Terminal, Status: "running", LogPath: safeLogPath(m.StateDir, e.LogPath)})
-		m.CurrentMain = len(m.Stages) - 1
+		i := m.stageIndex(e.ID)
+		stage := Stage{ID: e.ID, Group: e.Group, Label: e.Label, Terminal: e.Terminal, Status: "running", LogPath: safeLogPath(m.StateDir, e.LogPath)}
+		if i < 0 {
+			m.Stages = append(m.Stages, stage)
+			i = len(m.Stages) - 1
+		} else {
+			m.Stages[i] = stage
+		}
+		m.CurrentMain = i
 	case "app_store_start":
 		status := e.Status
 		if status == "" {
@@ -309,7 +336,10 @@ func stageGroup(stage Stage) string {
 }
 
 func (m Model) groups() []string {
-	groups := append([]string(nil), groupOrder...)
+	var groups []string
+	if m.Command == "" || m.Command == "up" {
+		groups = append(groups, groupOrder...)
+	}
 	seen := make(map[string]bool, len(groups))
 	for _, group := range groups {
 		seen[group] = true
@@ -561,7 +591,7 @@ func (m Model) issues() []issue {
 	var result []issue
 	seen := make(map[string]bool)
 	for _, s := range m.Stages {
-		if s.Status != "attention" && s.Status != "failed" {
+		if s.Status != "attention" && s.Status != "failed" && s.Status != "missing" && s.Status != "drift" && s.Status != "unknown" {
 			continue
 		}
 		prefix := "!"
@@ -693,7 +723,7 @@ func statusGlyph(s string) string {
 	switch s {
 	case "ok":
 		return good.Render("✓")
-	case "attention":
+	case "attention", "missing", "drift", "unknown":
 		return warn.Render("!")
 	case "failed":
 		return bad.Render("×")
@@ -716,7 +746,7 @@ func (m Model) View() tea.View {
 		switch s.Status {
 		case "ok":
 			ok++
-		case "attention":
+		case "attention", "missing", "drift", "unknown":
 			attention++
 		case "failed":
 			failed++
@@ -750,12 +780,12 @@ func (m Model) View() tea.View {
 			}
 			return s
 		}
-		v := tea.NewView(clip("DOTS UP · "+status) + "\n" + clip(line) + "\n" + clip(fmt.Sprintf("%d attention · %d failed · %d changes", attention, failed, m.changeCount())) + "\n" + clip("Resize for details · q closes when done"))
+		v := tea.NewView(clip(m.title()+" · "+status) + "\n" + clip(line) + "\n" + clip(fmt.Sprintf("%d attention · %d failed · %d changes", attention, failed, m.changeCount())) + "\n" + clip("Resize for details · q closes when done"))
 		v.AltScreen = true
 		return v
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s  %s\n", accent.Render("DOTS  /  UP"), muted.Render(strings.TrimSpace(m.Host+"  "+m.Profile)))
+	fmt.Fprintf(&b, "%s  %s\n", accent.Render(strings.Replace(m.title(), "DOTS ", "DOTS  /  ", 1)), muted.Render(strings.TrimSpace(m.Host+"  "+m.Profile)))
 	fmt.Fprintf(&b, "%s  ·  %d complete  ·  %d attention  ·  %d failed  ·  %s\n", status, ok, attention, failed, m.Elapsed.Truncate(time.Second))
 	b.WriteString(muted.Render(strings.Repeat("─", max(1, width-2))) + "\n")
 	if m.RawLog {
@@ -801,7 +831,7 @@ func (m Model) View() tea.View {
 			}
 			for _, child := range children[start:end] {
 				stage := m.Stages[child]
-				line := fmt.Sprintf("%s %s  ·  %s", statusGlyph(stage.Status), stage.Label, stage.Status)
+				line := ansi.Truncate(fmt.Sprintf("%s %s  ·  %s", statusGlyph(stage.Status), stage.Label, stage.Status), max(1, width-5), "…")
 				if child == m.Selected {
 					b.WriteString(focus.Render("  › "+line) + "\n")
 				} else {
@@ -812,7 +842,17 @@ func (m Model) View() tea.View {
 				fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↓ %d later update steps", len(children)-end)))
 			}
 		} else {
-			for i, group := range groups {
+			start, end := 0, len(groups)
+			if m.Command != "" && m.Command != "up" {
+				capacity := max(1, m.childCapacity()-2)
+				start = max(0, min(m.SelectedGroup-capacity/2, len(groups)-capacity))
+				end = min(len(groups), start+capacity)
+				if start > 0 {
+					fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↑ %d earlier areas", start)))
+				}
+			}
+			for i := start; i < end; i++ {
+				group := groups[i]
 				count, completed, problem, active := 0, 0, "", false
 				for _, stage := range m.Stages {
 					if stageGroup(stage) != group {
@@ -824,7 +864,7 @@ func (m Model) View() tea.View {
 					}
 					if stage.Status == "failed" {
 						problem = "failed"
-					} else if stage.Status == "attention" && problem != "failed" {
+					} else if (stage.Status == "attention" || stage.Status == "missing" || stage.Status == "drift" || stage.Status == "unknown") && problem != "failed" {
 						problem = "attention"
 					}
 					if stage.Status == "running" {
@@ -854,13 +894,16 @@ func (m Model) View() tea.View {
 				}
 				b.WriteString(line + "\n")
 			}
+			if end < len(groups) {
+				fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↓ %d later areas", len(groups)-end)))
+			}
 		}
 		b.WriteString(muted.Render(strings.Repeat("─", max(1, width-2))) + "\n")
 		if m.CurrentMain >= 0 {
 			s := m.Stages[m.CurrentMain]
 			fmt.Fprintf(&b, "NOW  %s  %s\n", statusGlyph(s.Status), s.Label)
 		} else {
-			b.WriteString(muted.Render("NOW  Waiting for main update…") + "\n")
+			b.WriteString(muted.Render("NOW  Waiting for command…") + "\n")
 		}
 		if m.AppStoreIndex >= 0 {
 			s := m.Stages[m.AppStoreIndex]
@@ -880,7 +923,9 @@ func (m Model) View() tea.View {
 			}
 			b.WriteString(m.viewport.View() + "\n")
 		}
-		if m.Help {
+		if m.DetailFocus {
+			b.WriteString(muted.Render("↑↓ scroll details  ← items  l logs  s search  ? keys") + "\n")
+		} else if m.Help {
 			if m.ExpandedGroup >= 0 {
 				b.WriteString("↑↓ items  Enter details  ← parent  l logs  s search  t terminal  a App Store  q close\n")
 			} else {
@@ -900,7 +945,15 @@ func (m Model) View() tea.View {
 	if m.Finished {
 		b.WriteString(accent.Render("Finished  ·  q to close") + "\n")
 	}
-	v := tea.NewView(b.String())
+	content := b.String()
+	if m.Command != "" && m.Command != "up" {
+		content = strings.ReplaceAll(content, "update steps", "items")
+		if m.Command == "status" {
+			content = strings.ReplaceAll(content, "  t terminal", "")
+			content = strings.ReplaceAll(content, "  a App Store", "")
+		}
+	}
+	v := tea.NewView(content)
 	v.AltScreen = true
 	return v
 }
@@ -911,4 +964,12 @@ func (m Model) changeCount() int {
 		count += len(stage.Changes)
 	}
 	return count
+}
+
+func (m Model) title() string {
+	command := m.Command
+	if command == "" {
+		command = "up"
+	}
+	return "DOTS " + strings.ToUpper(command)
 }

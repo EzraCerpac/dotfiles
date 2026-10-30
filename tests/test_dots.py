@@ -70,7 +70,7 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
             shutil.copy2(SOURCE.parents[3] / 'setup-scripts/bootstrap' / name, bootstrap / name)
-        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), DOTS_UP_BIN='', HOME=str(self.home), CALL_LOG=str(self.log), UV_CALL_LOG=str(self.uv_log), PATH=f'{self.bin_dir}:{os.environ["PATH"]}', MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
+        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), DOTS_UP_BIN=str(self.base / 'missing-renderer'), HOME=str(self.home), CALL_LOG=str(self.log), UV_CALL_LOG=str(self.uv_log), PATH=f'{self.bin_dir}:{os.environ["PATH"]}', MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
 
     def run_dots(self, *args, **env):
         return subprocess.run(['bash', str(SOURCE), *args], cwd=self.project, env=dict(self.env, **env), text=True, capture_output=True)

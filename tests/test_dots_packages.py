@@ -163,7 +163,7 @@ class DotsPackageTest(unittest.TestCase):
         self.mise.chmod(0o755)
         helpers = self.root / "setup-scripts/lib"
         helpers.mkdir(parents=True)
-        for name in ("dots-add-common.sh", "dots-add-config.py"):
+        for name in ("dots-add-common.sh", "dots-add-config.py", "dots-up-events.sh", "dots-command-events.sh"):
             shutil.copy2(HELPER.parent / name, helpers / name)
         self.log = self.root / "calls.jsonl"
         self.env = dict(
@@ -191,6 +191,39 @@ class DotsPackageTest(unittest.TestCase):
 
     def apply_calls(self):
         return [call for call in self.calls() if "apply" in call["args"] and "--dry-run" not in call["args"]]
+
+    def test_missing_handoff_event_fails_before_running_or_waiting(self):
+        bad_jq = self.root / "bad-jq"
+        bad_jq.write_text("#!/bin/sh\nexit 1\n")
+        bad_jq.chmod(0o755)
+        marker = self.root / "installer-ran"
+        read_fd, write_fd = os.pipe()
+        try:
+            env = dict(self.env, DOTS_UP_STREAM_NONCE="test", DOTS_UP_EVENT_JQ=str(bad_jq),
+                       DOTS_UP_ACK_FD=str(read_fd))
+            result = subprocess.run(
+                ["bash", "-c", 'source "$1"; source "$2"; dots_terminal_run phase Label touch "$3"',
+                 "test", str(HELPER.parent / "dots-up-events.sh"),
+                 str(HELPER.parent / "dots-command-events.sh"), str(marker)],
+                env=env, pass_fds=(read_fd,), capture_output=True, text=True, timeout=3,
+            )
+        finally:
+            os.close(read_fd)
+            os.close(write_fd)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("could not create terminal handoff event", result.stderr)
+        self.assertFalse(marker.exists())
+
+    def test_item_progress_wraps_each_native_install(self):
+        result = self.run_helper("brew:libmagic", "brew-cask:firefox", DOTS_UP_STREAM_NONCE="test")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = [json.loads(chunk.split("\x1f", 1)[0]) for chunk in result.stdout.split("\x1edots-up/1:test:")[1:]]
+        self.assertEqual([(event["kind"], event.get("status")) for event in events], [
+            ("item_upsert", "running"), ("stage_start", None), ("stage_end", "ok"), ("item_upsert", "ok"),
+            ("item_upsert", "running"), ("stage_start", None), ("stage_end", "ok"), ("item_upsert", "ok"),
+        ])
+        self.assertEqual([e["label"] for e in events if e["kind"] == "item_upsert"],
+                         ["brew:libmagic", "brew:libmagic", "brew-cask:firefox", "brew-cask:firefox"])
 
     def test_failed_tap_read_stops_before_install_or_write(self):
         before = self.target.read_bytes()

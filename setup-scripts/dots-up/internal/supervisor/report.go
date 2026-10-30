@@ -17,6 +17,7 @@ import (
 
 type Report struct {
 	Version    int        `json:"version"`
+	Command    string     `json:"command,omitempty"`
 	ID         string     `json:"id"`
 	Profile    string     `json:"profile,omitempty"`
 	Host       string     `json:"host,omitempty"`
@@ -106,6 +107,9 @@ func (r *runFiles) record(e ui.Event) error {
 	}
 	if err := json.NewEncoder(r.eventLog).Encode(e); err != nil {
 		return fmt.Errorf("write update event log: %w", err)
+	}
+	if e.Kind == "run_start" {
+		r.report.Command = e.Command
 	}
 	r.report.Events = append(r.report.Events, e)
 	return nil
@@ -246,6 +250,9 @@ func latestReport(root string) (Report, string, error) {
 func replayEvents(report Report) <-chan ui.Event {
 	out := make(chan ui.Event, len(report.Events)+1)
 	for _, event := range report.Events {
+		if event.Kind == "run_start" && event.Command == "" {
+			event.Command = report.Command
+		}
 		// Reports replay history only; no updater exists to receive a handoff.
 		if event.Kind == "stage_start" && event.Terminal == "handoff" {
 			event.Terminal = "hidden"
@@ -291,13 +298,22 @@ func summary(report Report, dir string) string {
 	default:
 		result = "Update completed; no verified changes were reported"
 	}
+	if report.Command != "" && report.Command != "up" {
+		if report.ExitCode == 130 {
+			result = "dots " + report.Command + " cancelled locally"
+		} else if report.ExitCode != 0 {
+			result = fmt.Sprintf("dots %s failed (exit %d)", report.Command, report.ExitCode)
+		} else {
+			result = "dots " + report.Command + " completed"
+		}
+	}
 	return fmt.Sprintf("%s\nReport: %s", result, dir)
 }
 
 func ShowLast(opts Options) int {
 	root := opts.StateDir
 	if root == "" {
-		root = stateDir()
+		root = commandStateDir(opts.Command)
 	}
 	report, dir, err := latestReport(root)
 	if err != nil {
@@ -324,6 +340,11 @@ func ShowLast(opts Options) int {
 func printReportHighlights(w io.Writer, report Report) {
 	for _, e := range report.Events {
 		switch e.Kind {
+		case "item_upsert":
+			if report.Command == "status" && (e.Status == "ok" || e.Status == "skipped") {
+				continue
+			}
+			fmt.Fprintf(w, "  %s  %s — %s\n", e.Label, e.Status, e.Summary)
 		case "change":
 			if e.Before != "" && e.After != "" {
 				fmt.Fprintf(w, "  %s  %s → %s\n", e.Item, e.Before, e.After)
@@ -370,4 +391,20 @@ func tailFile(path string, maxBytes int64) string {
 		lines[0] = "… earlier output omitted … " + lines[0]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// commandStateDir preserves legacy update reports and separates other commands.
+func commandStateDir(command string) string {
+	if command == "" || command == "up" {
+		return stateDir()
+	}
+	base := os.Getenv("DOTS_STATE_DIR")
+	if base == "" {
+		base = os.Getenv("XDG_STATE_HOME")
+		if base == "" {
+			base = filepath.Join(os.Getenv("HOME"), ".local", "state")
+		}
+		base = filepath.Join(base, "dots")
+	}
+	return filepath.Join(base, safeID(command))
 }

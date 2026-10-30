@@ -36,6 +36,18 @@ class RemoveTests(unittest.TestCase):
         self.packages.plan_remove.return_value = {"summary": "uninstall jq", "commands": [], "installed": True}
         self.packages.shares_installation.return_value = False
 
+    def test_dry_run_and_keep_installed_report_truthful_results(self):
+        for flags, expected in ((["--dry-run"], "Removal planned (dry run)"),
+                                (["--keep-installed"], "Declarations removed; software retained")):
+            events = []
+            with self.subTest(flags=flags), patch.object(remove, "active_configs", return_value=[self.base]), \
+                    patch.object(remove, "state_directory", return_value=self.root / "state"), \
+                    patch.object(remove, "execute"), patch.object(remove, "emit_event", side_effect=events.append):
+                self.assertEqual(remove.main(["mise", str(self.root), *flags, "node"]), 0)
+            item = [event for event in events if event["kind"] == "item_upsert"][-1]
+            self.assertEqual(item["summary"], expected)
+            self.assertEqual(item["status"], "ok")
+
     def test_discovery_and_url_short_resolution(self):
         entries = remove.discover([self.base, self.local])
         records = {"github:jaskirat1616/mactap-app": [(self.root / "marker", {"path": "/Applications/MacTap.app"})]}

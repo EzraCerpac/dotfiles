@@ -32,16 +32,34 @@ shift 3
 export MISE_CONFIG_DIR="$setup_root"
 # shellcheck source=/dev/null
 source "$setup_root/setup-scripts/lib/dots-add-common.sh"
+source "$setup_root/setup-scripts/lib/dots-up-events.sh"
+source "$setup_root/setup-scripts/lib/dots-command-events.sh"
+
+emit_tool() {
+    local json
+    json="$(dots_up_event_json --arg id "tool:$request" --arg label "$request" --arg status "$1" --arg summary "$2" \
+        '{v:1,kind:"item_upsert",id:$id,group:"Software",label:$label,status:$status,summary:$summary}')"
+    dots_up_emit_event "$json"
+}
+active_request=""
 
 stage_dir=""
 snapshot=""
 cleanup() {
+    local status=$?
+    if [[ -n "$active_request" && "$status" -ne 0 ]]; then
+        emit_tool failed "Installation or recording failed"
+    fi
     [[ -z "$snapshot" ]] || rm -f "$snapshot"
     [[ -z "$stage_dir" ]] || rm -rf "$stage_dir"
 }
 trap cleanup EXIT
 
+request_index=0
 for request in "$@"; do
+    request_index=$((request_index + 1))
+    active_request="$request"
+    emit_tool running "Installing"
     stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/dots-tool-stage.XXXXXX")"
     snapshot="$(mktemp "${TMPDIR:-/tmp}/dots-tool-before.XXXXXX")"
     staged_file="$stage_dir/mise.toml"
@@ -53,12 +71,14 @@ for request in "$@"; do
     dots_edit_config stage-tools "$snapshot" "$staged_file" "$request"
     cp "$staged_file" "$stage_dir/before.toml"
 
-    if MISE_TRUSTED_CONFIG_PATHS="$stage_dir${MISE_TRUSTED_CONFIG_PATHS:+:$MISE_TRUSTED_CONFIG_PATHS}" "$mise_bin" -C "$setup_root" use --path "$staged_file" "$request"; then
+    if MISE_TRUSTED_CONFIG_PATHS="$stage_dir${MISE_TRUSTED_CONFIG_PATHS:+:$MISE_TRUSTED_CONFIG_PATHS}" dots_terminal_run "tool-install-$request_index" "Install $request" "$mise_bin" -C "$setup_root" use --path "$staged_file" "$request"; then
         if ! dots_edit_config record-tools "$target_file" "$staged_file" --before "$snapshot" --staged-before "$stage_dir/before.toml"; then
             printf 'dots: mise succeeded, but its tool declaration could not be merged into %s\n' "$target_file" >&2
             exit 1
         fi
         if "$mise_bin" -C "$setup_root" reshim; then
+            emit_tool ok "Installed and recorded"
+            active_request=""
             printf 'dots: installed %s and saved its native declaration to %s\n' "$request" "$target_file" >&2
             rm -f "$snapshot"
             snapshot=""
@@ -73,6 +93,8 @@ for request in "$@"; do
     else
         mise_status=$?
     fi
+
+    [[ "${DOTS_HANDOFF_FAILED:-0}" -eq 0 ]] || exit "$mise_status"
 
     # A keyboard cancellation belongs to the user; don't follow it with a
     # second prompt asking whether to preserve the interrupted request.
