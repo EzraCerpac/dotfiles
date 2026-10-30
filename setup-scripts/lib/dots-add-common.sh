@@ -5,7 +5,7 @@ dots_edit_config() {
     (cd "$setup_root" && uv run --script "$setup_root/setup-scripts/lib/dots-add-config.py" "$@")
 }
 
-dots_record_failed() {
+dots_record_failed_prompt() {
     local declaration="$1" target="$2" answer
     printf '\nRequested declaration for %s:\n%s\n' "$target" "$declaration" >&2
     if [[ ! -t 0 || ! -t 2 ]]; then
@@ -21,4 +21,8 @@ dots_record_failed() {
         y|Y|yes|Yes|YES) return 0 ;;
         *) printf 'dots: request was not recorded.\n' >&2; return 1 ;;
     esac
+}
+
+dots_record_failed() {
+    dots_terminal_run "record-failed-prompt" "Record failed request" dots_record_failed_prompt "$@"
 }

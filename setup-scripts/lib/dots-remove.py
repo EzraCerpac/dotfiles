@@ -35,6 +35,48 @@ github = load_module("dots_remove_github", "dots-github.py")
 MANAGERS = {"brew", "brew-cask", "apt", "dnf", "pacman", "apk", "mas"}
 
 
+def emit_event(event):
+    nonce = os.environ.get("DOTS_UP_STREAM_NONCE")
+    fd = os.environ.get("DOTS_UP_EVENT_FD")
+    if not nonce and not fd:
+        return
+    event = json.dumps(event, separators=(",", ":"))
+    try:
+        if nonce:
+            sys.stdout.flush()
+            os.write(sys.stdout.fileno(), f"\x1edots-up/1:{nonce}:{event}\x1f".encode())
+        else:
+            os.write(int(fd), (event + "\n").encode())
+    except (OSError, ValueError):
+        pass
+
+
+def emit_item(identity, status, summary):
+    emit_event({"v": 1, "kind": "item_upsert", "id": "remove:" + identity,
+                "group": "Software", "label": identity, "status": status, "summary": summary})
+
+
+def terminal_start(id, label):
+    emit_event({"v": 1, "kind": "stage_start", "id": id, "group": "Software",
+                "label": label, "terminal": "handoff"})
+    fd = os.environ.get("DOTS_UP_ACK_FD")
+    if fd:
+        line = b""
+        while not line.endswith(b"\n"):
+            byte = os.read(int(fd), 1)
+            if not byte:
+                raise ValueError("terminal handoff did not complete")
+            line += byte
+        if line != f"go:{id}\n".encode():
+            raise ValueError("invalid terminal handoff")
+
+
+def terminal_end(id, label, status):
+    emit_event({"v": 1, "kind": "stage_end", "id": id, "label": label,
+                "status": "ok" if status == 0 else "failed", "exit_code": status,
+                "summary": "completed" if status == 0 else "failed"})
+
+
 def state_directory():
     return Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "dots/github-apps"
 
@@ -372,13 +414,26 @@ def main(argv=None):
         if plan["shared"]:
             print("  retain installed software: another active config still declares it", flush=True)
     if args.dry_run:
+        for plan in plans:
+            emit_item(plan["identity"], "ok", "Removal planned (dry run)")
         return 0
     completed = []
-    for plan in plans:
+    for index, plan in enumerate(plans):
+        emit_item(plan["identity"], "running", "Removing declarations" if args.keep_installed or plan["shared"] else "Removing")
+        phase_id = f"remove-operation-{index}"
+        label = f"Remove {plan['identity']}"
         try:
-            execute(plan, args.mise, root, args.keep_installed, packages)
+            try:
+                terminal_start(phase_id, label)
+                execute(plan, args.mise, root, args.keep_installed, packages)
+            except BaseException:
+                terminal_end(phase_id, label, 1)
+                raise
+            terminal_end(phase_id, label, 0)
+            emit_item(plan["identity"], "ok", "Declarations removed; software retained" if args.keep_installed or plan["shared"] else "Removed")
             completed.append(plan["identity"])
         except BaseException:
+            emit_item(plan["identity"], "failed", "Removal failed")
             if completed:
                 print(f"dots: completed before failure: {', '.join(completed)}", file=sys.stderr)
             raise

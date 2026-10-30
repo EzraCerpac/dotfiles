@@ -3,6 +3,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/setup-common.sh"
+source "$(dirname "$0")/../lib/dots-up-events.sh"
 setup_init || exit $?
 
 mode="$(setup_read_history_mode)" || {
@@ -16,7 +17,11 @@ fi
 
 history_branch="$(setup_require_history_branch)" || exit $?
 printf 'Saving tracked settings locally on %s...\n' "$history_branch"
+dots_up_emit_item backup:save "History" "Save settings" unknown "running"
 setup_mise bootstrap dotfiles save
+dots_up_emit_item backup:save "History" "Save settings" ok "completed"
 printf 'Publishing private settings history on %s...\n' "$history_branch"
+dots_up_emit_item backup:publish "History" "Publish history" unknown "running"
 setup_mise bootstrap dotfiles sync
+dots_up_emit_item backup:publish "History" "Publish history" ok "completed"
 printf 'Settings backup published.\n'

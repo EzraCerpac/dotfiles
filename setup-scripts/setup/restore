@@ -3,6 +3,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/setup-common.sh"
+source "$(dirname "$0")/../lib/dots-up-events.sh"
 setup_init || exit $?
 
 initialize_history=0
@@ -312,12 +313,16 @@ elif [[ "$pending_restore" -eq 0 && "$store_exists" -eq 0 ]]; then
     pending_restore=1
 fi
 
+dots_up_emit_item restore:fetch "History" "Fetch history" unknown "running"
 printf 'Connecting to private history in fetch-only mode...\n'
 setup_mise --yes bootstrap dotfiles origin set "$SETUP_HISTORY_ORIGIN" --branch "$history_branch" --sync fetch-only
+dots_up_emit_item restore:fetch "History" "Fetch history" ok "completed"
 printf '\nReviewing fetched settings state:\n'
 setup_mise bootstrap dotfiles status
 printf '\nApplying incoming settings with native conflict checks...\n'
+dots_up_emit_item restore:apply "History" "Apply history" unknown "running"
 setup_mise --yes bootstrap dotfiles pull
+dots_up_emit_item restore:apply "History" "Apply history" ok "completed"
 
 if [[ "$pending_restore" -eq 1 ]]; then
     # Native mise maps the selected remote branch to its own local tracking

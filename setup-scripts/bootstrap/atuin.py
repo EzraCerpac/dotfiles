@@ -476,39 +476,40 @@ def enroll(root: Path, identity: Path | None, *, browser: bool = False) -> None:
     print("Atuin history synchronized through the native client.")
 
 
-def status() -> None:
+def status(as_json: bool = False) -> None:
     path = shutil.which("atuin")
     if not path:
-        print("Installation: missing")
-        print("Login: unavailable")
-        print("Last sync: unavailable")
-        print("AI readiness: unavailable")
-        return
-    version = run_atuin("--version")
-    version_text = version.stdout.strip().splitlines()[0] if version.returncode == 0 else "installed"
-    if not SAFE_STATUS.fullmatch(version_text):
-        version_text = "installed"
-    username, last_sync, login_state = remote_state()
-    print(f"Installation: {version_text}")
-    if login_state == "error":
-        print("Login: unavailable")
-    elif login_state == "logged_out":
-        print("Login: not logged in")
-    elif username == ACCOUNT:
-        print(f"Login: ready ({ACCOUNT})")
-    elif username:
-        print("Login: different account")
+        values = {"installation": "missing", "login": "unavailable", "last_sync": "unavailable", "ai_readiness": "unavailable"}
     else:
-        print("Login: not logged in")
-    print(f"Last sync: {last_sync or 'never or unavailable'}")
-    ai = run_atuin("config", "get", "ai.enabled")
-    ai_enabled = ai.returncode == 0 and ai.stdout.strip().lower() == "true"
-    if not ai_enabled:
-        print("AI readiness: disabled")
-    elif hub_authenticated():
-        print("AI readiness: enabled; Hub authentication verified")
+        version = run_atuin("--version")
+        version_text = version.stdout.strip().splitlines()[0] if version.returncode == 0 and version.stdout.strip() else "installed"
+        if not SAFE_STATUS.fullmatch(version_text):
+            version_text = "installed"
+        username, last_sync, login_state = remote_state()
+        if login_state == "error":
+            login = "unavailable"
+        elif login_state == "logged_out":
+            login = "not logged in"
+        elif username == ACCOUNT:
+            login = f"ready ({ACCOUNT})"
+        elif username:
+            login = "different account"
+        else:
+            login = "not logged in"
+        ai = run_atuin("config", "get", "ai.enabled")
+        ai_enabled = ai.returncode == 0 and ai.stdout.strip().lower() == "true"
+        if not ai_enabled:
+            readiness = "disabled"
+        elif hub_authenticated():
+            readiness = "enabled; Hub authentication verified"
+        else:
+            readiness = "enabled; Hub authentication unverified"
+        values = {"installation": version_text, "login": login, "last_sync": last_sync or "never or unavailable", "ai_readiness": readiness}
+    if as_json:
+        print(json.dumps(values))
     else:
-        print("AI readiness: enabled; Hub authentication unverified")
+        for key, label in (("installation", "Installation"), ("login", "Login"), ("last_sync", "Last sync"), ("ai_readiness", "AI readiness")):
+            print(f"{label}: {values[key]}")
 
 
 def parser() -> argparse.ArgumentParser:
@@ -519,7 +520,8 @@ def parser() -> argparse.ArgumentParser:
     enroll_parser.add_argument("--root", required=True, type=Path)
     enroll_parser.add_argument("--identity", type=Path)
     enroll_parser.add_argument("--browser", action="store_true", help="use native Hub browser login, supplying the bundled history key privately")
-    commands.add_parser("status", help="print sanitized Atuin readiness")
+    status_parser = commands.add_parser("status", help="print sanitized Atuin readiness")
+    status_parser.add_argument("--json", action="store_true")
     bundle_parser = commands.add_parser("bundle", help="encrypt the existing Atuin key and stdin password")
     bundle_parser.add_argument("--output", required=True, type=Path)
     bundle_parser.add_argument("--recipient", required=True, action="append")
@@ -534,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "enroll":
             enroll(args.root, args.identity, browser=args.browser)
         elif args.command == "status":
-            status()
+            status(as_json=args.json)
         elif args.command == "bundle":
             bundle_command(args.output, args.recipient)
     except subprocess.TimeoutExpired:

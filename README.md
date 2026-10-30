@@ -6,6 +6,19 @@ applications. `dots` is
 the short interface to the setup; ordinary `mise` commands still work inside
 individual projects.
 
+Run `dots` in an interactive terminal to browse commands and review their options.
+Choose Run to execute a command;
+its existing terminal prompts remain available.
+Advanced arguments are entered one literal token at a time.
+Explicit commands such as `dots up` continue to run directly.
+
+`dots status` opens a read-only inventory of the selected machine.
+Use `dots reports [COMMAND]` to browse saved runs.
+Put shared display options before the command,
+for example `dots --plain status` or `dots --no-wait backup`.
+The existing `dots up --plain`, `--verbose`, `--no-wait`, and `--last` options
+continue to work.
+
 ## Start a new machine
 
 From a normal interactive terminal, with Git and curl available:

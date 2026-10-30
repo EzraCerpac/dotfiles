@@ -5,6 +5,7 @@ package ui
 type Event struct {
 	V          int    `json:"v"`
 	Kind       string `json:"kind"`
+	Command    string `json:"command,omitempty"`
 	ID         string `json:"id,omitempty"`
 	Profile    string `json:"profile,omitempty"`
 	Host       string `json:"host,omitempty"`

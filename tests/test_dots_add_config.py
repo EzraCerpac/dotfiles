@@ -233,6 +233,8 @@ class DotsAddConfigTests(unittest.TestCase):
         lib.mkdir(parents=True)
         (setup / "config.toml").write_text('[tools]\nuv = "latest"\n')
         shutil.copy2(COMMON, lib / COMMON.name)
+        for name in ("dots-up-events.sh", "dots-command-events.sh"):
+            shutil.copy2(COMMON.parent / name, lib / name)
         shutil.copy2(EDITOR, lib / EDITOR.name)
         wrapper = setup / "setup-scripts/lib/dots-tool-add.sh"
         shutil.copy2(TOOL_ADD, wrapper)

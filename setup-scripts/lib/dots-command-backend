@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mise_bin="$1" root="$2" command_name="$3"
+shift 3
+exec python3 "$root/setup-scripts/lib/dots-command-backend.py" "$mise_bin" "$root" "$command_name" "$@"

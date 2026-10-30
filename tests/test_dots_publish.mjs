@@ -482,3 +482,35 @@ test('--all rejects --bookmark before changing source state', needsJj, () => {
     assert.match(cli.stderr, /cannot be used together/);
   } finally { cleanup(fixture); }
 });
+
+test('publication reports phases without disclosing preview content or changing confirmation', needsJj, () => {
+  const fixture = setupRepository();
+  const eventFile = path.join(fixture.directory, 'events.jsonl');
+  const fd = fs.openSync(eventFile, 'w');
+  const previousFd = process.env.DOTS_UP_EVENT_FD;
+  const previousNonce = process.env.DOTS_UP_STREAM_NONCE;
+  process.env.DOTS_UP_EVENT_FD = String(fd);
+  delete process.env.DOTS_UP_STREAM_NONCE;
+  try {
+    let confirmations = 0;
+    const state = publisher(fixture, { confirm: () => { confirmations++; return true; } });
+    publish(state.options);
+    const events = fs.readFileSync(eventFile, 'utf8').trim().split('\n').map(JSON.parse);
+    assert.equal(confirmations, 1);
+    for (const phase of ['validate', 'fetch', 'preview', 'scan', 'approval', 'push', 'pull-request']) {
+      assert(events.some(event => event.kind === 'item_upsert' && event.id === `publish:${phase}` && event.status === 'ok'), phase);
+    }
+    const scan = events.findIndex(event => event.id === 'publish:scan' && event.status === 'ok');
+    const approval = events.findIndex(event => event.id === 'publish:approval' && event.status === 'ok');
+    const push = events.findIndex(event => event.id === 'publish:push' && event.status === 'ok');
+    assert(scan < approval && approval < push);
+    assert(!JSON.stringify(events).includes('public-0.txt'));
+  } finally {
+    fs.closeSync(fd);
+    if (previousFd === undefined) delete process.env.DOTS_UP_EVENT_FD;
+    else process.env.DOTS_UP_EVENT_FD = previousFd;
+    if (previousNonce === undefined) delete process.env.DOTS_UP_STREAM_NONCE;
+    else process.env.DOTS_UP_STREAM_NONCE = previousNonce;
+    cleanup(fixture);
+  }
+});

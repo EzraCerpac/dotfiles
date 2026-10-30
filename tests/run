@@ -9,6 +9,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
+source "$root/setup-scripts/lib/dots-up-events.sh"
 readonly all_suites=(python node shell lua)
 # Needs Docker and a full workstation install; run it explicitly.
 readonly excluded_shell_tests=(tests/linux-bootstrap.sh)
@@ -92,7 +93,17 @@ run_lua() {
 
 for suite in "${suites[@]}"; do
     printf '\n### %s\n' "$suite"
+    dots_up_emit_item "suite:$suite" "Test suites" "$suite" unknown "running"
+    failures_before=${#failed[@]}
+    skips_before=${#skipped[@]}
     "run_$suite"
+    if (( ${#failed[@]} > failures_before )); then
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" failed "failed"
+    elif (( ${#skipped[@]} > skips_before )); then
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" attention "completed with skips"
+    else
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" ok "completed"
+    fi
 done
 
 printf '\n### summary\n'
