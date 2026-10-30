@@ -420,7 +420,14 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
         )
         return brew_log, sudo_log, pgrep_log
 
-    def _run(self, task: str, *args: str, cwd: Path | None = None, extra_env: dict[str, str | None] | None = None):
+    def _run(
+        self,
+        task: str,
+        *args: str,
+        cwd: Path | None = None,
+        extra_env: dict[str, str | None] | None = None,
+        pass_fds: tuple[int, ...] = (),
+    ):
         env = self.env.copy()
         if extra_env:
             for key, value in extra_env.items():
@@ -435,6 +442,7 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
             text=True,
             capture_output=True,
             check=False,
+            pass_fds=pass_fds,
         )
 
     def _calls(self) -> list[list[str]]:
@@ -917,6 +925,46 @@ esac
         self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)]])
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
+
+    def test_update_events_survive_source_sync_reload_on_inherited_fd(self) -> None:
+        events_path = self.base / "update-events.jsonl"
+        with events_path.open("w", encoding="utf-8") as events_file:
+            event_fd = events_file.fileno()
+            result = self._run(
+                "update",
+                extra_env={
+                    "DOTS_UP_EVENT_FD": str(event_fd),
+                    "DOTS_UP_RUN_STARTED": None,
+                    "SETUP_PROFILE": "nas",
+                    "SETUP_MACHINE_ID": "cerpacnas",
+                },
+                pass_fds=(event_fd,),
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = [json.loads(line) for line in events_path.read_text().splitlines()]
+        self.assertGreater(len(events), 4)
+        self.assertTrue(all(event["v"] == 1 for event in events))
+        self.assertEqual([event["kind"] for event in events].count("run_start"), 1)
+        self.assertEqual(events[0]["kind"], "run_start")
+        self.assertEqual(events[0]["profile"], "nas")
+
+        sync_start = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_start"
+        )
+        sync_end = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_end"
+        )
+        package_start = next(
+            index for index, event in enumerate(events)
+            if event.get("label") == "newly declared host packages" and event["kind"] == "stage_start"
+        )
+        self.assertLess(sync_start, sync_end)
+        self.assertLess(sync_end, package_start)
+        self.assertEqual(events[sync_end]["status"], "ok")
+        self.assertTrue(any(call[4:7] == ["exec", "--", "bash"] for call in self._calls()))
 
     def test_macos_workstation_update_runs_capd_fork_updater(self) -> None:
         app = self.base / "capd.app"
