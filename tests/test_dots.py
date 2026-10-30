@@ -13,6 +13,8 @@ class DotsTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name).resolve()
+        self.home = self.base / 'home'
+        self.home.mkdir()
         self.root = self.base / 'setup'
         self.project = self.base / 'project'
         self.root.mkdir()
@@ -68,7 +70,7 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         bootstrap.mkdir()
         for name in ('launch', 'remote'):
             shutil.copy2(SOURCE.parents[3] / 'setup-scripts/bootstrap' / name, bootstrap / name)
-        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), CALL_LOG=str(self.log), UV_CALL_LOG=str(self.uv_log), PATH=f'{self.bin_dir}:{os.environ["PATH"]}', MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
+        self.env = dict(os.environ, DOTS_ROOT=str(self.root), DOTS_MISE_BIN=str(self.mise), DOTS_UP_BIN='', HOME=str(self.home), CALL_LOG=str(self.log), UV_CALL_LOG=str(self.uv_log), PATH=f'{self.bin_dir}:{os.environ["PATH"]}', MISE_ENV='thesis', MISE_CONFIG_DIR=str(self.project))
 
     def run_dots(self, *args, **env):
         return subprocess.run(['bash', str(SOURCE), *args], cwd=self.project, env=dict(self.env, **env), text=True, capture_output=True)
@@ -85,11 +87,38 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
     def test_short_update_is_rooted_and_drops_project_selector(self):
         result = self.run_dots('up')
         self.assertEqual(result.returncode, 0, result.stderr)
-        call = self.calls()[0]
-        self.assertEqual(call['args'], ['-C', str(self.root), 'run', 'setup:update'])
+        calls = self.calls()
+        self.assertEqual(calls[0]['args'], ['-C', str(self.root), 'which', 'dots-up'])
+        self.assertEqual(calls[-1]['args'], ['-C', str(self.root), 'run', 'setup:update', '--plain'])
+        call = calls[-1]
         self.assertIsNone(call['env'])
         self.assertEqual(call['root'], str(self.root))
         self.assertEqual((self.project/'mise.toml').read_text(), '[tools]\nnode="20"\n')
+
+    def test_update_uses_available_renderer_without_invoking_mise(self):
+        renderer = self.base / 'dots-up'
+        renderer_log = self.base / 'renderer-args.json'
+        renderer.write_text('''#!/usr/bin/env python3
+import json, os, sys
+with open(os.environ["RENDERER_LOG"], "w") as output:
+    json.dump(sys.argv[1:], output)
+''')
+        renderer.chmod(0o755)
+
+        result = self.run_dots('up', '--mas', DOTS_UP_BIN=str(renderer), RENDERER_LOG=str(renderer_log))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(renderer_log.read_text()), ['--root', str(self.root), '--mas'])
+        self.assertEqual(self.calls(), [])
+
+    def test_last_without_renderer_fails_without_running_updater(self):
+        result = self.run_dots('up', '--last')
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('renderer is unavailable', result.stderr)
+        calls = self.calls()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]['args'], ['-C', str(self.root), 'which', 'dots-up'])
 
     def test_houseatlas_unavailable_route_does_not_load_mise_or_update_packages(self):
         shutil.copy2(SOURCE.parents[3] / 'setup-scripts/lib/houseatlas-maintenance.py',
@@ -115,12 +144,15 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         self.assertEqual(self.calls(), [])
 
     def test_update_alias_and_mas_opt_in_are_rooted(self):
-        for command, flags in [('update', []), ('up', ['--mas']), ('update', ['--mas'])]:
+        for command, flags in [('update', []), ('up', ['--mas']), ('update', ['--mas']), ('up', ['--plain'])]:
             with self.subTest(command=command, flags=flags):
                 result = self.run_dots(command, *flags)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 call = self.calls()[-1]
-                self.assertEqual(call['args'], ['-C', str(self.root), 'run', 'setup:update', *flags])
+                expected_flags = [*flags]
+                if '--plain' not in expected_flags:
+                    expected_flags.append('--plain')
+                self.assertEqual(call['args'], ['-C', str(self.root), 'run', 'setup:update', *expected_flags])
                 self.assertIsNone(call['env'])
                 self.assertEqual(call['root'], str(self.root))
 
@@ -130,7 +162,7 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
                 with self.subTest(command=command, flags=flags):
                     result = self.run_dots(command, *flags)
                     self.assertEqual(result.returncode, 2)
-                    self.assertIn('accepts only --mas', result.stderr)
+                    self.assertIn('does not accept', result.stderr)
         for command in ('sync', 'status', 'backup', 'plan'):
             self.assertEqual(self.run_dots(command, '--mas').returncode, 2)
         self.assertEqual(self.calls(), [])

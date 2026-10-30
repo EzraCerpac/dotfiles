@@ -6,6 +6,7 @@ import pty
 import shutil
 import select
 import stat
+import sys
 import subprocess
 import tempfile
 import unittest
@@ -420,7 +421,14 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
         )
         return brew_log, sudo_log, pgrep_log
 
-    def _run(self, task: str, *args: str, cwd: Path | None = None, extra_env: dict[str, str | None] | None = None):
+    def _run(
+        self,
+        task: str,
+        *args: str,
+        cwd: Path | None = None,
+        extra_env: dict[str, str | None] | None = None,
+        pass_fds: tuple[int, ...] = (),
+    ):
         env = self.env.copy()
         if extra_env:
             for key, value in extra_env.items():
@@ -435,7 +443,42 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
             text=True,
             capture_output=True,
             check=False,
+            pass_fds=pass_fds,
         )
+
+    def _run_with_events(
+        self,
+        task: str,
+        *args: str,
+        extra_env: dict[str, str | None] | None = None,
+    ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
+        event_read, event_write = os.pipe()
+        env = self.env.copy()
+        if extra_env:
+            for key, value in extra_env.items():
+                if value is None:
+                    env.pop(key, None)
+                else:
+                    env[key] = value
+        env["DOTS_UP_EVENT_FD"] = str(event_write)
+        jq = shutil.which("jq", path=env.get("PATH"))
+        if jq:
+            env["DOTS_UP_EVENT_JQ"] = jq
+        try:
+            result = subprocess.run(
+                [str(self.root / "setup-scripts" / "setup" / task), *args],
+                cwd=self.base,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+                pass_fds=(event_write,),
+            )
+        finally:
+            os.close(event_write)
+        with os.fdopen(event_read, encoding="utf-8") as stream:
+            events = [json.loads(line) for line in stream if line.strip()]
+        return result, events
 
     def _calls(self) -> list[list[str]]:
         if not self.log.exists():
@@ -917,6 +960,129 @@ esac
         self.assertEqual(source, [["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)]])
         self.assertEqual(reloads, [["exec", "--", "bash", str(resolved_root / "setup-scripts/setup/update")]])
         self.assertEqual(len(source), 1)
+
+    def test_update_events_survive_source_sync_reload_on_inherited_fd(self) -> None:
+        events_path = self.base / "update-events.jsonl"
+        with events_path.open("w", encoding="utf-8") as events_file:
+            event_fd = events_file.fileno()
+            result = self._run(
+                "update",
+                extra_env={
+                    "DOTS_UP_EVENT_FD": str(event_fd),
+                    "DOTS_UP_RUN_STARTED": None,
+                    "SETUP_PROFILE": "nas",
+                    "SETUP_MACHINE_ID": "cerpacnas",
+                },
+                pass_fds=(event_fd,),
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = [json.loads(line) for line in events_path.read_text().splitlines()]
+        self.assertGreater(len(events), 4)
+        self.assertTrue(all(event["v"] == 1 for event in events))
+        self.assertEqual([event["kind"] for event in events].count("run_start"), 1)
+        self.assertEqual(events[0]["kind"], "run_start")
+        self.assertEqual(events[0]["profile"], "nas")
+
+        sync_start = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_start"
+        )
+        sync_end = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_end"
+        )
+        package_start = next(
+            index for index, event in enumerate(events)
+            if event.get("label") == "newly declared host packages" and event["kind"] == "stage_start"
+        )
+        self.assertLess(sync_start, sync_end)
+        self.assertLess(sync_end, package_start)
+        self.assertEqual(events[sync_end]["status"], "ok")
+        self.assertTrue(any(call[4:7] == ["exec", "--", "bash"] for call in self._calls()))
+
+    def test_framed_update_events_survive_source_sync_reload(self) -> None:
+        nonce = "0123456789abcdef0123456789abcdef"
+        result = self._run(
+            "update",
+            extra_env={
+                "DOTS_UP_EVENT_FD": None,
+                "DOTS_UP_RUN_STARTED": None,
+                "DOTS_UP_STREAM_NONCE": nonce,
+                "DOTS_UP_EVENT_JQ": shutil.which("jq", path=self.env["PATH"]),
+                "SETUP_PROFILE": "nas",
+                "SETUP_MACHINE_ID": "cerpacnas",
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        marker = f"\x1edots-up/1:{nonce}:"
+        events = []
+        offset = 0
+        while True:
+            start = result.stdout.find(marker, offset)
+            if start < 0:
+                break
+            end = result.stdout.find("\x1f", start + len(marker))
+            self.assertGreaterEqual(end, 0, "event marker has no frame terminator")
+            events.append(json.loads(result.stdout[start + len(marker):end]))
+            offset = end + 1
+        self.assertGreater(len(events), 4)
+        self.assertTrue(all(event["v"] == 1 for event in events))
+        self.assertEqual([event["kind"] for event in events].count("run_start"), 1)
+        sync_start = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_start"
+        )
+        sync_end = next(
+            index for index, event in enumerate(events)
+            if event.get("id") == "source-sync" and event["kind"] == "stage_end"
+        )
+        package_start = next(
+            index for index, event in enumerate(events)
+            if event.get("label") == "newly declared host packages" and event["kind"] == "stage_start"
+        )
+        self.assertLess(sync_start, sync_end)
+        self.assertLess(sync_end, package_start)
+        self.assertTrue(any(call[4:7] == ["exec", "--", "bash"] for call in self._calls()))
+
+    def test_package_snapshot_reports_declared_brew_version_changes(self) -> None:
+        (self.root / "config.toml").write_text('[bootstrap.packages]\n"brew:fish" = "4.0.1"\n')
+        counter = self.base / "brew-list-count"
+        self._write_executable(
+            self.bin / "uname",
+            "#!/usr/bin/env bash\nprintf 'Linux\\n'\n",
+        )
+        self._write_executable(
+            self.bin / "brew",
+            """#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == list && "$2" == --versions && "$3" == --formula ]]; then
+    count=0
+    [[ ! -f "$BREW_LIST_COUNTER" ]] || count="$(<"$BREW_LIST_COUNTER")"
+    count=$((count + 1))
+    printf '%s' "$count" > "$BREW_LIST_COUNTER"
+    if [[ "$count" == 1 ]]; then version=3.9.0; else version=4.0.1; fi
+    printf 'fish %s\\nrogue-package 9.9.9\\n' "$version"
+    exit 0
+fi
+if [[ "$1" == list && "$2" == --versions && "$3" == --cask ]]; then exit 0; fi
+exit 90
+""",
+        )
+        result, events = self._run_with_events(
+            "update",
+            extra_env={
+                "BREW_LIST_COUNTER": str(counter),
+                "SETUP_PROFILE": "nas",
+                "SETUP_MACHINE_ID": "cerpacnas",
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        changes = [event for event in events if event.get("kind") == "change"]
+        self.assertEqual(
+            [(event.get("item"), event.get("before"), event.get("after")) for event in changes],
+            [("brew:fish", "3.9.0", "4.0.1")],
+        )
 
     def test_macos_workstation_update_runs_capd_fork_updater(self) -> None:
         app = self.base / "capd.app"
@@ -1439,14 +1605,24 @@ esac
         )
         scripts = self.root / "setup-scripts/setup/exceptions"
         for token in ("zoom", "karabiner-elements", "tailscale-app"):
-            result = subprocess.run(
-                [str(scripts / token)],
-                cwd=self.base,
-                env=self.env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            if token == "zoom":
+                result, events = self._run_with_events("exceptions/zoom")
+                self.assertTrue(any(
+                    event.get("kind") == "notice"
+                    and event.get("severity") == "attention"
+                    and event.get("stage") == "installer exception: zoom"
+                    and "running" in str(event.get("summary", ""))
+                    for event in events
+                ), f"busy cask deferral did not emit an attention notice: {events}")
+            else:
+                result = subprocess.run(
+                    [str(scripts / token)],
+                    cwd=self.base,
+                    env=self.env,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
             self.assertEqual(result.returncode, 0, result.stderr)
             if token == "karabiner-elements":
                 self.assertIn("Held: karabiner-elements 16.0.0", result.stdout)
@@ -1490,19 +1666,52 @@ esac
         self.env["BREW_INSTALLED"] = "zoom karabiner-elements"
         self.env["BREW_BUSY_PROCESSES"] = ""
         self.env["SUDO_OK"] = "0"
-        install = subprocess.run(
-            [str(scripts / "tailscale-app"), "--install-only"],
-            cwd=self.base,
-            env=self.env,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        install, events = self._run_with_events("exceptions/tailscale-app", "--install-only")
         self.assertEqual(install.returncode, 0, install.stderr)
         self.assertIn("needs interactive administrator authorization", install.stdout)
         self.assertIn("sudo -v && mise -C ~/.config/mise run setup:update", install.stdout)
+        self.assertTrue(any(
+            event.get("kind") == "notice"
+            and event.get("severity") == "attention"
+            and event.get("stage") == "installer exception: tailscale-app"
+            and "administrator authorization" in str(event.get("summary", ""))
+            for event in events
+        ), f"admin deferral did not emit an attention notice: {events}")
         calls = [line.split("\t")[1:] for line in brew_log.read_text().splitlines()]
         self.assertFalse(any(call and call[0] == "install" for call in calls))
+
+    @unittest.skipUnless(sys.platform == "darwin", "AeroSpace deferral is macOS-only")
+    def test_missing_aerospace_local_build_emits_attention_notice(self) -> None:
+        if Path("/Applications/AeroSpace.app").is_dir():
+            self.skipTest("AeroSpace is already installed")
+        result, events = self._run_with_events("exceptions/aerospace-local")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(
+            event.get("kind") == "notice"
+            and event.get("severity") == "attention"
+            and event.get("stage") == "installer exception: aerospace-local"
+            and "AeroSpace" in str(event.get("summary", ""))
+            for event in events
+        ), f"missing AeroSpace deferral did not emit an attention notice: {events}")
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux Tailscale exception is Linux-only")
+    def test_unsupported_tailscale_distribution_emits_attention_notice(self) -> None:
+        release = Path("/etc/os-release").read_text(encoding="utf-8")
+        distribution = next(
+            (line.partition("=")[2].strip('"') for line in release.splitlines() if line.startswith("ID=")),
+            "",
+        )
+        if distribution == "fedora":
+            self.skipTest("this updater currently supports Fedora")
+        result, events = self._run_with_events("exceptions/tailscale-linux")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(
+            event.get("kind") == "notice"
+            and event.get("severity") == "attention"
+            and event.get("stage") == "installer exception: tailscale-linux"
+            and "Tailscale" in str(event.get("summary", ""))
+            for event in events
+        ), f"unsupported distribution did not emit an attention notice: {events}")
 
     def test_interactive_cask_update_leaves_admin_prompt_to_brew(self) -> None:
         brew_log, sudo_log, _ = self._prepare_brew_exceptions(

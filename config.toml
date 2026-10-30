@@ -73,6 +73,19 @@ gitleaks = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", 
 codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
 
+# Prebuilt dashboard; release tags are separate from the setup source history.
+[tools."github:EzraCerpac/dotfiles"]
+version = "latest"
+version_prefix = "dots-up-v"
+rename_exe = "dots-up"
+os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"]
+
+[tools."github:EzraCerpac/dotfiles".platforms]
+macos-arm64 = { asset_pattern = "dots-up-darwin-arm64" }
+macos-x64 = { asset_pattern = "dots-up-darwin-amd64" }
+linux-arm64 = { asset_pattern = "dots-up-linux-arm64" }
+linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
+
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
 [bootstrap.packages]

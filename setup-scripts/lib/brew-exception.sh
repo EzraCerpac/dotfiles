@@ -3,6 +3,8 @@
 # Print the executable path for a real macOS Homebrew installation. Check PATH
 # first, then the two supported prefixes so first bootstrap does not depend on
 # the caller having Homebrew's shell setup loaded yet.
+source "$(dirname "${BASH_SOURCE[0]}")/dots-up-events.sh"
+
 find_real_brew() {
     local path_brew candidate prefix
     path_brew="$(type -P brew 2>/dev/null || true)"
@@ -42,6 +44,7 @@ update_brew_cask_exception() {
     if ! "$brew_bin" list --cask "$token" >/dev/null 2>&1; then
         if [[ -n "$running_process" ]] && pgrep -x "$running_process" >/dev/null 2>&1; then
             printf 'Deferred: %s is running; close it before installing.\n' "$token"
+            dots_up_emit_notice attention "$token installation was deferred because it is running." "Close $token and rerun dots up." "installer exception: $token"
             return 0
         fi
         if [[ "$requires_admin" -eq 1 ]] && ! brew_exception_admin_available; then
@@ -73,6 +76,7 @@ update_brew_cask_exception() {
     fi
     if [[ -n "$running_process" ]] && pgrep -x "$running_process" >/dev/null 2>&1; then
         printf 'Deferred: %s is running; close it before upgrading.\n' "$token"
+        dots_up_emit_notice attention "$token upgrade was deferred because it is running." "Close $token and rerun dots up." "installer exception: $token"
         return 0
     fi
     if [[ "$requires_admin" -eq 1 ]] && ! brew_exception_admin_available; then
@@ -192,4 +196,5 @@ brew_exception_admin_available() {
 
 brew_exception_defer_for_admin() {
     printf 'Deferred: %s needs interactive administrator authorization; run in a terminal: sudo -v && mise -C ~/.config/mise run setup:update\n' "$1"
+    dots_up_emit_notice attention "$1 was deferred because interactive administrator authorization is unavailable." "Run sudo -v, then rerun dots up." "installer exception: $1"
 }

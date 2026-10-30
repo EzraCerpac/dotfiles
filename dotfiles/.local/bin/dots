@@ -5,7 +5,8 @@ usage() {
     cat <<'HELP'
 Your machine setup, from any directory.
 
-  dots up [--mas]                  Sync configuration, then update tools and plugins
+  dots up [--mas] [--plain|--verbose] [--no-wait] [--last]
+                                   Sync configuration, then update tools and plugins
   dots up houseatlas ACTION        HouseAtlas check/apply/status (binding unavailable)
   dots sync [--source-only]        Fetch main; optionally advance source without apply
   dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
@@ -39,6 +40,8 @@ Examples:
 
 Add defaults to the selected machine profile; --base targets shared config.
 Up skips Mac App Store updates by default; --mas includes them on macOS workstations.
+Up keeps a focused report open in interactive terminals. --plain prints concise
+progress, --verbose shows full subprocess output, and --last reopens the saved report.
 Bare tool names use mise's preferred backend and latest version.
 brew: names prefer formulas and resolve to casks when no formula exists.
 New requests are recorded after installation; failures ask before recording.
@@ -82,8 +85,89 @@ case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 case "$command_name" in
     up|update)
         for argument in "$@"; do
-            [[ "$argument" == --mas ]] || { echo "dots: $command_name accepts only --mas" >&2; exit 2; }
+            case "$argument" in
+                --mas|--plain|--verbose|--no-wait|--last) ;;
+                *) echo "dots: $command_name does not accept $argument" >&2; exit 2 ;;
+            esac
         done
+        has_plain=0
+        has_verbose=0
+        has_last=0
+        has_mas=0
+        for argument in "$@"; do
+            case "$argument" in
+                --plain) has_plain=1 ;;
+                --verbose) has_verbose=1 ;;
+                --last) has_last=1 ;;
+                --mas) has_mas=1 ;;
+            esac
+        done
+        [[ "$has_plain" -eq 0 || "$has_verbose" -eq 0 ]] || { echo 'dots: --plain and --verbose cannot be combined' >&2; exit 2; }
+        [[ "$has_last" -eq 0 || "$has_mas" -eq 0 ]] || { echo 'dots: --last cannot be combined with --mas' >&2; exit 2; }
+        renderer="${DOTS_UP_BIN:-}"
+        if [[ -z "$renderer" ]]; then
+            renderer="$(command -v dots-up 2>/dev/null || true)"
+        fi
+        if [[ -z "$renderer" || ! -x "$renderer" ]]; then
+            renderer="$("$mise_bin" -C "$root" which dots-up 2>/dev/null || true)"
+        fi
+        if [[ -n "$renderer" && -x "$renderer" ]]; then
+            exec "$renderer" --root "$root" "$@"
+        fi
+        if [[ "$has_last" -eq 1 ]]; then
+            echo 'dots: dashboard renderer is unavailable; no saved report was opened' >&2
+            exit 2
+        fi
+        echo 'dots: dashboard renderer unavailable; using the Bash updater fallback' >&2
+        fallback_args=()
+        for argument in "$@"; do
+            case "$argument" in
+                --no-wait) ;;
+                --mas|--plain|--verbose) fallback_args+=("$argument") ;;
+            esac
+        done
+        fallback_run=""
+        unset DOTS_UP_RUN_DIR
+        if [[ "$has_verbose" -eq 0 ]]; then
+            if [[ "$has_plain" -eq 0 ]]; then
+                fallback_args+=(--plain)
+            fi
+            fallback_state="${XDG_STATE_HOME:-$HOME/.local/state}/dots/up"
+            fallback_run="$fallback_state/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+            if mkdir -p "$fallback_state" && chmod 700 "$fallback_state" \
+                && mkdir -p "$fallback_run/stages" \
+                && chmod 700 "$fallback_run" "$fallback_run/stages" \
+                && : > "$fallback_run/.active" \
+                && chmod 600 "$fallback_run/.active" \
+                && : > "$fallback_run/.fallback" \
+                && chmod 600 "$fallback_run/.fallback"; then
+                export DOTS_UP_RUN_DIR="$fallback_run"
+            else
+                echo "dots: could not create private logs under $fallback_state; continuing without saved stage logs" >&2
+                if [[ -d "$fallback_run" ]]; then rm -rf -- "$fallback_run" 2>/dev/null || true; fi
+                fallback_run=""
+                unset DOTS_UP_RUN_DIR
+            fi
+        fi
+        result=0
+        "$mise_bin" -C "$root" run setup:update "${fallback_args[@]}" || result=$?
+        if [[ -n "$fallback_run" && -f "$fallback_run/.active" ]]; then
+            rm -f -- "$fallback_run/.active" || echo "dots: could not finalize $fallback_run" >&2
+            if [[ "$result" -eq 0 ]]; then
+                rm -rf -- "$fallback_run" || echo "dots: could not remove successful run logs in $fallback_run" >&2
+            else
+                printf 'Logs: %s\n' "$fallback_run"
+                fallback_reports=("$fallback_state"/*)
+                retained=0
+                for ((index=${#fallback_reports[@]} - 1; index >= 0; index--)); do
+                    candidate="${fallback_reports[index]}"
+                    [[ -f "$candidate/.fallback" && ! -e "$candidate/.active" ]] || continue
+                    retained=$((retained + 1))
+                    if [[ "$retained" -gt 10 ]]; then rm -rf -- "$candidate" || echo "dots: could not remove old fallback logs in $candidate" >&2; fi
+                done
+            fi
+        fi
+        exit "$result"
         ;;
     sync)
         [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; }

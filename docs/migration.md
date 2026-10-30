@@ -86,6 +86,14 @@ dots restore
 
 `setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `setup-scripts/bootstrap/enroll-history`.
 
+The planned `dots up` dashboard adds `--plain` for plain output,
+`--verbose` for detailed output, `--no-wait` to skip the final wait,
+and `--last` to show the last update.
+`--mas` continues to opt into Mac App Store updates.
+These dashboard options require a release and a separate activation;
+they are not available from this source change alone.
+Publishing the release does not deploy it to either NAS.
+
 With `dots up --mas`, the Mac update prepares the `mas` formula, then overlaps
 App Store updates with other formulae, casks, tools, and exceptions. With no cached
 administrator authorization, a noninteractive run defers the Mac App Store

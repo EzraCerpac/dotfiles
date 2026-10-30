@@ -660,9 +660,9 @@ raise SystemExit(int(os.environ.get("JW_TEST_RESULT", "0")))
 ''',
         )
 
-    def run_dots(self, **extra_env: str) -> subprocess.CompletedProcess[str]:
+    def run_dots(self, *args: str, **extra_env: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["bash", str(SOURCE_ROOT / "dotfiles/.local/bin/dots"), "up"],
+            ["bash", str(SOURCE_ROOT / "dotfiles/.local/bin/dots"), "up", *args],
             cwd=self.fixture.base, env=dict(self.fixture.env, **extra_env),
             text=True, capture_output=True, timeout=15, check=False,
         )
@@ -682,12 +682,41 @@ raise SystemExit(int(os.environ.get("JW_TEST_RESULT", "0")))
         self.assertIn("Update report: completed", result.stdout)
 
     def test_dots_up_skips_absent_jw_without_fetch_or_install(self) -> None:
-        result = self.run_dots()
+        result = self.run_dots("--verbose")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.home / ".local/bin/jw").exists())
         self.assertEqual(self.fixture._git_calls(), [])
         self.assertIn("jw", result.stdout.lower())
         self.assertIn("skip", result.stdout.lower())
+
+    def test_plain_fallback_cleans_success_and_retains_only_ten_failed_runs(self) -> None:
+        xdg_state = self.fixture.base / "xdg-state"
+        fallback_state = xdg_state / "dots/up"
+        env = {
+            "DOTS_UP_BIN": str(self.fixture.base / "missing-dots-up"),
+            "XDG_STATE_HOME": str(xdg_state),
+        }
+
+        successful = self.run_dots("--plain", **env)
+        self.assertEqual(successful.returncode, 0, successful.stderr)
+        self.assertEqual(list(fallback_state.glob("*/.fallback")), [])
+
+        old_runs = []
+        for index in range(11):
+            run = fallback_state / f"20250101T0000{index:02d}Z-old-{index}"
+            run.mkdir(parents=True)
+            (run / ".fallback").touch()
+            (run / "stages").mkdir()
+            old_runs.append(run)
+        failed = self.run_dots("--plain", FAIL_PACKAGES="1", **env)
+        self.assertEqual(failed.returncode, 1, failed.stdout + failed.stderr)
+        retained = list(fallback_state.glob("*/.fallback"))
+        self.assertEqual(len(retained), 10)
+        self.assertTrue(all(not (path.parent / ".active").exists() for path in retained))
+        self.assertFalse(old_runs[0].exists(), "the oldest completed fallback log was not pruned")
+        current = [path.parent for path in retained if path.parent not in old_runs]
+        self.assertEqual(len(current), 1, f"current failed logs are missing: {retained}")
+        self.assertTrue(any((current[0] / "stages").glob("*.log")), "failed stage output was not retained")
 
     def test_dots_up_nas_never_calls_jw_source_updater(self) -> None:
         self.stub_helper()
