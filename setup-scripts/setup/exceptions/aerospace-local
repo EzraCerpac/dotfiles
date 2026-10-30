@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+source "$(dirname "$0")/../../lib/dots-up-events.sh"
 [[ "$(uname -s)" == Darwin ]] || exit 0
 if [[ ! -d /Applications/AeroSpace.app ]]; then
     printf 'Deferred: AeroSpace local build is not installed; use local:aerospace-local-build and the documented activation steps.\n'
+    dots_up_emit_notice attention 'AeroSpace local build is not installed.' 'Build and activate it with local:aerospace-local-build.' 'installer exception: aerospace-local'
     exit 0
 fi
 version="$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - /Applications/AeroSpace.app/Contents/Info.plist)"

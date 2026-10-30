@@ -3,6 +3,7 @@ package supervisor
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,5 +92,15 @@ func TestRunReportsArePrivateAndRetentionPreservesActiveRun(t *testing.T) {
 	}
 	if err := active.eventLog.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestSummaryCountsAttentionStageResults(t *testing.T) {
+	got := summary(Report{
+		ExitCode: 0,
+		Events:   []ui.Event{{V: 1, Kind: "stage_end", ID: "auth", Status: "attention"}},
+	}, "/state/run")
+	if !strings.Contains(got, "1 item(s) needing attention") {
+		t.Fatalf("summary omitted the attention result: %s", got)
 	}
 }

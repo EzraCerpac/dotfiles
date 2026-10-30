@@ -60,11 +60,16 @@ class DotsUpCLITests(unittest.TestCase):
             "  printf 'ack_fd=%s\\nstdin=%s\\n' \"${DOTS_UP_ACK_FD:-unset}\" \"$tty_state\" >\"$DOTS_UP_PROTOCOL_LOG\"\n"
             "fi\n"
             "printf '%s\\n' \"$@\" >\"$DOTS_UP_ARGS_LOG\"\n"
-            "event_fd=\"${DOTS_UP_EVENT_FD:-3}\"\n"
             "line_no=0\n"
             "while IFS= read -r event; do\n"
+            "  if [[ \"${DOTS_UP_OMIT_STAGE_END:-0}\" == 1 && \"$event\" == *stage_end* ]]; then continue; fi\n"
             "  line_no=$((line_no + 1))\n"
-            "  printf '%s\\n' \"$event\" >&\"$event_fd\"\n"
+            "  if [[ -n \"${DOTS_UP_STREAM_NONCE:-}\" ]]; then\n"
+            "    printf '\\036dots-up/1:%s:%s\\037' \"$DOTS_UP_STREAM_NONCE\" \"$event\"\n"
+            "  else\n"
+            "    event_fd=\"${DOTS_UP_EVENT_FD:-3}\"\n"
+            "    printf '%s\\n' \"$event\" >&\"$event_fd\"\n"
+            "  fi\n"
             "  if [[ \"${DOTS_UP_ACK_AFTER:-0}\" != 0 && \"$line_no\" == \"$DOTS_UP_ACK_AFTER\" ]]; then\n"
             "    ack_fd=\"${DOTS_UP_ACK_FD:-4}\"\n"
             "    IFS= read -r ack <&\"$ack_fd\"\n"
@@ -314,6 +319,8 @@ class DotsUpCLITests(unittest.TestCase):
             [
                 {"v": 1, "kind": "run_start", "id": "saved-auth-run", "profile": "workstation", "host": "test"},
                 {"v": 1, "kind": "stage_start", "id": "auth", "group": "Packages", "label": "Past authorization", "terminal": "handoff"},
+                {"v": 1, "kind": "handoff_end", "id": "auth"},
+                {"v": 1, "kind": "terminal_end"},
                 {"v": 1, "kind": "stage_end", "id": "auth", "status": "ok", "exit_code": 0, "summary": "Authorization complete"},
             ]
         )
@@ -334,6 +341,7 @@ class DotsUpCLITests(unittest.TestCase):
             replay = self._read_pty_until(master, b"Finished")
             self.assertIn(b"Past authorization", replay)
             self.assertNotIn(b"terminal input is now available", replay)
+            self.assertNotIn(b"unexpected terminal", replay)
             self.assertEqual(self.args_log.read_text(), previous_args)
             os.write(master, b"q")
             process.wait(timeout=5)
@@ -405,6 +413,55 @@ class DotsUpCLITests(unittest.TestCase):
                 process.kill()
                 process.wait(timeout=5)
             os.close(master)
+
+    def _run_auto_handoff_without_stage_end(self, no_wait: bool) -> None:
+        self._events(
+            [
+                {"v": 1, "kind": "run_start", "id": "fixture", "profile": "workstation", "host": "test"},
+                {"v": 1, "kind": "stage_start", "id": "auth", "group": "Packages", "label": "Authorize package updates", "terminal": "handoff"},
+                {"v": 1, "kind": "stage_end", "id": "auth", "status": "ok", "exit_code": 0, "summary": "This event is deliberately dropped"},
+            ]
+        )
+        args = ("--no-wait",) if no_wait else ()
+        process, master, slave, before = self._run_in_pty(
+            *args,
+            extra_env={
+                "DOTS_UP_ACK_AFTER": "2",
+                "DOTS_UP_OMIT_STAGE_END": "1",
+            },
+        )
+        try:
+            self._read_pty_until(master, b"terminal input is now available")
+            os.write(master, b"fixture authorization response\n")
+            if not no_wait:
+                self._read_pty_until(master, b"Finished")
+                os.write(master, b"q")
+            try:
+                process.wait(timeout=8)
+            except subprocess.TimeoutExpired as exc:
+                raise AssertionError(f"handoff report did not close; PTY tail: {bytes(process.output[-4000:])!r}") from exc
+            self.assertEqual(process.returncode, 0)
+            self.assertEqual((self.root / "input").read_text().strip(), "fixture authorization response")
+            _, report = self._latest_report()
+            auth_results = [
+                event for event in report["events"]
+                if event.get("kind") == "stage_end" and event.get("id") == "auth"
+            ]
+            self.assertEqual(len(auth_results), 1)
+            self.assertEqual(auth_results[0]["status"], "attention")
+            self.assertIn("exited before this step reported a result", auth_results[0]["summary"])
+            self.assertEqual(termios.tcgetattr(slave), before)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+            os.close(master)
+
+    def test_auto_handoff_exit_without_stage_end_restores_and_dismisses(self) -> None:
+        self._run_auto_handoff_without_stage_end(no_wait=False)
+
+    def test_auto_handoff_exit_without_stage_end_honors_no_wait(self) -> None:
+        self._run_auto_handoff_without_stage_end(no_wait=True)
 
     def test_resize_during_run_and_ctrl_c_restore_terminal(self) -> None:
         self._events(

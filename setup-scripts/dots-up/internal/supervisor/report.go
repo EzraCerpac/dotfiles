@@ -250,6 +250,9 @@ func replayEvents(report Report) <-chan ui.Event {
 		if event.Kind == "stage_start" && event.Terminal == "handoff" {
 			event.Terminal = "hidden"
 		}
+		if event.Kind == "handoff_end" || event.Kind == "terminal_end" {
+			continue
+		}
 		out <- event
 	}
 	if len(report.Events) == 0 || report.Events[len(report.Events)-1].Kind != "run_end" {
@@ -272,6 +275,8 @@ func summary(report Report, dir string) string {
 		case "stage_end":
 			if e.Status == "failed" {
 				failures++
+			} else if e.Status == "attention" {
+				attention++
 			}
 		}
 	}

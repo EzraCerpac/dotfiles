@@ -3,6 +3,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/setup-common.sh"
+source "$(dirname "$0")/../lib/dots-up-events.sh"
 include_mas=0
 plain_output="${DOTS_UP_PLAIN:-0}"
 verbose_output="${DOTS_UP_VERBOSE:-0}"
@@ -19,7 +20,7 @@ for argument in "$@"; do
     esac
 done
 setup_init || exit $?
-if [[ "$plain_output" -eq 1 && -z "${DOTS_UP_EVENT_FD:-}" && -z "${DOTS_UP_RUN_DIR:-}" ]]; then
+if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_DIR:-}" ]]; then
     state_root="${XDG_STATE_HOME:-${HOME:?HOME must be set}/.local/state}/dots/up"
     mkdir -p "$state_root" || exit 1
     chmod 700 "$state_root" || exit 1
@@ -30,23 +31,16 @@ if [[ "$plain_output" -eq 1 && -z "${DOTS_UP_EVENT_FD:-}" && -z "${DOTS_UP_RUN_D
     chmod 600 "$DOTS_UP_RUN_DIR/.active"
     export DOTS_UP_RUN_DIR
 fi
-if [[ -n "${DOTS_UP_EVENT_FD:-}" && -z "${DOTS_UP_EVENT_JQ:-}" ]]; then
+if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_EVENT_JQ:-}" ]]; then
     DOTS_UP_EVENT_JQ="$(setup_mise which jq 2>/dev/null || true)"
     export DOTS_UP_EVENT_JQ
 fi
 
 emit_event() {
-    [[ -n "${DOTS_UP_EVENT_FD:-}" ]] || return 0
-    local json="$1"
-    printf '%s\n' "$json" >&"$DOTS_UP_EVENT_FD" 2>/dev/null || true
+    dots_up_emit_event "$1"
 }
 event_json() {
-    [[ -n "${DOTS_UP_EVENT_FD:-}" ]] || return 0
-    if [[ -n "${DOTS_UP_EVENT_JQ:-}" && -x "$DOTS_UP_EVENT_JQ" ]]; then
-        "$DOTS_UP_EVENT_JQ" -cn "$@" 2>/dev/null || true
-    else
-        setup_mise exec -- jq -cn "$@" 2>/dev/null || true
-    fi
+    dots_up_event_json "$@"
 }
 start_event_stage() {
     local id="$1" group="$2" label="$3" terminal="${4:-hidden}"
@@ -102,7 +96,7 @@ PY
                 casks="$(brew list --versions --cask 2>/dev/null | awk '{print "brew-cask:" $1 "\t" substr($0, index($0, $2))}')" || return 1
                 installed="${formulas}${formulas:+$'\n'}${casks}"
                 printf '%s\n' "$installed" | setup_mise exec -- jq -Rn --argjson declared "$declared" '
-                    [inputs | split("\t") as $row | select(length == 2 and ($declared | index($row[0])))
+                    [inputs | split("\t") as $row | select(($row | length) == 2 and ($declared | index($row[0])))
                         | {item:$row[0],value:$row[1]}]
                     | sort_by(.item)
                 ' 2>/dev/null
@@ -128,7 +122,7 @@ PY
 }
 emit_snapshot_changes() {
     local stage="$1" before="$2" after="$3" changes
-    [[ -n "${DOTS_UP_EVENT_FD:-}" ]] || return 0
+    dots_up_event_sink_enabled || return 0
     changes="$(setup_mise exec -- jq -cn --arg stage "$stage" --argjson before "${before:-[]}" --argjson after "${after:-[]}" '
         ($before | map({key:.item,value:.value}) | from_entries) as $b |
         ($after | map({key:.item,value:.value}) | from_entries) as $a |
@@ -140,7 +134,7 @@ emit_snapshot_changes() {
     while IFS= read -r event; do [[ -n "$event" ]] && emit_event "$event"; done <<< "$changes"
 }
 
-if [[ -n "${DOTS_UP_EVENT_FD:-}" && -z "${DOTS_UP_RUN_STARTED:-}" ]]; then
+if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_STARTED:-}" ]]; then
     export DOTS_UP_RUN_STARTED=1
     emit_event "$(event_json --arg profile "$SETUP_PROFILE" --arg host "$(hostname -s 2>/dev/null || uname -n)" '{v:1,kind:"run_start",profile:$profile,host:$host}')"
 fi
@@ -150,14 +144,14 @@ if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
     sync_result=0
     sync_log=""
     if [[ "$plain_output" -eq 1 ]]; then printf 'Working: Sync configuration\n'; fi
-    if [[ "$plain_output" -eq 1 && -z "${DOTS_UP_EVENT_FD:-}" && -n "${DOTS_UP_RUN_DIR:-}" && ( ! -t 0 || ! -t 1 ) ]]; then
+    if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" && ( ! -t 0 || ! -t 1 ) ]]; then
         sync_log="$DOTS_UP_RUN_DIR/stages/source-sync.log"
         if ! { : > "$sync_log" && chmod 600 "$sync_log"; }; then
             printf 'Warning: could not create the source sync log; showing its output directly.\n' >&2
             sync_log=""
         fi
     fi
-    if [[ -n "${DOTS_UP_EVENT_FD:-}" ]]; then
+    if dots_up_event_sink_enabled; then
         start_event_stage source-sync 'Source & settings' 'Sync configuration' hidden
     fi
     if [[ -n "$sync_log" ]]; then
@@ -169,12 +163,12 @@ if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
         0|3) ;;
         *)
             setup_error 'source synchronization failed; dependent updates stopped'
-            emit_event "$(event_json --arg id source-sync --arg summary 'Source sync failed; updates stopped' --argjson code "$sync_result" '{v:1,kind:"stage_end",id:$id,status:"failed",exit_code:$code,summary:$summary}')"
             if [[ -n "$sync_log" ]]; then
                 printf 'Recent output:\n' >&2
                 tail -n 30 "$sync_log" >&2 || true
                 printf 'Full log: %s\n' "$sync_log" >&2
             fi
+            emit_event "$(event_json --arg id source-sync --arg summary 'Source sync failed; updates stopped' --argjson code "$sync_result" '{v:1,kind:"stage_end",id:$id,status:"failed",exit_code:$code,summary:$summary}')"
             exit "$sync_result"
             ;;
     esac
@@ -201,7 +195,7 @@ run_stage() {
     group="$(event_group "$label")"
     local before_snapshot='[]' after_snapshot='[]' before_valid=0 after_valid=0
     local stage_log=""
-    if [[ -n "${DOTS_UP_EVENT_FD:-}" && -w "/dev/fd/$DOTS_UP_EVENT_FD" ]]; then
+    if dots_up_event_sink_enabled; then
         emit_event "$(event_json --arg id "$event_id" --arg group "$group" --arg label "$label" --arg terminal "$terminal" '{v:1,kind:"stage_start",id:$id,group:$group,label:$label,terminal:$terminal}')"
         if [[ "$terminal" == handoff && -n "${DOTS_UP_ACK_FD:-}" ]]; then
             local acknowledgement
@@ -209,10 +203,10 @@ run_stage() {
             [[ "$acknowledgement" == "go:$event_id" ]] || { setup_error "invalid terminal handoff for $label"; return 1; }
         fi
     fi
-    if [[ -n "${DOTS_UP_EVENT_FD:-}" ]]; then
+    if dots_up_event_sink_enabled; then
         before_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
     fi
-    if [[ "$plain_output" -eq 1 && -z "${DOTS_UP_EVENT_FD:-}" && -n "${DOTS_UP_RUN_DIR:-}" ]]; then
+    if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
         stage_log="$DOTS_UP_RUN_DIR/stages/$event_id.log"
         if ! { : > "$stage_log" && chmod 600 "$stage_log"; }; then
             printf 'Warning: could not create the %s log; showing its output directly.\n' "$label" >&2
@@ -226,7 +220,7 @@ run_stage() {
     else
         "$@" || result=$?
     fi
-    if [[ -n "${DOTS_UP_EVENT_FD:-}" ]]; then
+    if dots_up_event_sink_enabled; then
         after_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
         if [[ "$before_valid" -eq 1 && "$after_valid" -eq 1 ]]; then
             emit_snapshot_changes "$event_id" "$before_snapshot" "$after_snapshot"
@@ -234,14 +228,11 @@ run_stage() {
     fi
     if [[ "$result" -eq 0 ]]; then
         local summary="completed"
-        if [[ -n "${DOTS_UP_EVENT_FD:-}" ]]; then
+        printf 'Result: completed\n'
+        if dots_up_event_sink_enabled; then
             emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "$summary" '{v:1,kind:"stage_end",id:$id,label:$label,status:"ok",exit_code:0,summary:$summary}')"
         fi
-        printf 'Result: completed\n'
     else
-        if [[ -n "${DOTS_UP_EVENT_FD:-}" ]]; then
-            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "failed (exit $result)" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:"failed",exit_code:$code,summary:$summary}')"
-        fi
         printf 'Result: failed (exit %s)\n' "$result"
         if [[ -n "$stage_log" ]]; then
             printf 'Recent output:\n' >&2
@@ -249,6 +240,9 @@ run_stage() {
             printf 'Full log: %s\n' "$stage_log" >&2
         fi
         failures+=("$label")
+        if dots_up_event_sink_enabled; then
+            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "failed (exit $result)" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:"failed",exit_code:$code,summary:$summary}')"
+        fi
         return "$result"
     fi
     return 0

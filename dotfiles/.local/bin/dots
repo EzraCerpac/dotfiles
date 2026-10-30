@@ -128,8 +128,10 @@ case "$command_name" in
         done
         fallback_run=""
         unset DOTS_UP_RUN_DIR
-        if [[ "$has_verbose" -eq 0 && "$has_plain" -eq 0 ]]; then
-            fallback_args+=(--plain)
+        if [[ "$has_verbose" -eq 0 ]]; then
+            if [[ "$has_plain" -eq 0 ]]; then
+                fallback_args+=(--plain)
+            fi
             fallback_state="${XDG_STATE_HOME:-$HOME/.local/state}/dots/up"
             fallback_run="$fallback_state/$(date -u +%Y%m%dT%H%M%SZ)-$$"
             if mkdir -p "$fallback_state" && chmod 700 "$fallback_state" \

@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -40,6 +41,7 @@ type backend struct {
 	master         *os.File
 	tty            *os.File
 	ack            *os.File
+	streamNonce    string
 	pty            bool
 	processGroup   bool
 	directTerminal bool
@@ -49,6 +51,7 @@ type relayState struct {
 	active    atomic.Bool
 	manual    atomic.Bool
 	inputSent atomic.Bool
+	inputMu   sync.Mutex
 }
 
 var (
@@ -139,19 +142,25 @@ func Run(opts Options) int {
 
 	backendEvents := make(chan ui.Event, 32)
 	eventErr := make(chan error, 1)
-	go readEvents(eventReader, backendEvents, eventErr)
-	backendOutput := make(chan []byte, 32)
+	if backend.streamNonce == "" {
+		go readEvents(eventReader, backendEvents, eventErr)
+	} else {
+		_ = eventReader.Close()
+		close(backendEvents)
+	}
+	backendOutput := make(chan outputRecord, 32)
 	if outputReader == nil {
 		close(backendOutput)
 	} else {
-		go readOutput(outputReader, backendOutput)
+		go readOutput(outputReader, backend.streamNonce, backendOutput)
 	}
 	waitCh := make(chan error, 1)
 	go func() { waitCh <- backend.command.Wait() }()
 
 	var stageLog *os.File
 	var stageID, profile, host string
-	var runEndSeen, childFinished, outputFinished, eventFinished bool
+	var runEndSeen, childFinished, outputFinished bool
+	eventFinished := backend.streamNonce != ""
 	var exitCode int
 	var waitErr error
 	var backendError error
@@ -161,11 +170,15 @@ func Run(opts Options) int {
 	var deferredStageEnd *ui.Event
 	var restoreKind, restoreID string
 	var restorePending bool
+	var deferredUIEvents []ui.Event
 	var cancelRequested bool
 	var uiAlive = dashboard
 
-	var eventInput <-chan ui.Event = backendEvents
-	var outputInput <-chan []byte = backendOutput
+	var eventInput <-chan ui.Event
+	if backend.streamNonce == "" {
+		eventInput = backendEvents
+	}
+	var outputInput <-chan outputRecord = backendOutput
 	var uiInput <-chan error = uiDone
 	var uiExited bool
 	var uiErr error
@@ -193,15 +206,7 @@ func Run(opts Options) int {
 		}
 	}()
 
-	emit := func(e ui.Event) {
-		if e.V == 0 {
-			e.V = 1
-		}
-		if files != nil {
-			if err := files.record(e); err != nil {
-				fmt.Fprintf(os.Stderr, "dots up: report log: %v\n", err)
-			}
-		}
+	deliver := func(e ui.Event) {
 		if uiAlive && events != nil {
 			select {
 			case events <- e:
@@ -213,6 +218,21 @@ func Run(opts Options) int {
 		if plain && !opts.Verbose {
 			printProgress(e)
 		}
+	}
+	emit := func(e ui.Event) {
+		if e.V == 0 {
+			e.V = 1
+		}
+		if files != nil {
+			if err := files.record(e); err != nil {
+				fmt.Fprintf(os.Stderr, "dots up: report log: %v\n", err)
+			}
+		}
+		if restorePending && e.Kind != "handoff_end" && e.Kind != "terminal_end" {
+			deferredUIEvents = append(deferredUIEvents, e)
+			return
+		}
+		deliver(e)
 	}
 	startRelay := func(kind string) error {
 		if !backend.pty || backend.tty == nil {
@@ -235,6 +255,8 @@ func Run(opts Options) int {
 	}
 	stopRelay := func() error {
 		relay.active.Store(false)
+		relay.inputMu.Lock()
+		relay.inputMu.Unlock()
 		if terminalState == nil || backend.tty == nil {
 			return nil
 		}
@@ -270,6 +292,9 @@ func Run(opts Options) int {
 		restoreKind, restoreID = kind, id
 		restorePending = true
 		eventInput = nil
+		if backend.streamNonce != "" {
+			outputInput = nil
+		}
 		if kind == "auto" {
 			emit(ui.Event{V: 1, Kind: "handoff_end", ID: id})
 		} else {
@@ -285,7 +310,112 @@ func Run(opts Options) int {
 			deferredStageEnd = nil
 		}
 		restoreKind, restoreID, restorePending = "", "", false
-		eventInput = backendEvents
+		if backend.streamNonce == "" {
+			eventInput = backendEvents
+		} else if !outputFinished {
+			outputInput = backendOutput
+		}
+		for _, e := range deferredUIEvents {
+			deliver(e)
+		}
+		deferredUIEvents = nil
+	}
+	handleEvent := func(e ui.Event) {
+		if e.V != 1 {
+			backendError = fmt.Errorf("unsupported updater event version %d", e.V)
+			return
+		}
+		switch e.Kind {
+		case "run_start":
+			profile, host = e.Profile, e.Host
+			emit(e)
+		case "stage_start":
+			if stageLog != nil {
+				_ = stageLog.Close()
+				stageLog = nil
+			}
+			stageID = e.ID
+			if files != nil {
+				e.LogPath = files.logPath(e.ID)
+				stageLog = openStageLog(e.LogPath)
+			}
+			emit(e)
+			if e.Terminal == "handoff" && backend.pty {
+				pendingHandoff = e.ID
+				if !dashboard {
+					if err := startRelay("auto"); err != nil {
+						backendError = err
+						cancelRequested = true
+						cancelBackend(backend)
+					} else if err := ackChild(e.ID); err != nil {
+						backendError = err
+					}
+				}
+			}
+		case "stage_end":
+			if e.LogPath == "" && files != nil {
+				e.LogPath = files.logPath(e.ID)
+			}
+			if pendingHandoff == e.ID {
+				if relayKind == "auto" {
+					if err := stopRelay(); err != nil {
+						backendError = err
+					}
+				}
+				pendingHandoff, relayKind = "", ""
+				if dashboard {
+					beginRestore("auto", e.ID, e, true)
+					return
+				}
+			}
+			if relayKind == "manual" {
+				if err := stopRelay(); err != nil {
+					backendError = err
+				}
+				relayKind = ""
+				beginRestore("manual", "manual", e, true)
+				return
+			}
+			finishStage(e)
+		case "run_end":
+			runEndSeen, exitCode = true, e.ExitCode
+			emit(e)
+		default:
+			if (e.Kind == "app_store_start" || e.Kind == "app_store_end") && e.LogPath != "" && files != nil && !inside(files.runDir, e.LogPath) {
+				e.LogPath = ""
+			}
+			emit(e)
+		}
+	}
+	finishExitedHandoff := func() {
+		if !childFinished || !outputFinished || pendingHandoff == "" {
+			return
+		}
+		id := pendingHandoff
+		if relayKind != "" {
+			if err := stopRelay(); err != nil {
+				backendError = err
+			}
+		}
+		pendingHandoff, relayKind = "", ""
+		if id == "manual" {
+			if dashboard {
+				beginRestore("manual", "manual", ui.Event{}, false)
+			}
+			return
+		}
+		status := "attention"
+		summaryText := "Updater exited before this step reported a result."
+		if exitCode != 0 {
+			status = "failed"
+			summaryText = fmt.Sprintf("Updater exited with code %d before this step reported a result.", exitCode)
+		}
+		end := ui.Event{V: 1, Kind: "stage_end", ID: id, Status: status, ExitCode: exitCode, Summary: summaryText, Action: "Review the stage log and rerun dots up."}
+		if dashboard {
+			beginRestore("auto", id, end, true)
+		} else {
+			finishStage(end)
+		}
 	}
 
 	for !(childFinished && eventFinished && outputFinished && !restorePending) {
@@ -296,71 +426,7 @@ func Run(opts Options) int {
 				eventInput = nil
 				continue
 			}
-			if e.V != 1 {
-				backendError = fmt.Errorf("unsupported updater event version %d", e.V)
-				continue
-			}
-			switch e.Kind {
-			case "run_start":
-				profile, host = e.Profile, e.Host
-				emit(e)
-			case "stage_start":
-				if stageLog != nil {
-					_ = stageLog.Close()
-					stageLog = nil
-				}
-				stageID = e.ID
-				if files != nil {
-					e.LogPath = files.logPath(e.ID)
-					stageLog = openStageLog(e.LogPath)
-				}
-				emit(e)
-				if e.Terminal == "handoff" && backend.pty {
-					pendingHandoff = e.ID
-					if !dashboard {
-						if err := startRelay("auto"); err != nil {
-							backendError = err
-							cancelRequested = true
-							cancelBackend(backend)
-						} else {
-							if err := ackChild(e.ID); err != nil {
-								backendError = err
-							}
-						}
-					}
-				}
-			case "stage_end":
-				if e.LogPath == "" && files != nil {
-					e.LogPath = files.logPath(e.ID)
-				}
-				if relayKind == "auto" && pendingHandoff == e.ID {
-					if err := stopRelay(); err != nil {
-						backendError = err
-					}
-					pendingHandoff, relayKind = "", ""
-					if dashboard {
-						beginRestore("auto", e.ID, e, true)
-						continue
-					}
-				}
-				if relayKind == "manual" {
-					if err := stopRelay(); err != nil {
-						backendError = err
-					}
-					relayKind = ""
-					beginRestore("manual", "manual", e, true)
-					continue
-				}
-				finishStage(e)
-			case "run_end":
-				runEndSeen, exitCode = true, e.ExitCode
-				emit(e)
-			default:
-				if (e.Kind == "app_store_start" || e.Kind == "app_store_end") && e.LogPath != "" && files != nil && !inside(files.runDir, e.LogPath) {
-					e.LogPath = ""
-				}
-				emit(e)
-			}
+			handleEvent(e)
 		case control := <-controls:
 			switch control.Kind {
 			case "cancel":
@@ -397,12 +463,21 @@ func Run(opts Options) int {
 					finishRestore()
 				}
 			}
-		case b, ok := <-outputInput:
+		case item, ok := <-outputInput:
 			if !ok {
 				outputFinished = true
 				outputInput = nil
+				finishExitedHandoff()
 				continue
 			}
+			if item.err != nil {
+				backendError = item.err
+			}
+			if item.event != nil {
+				handleEvent(*item.event)
+				continue
+			}
+			b := item.bytes
 			clean := cleanTerminalOutput(b)
 			if relayKind != "" && backend.tty != nil {
 				_, _ = backend.tty.Write(b)
@@ -433,15 +508,12 @@ func Run(opts Options) int {
 			}
 			if relayKind != "" {
 				_ = stopRelay()
-				if relayKind == "manual" && dashboard {
-					beginRestore("manual", "manual", ui.Event{}, false)
-				}
-				relayKind = ""
 			}
 			if backend.ack != nil {
 				_ = backend.ack.Close()
 				backend.ack = nil
 			}
+			finishExitedHandoff()
 		case err := <-uiInput:
 			uiInput = nil
 			uiExited, uiErr = true, err
@@ -577,6 +649,22 @@ func startBackend(opts Options, files *runFiles, interactive bool) (*backend, *o
 			}
 		}
 	}
+	streamNonce := ""
+	if ptyMode {
+		streamNonce, err = newStreamNonce()
+		if err != nil {
+			_ = eventR.Close()
+			_ = eventW.Close()
+			_ = ackR.Close()
+			_ = ackW.Close()
+			if tty != nil {
+				_ = tty.Close()
+			}
+			return nil, nil, nil, err
+		}
+		childEnv = setEnv(childEnv, "DOTS_UP_STREAM_NONCE", streamNonce)
+		childEnv = setEnv(childEnv, "DOTS_UP_EVENT_FD", "")
+	}
 	cmd.ExtraFiles = []*os.File{eventW}
 	if ptyMode {
 		childEnv = setEnv(childEnv, "DOTS_UP_ACK_FD", "4")
@@ -588,12 +676,14 @@ func startBackend(opts Options, files *runFiles, interactive bool) (*backend, *o
 			_ = pty.InheritSize(tty, master)
 			_ = eventW.Close()
 			_ = ackR.Close()
-			return &backend{command: cmd, master: master, tty: tty, ack: ackW, pty: true, processGroup: true}, eventR, master, nil
+			return &backend{command: cmd, master: master, tty: tty, ack: ackW, streamNonce: streamNonce, pty: true, processGroup: true}, eventR, master, nil
 		}
 		// Keep maintenance available even when the host cannot allocate a PTY.
 		fmt.Fprintf(os.Stderr, "dots up: pseudoterminal unavailable (%v); using the current terminal directly\n", startErr)
 		_ = tty.Close()
 		tty = nil
+		childEnv = setEnv(childEnv, "DOTS_UP_STREAM_NONCE", "")
+		childEnv = setEnv(childEnv, "DOTS_UP_EVENT_FD", "3")
 		cmd.ExtraFiles = []*os.File{eventW}
 		cmd.Env = setEnv(childEnv, "DOTS_UP_ACK_FD", "")
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
@@ -611,8 +701,19 @@ func startBackend(opts Options, files *runFiles, interactive bool) (*backend, *o
 		return &backend{command: cmd, directTerminal: true}, eventR, nil, nil
 	}
 
+	streamNonce, err = newStreamNonce()
+	if err != nil {
+		_ = eventR.Close()
+		_ = eventW.Close()
+		_ = ackR.Close()
+		_ = ackW.Close()
+		return nil, nil, nil, err
+	}
+	childEnv = setEnv(childEnv, "DOTS_UP_STREAM_NONCE", streamNonce)
+	childEnv = setEnv(childEnv, "DOTS_UP_EVENT_FD", "")
 	childEnv = setEnv(childEnv, "DOTS_UP_ACK_FD", "")
 	cmd.Env = childEnv
+	cmd.ExtraFiles = nil
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var outputR, outputW *os.File
 	outputR, outputW, err = os.Pipe()
@@ -641,7 +742,7 @@ func startBackend(opts Options, files *runFiles, interactive bool) (*backend, *o
 	_ = ackR.Close()
 	_ = ackW.Close()
 	_ = outputW.Close()
-	return &backend{command: cmd, processGroup: true}, eventR, outputR, nil
+	return &backend{command: cmd, streamNonce: streamNonce, processGroup: true}, eventR, outputR, nil
 }
 
 func updaterCommand(opts Options) (*exec.Cmd, error) {
@@ -715,18 +816,39 @@ func readControls(r *io.PipeReader, out chan<- controlRecord) {
 	}
 }
 
-func readOutput(r io.Reader, out chan<- []byte) {
+func readOutput(r io.Reader, nonce string, out chan<- outputRecord) {
 	defer close(out)
 	if closer, ok := r.(io.Closer); ok {
 		defer closer.Close()
+	}
+	var decoder *eventStreamDecoder
+	if nonce != "" {
+		var err error
+		decoder, err = newEventStreamDecoder(nonce)
+		if err != nil {
+			out <- outputRecord{err: err}
+			return
+		}
+	}
+	send := func(records []outputRecord) {
+		for _, record := range records {
+			out <- record
+		}
 	}
 	buf := make([]byte, 32*1024)
 	for {
 		n, err := r.Read(buf)
 		if n > 0 {
-			out <- append([]byte(nil), buf[:n]...)
+			if decoder == nil {
+				out <- outputRecord{bytes: append([]byte(nil), buf[:n]...)}
+			} else {
+				send(decoder.feed(buf[:n]))
+			}
 		}
 		if err != nil {
+			if decoder != nil {
+				send(decoder.flush())
+			}
 			return
 		}
 	}
@@ -836,17 +958,26 @@ func relayTerminalInput(tty, master *os.File, state *relayState, start <-chan st
 		case <-time.After(80 * time.Millisecond):
 			continue
 		}
-		for state.active.Load() {
+		manualReturn := false
+		for {
+			// Quiesce any in-flight terminal read before the dashboard restores terminal state.
+			state.inputMu.Lock()
+			if !state.active.Load() {
+				state.inputMu.Unlock()
+				break
+			}
 			fd := int(tty.Fd())
 			var readable unix.FdSet
 			readable.Set(fd)
 			timeout := unix.NsecToTimeval(int64(100 * time.Millisecond))
 			ready, err := unix.Select(fd+1, &readable, nil, nil, &timeout)
-			if err != nil || ready == 0 || !readable.IsSet(fd) {
+			if !state.active.Load() || err != nil || ready == 0 || !readable.IsSet(fd) {
+				state.inputMu.Unlock()
 				continue
 			}
 			n, err := unix.Read(fd, buf)
 			if err != nil || n == 0 {
+				state.inputMu.Unlock()
 				continue
 			}
 			data := buf[:n]
@@ -863,15 +994,20 @@ func relayTerminalInput(tty, master *os.File, state *relayState, start <-chan st
 				data = forwarding
 				if returned {
 					state.active.Store(false)
-					select {
-					case manualEnd <- struct{}{}:
-					default:
-					}
+					manualReturn = true
 				}
 			}
 			if len(data) > 0 {
 				state.inputSent.Store(true)
 				_, _ = master.Write(data)
+			}
+			state.inputMu.Unlock()
+			if manualReturn {
+				select {
+				case manualEnd <- struct{}{}:
+				default:
+				}
+				break
 			}
 		}
 	}
