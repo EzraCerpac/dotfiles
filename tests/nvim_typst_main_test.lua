@@ -1,4 +1,5 @@
 local root = assert(os.getenv("NVIM_TYPST_TEST_ROOT"))
+vim.opt.rtp:prepend(root .. "/dotfiles/.config/nvim")
 local m = dofile(root .. "/dotfiles/.config/nvim/lua/custom/typst_main.lua")
 local project = vim.fn.tempname()
 vim.fn.mkdir(project .. "/manuscript/chapters", "p")
