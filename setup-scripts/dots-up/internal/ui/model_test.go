@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,11 @@ func send(m Model, e Event) Model {
 	return updated.(Model)
 }
 
+func press(m Model, key tea.KeyPressMsg) Model {
+	updated, _ := m.Update(key)
+	return updated.(Model)
+}
+
 func TestStageLifecycleAndSelection(t *testing.T) {
 	m := NewModel(t.TempDir(), false)
 	m = send(m, Event{V: 1, Kind: "run_start", ID: "r1", Host: "Mac", Profile: "workstation"})
@@ -21,7 +27,7 @@ func TestStageLifecycleAndSelection(t *testing.T) {
 	m = send(m, Event{V: 1, Kind: "change", Stage: "brew", Item: "ripgrep", Before: "14", After: "15"})
 	m = send(m, Event{V: 1, Kind: "stage_end", ID: "brew", Status: "ok", Summary: "Updated one formula"})
 	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
-	if len(m.Stages) != 2 || m.Selected != 1 || m.Stages[0].Status != "ok" || len(m.Stages[0].Changes) != 1 {
+	if len(m.Stages) != 2 || m.Selected != -1 || m.SelectedGroup != 0 || m.CurrentMain != 1 || m.Stages[0].Status != "ok" || len(m.Stages[0].Changes) != 1 {
 		t.Fatalf("unexpected stage state: %#v", m)
 	}
 	m = send(m, Event{V: 1, Kind: "run_end", ExitCode: 0, DurationMS: 1200})
@@ -58,7 +64,9 @@ func TestLogPathStaysWithinRunState(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := NewModel(root, false)
-	m = send(m, Event{V: 1, Kind: "stage_start", ID: "a"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "a", Group: "Tools"})
+	m.selectGroup(m.groupIndex("Tools"))
+	m.expandSelectedGroup()
 	m = send(m, Event{V: 1, Kind: "stage_end", ID: "a", Status: "ok", LogPath: path})
 	if m.Stages[0].LogPath != path {
 		t.Fatal("in-scope log path rejected")
@@ -115,16 +123,15 @@ func TestSmallTerminalUsesActualSize(t *testing.T) {
 func TestOverviewAndTerminalViews(t *testing.T) {
 	m := NewModel(t.TempDir(), false)
 	m = send(m, Event{V: 1, Kind: "stage_start", ID: "brew", Group: "Packages", Label: "Homebrew formulae"})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	content := m.View().Content
-	for _, group := range groupOrder {
-		if !strings.Contains(content, group) {
-			t.Fatalf("overview missing group %q", group)
-		}
+	if !strings.Contains(content, "AREA") || !strings.Contains(content, "▾ Packages") || !strings.Contains(content, "Homebrew formulae") {
+		t.Fatalf("expanded area missing its child: %s", content)
 	}
-	updated, _ := m.Update(tea.KeyPressMsg{Code: 't'})
-	m = updated.(Model)
+	m = press(m, tea.KeyPressMsg{Code: 't'})
 	content = m.View().Content
-	if !strings.Contains(content, "Captured terminal output") || strings.Contains(content, "Source & settings") {
+	if !strings.Contains(content, "Captured terminal output") || strings.Contains(content, "AREA  ▾ Packages") {
 		t.Fatal("terminal view did not replace overview")
 	}
 }
@@ -133,9 +140,11 @@ func TestManualTerminalRequestAndReturn(t *testing.T) {
 	m := NewModel(t.TempDir(), false)
 	m.intents = make(chan string, 2)
 	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
+	m.selectGroup(m.groupIndex("Tools"))
+	m.expandSelectedGroup()
 	for range 2 {
-		updated, _ := m.Update(tea.KeyPressMsg{Code: 't'})
-		m = updated.(Model)
+		m = press(m, tea.KeyPressMsg{Code: 't'})
 	}
 	if !m.TerminalRequested || m.RawLog || len(m.intents) != 1 || <-m.intents != "terminal_request" {
 		t.Fatal("running t should request one manual terminal takeover")
@@ -145,8 +154,8 @@ func TestManualTerminalRequestAndReturn(t *testing.T) {
 		t.Fatal("terminal_end should allow another request")
 	}
 	m = send(m, Event{V: 1, Kind: "run_end"})
-	updated, _ := m.Update(tea.KeyPressMsg{Code: 't'})
-	if !updated.(Model).RawLog {
+	m = press(m, tea.KeyPressMsg{Code: 't'})
+	if !m.RawLog {
 		t.Fatal("finished t should open captured log view")
 	}
 }
@@ -161,7 +170,7 @@ func TestConcurrentAppStoreDoesNotReplaceMainStage(t *testing.T) {
 	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
 	m = send(m, Event{V: 1, Kind: "stage_start", ID: "brew", Group: "Packages", Label: "Homebrew casks"})
 	m = send(m, Event{V: 1, Kind: "app_store_start", ID: "mac-app-store", Group: "Packages", Label: "Mac App Store", Status: "running", LogPath: path})
-	if m.Selected != 0 || m.CurrentMain != 0 || m.AppStoreIndex != 1 {
+	if m.Selected != -1 || m.SelectedGroup != 0 || m.CurrentMain != 0 || m.AppStoreIndex != 1 {
 		t.Fatalf("App Store displaced main stage: selected=%d main=%d app=%d", m.Selected, m.CurrentMain, m.AppStoreIndex)
 	}
 	view := m.View().Content
@@ -176,6 +185,152 @@ func TestConcurrentAppStoreDoesNotReplaceMainStage(t *testing.T) {
 	m = send(m, Event{V: 1, Kind: "app_store_end", ID: "mac-app-store", Status: "ok", Summary: "Updated one app", LogPath: path})
 	if m.Stages[1].Status != "ok" || m.CurrentMain != 0 {
 		t.Fatal("App Store end changed main stage")
+	}
+}
+
+func TestHierarchicalAreaNavigationKeepsSelectionAndOpensChildDetails(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "formulas", Group: "Packages", Label: "Homebrew formulae"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "casks", Group: "Packages", Label: "Homebrew casks"})
+	if m.SelectedGroup != 0 || m.Selected != -1 || m.CurrentMain != 1 {
+		t.Fatalf("progress moved tree selection: area=%d child=%d current=%d", m.SelectedGroup, m.Selected, m.CurrentMain)
+	}
+	if !strings.Contains(m.View().Content, "› >") || !strings.Contains(m.View().Content, "Source & settings") {
+		t.Fatal("collapsed view does not visibly mark the selected area")
+	}
+
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.SelectedGroup != 1 || m.ExpandedGroup != -1 || m.Selected != 0 {
+		t.Fatalf("down did not select Packages: area=%d expanded=%d child=%d", m.SelectedGroup, m.ExpandedGroup, m.Selected)
+	}
+	if !strings.Contains(m.View().Content, "› >") {
+		t.Fatal("selected Packages area is not visibly marked")
+	}
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
+	if m.SelectedGroup != 1 || m.Selected != 0 || m.CurrentMain != 2 {
+		t.Fatalf("new stage stole the selected area or child: area=%d child=%d current=%d", m.SelectedGroup, m.Selected, m.CurrentMain)
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeySpace})
+	if m.ExpandedGroup != 1 || !strings.Contains(m.View().Content, "AREA") || !strings.Contains(m.View().Content, "Packages") || !strings.Contains(m.View().Content, "Homebrew formulae") {
+		t.Fatal("Space did not expand the selected area with its child steps")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.Selected != 1 || !strings.Contains(m.View().Content, "›") || !strings.Contains(m.View().Content, "Homebrew casks") {
+		t.Fatal("down did not move the visible child selection")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyLeft})
+	if m.ExpandedGroup != -1 || m.SelectedGroup != 1 {
+		t.Fatal("Left did not return to the selected parent area")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.ExpandedGroup != 1 {
+		t.Fatal("Enter did not open the selected area")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyLeft})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyRight})
+	if m.ExpandedGroup != 1 {
+		t.Fatal("Right did not open the selected area")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.DetailFocus || !strings.Contains(m.View().Content, "STAGE DETAILS") || !strings.Contains(m.View().Content, "Homebrew casks") {
+		t.Fatal("Enter did not open details for the selected child")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyLeft})
+	if m.DetailFocus || m.ExpandedGroup != 1 || m.Selected != 1 {
+		t.Fatal("Left from details did not return to the selected child")
+	}
+}
+
+func TestSpaceCollapseFromDetailsRestoresAreaOverview(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
+	m = send(m, Event{V: 1, Kind: "change", Stage: "tools", Item: "ripgrep", Before: "14", After: "15"})
+	m = send(m, Event{V: 1, Kind: "stage_end", ID: "tools", Status: "ok", Summary: "Updated one tool"})
+	m.selectGroup(m.groupIndex("Tools"))
+	m.expandSelectedGroup()
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.DetailFocus || !strings.Contains(m.View().Content, "STAGE DETAILS") {
+		t.Fatal("test did not enter the child detail view")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeySpace})
+	view := m.View().Content
+	if m.ExpandedGroup >= 0 || m.DetailFocus || !strings.Contains(view, "CHANGES  1") || strings.Contains(view, "STAGE DETAILS") || strings.Contains(view, "Updated one tool") {
+		t.Fatalf("Space left stale child details in the collapsed overview: %s", view)
+	}
+}
+
+func TestLargeExpandedAreaKeepsSelectedChildAndFooterVisible(t *testing.T) {
+	root := t.TempDir()
+	lastLog := filepath.Join(root, "managed-app-24.log")
+	if err := os.WriteFile(lastLog, []byte("last managed app output\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(root, false)
+	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	for i := range 25 {
+		id := fmt.Sprintf("app-%02d", i)
+		m = send(m, Event{V: 1, Kind: "stage_start", ID: id, Group: "Managed apps/local builds", Label: fmt.Sprintf("Managed app %02d", i)})
+		end := Event{V: 1, Kind: "stage_end", ID: id, Status: "ok", Summary: "completed"}
+		if i == 24 {
+			end.LogPath = lastLog
+		}
+		m = send(m, end)
+	}
+	m = send(m, Event{V: 1, Kind: "run_end", ExitCode: 0})
+	m.selectGroup(m.groupIndex("Managed apps/local builds"))
+	m.expandSelectedGroup()
+	for range 24 {
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	view := m.View().Content
+	if !strings.Contains(view, "25/25") || !strings.Contains(view, "Managed app 24") || strings.Contains(view, "Managed app 00") {
+		t.Fatal("expanded area did not scroll the selected last child into view")
+	}
+	lastChildLine := ""
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "Managed app 24") && strings.Contains(line, "›") {
+			lastChildLine = line
+		}
+	}
+	if !strings.Contains(lastChildLine, "›") || !strings.Contains(view, "earlier update steps") || !strings.Contains(view, "↑↓ items") || !strings.Contains(view, "Finished") {
+		t.Fatalf("selected child, scroll context, or finished footer is not visible: child=%q earlier=%t help=%t finished=%t", lastChildLine, strings.Contains(view, "earlier update steps"), strings.Contains(view, "↑↓ items"), strings.Contains(view, "Finished"))
+	}
+	if rows := len(strings.Split(view, "\n")); rows > m.Height {
+		t.Fatalf("expanded area used %d rows in a %d-row terminal", rows, m.Height)
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.DetailFocus || !strings.Contains(m.lastLog, "Managed apps/local builds") || !strings.Contains(m.lastLog, "Managed app 24") {
+		t.Fatal("details did not use the selected last child")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyLeft})
+	m = press(m, tea.KeyPressMsg{Code: 'l'})
+	if !m.ShowLog || !strings.Contains(m.lastLog, "last managed app output") {
+		t.Fatal("logs did not use the selected last child")
+	}
+}
+
+func TestMiddleChildDetailsReserveHeadingRowInLongArea(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	for i := range 25 {
+		id := fmt.Sprintf("app-%02d", i)
+		m = send(m, Event{V: 1, Kind: "stage_start", ID: id, Group: "Managed apps/local builds", Label: fmt.Sprintf("Managed app %02d", i)})
+		m = send(m, Event{V: 1, Kind: "stage_end", ID: id, Status: "ok", Summary: "completed"})
+	}
+	m = send(m, Event{V: 1, Kind: "run_end", ExitCode: 0})
+	m.selectGroup(m.groupIndex("Managed apps/local builds"))
+	m.expandSelectedGroup()
+	for range 17 {
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	view := m.View().Content
+	if !m.DetailFocus || !strings.Contains(view, "earlier update steps") || !strings.Contains(view, "later update steps") || !strings.Contains(view, "STAGE DETAILS") || !strings.Contains(view, "Finished") {
+		t.Fatal("middle child detail view is missing the list window, heading, or footer")
+	}
+	if rows := len(strings.Split(view, "\n")); rows > m.Height {
+		t.Fatalf("middle child detail view used %d rows in a %d-row terminal: %s", rows, m.Height, view)
 	}
 }
 
@@ -206,13 +361,15 @@ func TestOverviewPrioritizesAttentionAndVerifiedChanges(t *testing.T) {
 	if rows := len(strings.Split(content, "\n")); rows > 30 {
 		t.Fatalf("overview exceeds 30 rows: %d", rows)
 	}
-	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	m = updated.(Model)
+	for range 4 {
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.DetailFocus || !strings.Contains(m.View().Content, "STAGE DETAILS") {
 		t.Fatal("Enter did not open stage details")
 	}
-	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
-	m = updated.(Model)
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEscape})
 	if !m.overview() || !strings.Contains(m.View().Content, "CHANGES  1") {
 		t.Fatal("Esc did not return to overview")
 	}

@@ -34,7 +34,7 @@ type Model struct {
 	RunID, Profile, Host                                                     string
 	Stages                                                                   []Stage
 	Notices                                                                  []Event
-	Selected                                                                 int
+	Selected, SelectedGroup, ExpandedGroup                                   int
 	CurrentMain                                                              int
 	AppStoreIndex                                                            int
 	Width, Height                                                            int
@@ -57,7 +57,7 @@ type Model struct {
 func NewModel(stateDir string, noWait bool) Model {
 	vp := viewport.New(viewport.WithWidth(80), viewport.WithHeight(12))
 	vp.SoftWrap = true
-	return Model{StateDir: stateDir, NoWait: noWait, Width: 100, Height: 30, CurrentMain: -1, AppStoreIndex: -1, viewport: vp}
+	return Model{StateDir: stateDir, NoWait: noWait, Width: 100, Height: 30, Selected: -1, ExpandedGroup: -1, CurrentMain: -1, AppStoreIndex: -1, viewport: vp}
 }
 
 func (m Model) Init() tea.Cmd { return tick() }
@@ -121,49 +121,81 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "enter":
-			m.DetailFocus = true
-			m.ShowLog = false
-			m.refreshDetail()
+			if m.ExpandedGroup < 0 {
+				m.expandSelectedGroup()
+			} else {
+				m.openSelectedDetails()
+			}
+		case "right":
+			if m.ExpandedGroup < 0 {
+				m.expandSelectedGroup()
+			} else {
+				m.openSelectedDetails()
+			}
+		case "space":
+			if m.ExpandedGroup == m.SelectedGroup {
+				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+				m.collapseGroup()
+				m.refreshDetail()
+			} else {
+				m.expandSelectedGroup()
+			}
 		case "esc":
 			m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+			m.collapseGroup()
+			m.refreshDetail()
+		case "left":
+			if m.DetailFocus || m.ShowLog || m.RawLog {
+				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+			} else {
+				m.collapseGroup()
+			}
 			m.refreshDetail()
 		case "up", "k":
 			if m.DetailFocus || m.RawLog {
 				m.viewport.ScrollUp(1)
-			} else if m.Selected > 0 {
-				m.Selected--
-				m.refreshDetail()
+			} else if m.ExpandedGroup >= 0 {
+				m.moveChild(-1)
+			} else {
+				m.moveGroup(-1)
 			}
 		case "down", "j":
 			if m.DetailFocus || m.RawLog {
 				m.viewport.ScrollDown(1)
-			} else if m.Selected+1 < len(m.Stages) {
-				m.Selected++
-				m.refreshDetail()
+			} else if m.ExpandedGroup >= 0 {
+				m.moveChild(1)
+			} else {
+				m.moveGroup(1)
 			}
 		case "pgup":
 			m.viewport.HalfPageUp()
 		case "pgdown":
 			m.viewport.HalfPageDown()
 		case "tab":
-			m.DetailFocus = !m.DetailFocus
-			if !m.DetailFocus {
-				m.ShowLog = false
+			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+				m.DetailFocus = !m.DetailFocus
+				if !m.DetailFocus {
+					m.ShowLog = false
+				}
+				m.refreshDetail()
 			}
-			m.refreshDetail()
 		case "a":
 			if m.AppStoreIndex >= 0 {
 				m.Selected = m.AppStoreIndex
+				m.SelectedGroup = m.groupIndex(stageGroup(m.Stages[m.AppStoreIndex]))
+				m.ExpandedGroup = m.SelectedGroup
 				m.ShowLog = true
 				m.DetailFocus = true
 				m.RawLog = false
 				m.refreshDetail()
 			}
 		case "l":
-			m.RawLog = false
-			m.ShowLog = !m.ShowLog
-			m.DetailFocus = m.ShowLog
-			m.refreshDetail()
+			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+				m.RawLog = false
+				m.ShowLog = !m.ShowLog
+				m.DetailFocus = m.ShowLog
+				m.refreshDetail()
+			}
 		case "t":
 			if m.Running {
 				if !m.TerminalRequested {
@@ -179,17 +211,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			fallthrough
 		case "r":
-			m.RawLog = !m.RawLog
-			m.ShowLog = m.RawLog
-			m.DetailFocus = m.RawLog
-			m.refreshDetail()
+			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+				m.RawLog = !m.RawLog
+				m.ShowLog = m.RawLog
+				m.DetailFocus = m.RawLog
+				m.refreshDetail()
+			}
 		case "s", "/":
-			m.ShowLog = true
-			m.DetailFocus = true
-			m.Searching = true
-			m.SearchQuery = ""
-			m.AppliedSearch = ""
-			m.refreshDetail()
+			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+				m.ShowLog = true
+				m.DetailFocus = true
+				m.Searching = true
+				m.SearchQuery = ""
+				m.AppliedSearch = ""
+				m.refreshDetail()
+			}
 		case "?":
 			m.Help = !m.Help
 		}
@@ -197,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.Running && !m.StartedAt.IsZero() {
 			m.Elapsed = time.Since(m.StartedAt)
 		}
-		if m.ShowLog && m.Selected < len(m.Stages) {
+		if m.ShowLog && m.Selected >= 0 && m.Selected < len(m.Stages) {
 			m.refreshDetail()
 		}
 		return m, tick()
@@ -214,8 +250,7 @@ func (m *Model) apply(e Event) {
 		m.StartedAt = time.Now()
 	case "stage_start":
 		m.Stages = append(m.Stages, Stage{ID: e.ID, Group: e.Group, Label: e.Label, Terminal: e.Terminal, Status: "running", LogPath: safeLogPath(m.StateDir, e.LogPath)})
-		m.Selected = len(m.Stages) - 1
-		m.CurrentMain = m.Selected
+		m.CurrentMain = len(m.Stages) - 1
 	case "app_store_start":
 		status := e.Status
 		if status == "" {
@@ -223,9 +258,6 @@ func (m *Model) apply(e Event) {
 		}
 		m.Stages = append(m.Stages, Stage{ID: e.ID, Group: e.Group, Label: e.Label, Status: status, LogPath: safeLogPath(m.StateDir, e.LogPath)})
 		m.AppStoreIndex = len(m.Stages) - 1
-		if m.CurrentMain < 0 {
-			m.Selected = m.AppStoreIndex
-		}
 	case "app_store_end":
 		if i := m.stageIndex(e.ID); i >= 0 {
 			s := &m.Stages[i]
@@ -267,6 +299,162 @@ func (m Model) stageIndex(id string) int {
 		}
 	}
 	return -1
+}
+
+func stageGroup(stage Stage) string {
+	if stage.Group == "" {
+		return "Other"
+	}
+	return stage.Group
+}
+
+func (m Model) groups() []string {
+	groups := append([]string(nil), groupOrder...)
+	seen := make(map[string]bool, len(groups))
+	for _, group := range groups {
+		seen[group] = true
+	}
+	for _, stage := range m.Stages {
+		group := stageGroup(stage)
+		if !seen[group] {
+			groups = append(groups, group)
+			seen[group] = true
+		}
+	}
+	return groups
+}
+
+func (m Model) groupIndex(group string) int {
+	for i, candidate := range m.groups() {
+		if candidate == group {
+			return i
+		}
+	}
+	return 0
+}
+
+func (m Model) childStages(group string) []int {
+	var children []int
+	for i, stage := range m.Stages {
+		if stageGroup(stage) == group {
+			children = append(children, i)
+		}
+	}
+	return children
+}
+
+func (m Model) hasSelectedChild() bool {
+	if m.Selected < 0 || m.Selected >= len(m.Stages) {
+		return false
+	}
+	groups := m.groups()
+	return m.SelectedGroup >= 0 && m.SelectedGroup < len(groups) && stageGroup(m.Stages[m.Selected]) == groups[m.SelectedGroup]
+}
+
+func (m *Model) selectGroup(index int) {
+	groups := m.groups()
+	if len(groups) == 0 {
+		m.SelectedGroup, m.Selected, m.ExpandedGroup = 0, -1, -1
+		return
+	}
+	index = max(0, min(index, len(groups)-1))
+	m.SelectedGroup, m.ExpandedGroup = index, -1
+	children := m.childStages(groups[index])
+	m.Selected = -1
+	if len(children) > 0 {
+		m.Selected = children[0]
+	}
+	m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+	m.refreshDetail()
+}
+
+func (m *Model) moveGroup(delta int) {
+	m.selectGroup(m.SelectedGroup + delta)
+}
+
+func (m *Model) moveChild(delta int) {
+	groups := m.groups()
+	if m.SelectedGroup < 0 || m.SelectedGroup >= len(groups) {
+		return
+	}
+	children := m.childStages(groups[m.SelectedGroup])
+	if len(children) == 0 {
+		m.Selected = -1
+		return
+	}
+	position := -1
+	for i, child := range children {
+		if child == m.Selected {
+			position = i
+			break
+		}
+	}
+	if position < 0 {
+		if delta < 0 {
+			position = len(children)
+		} else {
+			position = -1
+		}
+	}
+	position = max(0, min(position+delta, len(children)-1))
+	m.Selected = children[position]
+	m.refreshDetail()
+}
+
+func (m *Model) expandSelectedGroup() {
+	groups := m.groups()
+	if m.SelectedGroup < 0 || m.SelectedGroup >= len(groups) {
+		return
+	}
+	m.ExpandedGroup = m.SelectedGroup
+	children := m.childStages(groups[m.SelectedGroup])
+	if !m.hasSelectedChild() {
+		m.Selected = -1
+		if len(children) > 0 {
+			m.Selected = children[0]
+		}
+	}
+	m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+	m.refreshDetail()
+}
+
+func (m *Model) collapseGroup() {
+	if m.ExpandedGroup >= 0 {
+		m.SelectedGroup = m.ExpandedGroup
+	}
+	m.ExpandedGroup = -1
+}
+
+func (m Model) childCapacity() int {
+	reserved := 3 + 1 + 1 + 1 + 1 // header, area, divider, current stage, and footer
+	reserved++                    // line break after the detail/overview viewport
+	if m.AppStoreIndex >= 0 {
+		reserved++
+	}
+	if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+		reserved++
+	}
+	if !m.overview() && !m.RawLog {
+		reserved++ // non-raw detail/log heading
+	}
+	if m.Searching {
+		reserved++
+	}
+	if m.Finished {
+		reserved++
+	}
+	return max(1, m.Height-m.viewport.Height()-reserved)
+}
+
+func (m *Model) openSelectedDetails() {
+	if !m.hasSelectedChild() {
+		m.moveChild(1)
+	}
+	if !m.hasSelectedChild() {
+		return
+	}
+	m.DetailFocus, m.ShowLog, m.RawLog = true, false, false
+	m.refreshDetail()
 }
 
 func safeLogPath(root, path string) string {
@@ -445,7 +633,7 @@ func (m *Model) refreshDetail() {
 	content := m.overviewContent()
 	if !m.overview() {
 		content = "Select a stage to see details."
-		if m.Selected < len(m.Stages) {
+		if m.Selected >= 0 && m.Selected < len(m.Stages) {
 			s := m.Stages[m.Selected]
 			if m.ShowLog {
 				if s.LogPath != "" {
@@ -572,58 +760,100 @@ func (m Model) View() tea.View {
 	b.WriteString(muted.Render(strings.Repeat("─", max(1, width-2))) + "\n")
 	if m.RawLog {
 		label := "Captured terminal output"
-		if m.Selected < len(m.Stages) {
+		if m.Selected >= 0 && m.Selected < len(m.Stages) {
 			label += "  ·  " + m.Stages[m.Selected].Label
 		}
 		b.WriteString(accent.Render(label) + "\n")
 		b.WriteString(m.viewport.View() + "\n")
 		b.WriteString(muted.Render("Esc overview  ·  ↑↓ scroll  ·  s search") + "\n")
 	} else {
-		for _, group := range groupOrder {
-			count, completed, problem, active := 0, 0, "", false
-			selected := false
-			for i, stage := range m.Stages {
-				if stage.Group != group {
-					continue
-				}
-				count++
-				if stage.Status == "ok" || stage.Status == "skipped" {
-					completed++
-				}
-				if stage.Status == "failed" {
-					problem = "failed"
-				} else if stage.Status == "attention" && problem != "failed" {
-					problem = "attention"
-				}
-				if stage.Status == "running" {
-					active = true
-				}
-				if i == m.Selected {
-					selected = true
+		groups := m.groups()
+		if m.ExpandedGroup >= 0 && m.ExpandedGroup < len(groups) {
+			group := groups[m.ExpandedGroup]
+			children := m.childStages(group)
+			selectedPosition := -1
+			for position, child := range children {
+				if child == m.Selected {
+					selectedPosition = position
+					break
 				}
 			}
-			label := "pending"
-			glyph := muted.Render("○")
-			if problem != "" {
-				label = problem
-				glyph = warn.Render("!")
-				if problem == "failed" {
-					glyph = bad.Render("×")
+			heading := "▾ " + group
+			if selectedPosition >= 0 {
+				heading += fmt.Sprintf("  ·  %d/%d", selectedPosition+1, len(children))
+			} else if len(children) > 0 {
+				heading += fmt.Sprintf("  ·  %d steps", len(children))
+			}
+			fmt.Fprintf(&b, "%s  %s\n", accent.Render("AREA"), focus.Render(heading))
+			if len(children) == 0 {
+				b.WriteString(muted.Render("    No update steps yet") + "\n")
+			}
+			limit := m.childCapacity()
+			start, end := 0, len(children)
+			if len(children) > limit {
+				limit = max(1, limit-2) // reserve rows for earlier/later step counts
+				position := max(0, selectedPosition)
+				start = max(0, min(position-limit+1, len(children)-limit))
+				end = min(len(children), start+limit)
+			}
+			if start > 0 {
+				fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↑ %d earlier update steps", start)))
+			}
+			for _, child := range children[start:end] {
+				stage := m.Stages[child]
+				line := fmt.Sprintf("%s %s  ·  %s", statusGlyph(stage.Status), stage.Label, stage.Status)
+				if child == m.Selected {
+					b.WriteString(focus.Render("  › "+line) + "\n")
+				} else {
+					b.WriteString("    " + line + "\n")
 				}
-			} else if active {
-				label = "running"
-				glyph = accent.Render("◉")
-			} else if count > 0 && count == completed {
-				label = "complete"
-				glyph = good.Render("✓")
 			}
-			line := fmt.Sprintf("%s  %-27s %d/%d  %s", glyph, group, completed, count, label)
-			if selected {
-				line = focus.Render("› " + line)
-			} else {
-				line = "  " + line
+			if end < len(children) {
+				fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↓ %d later update steps", len(children)-end)))
 			}
-			b.WriteString(line + "\n")
+		} else {
+			for i, group := range groups {
+				count, completed, problem, active := 0, 0, "", false
+				for _, stage := range m.Stages {
+					if stageGroup(stage) != group {
+						continue
+					}
+					count++
+					if stage.Status == "ok" || stage.Status == "skipped" {
+						completed++
+					}
+					if stage.Status == "failed" {
+						problem = "failed"
+					} else if stage.Status == "attention" && problem != "failed" {
+						problem = "attention"
+					}
+					if stage.Status == "running" {
+						active = true
+					}
+				}
+				label := "pending"
+				glyph := muted.Render("○")
+				if problem != "" {
+					label = problem
+					glyph = warn.Render("!")
+					if problem == "failed" {
+						glyph = bad.Render("×")
+					}
+				} else if active {
+					label = "running"
+					glyph = accent.Render("◉")
+				} else if count > 0 && count == completed {
+					label = "complete"
+					glyph = good.Render("✓")
+				}
+				line := fmt.Sprintf("%s  %-27s %d/%d  %s", glyph, group, completed, count, label)
+				if i == m.SelectedGroup {
+					line = focus.Render("› > " + line)
+				} else {
+					line = "  > " + line
+				}
+				b.WriteString(line + "\n")
+			}
 		}
 		b.WriteString(muted.Render(strings.Repeat("─", max(1, width-2))) + "\n")
 		if m.CurrentMain >= 0 {
@@ -636,7 +866,7 @@ func (m Model) View() tea.View {
 			s := m.Stages[m.AppStoreIndex]
 			fmt.Fprintf(&b, "APP STORE  %s  %s  ·  %s\n", statusGlyph(s.Status), s.Label, s.Status)
 		}
-		if m.Selected < len(m.Stages) {
+		if m.Selected >= 0 && m.Selected < len(m.Stages) && m.ExpandedGroup >= 0 {
 			s := m.Stages[m.Selected]
 			fmt.Fprintf(&b, "SELECTED  %s  %s\n", statusGlyph(s.Status), s.Label)
 		}
@@ -651,9 +881,17 @@ func (m Model) View() tea.View {
 			b.WriteString(m.viewport.View() + "\n")
 		}
 		if m.Help {
-			b.WriteString("↑↓ stage  Enter details  Esc overview  l logs  t terminal  a App Store  PgUp/Dn scroll  q close\n")
+			if m.ExpandedGroup >= 0 {
+				b.WriteString("↑↓ items  Enter details  ← parent  l logs  s search  t terminal  a App Store  q close\n")
+			} else {
+				b.WriteString("↑↓ areas  Space/Enter/→ open  t terminal  a App Store  ? keys  q close\n")
+			}
 		} else {
-			b.WriteString(muted.Render("↑↓ stage  Enter details  l logs  t terminal  a App Store  ? keys") + "\n")
+			if m.ExpandedGroup >= 0 {
+				b.WriteString(muted.Render("↑↓ items  Enter details  ← parent  l logs  t terminal  ? keys") + "\n")
+			} else {
+				b.WriteString(muted.Render("↑↓ areas  Space/Enter/→ open  t terminal  a App Store  ? keys") + "\n")
+			}
 		}
 	}
 	if m.Searching {
