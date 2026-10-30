@@ -150,6 +150,7 @@ func directBackend(opts supervisor.Options) int {
 	args := []string{filepath.Join(opts.Root, "dotfiles", ".local", "bin", "dots"), "--backend", opts.Command}
 	args = append(args, opts.Args...)
 	cmd := exec.Command("bash", args...)
+	cmd.Env = append(os.Environ(), "DOTS_ROOT="+opts.Root)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

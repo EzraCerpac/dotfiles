@@ -4,8 +4,14 @@ These tests use a temporary setup root and executable shims. They never reach
 the real mise installation, network, package managers, backup store, or SSH.
 """
 
+import fcntl
 import json
 import os
+import pty
+import select
+import signal
+import struct
+import termios
 from pathlib import Path
 import shutil
 import subprocess
@@ -273,6 +279,91 @@ if os.environ.get("RUNNER_BLOCK") == "1":
         paths = self.reports(command)
         self.assertEqual(len(paths), 1)
         return json.loads(paths[0].read_text()), paths[0].parent
+
+    @unittest.skipUnless(shutil.which("uv") and shutil.which("jq"), "uv and jq are required for the live suite fixture")
+    def test_live_test_command_isolates_fixture_protocol_and_keeps_suite_progress(self):
+        source_root = SOURCE.parents[3]
+        for relative in (
+            "dotfiles/.local/bin/dots", "tests/run",
+            "setup-scripts/lib/dots-command-backend",
+            "setup-scripts/lib/dots-command-backend.py",
+            "setup-scripts/lib/dots-up-events.sh",
+        ):
+            target = self.root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_root / relative, target)
+        (self.root / "tests/test_nested_protocol.py").write_text(
+            "import os, sys, unittest\nfrom pathlib import Path\n"
+            f"sys.path.insert(0, {str(source_root / 'tests')!r})\n"
+            "import test_dots_packages as packages\n"
+            "class NestedPackageFixture(unittest.TestCase):\n"
+            "    def test_new_mac_entries_are_guarded_in_staging(self):\n"
+            "        case = packages.DotsPackageTest('test_new_mac_entries_are_guarded_in_staging')\n"
+            "        result = unittest.TestResult()\n"
+            "        case.run(result)\n"
+            "        self.assertEqual(result.testsRun, 1)\n"
+            "        self.assertTrue(result.wasSuccessful(), result.errors + result.failures)\n"
+            "        for key in ('DOTS_UP_ACK_FD', 'DOTS_UP_EVENT_FD', 'DOTS_UP_STREAM_NONCE', 'DOTS_UP_RUN_DIR'):\n"
+            "            self.assertNotIn(key, os.environ)\n"
+            "        Path(os.environ['NESTED_FIXTURE_RESULT']).write_text('passed')\n"
+        )
+        mise = self.base / "mise"
+        mise.write_text(
+            "#!/usr/bin/env python3\nimport json, os, sys\nfrom pathlib import Path\n"
+            "args = sys.argv[1:]\n"
+            "assert args[0] == '-C' and args[2:4] == ['run', 'setup:test'], args\n"
+            "Path(os.environ['LIVE_PROTOCOL_LOG']).write_text(json.dumps({key: os.environ.get(key) for key in ('DOTS_UP_ACK_FD', 'DOTS_UP_STREAM_NONCE')}))\n"
+            "os.execvp('bash', ['bash', str(Path(args[1]) / 'tests/run'), *args[4:]])\n"
+        )
+        mise.chmod(0o755)
+        env = dict(self.env, DOTS_MISE_BIN=str(mise), TERM="xterm-256color",
+                   LIVE_PROTOCOL_LOG=str(self.base / "live-protocol.json"),
+                   NESTED_FIXTURE_RESULT=str(self.base / "nested-result"))
+        env.pop("DOTS_UP_RUNNER", None)
+        env.pop("CI", None)
+        env["UV_CACHE_DIR"] = subprocess.run(
+            ["uv", "cache", "dir"], env=os.environ, text=True, capture_output=True, check=True,
+        ).stdout.strip()
+        gate_read, gate_write = os.pipe()
+        pid, master = pty.fork()
+        if pid == 0:
+            os.close(gate_write)
+            os.read(gate_read, 1)
+            os.close(gate_read)
+            os.execve(str(self.binary), [str(self.binary), "--root", str(self.root), "--command", "test", "--no-wait", "--", "python"], env)
+        os.close(gate_read)
+        fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 30, 100, 0, 0))
+        os.write(gate_write, b"1")
+        os.close(gate_write)
+        output = bytearray()
+        status = None
+        try:
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                ready, _, _ = select.select([master], [], [], 0.05)
+                if ready:
+                    try:
+                        output.extend(os.read(master, 16384))
+                    except OSError:
+                        pass
+                waited, code = os.waitpid(pid, os.WNOHANG)
+                if waited:
+                    status = os.waitstatus_to_exitcode(code)
+                    break
+            self.assertEqual(status, 0, output.decode(errors="replace"))
+        finally:
+            if status is None:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+            os.close(master)
+        live_protocol = json.loads((self.base / "live-protocol.json").read_text())
+        self.assertEqual(live_protocol["DOTS_UP_ACK_FD"], "4")
+        self.assertTrue(live_protocol["DOTS_UP_STREAM_NONCE"])
+        self.assertEqual((self.base / "nested-result").read_text(), "passed")
+        report, _ = self.read_report("test")
+        suite = [event for event in report["events"] if event.get("id") == "suite:python"]
+        self.assertEqual([event["status"] for event in suite], ["unknown", "ok"])
+        self.assertEqual(report["exit_code"], 0)
 
     def test_sensitive_backend_output_never_enters_saved_report_or_logs(self):
         result = self.run_cli("restore", "--host", "nas")

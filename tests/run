@@ -48,9 +48,18 @@ record() {
     esac
 }
 
+# Suite fixtures create their own subprocesses and dashboard protocols. Only this
+# runner owns the live supervisor connection; never lend its descriptors or nonce
+# to a fixture that may close inherited file descriptors.
+run_fixture() (
+    unset DOTS_UP_EVENT_FD DOTS_UP_ACK_FD DOTS_UP_STREAM_NONCE DOTS_UP_EVENT_JQ
+    unset DOTS_UP_RUN_DIR DOTS_UP_RUN_STARTED DOTS_UP_PLAIN DOTS_UP_VERBOSE
+    "$@"
+)
+
 run_python() {
     local status=0
-    python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
+    run_fixture python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
     record python "$status"
 }
 
@@ -60,7 +69,7 @@ run_node() {
         record node 77
         return
     fi
-    node --test "$root"/tests/*.mjs || status=$?
+    run_fixture node --test "$root"/tests/*.mjs || status=$?
     record node "$status"
 }
 
@@ -72,7 +81,7 @@ run_shell() {
         done
         printf '\n== %s\n' "$test"
         status=0
-        (cd "$root" && bash "$test") || status=$?
+        (cd "$root" && run_fixture bash "$test") || status=$?
         record "$test" "$status"
     done < <(cd "$root" && find tests -name '*.sh' -type f | LC_ALL=C sort)
 }
@@ -86,7 +95,7 @@ run_lua() {
     for test in "$root"/tests/*.lua; do
         printf '\n== %s\n' "${test#"$root"/}"
         status=0
-        GRAMMARLY_BRIDGE_TEST_ROOT="$root" NVIM_TYPST_TEST_ROOT="$root" nvim --headless -u NONE -l "$test" || status=$?
+        GRAMMARLY_BRIDGE_TEST_ROOT="$root" NVIM_TYPST_TEST_ROOT="$root" run_fixture nvim --headless -u NONE -l "$test" || status=$?
         record "${test#"$root"/}" "$status"
     done
 }
