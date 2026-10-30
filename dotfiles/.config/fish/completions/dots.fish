@@ -1,7 +1,9 @@
 complete -c dots -f
 complete -c dots -n 'not __fish_seen_subcommand_from up update status plan test remote bundle apply bootstrap backup restore add remove uninstall help' -a 'up status plan test remote bundle apply bootstrap backup restore add remove uninstall help'
 complete -c dots -n '__fish_seen_subcommand_from test' -a 'python node shell lua' -d 'Test suite'
-complete -c dots -n '__fish_seen_subcommand_from up update' -l mas -d 'Include Mac App Store updates on macOS workstations'
+complete -c dots -n '__fish_seen_subcommand_from up update; and not __fish_seen_subcommand_from houseatlas' -l mas -d 'Include Mac App Store updates on macOS workstations'
+complete -c dots -n '__fish_seen_subcommand_from up update; and not __fish_seen_subcommand_from houseatlas' -a houseatlas -d 'Explicit HouseAtlas maintenance (binding unavailable)'
+complete -c dots -n '__fish_seen_subcommand_from houseatlas' -a 'check apply status' -d 'HouseAtlas maintenance action (binding unavailable)'
 complete -c dots -n '__fish_seen_subcommand_from add' -l base -d 'Record in the shared base'
 complete -c dots -n '__fish_seen_subcommand_from add' -l profile -x -a 'workstation nas' -d 'Record in this role'
 complete -c dots -n '__fish_seen_subcommand_from add' -l path -r -d 'Record in an explicit config file'

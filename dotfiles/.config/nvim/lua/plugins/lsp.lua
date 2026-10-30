@@ -87,7 +87,12 @@ return {
         references.attach(client)
         local previous_status = client.handlers["tinymist/compileStatus"] or vim.lsp.handlers["tinymist/compileStatus"]
         client.handlers["tinymist/compileStatus"] = function(err, result, ctx, config)
-          if not err and result and result.path then
+          if
+            not err
+            and result
+            and result.path
+            and require("custom.typst_main").accept_compile_status(client, result.path)
+          then
             references.set_main(client.id, client.root_dir, result.path)
             if result.status == "compileSuccess" then
               references.warm(client)
@@ -198,6 +203,7 @@ return {
     "chomosuke/typst-preview.nvim",
     opts = function(_, opts)
       opts = opts or {}
+      require("custom.typst_main").setup_preview(opts)
       opts.get_root = function(path_of_main_file)
         local env_root = os.getenv("TYPST_ROOT")
         if env_root and env_root ~= "" then

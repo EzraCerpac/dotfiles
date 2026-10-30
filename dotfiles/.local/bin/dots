@@ -6,6 +6,7 @@ usage() {
 Your machine setup, from any directory.
 
   dots up [--mas]                  Sync configuration, then update tools and plugins
+  dots up houseatlas ACTION        HouseAtlas check/apply/status (binding unavailable)
   dots sync [--source-only]        Fetch main; optionally advance source without apply
   dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
@@ -49,6 +50,25 @@ case "${1:-help}" in help|-h|--help) usage; exit 0 ;; esac
 root="${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
 [[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
 root="$(cd "$root" && pwd -P)"
+# HouseAtlas is a deliberate, separate caller. Do not load mise, synchronize
+# source or update packages while reporting its unqualified binding boundary.
+if [[ "${1:-}" == up || "${1:-}" == update ]] && [[ "${2:-}" == houseatlas ]]; then
+    shift 2
+    case "${1:-}" in
+        -h|--help)
+            [[ $# -eq 1 ]] || { echo 'dots: unsupported HouseAtlas arguments' >&2; exit 2; }
+            printf 'Usage: dots up houseatlas check|apply|status\nHouseAtlas binding is unavailable; no request is sent.\n'
+            exit 0 ;;
+        check|apply|status)
+            [[ $# -eq 1 ]] || { echo 'dots: HouseAtlas accepts one action; no endpoint, path or command options' >&2; exit 2; } ;;
+        *) echo 'dots: unsupported HouseAtlas action; use check, apply or status' >&2; exit 2 ;;
+    esac
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo 'dots: HouseAtlas unavailable: python3 is absent; no request was sent' >&2
+        exit 3
+    fi
+    exec python3 -I "$root/setup-scripts/lib/houseatlas-maintenance.py" "$1"
+fi
 mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
 [[ -x "$mise_bin" ]] || mise_bin="$(command -v mise)"
 # Select the setup before mise loads any configuration. Discard a project's

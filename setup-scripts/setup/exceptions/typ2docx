@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "$0")/../../lib/quiet-probe.sh"
+
 fail() {
     printf 'typ2docx installer exception: %s\n' "$1" >&2
     exit 1
@@ -79,7 +81,7 @@ fi
 
 if [[ "$action" == install-only && "$launcher_state" == prior-typ2docx-exception ]]; then
     [[ -x "$launcher" ]] || fail "recognized typ2docx launcher is not executable: ${launcher}"
-    "$launcher" --help >/dev/null || fail "recognized typ2docx launcher failed its --help check"
+    quiet_probe "$launcher" --help || fail "recognized typ2docx launcher failed its --help check"
     printf 'Already installed and verified typ2docx: %s\n' "$launcher"
     exit 0
 fi
@@ -106,10 +108,11 @@ if [[ "$action" == update && "$launcher_state" == prior-typ2docx-exception ]]; t
         IFS= read -r installed_version < "$version_file" || true
     fi
     if [[ "$installed_version" == "$latest_version" ]]; then
-        [[ -x "$launcher" ]] || fail "recognized typ2docx launcher is not executable: ${launcher}"
-        "$launcher" --help >/dev/null || fail "recognized typ2docx launcher failed its --help check"
-        printf 'Already current typ2docx %s: %s\n' "$installed_version" "$launcher"
-        exit 0
+        if [[ -x "$launcher" ]] && quiet_probe "$launcher" --help; then
+            printf 'Already current typ2docx %s: %s\n' "$installed_version" "$launcher"
+            exit 0
+        fi
+        printf 'Rebuilding typ2docx %s: the existing launcher failed verification.\n' "$installed_version"
     fi
 fi
 
@@ -130,7 +133,7 @@ python_bin_dir="$(dirname "$python_path")"
 rust_bin_dir="$(dirname "$rustc_path")"
 cargo_bin_dir="$(dirname "$cargo_path")"
 uv_bin_dir="$(dirname "$uv_path")"
-build_path="${python_bin_dir}:${rust_bin_dir}:${cargo_bin_dir}:${uv_bin_dir}:${PATH}"
+build_path="${bin_dir}:${python_bin_dir}:${rust_bin_dir}:${cargo_bin_dir}:${uv_bin_dir}:${PATH}"
 
 printf 'Installing typ2docx with %s (%s), %s, %s, and %s.\n' \
     "$python_path" "$python_version" "$rustc_version" "$cargo_version" "$uv_version"
@@ -149,7 +152,7 @@ printf 'Installing typ2docx with %s (%s), %s, %s, and %s.\n' \
 
 candidate="${bin_dir}/typ2docx"
 [[ -x "$candidate" ]] || fail "UV install produced no executable at ${candidate}"
-"$candidate" --help >/dev/null || fail "new typ2docx executable failed its --help check"
+quiet_probe "$candidate" --help || fail "new typ2docx executable failed its --help check"
 printf '%s\n' "$latest_version" > "${run_root}/typ2docx-version" || \
     fail "could not record installed typ2docx version"
 
@@ -174,7 +177,7 @@ import sys
 os.replace(sys.argv[1], sys.argv[2])
 PY
 
-if ! "$launcher" --help >/dev/null; then
+if ! quiet_probe "$launcher" --help; then
     if [[ -n "$old_launcher_text" ]]; then
         restore_launcher="${HOME}/.local/bin/.typ2docx.restore.${run_id}"
         ln -s "$old_launcher_text" "$restore_launcher"

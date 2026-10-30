@@ -18,8 +18,8 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
 Unless the task is extremely small, delegate heavily: tell each subagent what to do, which model and reasoning effort fit the task, and what to return. Limit the work you do yourself. Choose models by strength:
-- gpt-6-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
-- gpt-6.1-terra for browser and desktop computer use, visual inspection, and routine drafting or revision. Consider it for straightforward, bounded implementation.
+- gpt-6.1-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
+- gpt-6.1-terra for browser and desktop computer use, visual inspection, and routine drafting or revision. Consider it for straightforward, bounded implementation. And it is FAST.
 - gpt-6.1-sol for complex implementation, architecture-sensitive changes, difficult debugging, and computer-use tasks that require stronger technical judgment.
 - Never spawn gpt-6-astra as a subagent.
 - Claude agents: use Opus for frontend and UI design and substantial writing.

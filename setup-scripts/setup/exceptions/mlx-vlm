@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "$0")/../../lib/quiet-probe.sh"
+
 fail() {
     printf 'mlx-vlm installer exception: %s\n' "$1" >&2
     exit 1
@@ -100,7 +102,7 @@ if actual != expected:
 PY
     fi
     for entrypoint in "${entrypoints[@]}"; do
-        "${launcher_dir}/${entrypoint}" --help >/dev/null || \
+        quiet_probe "${launcher_dir}/${entrypoint}" --help || \
             fail "existing ${entrypoint} launcher failed its --help check"
     done
 }

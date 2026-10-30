@@ -246,7 +246,7 @@ fi
 if [[ "${#failures[@]}" -eq 0 ]]; then
     if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
         printf '\nUpdate report: tools updated; source sync deferred. Local source changes were preserved.\n'
-        exit 3
+        exit 0
     fi
     printf '\nUpdate report: completed; no updater failures.\n'
     exit 0

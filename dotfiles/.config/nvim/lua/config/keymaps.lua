@@ -40,6 +40,9 @@ safe_del("n", "<C-Right>")
 
 -- ADDED --
 
+-- Preserve the copied text when replacing a visual selection
+vim.keymap.set("x", "p", "P", { desc = "Paste without yanking selection" })
+
 -- Delete/change without yanking
 vim.keymap.set({ "n", "x" }, "d", '"_d', { desc = "Delete without yanking" })
 vim.keymap.set({ "n", "x" }, "D", '"_D', { desc = "Delete to EOL without yanking" })
