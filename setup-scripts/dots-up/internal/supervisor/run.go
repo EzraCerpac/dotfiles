@@ -372,7 +372,7 @@ func Run(opts Options) int {
 				if err := stopRelay(); err != nil {
 					backendError = err
 				}
-				relayKind = ""
+				relayKind, pendingHandoff = "", ""
 				beginRestore("manual", "manual", e, true)
 				return
 			}

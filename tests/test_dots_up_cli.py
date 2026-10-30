@@ -77,6 +77,7 @@ class DotsUpCLITests(unittest.TestCase):
             "    IFS= read -r response <&5\n"
             "    printf '%s\\n' \"$response\" >\"$DOTS_UP_INPUT_LOG\"\n"
             "  fi\n"
+            "  if [[ \"${DOTS_UP_DELAY_AFTER_LINE:-0}\" == \"$line_no\" ]]; then sleep \"${DOTS_UP_DELAY_SECONDS:-0.5}\"; fi\n"
             "done <\"$DOTS_UP_FIXTURE\"\n"
             "if [[ -n \"${DOTS_UP_NOISY_OUTPUT:-}\" ]]; then printf '%s\\n' \"$DOTS_UP_NOISY_OUTPUT\"; fi\n"
             "if [[ -n \"${DOTS_UP_DELAY:-}\" ]]; then sleep \"$DOTS_UP_DELAY\"; fi\n"
@@ -462,6 +463,44 @@ class DotsUpCLITests(unittest.TestCase):
 
     def test_auto_handoff_exit_without_stage_end_honors_no_wait(self) -> None:
         self._run_auto_handoff_without_stage_end(no_wait=True)
+
+    def test_manual_terminal_returns_to_finished_report_when_hidden_stage_ends(self) -> None:
+        self._events(
+            [
+                {"v": 1, "kind": "run_start", "id": "fixture", "profile": "nas", "host": "test"},
+                {"v": 1, "kind": "stage_start", "id": "tools", "group": "Tools", "label": "Long-running hidden stage", "terminal": "hidden"},
+                {"v": 1, "kind": "stage_end", "id": "tools", "status": "ok", "exit_code": 0, "summary": "completed"},
+            ]
+        )
+        process, master, slave, before = self._run_in_pty(
+            extra_env={"DOTS_UP_DELAY_AFTER_LINE": "2", "DOTS_UP_DELAY_SECONDS": "1"},
+        )
+        try:
+            self._read_pty_until(master, b"Long-running hidden stage")
+            os.write(master, b"t")
+            output = self._read_pty_until(master, b"Terminal view")
+            output += self._read_pty_until(master, b"Finished")
+
+            deadline = time.monotonic() + 0.5
+            while time.monotonic() < deadline and process.poll() is None:
+                ready, _, _ = select.select([master], [], [], 0.05)
+                if ready:
+                    try:
+                        output += os.read(master, 8192)
+                    except OSError:
+                        break
+            self.assertIsNone(process.poll(), "the finished report closed before q was pressed")
+            self.assertNotIn(b"unexpected manual terminal end", output.lower())
+
+            os.write(master, b"q")
+            process.wait(timeout=5)
+            self.assertEqual(process.returncode, 0)
+            self.assertEqual(termios.tcgetattr(slave), before)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+            os.close(master)
 
     def test_resize_during_run_and_ctrl_c_restore_terminal(self) -> None:
         self._events(
