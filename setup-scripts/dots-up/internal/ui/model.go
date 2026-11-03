@@ -42,6 +42,8 @@ type Model struct {
 	ExitCode                                                                 int
 	DurationMS                                                               int64
 	Running, Finished, ShowLog, RawLog, Help, DetailFocus, NoWait, Searching bool
+	AttentionExpanded                                                        bool
+	SelectedIssue                                                            string
 	SearchQuery                                                              string
 	AppliedSearch                                                            string
 	StartedAt                                                                time.Time
@@ -104,8 +106,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch v.String() {
-		case "q":
-			if m.Finished {
+		case "left", "esc", "q":
+			if m.back() {
+				break
+			}
+			if v.String() == "q" && m.Finished {
 				return m, tea.Quit
 			}
 		case "ctrl+c":
@@ -121,40 +126,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		case "enter":
-			if m.ExpandedGroup < 0 {
-				m.expandSelectedGroup()
-			} else {
-				m.openSelectedDetails()
-			}
-		case "right":
-			if m.ExpandedGroup < 0 {
+		case "enter", "right":
+			if m.SelectedGroup < 0 {
+				if !m.AttentionExpanded {
+					m.AttentionExpanded = true
+					m.syncIssueSelection()
+				} else if m.selectedIssue() != nil {
+					m.DetailFocus = true
+				}
+				m.refreshDetail()
+			} else if m.ExpandedGroup < 0 {
 				m.expandSelectedGroup()
 			} else {
 				m.openSelectedDetails()
 			}
 		case "space":
-			if m.ExpandedGroup == m.SelectedGroup {
+			if m.AttentionExpanded {
+				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+				m.AttentionExpanded = false
+				m.refreshDetail()
+			} else if m.SelectedGroup < 0 {
+				m.AttentionExpanded = true
+				m.syncIssueSelection()
+				m.refreshDetail()
+			} else if m.ExpandedGroup == m.SelectedGroup {
 				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
 				m.collapseGroup()
 				m.refreshDetail()
 			} else {
 				m.expandSelectedGroup()
 			}
-		case "esc":
-			m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
-			m.collapseGroup()
-			m.refreshDetail()
-		case "left":
-			if m.DetailFocus || m.ShowLog || m.RawLog {
-				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
-			} else {
-				m.collapseGroup()
-			}
-			m.refreshDetail()
 		case "up", "k":
 			if m.DetailFocus || m.RawLog {
 				m.viewport.ScrollUp(1)
+			} else if m.AttentionExpanded {
+				m.moveIssue(-1)
 			} else if m.ExpandedGroup >= 0 {
 				m.moveChild(-1)
 			} else {
@@ -163,6 +169,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.DetailFocus || m.RawLog {
 				m.viewport.ScrollDown(1)
+			} else if m.AttentionExpanded {
+				m.moveIssue(1)
 			} else if m.ExpandedGroup >= 0 {
 				m.moveChild(1)
 			} else {
@@ -173,7 +181,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "pgdown":
 			m.viewport.HalfPageDown()
 		case "tab":
-			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+			if (m.ExpandedGroup >= 0 || m.AttentionExpanded) && m.hasSelectedChild() {
 				m.DetailFocus = !m.DetailFocus
 				if !m.DetailFocus {
 					m.ShowLog = false
@@ -183,6 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "a":
 			if m.AppStoreIndex >= 0 {
 				m.Selected = m.AppStoreIndex
+				m.AttentionExpanded = false
 				m.SelectedGroup = m.groupIndex(stageGroup(m.Stages[m.AppStoreIndex]))
 				m.ExpandedGroup = m.SelectedGroup
 				m.ShowLog = true
@@ -191,7 +200,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.refreshDetail()
 			}
 		case "l":
-			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+			if (m.ExpandedGroup >= 0 || m.AttentionExpanded) && m.hasSelectedChild() {
 				m.RawLog = false
 				m.ShowLog = !m.ShowLog
 				m.DetailFocus = m.ShowLog
@@ -215,14 +224,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			fallthrough
 		case "r":
-			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+			if (m.ExpandedGroup >= 0 || m.AttentionExpanded) && m.hasSelectedChild() {
 				m.RawLog = !m.RawLog
 				m.ShowLog = m.RawLog
 				m.DetailFocus = m.RawLog
 				m.refreshDetail()
 			}
 		case "s", "/":
-			if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+			if (m.ExpandedGroup >= 0 || m.AttentionExpanded) && m.hasSelectedChild() {
 				m.ShowLog = true
 				m.DetailFocus = true
 				m.Searching = true
@@ -264,7 +273,7 @@ func (m *Model) apply(e Event) {
 		if e.Before != "" || e.After != "" {
 			s.Changes = []Change{{e.Label, e.Before, e.After}}
 		}
-		if m.Selected < 0 {
+		if m.Selected < 0 && m.SelectedGroup >= 0 {
 			m.Selected = i
 			m.SelectedGroup = m.groupIndex(stageGroup(*s))
 		}
@@ -314,6 +323,9 @@ func (m *Model) apply(e Event) {
 		if e.DurationMS > 0 {
 			m.Elapsed = time.Duration(e.DurationMS) * time.Millisecond
 		}
+	}
+	if m.AttentionExpanded {
+		m.syncIssueSelection()
 	}
 	m.resize()
 	m.refreshDetail()
@@ -377,11 +389,21 @@ func (m Model) hasSelectedChild() bool {
 	if m.Selected < 0 || m.Selected >= len(m.Stages) {
 		return false
 	}
+	if m.AttentionExpanded {
+		return true
+	}
 	groups := m.groups()
 	return m.SelectedGroup >= 0 && m.SelectedGroup < len(groups) && stageGroup(m.Stages[m.Selected]) == groups[m.SelectedGroup]
 }
 
 func (m *Model) selectGroup(index int) {
+	m.AttentionExpanded = false
+	if index < 0 {
+		m.SelectedGroup, m.Selected, m.ExpandedGroup = -1, -1, -1
+		m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+		m.refreshDetail()
+		return
+	}
 	groups := m.groups()
 	if len(groups) == 0 {
 		m.SelectedGroup, m.Selected, m.ExpandedGroup = 0, -1, -1
@@ -461,7 +483,7 @@ func (m Model) childCapacity() int {
 	if m.AppStoreIndex >= 0 {
 		reserved++
 	}
-	if m.ExpandedGroup >= 0 && m.hasSelectedChild() {
+	if (m.ExpandedGroup >= 0 || m.AttentionExpanded) && m.hasSelectedChild() {
 		reserved++
 	}
 	if !m.overview() && !m.RawLog {
@@ -583,6 +605,8 @@ func searchLog(path, query string) string {
 func (m Model) overview() bool { return !m.DetailFocus && !m.ShowLog && !m.RawLog }
 
 type issue struct {
+	key          string
+	stage        int
 	text, action string
 	notice       bool
 }
@@ -590,7 +614,7 @@ type issue struct {
 func (m Model) issues() []issue {
 	var result []issue
 	seen := make(map[string]bool)
-	for _, s := range m.Stages {
+	for i, s := range m.Stages {
 		if s.Status != "attention" && s.Status != "failed" && s.Status != "missing" && s.Status != "drift" && s.Status != "unknown" {
 			continue
 		}
@@ -602,7 +626,7 @@ func (m Model) issues() []issue {
 		if s.Summary != "" {
 			text += " — " + s.Summary
 		}
-		result = append(result, issue{text: prefix + " " + text, action: s.Action})
+		result = append(result, issue{key: "stage:" + s.ID, stage: i, text: prefix + " " + text, action: s.Action})
 		if s.Summary != "" {
 			seen[strings.ToLower(s.Summary)] = true
 		}
@@ -625,7 +649,7 @@ func (m Model) issues() []issue {
 		if n.Severity == "error" {
 			prefix = "×"
 		}
-		result = append(result, issue{text: prefix + " " + n.Summary, action: n.Action, notice: true})
+		result = append(result, issue{key: "notice:" + n.Stage + ":" + n.Summary, stage: -1, text: prefix + " " + n.Summary, action: n.Action, notice: true})
 	}
 	return result
 }
@@ -663,6 +687,12 @@ func (m *Model) refreshDetail() {
 	content := m.overviewContent()
 	if !m.overview() {
 		content = "Select a stage to see details."
+		if item := m.selectedIssue(); m.AttentionExpanded && item != nil && item.notice {
+			content = item.text
+			if item.action != "" {
+				content += "\n\nNext: " + item.action
+			}
+		}
 		if m.Selected >= 0 && m.Selected < len(m.Stages) {
 			s := m.Stages[m.Selected]
 			if m.ShowLog {
@@ -694,11 +724,11 @@ func (m *Model) refreshDetail() {
 			}
 		}
 	}
-	if content != m.lastLog || m.lastLogStage != fmt.Sprint(m.Selected, m.ShowLog, m.RawLog, m.DetailFocus, m.AppliedSearch) {
+	if content != m.lastLog || m.lastLogStage != fmt.Sprint(m.Selected, m.SelectedIssue, m.ShowLog, m.RawLog, m.DetailFocus, m.AppliedSearch) {
 		m.viewport.SetContent(content)
 		m.viewport.GotoTop()
 		m.lastLog = content
-		m.lastLogStage = fmt.Sprint(m.Selected, m.ShowLog, m.RawLog, m.DetailFocus, m.AppliedSearch)
+		m.lastLogStage = fmt.Sprint(m.Selected, m.SelectedIssue, m.ShowLog, m.RawLog, m.DetailFocus, m.AppliedSearch)
 	}
 	m.resize()
 }
@@ -706,14 +736,26 @@ func (m *Model) refreshDetail() {
 func (m *Model) resize() {
 	m.viewport.SetWidth(max(1, m.Width-4))
 	available := m.Height - 16
+	if m.ExpandedGroup < 0 && !m.AttentionExpanded {
+		available--
+	}
 	if m.AppStoreIndex >= 0 {
 		available--
 	}
 	if m.RawLog {
 		available = m.Height - 5
+		if m.Finished {
+			available--
+		}
+		if m.Searching {
+			available--
+		}
 	}
 	if m.overview() {
 		available++
+	}
+	if m.Width < 55 || m.Height < 18 {
+		available = m.Height - 5
 	}
 	lines := strings.Count(m.lastLog, "\n") + 1
 	m.viewport.SetHeight(max(1, min(available, lines)))
@@ -766,23 +808,7 @@ func (m Model) View() tea.View {
 		}
 	}
 	if m.Width < 55 || m.Height < 18 {
-		line := "Waiting for stages…"
-		if m.CurrentMain >= 0 {
-			line = m.Stages[m.CurrentMain].Label + " · " + m.Stages[m.CurrentMain].Status
-		}
-		if m.AppStoreIndex >= 0 {
-			line += " | App Store: " + m.Stages[m.AppStoreIndex].Status
-		}
-		clip := func(s string) string {
-			r := []rune(s)
-			if len(r) > width {
-				return string(r[:width])
-			}
-			return s
-		}
-		v := tea.NewView(clip(m.title()+" · "+status) + "\n" + clip(line) + "\n" + clip(fmt.Sprintf("%d attention · %d failed · %d changes", attention, failed, m.changeCount())) + "\n" + clip("Resize for details · q closes when done"))
-		v.AltScreen = true
-		return v
+		return m.compactView(status)
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s  %s\n", accent.Render(strings.Replace(m.title(), "DOTS ", "DOTS  /  ", 1)), muted.Render(strings.TrimSpace(m.Host+"  "+m.Profile)))
@@ -795,10 +821,13 @@ func (m Model) View() tea.View {
 		}
 		b.WriteString(accent.Render(label) + "\n")
 		b.WriteString(m.viewport.View() + "\n")
-		b.WriteString(muted.Render("Esc overview  ·  ↑↓ scroll  ·  s search") + "\n")
+		b.WriteString(muted.Render(ansi.Truncate(m.footer(), max(1, width-2), "")) + "\n")
 	} else {
 		groups := m.groups()
-		if m.ExpandedGroup >= 0 && m.ExpandedGroup < len(groups) {
+		if m.AttentionExpanded {
+			b.WriteString(accent.Render("AREA") + "  " + focus.Render("▾ Needs attention") + "\n")
+			b.WriteString(m.attentionRows(m.childCapacity()))
+		} else if m.ExpandedGroup >= 0 && m.ExpandedGroup < len(groups) {
 			group := groups[m.ExpandedGroup]
 			children := m.childStages(group)
 			selectedPosition := -1
@@ -842,6 +871,11 @@ func (m Model) View() tea.View {
 				fmt.Fprintf(&b, "%s\n", muted.Render(fmt.Sprintf("    ↓ %d later update steps", len(children)-end)))
 			}
 		} else {
+			line := fmt.Sprintf("  > !  Needs attention              %d", len(issues))
+			if m.SelectedGroup < 0 {
+				line = focus.Render(fmt.Sprintf("› > !  Needs attention              %d", len(issues)))
+			}
+			b.WriteString(line + "\n")
 			start, end := 0, len(groups)
 			if m.Command != "" && m.Command != "up" {
 				capacity := max(1, m.childCapacity()-2)
@@ -919,31 +953,21 @@ func (m Model) View() tea.View {
 			if m.ShowLog {
 				b.WriteString(accent.Render("STAGE LOG") + "\n")
 			} else {
-				b.WriteString(accent.Render("STAGE DETAILS") + "\n")
+				heading := "STAGE DETAILS"
+				if m.AttentionExpanded {
+					heading = "ISSUE DETAILS"
+				}
+				b.WriteString(accent.Render(heading) + "\n")
 			}
 			b.WriteString(m.viewport.View() + "\n")
 		}
-		if m.DetailFocus {
-			b.WriteString(muted.Render("↑↓ scroll details  ← items  l logs  s search  ? keys") + "\n")
-		} else if m.Help {
-			if m.ExpandedGroup >= 0 {
-				b.WriteString("↑↓ items  Enter details  ← parent  l logs  s search  t terminal  a App Store  q close\n")
-			} else {
-				b.WriteString("↑↓ areas  Space/Enter/→ open  t terminal  a App Store  ? keys  q close\n")
-			}
-		} else {
-			if m.ExpandedGroup >= 0 {
-				b.WriteString(muted.Render("↑↓ items  Enter details  ← parent  l logs  t terminal  ? keys") + "\n")
-			} else {
-				b.WriteString(muted.Render("↑↓ areas  Space/Enter/→ open  t terminal  a App Store  ? keys") + "\n")
-			}
-		}
+		b.WriteString(muted.Render(ansi.Truncate(m.footer(), max(1, width-2), "")) + "\n")
 	}
 	if m.Searching {
 		b.WriteString(accent.Render("Search: "+m.SearchQuery+"▌") + "\n")
 	}
 	if m.Finished {
-		b.WriteString(accent.Render("Finished  ·  q to close") + "\n")
+		b.WriteString(accent.Render("Finished") + "\n")
 	}
 	content := b.String()
 	if m.Command != "" && m.Command != "up" {
@@ -972,4 +996,171 @@ func (m Model) title() string {
 		command = "up"
 	}
 	return "DOTS " + strings.ToUpper(command)
+}
+
+// back returns to the immediate parent without affecting the update process.
+func (m *Model) back() bool {
+	m.Help = false
+	if m.DetailFocus || m.ShowLog || m.RawLog {
+		m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+		m.AppliedSearch, m.SearchQuery = "", ""
+	} else if m.AttentionExpanded {
+		m.AttentionExpanded = false
+	} else if m.ExpandedGroup >= 0 {
+		m.collapseGroup()
+	} else {
+		return false
+	}
+	m.refreshDetail()
+	return true
+}
+
+func (m Model) selectedIssue() *issue {
+	for _, item := range m.issues() {
+		if item.key == m.SelectedIssue {
+			return &item
+		}
+	}
+	return nil
+}
+func (m *Model) syncIssueSelection() {
+	items := m.issues()
+	if len(items) == 0 {
+		m.SelectedIssue, m.Selected = "", -1
+		return
+	}
+	for _, item := range items {
+		if item.key == m.SelectedIssue {
+			m.Selected = item.stage
+			return
+		}
+	}
+	m.SelectedIssue, m.Selected = items[0].key, items[0].stage
+}
+func (m *Model) moveIssue(delta int) {
+	items := m.issues()
+	if len(items) == 0 {
+		return
+	}
+	position := 0
+	for i, item := range items {
+		if item.key == m.SelectedIssue {
+			position = i
+			break
+		}
+	}
+	item := items[max(0, min(position+delta, len(items)-1))]
+	m.SelectedIssue, m.Selected = item.key, item.stage
+	m.refreshDetail()
+}
+func (m Model) attentionRows(capacity int) string {
+	items := m.issues()
+	if len(items) == 0 {
+		return "    No issues need attention.\n"
+	}
+	position := 0
+	for i, item := range items {
+		if item.key == m.SelectedIssue {
+			position = i
+		}
+	}
+	capacity = max(1, capacity)
+	start := max(0, min(position-capacity/2, len(items)-capacity))
+	end := min(len(items), start+capacity)
+	var b strings.Builder
+	for _, item := range items[start:end] {
+		prefix := "    "
+		if item.key == m.SelectedIssue {
+			prefix = "  › "
+		}
+		b.WriteString(ansi.Truncate(prefix+item.text, max(1, m.Width-2), "…") + "\n")
+	}
+	return b.String()
+}
+func (m Model) footer() string {
+	if m.Help {
+		return "←/Esc/q back  ↑↓ move/scroll  l logs  s search  r captured"
+	}
+	if m.Searching {
+		return "Enter search  Esc back"
+	}
+	if m.DetailFocus || m.RawLog || m.ShowLog {
+		text := "↑↓ scroll  ←/Esc/q back"
+		if m.hasSelectedChild() {
+			text += "  l logs  s search  r captured"
+		}
+		return text
+	}
+	if m.AttentionExpanded || m.ExpandedGroup >= 0 {
+		text := "↑↓ items  Enter details  ←/Esc/q back"
+		if m.hasSelectedChild() {
+			text += "  l logs"
+		}
+		if m.Command != "status" {
+			text += "  t terminal"
+		}
+		return text
+	}
+	text := "↑↓ areas  Space/Enter/→ open"
+	if m.Command != "status" {
+		text += "  t terminal"
+	}
+	if m.AppStoreIndex >= 0 {
+		text += "  a App Store"
+	}
+	if m.Finished {
+		text += "  q close"
+	} else {
+		text += "  Ctrl+C cancel"
+	}
+	return text
+}
+
+// Keep navigation and issue details usable when the full dashboard will not fit.
+func (m Model) compactView(status string) tea.View {
+	lines := []string{m.title() + " · " + status}
+	if m.DetailFocus || m.ShowLog || m.RawLog {
+		lines = append(lines, strings.Split(m.viewport.View(), "\n")...)
+	} else if m.AttentionExpanded {
+		lines = append(lines, "▾ Needs attention")
+		lines = append(lines, strings.Split(strings.TrimRight(m.attentionRows(max(1, m.Height-5)), "\n"), "\n")...)
+	} else if m.ExpandedGroup >= 0 {
+		groups := m.groups()
+		if m.ExpandedGroup < len(groups) {
+			lines = append(lines, "▾ "+groups[m.ExpandedGroup])
+		}
+		if m.Selected >= 0 && m.Selected < len(m.Stages) {
+			lines = append(lines, "› "+m.Stages[m.Selected].Label)
+		}
+	} else if m.SelectedGroup < 0 {
+		lines = append(lines, fmt.Sprintf("› Needs attention (%d)", len(m.issues())))
+	} else {
+		groups := m.groups()
+		if m.SelectedGroup < len(groups) {
+			lines = append(lines, "› "+groups[m.SelectedGroup])
+		}
+	}
+	footer := []string{"↑↓ move  Enter open"}
+	if m.DetailFocus || m.ShowLog || m.RawLog {
+		footer[0] = "↑↓ scroll"
+	}
+	if m.DetailFocus || m.ShowLog || m.RawLog || m.AttentionExpanded || m.ExpandedGroup >= 0 {
+		footer = append(footer, "←/Esc/q back")
+	} else if m.Finished {
+		footer = append(footer, "q close")
+	} else {
+		footer = append(footer, "Ctrl+C cancel")
+	}
+	if m.Searching {
+		footer = []string{"Search: " + m.SearchQuery + "▌", "Enter search  Esc back"}
+	}
+	lines = lines[:min(len(lines), max(1, m.Height-len(footer)))]
+	lines = append(lines, footer...)
+	lines = lines[:min(len(lines), max(1, m.Height))]
+	for i, line := range lines {
+		lines[i] = ansi.Truncate(line, max(1, m.Width), "")
+	}
+	v := tea.NewView(strings.Join(lines, "\n"))
+	v.AltScreen = true
+	return v
 }

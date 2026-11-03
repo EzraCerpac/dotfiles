@@ -396,3 +396,180 @@ func TestNoticeOnlyMarksSuccessfulRunForAttention(t *testing.T) {
 		t.Fatal("notice-only run was shown as complete")
 	}
 }
+
+func TestBackKeysReturnOneLevelWithoutCancelling(t *testing.T) {
+	for _, code := range []rune{tea.KeyLeft, tea.KeyEscape, 'q'} {
+		for _, finished := range []bool{false, true} {
+			for _, mode := range []string{"details", "log", "raw"} {
+				t.Run(fmt.Sprintf("%d/%t/%s", code, finished, mode), func(t *testing.T) {
+					m := NewModel(t.TempDir(), false)
+					m.intents = make(chan string, 1)
+					m = send(m, Event{Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
+					m.selectGroup(m.groupIndex("Tools"))
+					m.expandSelectedGroup()
+					m.DetailFocus = true
+					m.ShowLog = mode != "details"
+					m.RawLog = mode == "raw"
+					m.Finished, m.Running = finished, !finished
+					m.refreshDetail()
+					if !strings.Contains(m.View().Content, "←/Esc/q back") {
+						t.Fatal("back keys missing from detail footer")
+					}
+					updated, cmd := m.Update(tea.KeyPressMsg{Code: code})
+					m = updated.(Model)
+					if cmd != nil || !m.overview() || m.ExpandedGroup != m.groupIndex("Tools") {
+						t.Fatal("back from details did not preserve parent child list")
+					}
+					updated, cmd = m.Update(tea.KeyPressMsg{Code: code})
+					m = updated.(Model)
+					if cmd != nil || m.ExpandedGroup != -1 || m.SelectedGroup != m.groupIndex("Tools") {
+						t.Fatal("back from child list did not preserve selected area")
+					}
+					_, cmd = m.Update(tea.KeyPressMsg{Code: code})
+					if (cmd != nil) != (finished && code == 'q') {
+						t.Fatal("only root q should dismiss a finished run")
+					}
+					if m.CancelRequested || len(m.intents) != 0 {
+						t.Fatal("back requested cancellation")
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestAttentionNavigationIncludesNoticesAndKeepsLiveSelection(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{Kind: "run_start", Command: "status"})
+	m = send(m, Event{Kind: "item_upsert", ID: "tools", Group: "Tools", Label: "CLI tools", Status: "missing", Summary: "Tool absent", Action: "dots install tool"})
+	m = send(m, Event{Kind: "notice", Severity: "attention", Summary: "Source sync deferred", Action: "Commit local source changes"})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyUp})
+	if m.SelectedGroup != -1 || !strings.Contains(m.View().Content, "› > !  Needs attention") {
+		t.Fatal("Up did not select Needs attention")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !m.AttentionExpanded || m.Selected != 0 {
+		t.Fatal("Enter did not open attention stage")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !strings.Contains(m.lastLog, "Next: dots install tool") {
+		t.Fatal("stage issue action missing")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	key := m.SelectedIssue
+	m = send(m, Event{Kind: "item_upsert", ID: "new", Group: "Packages", Label: "New issue", Status: "drift", Summary: "changed"})
+	if m.SelectedIssue != key || m.Selected != -1 {
+		t.Fatal("new live stage stole notice selection")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyRight})
+	if !m.DetailFocus || !strings.Contains(m.lastLog, "Source sync deferred") || !strings.Contains(m.lastLog, "Next: Commit local source changes") {
+		t.Fatal("notice details/action inaccessible")
+	}
+	m = send(m, Event{Kind: "item_upsert", ID: "tools", Group: "Tools", Label: "CLI tools", Status: "ok"})
+	if m.SelectedIssue != key || !strings.Contains(m.lastLog, "Source sync deferred") {
+		t.Fatal("resolved stage displaced selected notice")
+	}
+	m = press(m, tea.KeyPressMsg{Code: 'q'})
+	if !m.AttentionExpanded || m.DetailFocus {
+		t.Fatal("q did not return from notice details to issues")
+	}
+	m = press(m, tea.KeyPressMsg{Code: 'q'})
+	if m.AttentionExpanded || m.SelectedGroup != -1 {
+		t.Fatal("q did not return from issues to attention row")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	if m.SelectedGroup != 0 {
+		t.Fatal("Down did not return to first normal area")
+	}
+}
+
+func TestCompactAttentionIssuesRemainAccessible(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m = send(m, Event{Kind: "run_start", Command: "up"})
+	for i := range 20 {
+		m = send(m, Event{Kind: "notice", Severity: "attention", Summary: fmt.Sprintf("Issue %02d", i), Action: fmt.Sprintf("Fix %02d", i)})
+	}
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 25, Height: 8})
+	m = updated.(Model)
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyUp})
+	if !strings.Contains(m.View().Content, "› Needs attention") {
+		t.Fatal("compact attention row not selectable")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	for range 19 {
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	if !strings.Contains(m.View().Content, "› ! Issue 19") || !strings.Contains(m.View().Content, "←/Esc/q back") {
+		t.Fatal("compact issue list lost selection or back footer")
+	}
+	m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if !strings.Contains(m.View().Content, "Next: Fix 19") {
+		t.Fatalf("compact notice action is inaccessible: %s", m.View().Content)
+	}
+	for _, line := range strings.Split(m.View().Content, "\n") {
+		if len([]rune(line)) > m.Width {
+			t.Fatal("compact detail overflows width")
+		}
+	}
+	if len(strings.Split(m.View().Content, "\n")) > m.Height {
+		t.Fatal("compact detail overflows height")
+	}
+}
+
+func TestAttentionViewportAndFooterFitTerminal(t *testing.T) {
+	for _, height := range []int{18, 24, 30} {
+		m := NewModel(t.TempDir(), false)
+		m.Width, m.Height = 55, height
+		for i := range 40 {
+			m = send(m, Event{Kind: "notice", Severity: "attention", Summary: fmt.Sprintf("Issue %02d with a long explanation for the reader", i), Action: "Read the issue and fix it"})
+		}
+		m = send(m, Event{Kind: "run_end"})
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyUp})
+		m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+		for range 30 {
+			m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+		}
+		for _, detail := range []bool{false, true} {
+			if detail {
+				m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+			}
+			view := m.View().Content
+			if len(strings.Split(strings.TrimRight(view, "\n"), "\n")) > height {
+				t.Fatalf("attention view exceeds height %d:\n%s", height, view)
+			}
+			if !strings.Contains(view, "←/Esc/q back") {
+				t.Fatal("attention back footer missing")
+			}
+		}
+	}
+}
+
+func TestFinishedRawLogKeepsBackFooterVisible(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "tools.log")
+	if err := os.WriteFile(path, []byte(strings.Repeat("line\n", 100)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(root, false)
+	m = send(m, Event{Kind: "stage_start", ID: "tools", Group: "Tools", Label: "Tools", LogPath: path})
+	m = send(m, Event{Kind: "run_end"})
+	m.selectGroup(m.groupIndex("Tools"))
+	m.expandSelectedGroup()
+	m = press(m, tea.KeyPressMsg{Code: 'r'})
+	for _, searching := range []bool{false, true} {
+		m.Searching = searching
+		m.refreshDetail()
+		view := m.View().Content
+		if len(strings.Split(strings.TrimRight(view, "\n"), "\n")) > m.Height {
+			t.Fatalf("raw log hid footer below terminal:\n%s", view)
+		}
+		want := "←/Esc/q back"
+		if searching {
+			want = "Enter search  Esc back"
+		}
+		if !strings.Contains(view, want) {
+			t.Fatal("raw log back footer missing")
+		}
+	}
+}

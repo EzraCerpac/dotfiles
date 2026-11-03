@@ -35,6 +35,8 @@ if os.environ.get("EXEC_CHILD") == "1" and "--" in sys.argv:
     child_env = dict(os.environ, MISE_AUTO_INSTALL="1", MISE_EXEC_AUTO_INSTALL="1",
                      MISE_AUTO_UPDATE="1", MISE_NO_HOOKS="0")
     sys.exit(subprocess.run(sys.argv[sys.argv.index("--") + 1:], env=child_env).returncode)
+if "which" in sys.argv:
+    print(os.environ.get("MISE_RENDERER", ""))
 if "get" in sys.argv:
     print("workstation")
 sys.exit(int(os.environ.get("FAIL_USE", "0")) if "use" in sys.argv else 0)
@@ -88,7 +90,6 @@ print(f"github:{repo}" + (f"[asset_pattern={asset}]" if asset else ""))
         result = self.run_dots('up')
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.calls()
-        self.assertEqual(calls[0]['args'], ['-C', str(self.root), 'which', 'dots-up'])
         self.assertEqual(calls[-1]['args'], ['-C', str(self.root), 'run', 'setup:update', '--plain'])
         call = calls[-1]
         self.assertIsNone(call['env'])
@@ -111,14 +112,26 @@ with open(os.environ["RENDERER_LOG"], "w") as output:
         self.assertEqual(json.loads(renderer_log.read_text()), ['--root', str(self.root), '--mas'])
         self.assertEqual(self.calls(), [])
 
+    def test_configured_renderer_takes_precedence_over_stale_path(self):
+        stale = self.bin_dir / 'dots-up'
+        stale.write_text('#!/bin/sh\necho stale >&2\nexit 99\n')
+        stale.chmod(0o755)
+        renderer = self.base / 'configured-renderer'
+        renderer.write_text("#!/bin/sh\nif [ \"$1\" = --capabilities ]; then echo dots-shared-cli/1; else echo configured; fi\n")
+        renderer.chmod(0o755)
+        for command in ('up', 'status'):
+            with self.subTest(command=command):
+                result = self.run_dots(command, DOTS_UP_BIN='', MISE_RENDERER=str(renderer))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), 'configured')
+
     def test_last_without_renderer_fails_without_running_updater(self):
         result = self.run_dots('up', '--last')
 
         self.assertEqual(result.returncode, 2)
         self.assertIn('renderer is unavailable', result.stderr)
         calls = self.calls()
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0]['args'], ['-C', str(self.root), 'which', 'dots-up'])
+        self.assertEqual(calls, [])
 
     def test_houseatlas_unavailable_route_does_not_load_mise_or_update_packages(self):
         shutil.copy2(SOURCE.parents[3] / 'setup-scripts/lib/houseatlas-maintenance.py',

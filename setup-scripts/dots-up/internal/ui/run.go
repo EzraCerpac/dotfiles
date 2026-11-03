@@ -49,7 +49,7 @@ func Run(events <-chan Event, control io.Writer, stateDir string, noWait bool) e
 					return fmt.Errorf("release dashboard for manual terminal: %w", err)
 				}
 				released, manual = true, true
-				fmt.Fprint(tty, "\nTerminal view — press Ctrl+] to return to the dashboard.\n\n")
+				fmt.Fprint(tty, "\nTerminal view — ← / Esc / q return to the dashboard; update keeps running (Ctrl+] also works).\n\n")
 				if err := encoder.Encode(controlRecord{V: 1, Kind: "terminal_ready"}); err != nil {
 					return err
 				}

@@ -98,6 +98,16 @@ mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
 unset MISE_ENV
 export MISE_CONFIG_DIR="$root"
 run_mise() { "$mise_bin" -C "$root" "$@"; }
+resolve_renderer() {
+    if [[ -n "${DOTS_UP_BIN:-}" ]]; then
+        renderer="$DOTS_UP_BIN"
+        return
+    fi
+    renderer="$(run_mise which dots-up 2>/dev/null || true)"
+    if [[ -z "$renderer" || ! -x "$renderer" ]]; then
+        renderer="$(command -v dots-up 2>/dev/null || true)"
+    fi
+}
 command_name="${1:-menu}"
 if (($#)); then shift; fi
 [[ "$command_name" != uninstall ]] || command_name=remove
@@ -111,11 +121,7 @@ if [[ "$backend_mode" -eq 0 && "$command_name" != up && "$command_name" != updat
     source_only=0
     [[ "$command_name" != sync || "${1:-}" != --source-only ]] || source_only=1
     if [[ "$source_only" -eq 0 ]]; then
-        renderer="${DOTS_UP_BIN:-}"
-        [[ -n "$renderer" ]] || renderer="$(command -v dots-up 2>/dev/null || true)"
-        if [[ -z "${DOTS_UP_BIN:-}" && ( -z "$renderer" || ! -x "$renderer" ) ]]; then
-            renderer="$("$mise_bin" -C "$root" which dots-up 2>/dev/null || true)"
-        fi
+        resolve_renderer
         if [[ -n "$renderer" && -x "$renderer" ]] && [[ "$("$renderer" --capabilities 2>/dev/null || true)" == dots-shared-cli/1 ]]; then
             exec "$renderer" --root "$root" --command "$command_name" ${frontend_args[@]+"${frontend_args[@]}"} -- "$@"
         fi
@@ -152,13 +158,7 @@ case "$command_name" in
         done
         [[ "$has_plain" -eq 0 || "$has_verbose" -eq 0 ]] || { echo 'dots: --plain and --verbose cannot be combined' >&2; exit 2; }
         [[ "$has_last" -eq 0 || "$has_mas" -eq 0 ]] || { echo 'dots: --last cannot be combined with --mas' >&2; exit 2; }
-        renderer="${DOTS_UP_BIN:-}"
-        if [[ -z "$renderer" ]]; then
-            renderer="$(command -v dots-up 2>/dev/null || true)"
-        fi
-        if [[ -z "$renderer" || ! -x "$renderer" ]]; then
-            renderer="$("$mise_bin" -C "$root" which dots-up 2>/dev/null || true)"
-        fi
+        resolve_renderer
         if [[ -n "$renderer" && -x "$renderer" ]]; then
             exec "$renderer" --root "$root" "$@"
         fi
