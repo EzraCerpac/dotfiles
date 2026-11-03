@@ -39,7 +39,21 @@ func TestManualTerminalBackKeysWithRunningPTY(t *testing.T) {
 }
 
 func TestManualTerminalBackAfterTinyResize(t *testing.T) {
-	runTerminalPTYFixture(t, []string{"q"}, "", false, true)
+	runTerminalPTYFixture(t, []string{"q"}, "", false, terminalFixtureOptions{tinyResize: true})
+}
+
+func TestManualTerminalHintPreservesScrollingOutput(t *testing.T) {
+	runTerminalPTYFixture(t, []string{"q"}, "", false, terminalFixtureOptions{beforeKeys: 350 * time.Millisecond})
+}
+
+func TestManualTerminalHintPreservesScrollingOutputAfterResize(t *testing.T) {
+	runTerminalPTYFixture(t, []string{"q"}, "", false, terminalFixtureOptions{beforeKeys: 350 * time.Millisecond, resizeRows: 18})
+}
+
+type terminalFixtureOptions struct {
+	tinyResize bool
+	resizeRows int
+	beforeKeys time.Duration
 }
 
 func TestAutomaticTerminalHandoffForwardsBackKeys(t *testing.T) {
@@ -48,8 +62,12 @@ func TestAutomaticTerminalHandoffForwardsBackKeys(t *testing.T) {
 }
 
 // Use real PTYs and a harmless child that keeps running after dashboard return.
-func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic bool, tinyResize ...bool) {
+func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic bool, options ...terminalFixtureOptions) {
 	t.Helper()
+	var opts terminalFixtureOptions
+	if len(options) > 0 {
+		opts = options[0]
+	}
 	oldInteractive, oldSize := hasInteractiveTerminal, currentTerminalSize
 	oldStart, oldDashboard := startUpdaterBackend, runDashboard
 	t.Cleanup(func() {
@@ -120,6 +138,8 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 		for event := range events {
 			switch event.Kind {
 			case "stage_start":
+				// Reproduce returning to a primary screen whose cursor is at the bottom.
+				fmt.Fprint(tty, "\x1b[30;1H")
 				kind := "terminal_ready"
 				if automatic {
 					kind = "handoff_ready"
@@ -132,9 +152,13 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 				case <-time.After(3 * time.Second):
 					return fmt.Errorf("terminal relay did not become ready")
 				}
-				if len(tinyResize) > 0 && tinyResize[0] {
-					terminalHeight.Store(1)
-					if err := pty.Setsize(tty, &pty.Winsize{Cols: 100, Rows: 1}); err != nil {
+				if opts.tinyResize || opts.resizeRows > 0 {
+					rows := opts.resizeRows
+					if opts.tinyResize {
+						rows = 1
+					}
+					terminalHeight.Store(int32(rows))
+					if err := pty.Setsize(tty, &pty.Winsize{Cols: 100, Rows: uint16(rows)}); err != nil {
 						return err
 					}
 					if err := syscall.Kill(os.Getpid(), syscall.SIGWINCH); err != nil {
@@ -142,6 +166,7 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 					}
 					time.Sleep(20 * time.Millisecond)
 				}
+				time.Sleep(opts.beforeKeys)
 				for _, key := range keys {
 					if _, err := io.WriteString(terminal, key); err != nil {
 						return err
@@ -188,11 +213,16 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 	}
 	_ = tty.Close()
 	output := <-readDone
+	if capture := os.Getenv("DOTS_TERMINAL_SCREEN_CAPTURE"); capture != "" {
+		if err := os.WriteFile(capture, []byte(output), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if !automatic {
 		if !strings.Contains(output, "\x1b[1;29r") || !strings.Contains(output, "\x1b[r") {
 			t.Fatalf("manual hint scrolling region was not installed and reset: %q", output)
 		}
-		if len(tinyResize) > 0 && tinyResize[0] && !strings.Contains(output, "\x1b7\x1b[r\x1b8") {
+		if opts.tinyResize && !strings.Contains(output, "\x1b7\x1b[r\x1b8") {
 			t.Fatal("tiny resize did not reset the manual scrolling region")
 		}
 	} else if strings.Contains(output, "update keeps running") {
@@ -219,7 +249,7 @@ func TestTerminalPTYFixtureProcess(t *testing.T) {
 	until := time.Now().Add(500 * time.Millisecond)
 	buf := make([]byte, 256)
 	for time.Now().Before(until) {
-		fmt.Print("fixture output\r\n")
+		fmt.Print("fixture output first\r\nfixture output second\r\n")
 		var readable unix.FdSet
 		readable.Set(0)
 		timeout := unix.NsecToTimeval(int64(20 * time.Millisecond))

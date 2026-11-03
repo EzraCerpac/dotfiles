@@ -178,7 +178,7 @@ func Run(opts Options) int {
 	var pendingHandoff string
 	var relayKind string
 	var terminalState *term.State
-	var manualHintRows int
+	var manualHintRows, manualHintCols int
 	var deferredStageEnd *ui.Event
 	var restoreKind, restoreID string
 	var restorePending bool
@@ -258,11 +258,13 @@ func Run(opts Options) int {
 	}
 	redrawManualHint := func() {
 		width, height := currentTerminalSize()
-		if manualHintRows > 0 && manualHintRows != height {
-			// A larger terminal exposes the old footer as an ordinary content row.
-			fmt.Fprintf(backend.tty, "\x1b7\x1b[%d;1H\x1b[2K\x1b8", min(manualHintRows, max(1, height)))
+		initialize := manualHintRows != height || manualHintCols != width
+		if initialize && manualHintRows > 0 && manualHintRows <= height {
+			// After growth, the previous footer is now an ordinary content row.
+			fmt.Fprintf(backend.tty, "\x1b[%d;1H\x1b[2K", manualHintRows)
 		}
-		manualHintRows = drawManualTerminalHint(backend.tty, width, height)
+		manualHintRows = drawManualTerminalHint(backend.tty, width, height, initialize)
+		manualHintCols = width
 		if manualHintRows == 0 {
 			fmt.Fprint(backend.tty, "\x1b7\x1b[r\x1b8")
 		}
@@ -299,7 +301,7 @@ func Run(opts Options) int {
 			} else {
 				fmt.Fprint(backend.tty, "\x1b7\x1b[r\x1b8")
 			}
-			manualHintRows = 0
+			manualHintRows, manualHintCols = 0, 0
 		}
 		if terminalState == nil || backend.tty == nil {
 			return nil
@@ -1020,13 +1022,19 @@ func terminalSize() (int, int) {
 }
 
 // Reserve the last row so ordinary updater output cannot scroll the back keys away.
-// Repaint after output as terminal applications may clear the screen or scroll region.
-func drawManualTerminalHint(tty io.Writer, width, height int) int {
+func drawManualTerminalHint(tty io.Writer, width, height int, initialize bool) int {
 	if width < 2 || height < 2 {
 		return 0
 	}
+	if initialize {
+		// The primary screen can resume with its cursor on the bottom row. Make
+		// room for the footer, then put output inside the new scrolling region.
+		// Saving/restoring that original cursor would strand output on the footer.
+		fmt.Fprintf(tty, "\x1b[r\x1b[%d;1H\r\n\x1b[1;%dr\x1b[%d;1H", height, height-1, height-1)
+	}
 	hint := ansi.Truncate("← / Esc / q dashboard · update keeps running · Ctrl+] also returns", width-1, "")
-	fmt.Fprintf(tty, "\x1b7\x1b[1;%dr\x1b[%d;1H\x1b[0;7m\x1b[2K%s\x1b[0m\x1b8", height-1, height, hint)
+	// Routine repaint preserves the output cursor and its scrolling margins.
+	fmt.Fprintf(tty, "\x1b7\x1b[%d;1H\x1b[0;7m\x1b[2K%s\x1b[0m\x1b8", height, hint)
 	return height
 }
 
