@@ -50,10 +50,15 @@ func TestManualTerminalHintPreservesScrollingOutputAfterResize(t *testing.T) {
 	runTerminalPTYFixture(t, []string{"q"}, "", false, terminalFixtureOptions{beforeKeys: 350 * time.Millisecond, resizeRows: 18})
 }
 
+func TestManualTerminalPreservesSplitANSIAndUTF8DuringResize(t *testing.T) {
+	runTerminalPTYFixture(t, []string{"q"}, "", false, terminalFixtureOptions{beforeKeys: 350 * time.Millisecond, splitOutput: true})
+}
+
 type terminalFixtureOptions struct {
-	tinyResize bool
-	resizeRows int
-	beforeKeys time.Duration
+	tinyResize  bool
+	splitOutput bool
+	resizeRows  int
+	beforeKeys  time.Duration
 }
 
 func TestAutomaticTerminalHandoffForwardsBackKeys(t *testing.T) {
@@ -88,6 +93,7 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 	}
 	var child *exec.Cmd
 	capture := filepath.Join(t.TempDir(), "input")
+	fixtureReady := filepath.Join(t.TempDir(), "ready")
 	startUpdaterBackend = func(Options, *runFiles, bool) (*backend, *os.File, io.Reader, error) {
 		eventR, eventW, err := os.Pipe()
 		if err != nil {
@@ -97,6 +103,9 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 		child.Env = append(os.Environ(), "DOTS_TERMINAL_FIXTURE="+capture)
 		if automatic {
 			child.Env = append(child.Env, "DOTS_TERMINAL_FIXTURE_AUTO=1")
+		}
+		if opts.splitOutput {
+			child.Env = append(child.Env, "DOTS_TERMINAL_FIXTURE_SPLIT="+fixtureReady)
 		}
 		child.ExtraFiles = []*os.File{eventW}
 		master, err := pty.StartWithSize(child, &pty.Winsize{Cols: 100, Rows: 30})
@@ -113,10 +122,24 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 		var output strings.Builder
 		buf := make([]byte, 4096)
 		signaled := false
+		resizedANSI, resizedUTF8 := false, false
 		for {
 			n, err := terminal.Read(buf)
 			if n > 0 {
 				output.Write(buf[:n])
+				if opts.splitOutput {
+					rows := 0
+					if !resizedANSI && strings.Contains(output.String(), "\x1b[31") {
+						rows, resizedANSI = 18, true
+					} else if !resizedUTF8 && strings.Contains(output.String(), "\xe2\x82") {
+						rows, resizedUTF8 = 20, true
+					}
+					if rows > 0 {
+						terminalHeight.Store(int32(rows))
+						_ = pty.Setsize(tty, &pty.Winsize{Cols: 100, Rows: uint16(rows)})
+						_ = syscall.Kill(os.Getpid(), syscall.SIGWINCH)
+					}
+				}
 				marker := "update keeps running"
 				if automatic {
 					marker = "fixture output"
@@ -165,6 +188,11 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 						return err
 					}
 					time.Sleep(20 * time.Millisecond)
+				}
+				if opts.splitOutput {
+					if err := os.WriteFile(fixtureReady, nil, 0o600); err != nil {
+						return err
+					}
 				}
 				time.Sleep(opts.beforeKeys)
 				for _, key := range keys {
@@ -218,6 +246,14 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 			t.Fatal(err)
 		}
 	}
+	if opts.splitOutput {
+		if !strings.Contains(output, "\x1b[31mcolored") || !strings.Contains(output, "€") {
+			t.Fatalf("manual hints interrupted split child output: %q", output)
+		}
+		if !strings.Contains(output, "\x1b[1;19r") {
+			t.Fatalf("pending manual resize was not applied: %q", output)
+		}
+	}
 	if !automatic {
 		if !strings.Contains(output, "\x1b[1;29r") || !strings.Contains(output, "\x1b[r") {
 			t.Fatalf("manual hint scrolling region was not installed and reset: %q", output)
@@ -245,6 +281,19 @@ func TestTerminalPTYFixtureProcess(t *testing.T) {
 		stage.Terminal = "handoff"
 	}
 	_ = events.Encode(stage)
+	if ready := os.Getenv("DOTS_TERMINAL_FIXTURE_SPLIT"); ready != "" {
+		for {
+			if _, err := os.Stat(ready); err == nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		fmt.Print("\x1b[31")
+		time.Sleep(80 * time.Millisecond)
+		fmt.Print("mcolored\x1b[0m\r\n\xe2\x82")
+		time.Sleep(80 * time.Millisecond)
+		fmt.Print("\xac\r\n")
+	}
 	var input bytes.Buffer
 	until := time.Now().Add(500 * time.Millisecond)
 	buf := make([]byte, 256)

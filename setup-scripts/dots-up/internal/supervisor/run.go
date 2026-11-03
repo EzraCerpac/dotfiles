@@ -19,6 +19,7 @@ import (
 
 	"github.com/EzraCerpac/dotfiles/setup-scripts/dots-up/internal/ui"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/charmbracelet/x/ansi/parser"
 	"github.com/charmbracelet/x/term"
 	"github.com/creack/pty"
 	"golang.org/x/sys/unix"
@@ -179,6 +180,8 @@ func Run(opts Options) int {
 	var relayKind string
 	var terminalState *term.State
 	var manualHintRows, manualHintCols int
+	manualOutputParser := ansi.NewParser()
+	var manualResizePending bool
 	var deferredStageEnd *ui.Event
 	var restoreKind, restoreID string
 	var restorePending bool
@@ -287,6 +290,8 @@ func Run(opts Options) int {
 		}
 		relayKind = kind
 		if kind == "manual" {
+			manualOutputParser.Reset()
+			manualResizePending = false
 			redrawManualHint()
 		}
 		return nil
@@ -528,7 +533,11 @@ func Run(opts Options) int {
 			if relayKind != "" && backend.tty != nil {
 				_, _ = backend.tty.Write(b)
 				if relayKind == "manual" {
-					redrawManualHint()
+					manualOutputParser.Parse(b)
+					if manualResizePending && manualOutputParser.State() == parser.GroundState {
+						redrawManualHint()
+						manualResizePending = false
+					}
 				}
 				// Before the first keypress, prompts and diagnostic text are useful.
 				// Once input begins, stop logging PTY output so terminal echo cannot
@@ -592,7 +601,12 @@ func Run(opts Options) int {
 			if sig == syscall.SIGWINCH && backend.pty && backend.tty != nil && backend.master != nil {
 				_ = pty.InheritSize(backend.tty, backend.master)
 				if relayKind == "manual" {
-					redrawManualHint()
+					// Reads can end inside ANSI controls or a UTF-8 rune. Keep the
+					// child stream intact and wait for a complete sequence to resize.
+					manualResizePending = manualOutputParser.State() != parser.GroundState
+					if !manualResizePending {
+						redrawManualHint()
+					}
 				}
 				continue
 			}
