@@ -178,6 +178,7 @@ func Run(opts Options) int {
 	var pendingHandoff string
 	var relayKind string
 	var terminalState *term.State
+	var manualHintRows int
 	var deferredStageEnd *ui.Event
 	var restoreKind, restoreID string
 	var restorePending bool
@@ -201,6 +202,7 @@ func Run(opts Options) int {
 	var relay relayState
 	if backend.pty && backend.tty != nil && backend.master != nil {
 		inputStart = make(chan struct{}, 1)
+		defer close(inputStart)
 		go relayTerminalInput(backend.tty, backend.master, &relay, inputStart, manualEnd)
 	}
 
@@ -254,6 +256,17 @@ func Run(opts Options) int {
 		}
 		deliver(e)
 	}
+	redrawManualHint := func() {
+		width, height := currentTerminalSize()
+		if manualHintRows > 0 && manualHintRows != height {
+			// A larger terminal exposes the old footer as an ordinary content row.
+			fmt.Fprintf(backend.tty, "\x1b7\x1b[%d;1H\x1b[2K\x1b8", min(manualHintRows, max(1, height)))
+		}
+		manualHintRows = drawManualTerminalHint(backend.tty, width, height)
+		if manualHintRows == 0 {
+			fmt.Fprint(backend.tty, "\x1b7\x1b[r\x1b8")
+		}
+	}
 	startRelay := func(kind string) error {
 		if !backend.pty || backend.tty == nil {
 			return errors.New("terminal handoff needs an interactive pseudoterminal")
@@ -271,12 +284,23 @@ func Run(opts Options) int {
 		default:
 		}
 		relayKind = kind
+		if kind == "manual" {
+			redrawManualHint()
+		}
 		return nil
 	}
 	stopRelay := func() error {
 		relay.active.Store(false)
 		relay.inputMu.Lock()
 		relay.inputMu.Unlock()
+		if relay.manual.Load() && backend.tty != nil {
+			if manualHintRows > 0 {
+				fmt.Fprintf(backend.tty, "\x1b7\x1b[r\x1b[%d;1H\x1b[2K\x1b8", manualHintRows)
+			} else {
+				fmt.Fprint(backend.tty, "\x1b7\x1b[r\x1b8")
+			}
+			manualHintRows = 0
+		}
 		if terminalState == nil || backend.tty == nil {
 			return nil
 		}
@@ -501,6 +525,9 @@ func Run(opts Options) int {
 			clean := cleanTerminalOutput(b)
 			if relayKind != "" && backend.tty != nil {
 				_, _ = backend.tty.Write(b)
+				if relayKind == "manual" {
+					redrawManualHint()
+				}
 				// Before the first keypress, prompts and diagnostic text are useful.
 				// Once input begins, stop logging PTY output so terminal echo cannot
 				// persist anything the user typed.
@@ -562,6 +589,9 @@ func Run(opts Options) int {
 		case sig := <-signals:
 			if sig == syscall.SIGWINCH && backend.pty && backend.tty != nil && backend.master != nil {
 				_ = pty.InheritSize(backend.tty, backend.master)
+				if relayKind == "manual" {
+					redrawManualHint()
+				}
 				continue
 			}
 			if !childFinished {
@@ -989,15 +1019,65 @@ func terminalSize() (int, int) {
 	return w, h
 }
 
-func relayTerminalInput(tty, master *os.File, state *relayState, start <-chan struct{}, manualEnd chan<- struct{}) {
-	buf := make([]byte, 256)
-	for {
-		select {
-		case <-start:
-		case <-time.After(80 * time.Millisecond):
+// Reserve the last row so ordinary updater output cannot scroll the back keys away.
+// Repaint after output as terminal applications may clear the screen or scroll region.
+func drawManualTerminalHint(tty io.Writer, width, height int) int {
+	if width < 2 || height < 2 {
+		return 0
+	}
+	hint := ansi.Truncate("← / Esc / q dashboard · update keeps running · Ctrl+] also returns", width-1, "")
+	fmt.Fprintf(tty, "\x1b7\x1b[1;%dr\x1b[%d;1H\x1b[0;7m\x1b[2K%s\x1b[0m\x1b8", height-1, height, hint)
+	return height
+}
+
+// Escape needs a short grace period because terminal key sequences can span reads.
+const manualEscapeWait = 150 * time.Millisecond
+
+type manualTerminalKeys struct {
+	escape []byte
+	until  time.Time
+}
+
+func (keys *manualTerminalKeys) feed(data []byte) (forward []byte, back bool) {
+	for _, b := range data {
+		if len(keys.escape) == 0 {
+			switch b {
+			case 'q', 0x1d: // Ctrl+] remains available for existing users.
+				return forward, true
+			case 0x1b:
+				keys.escape = append(keys.escape, b)
+				keys.until = time.Now().Add(manualEscapeWait)
+			default:
+				forward = append(forward, b)
+			}
 			continue
 		}
-		manualReturn := false
+		keys.escape = append(keys.escape, b)
+		keys.until = time.Now().Add(manualEscapeWait)
+		if len(keys.escape) == 2 {
+			if b != '[' && b != 'O' {
+				return forward, true // Escape followed by another ordinary key.
+			}
+			continue
+		}
+		if b >= 0x40 && b <= 0x7e {
+			if b == 'D' { // CSI and SS3 left-arrow keys, including modifiers.
+				return forward, true
+			}
+			forward = append(forward, keys.escape...)
+			keys.escape = nil
+		} else if len(keys.escape) >= 128 {
+			// Bound malformed sequences without leaking a possible back key.
+			return forward, true
+		}
+	}
+	return forward, false
+}
+
+func relayTerminalInput(tty, master *os.File, state *relayState, start <-chan struct{}, manualEnd chan<- struct{}) {
+	buf := make([]byte, 256)
+	for range start {
+		var keys manualTerminalKeys
 		for {
 			// Quiesce any in-flight terminal read before the dashboard restores terminal state.
 			state.inputMu.Lock()
@@ -1008,32 +1088,34 @@ func relayTerminalInput(tty, master *os.File, state *relayState, start <-chan st
 			fd := int(tty.Fd())
 			var readable unix.FdSet
 			readable.Set(fd)
-			timeout := unix.NsecToTimeval(int64(100 * time.Millisecond))
+			wait := 100 * time.Millisecond
+			if len(keys.escape) > 0 {
+				wait = max(0, min(wait, time.Until(keys.until)))
+			}
+			timeout := unix.NsecToTimeval(int64(wait))
 			ready, err := unix.Select(fd+1, &readable, nil, nil, &timeout)
-			if !state.active.Load() || err != nil || ready == 0 || !readable.IsSet(fd) {
+			if !state.active.Load() || err != nil {
 				state.inputMu.Unlock()
 				continue
 			}
-			n, err := unix.Read(fd, buf)
-			if err != nil || n == 0 {
-				state.inputMu.Unlock()
-				continue
-			}
-			data := buf[:n]
-			if state.manual.Load() {
-				forwarding := make([]byte, 0, len(data))
-				returned := false
-				for _, b := range data {
-					if b == 0x1d { // Ctrl+] returns to the dashboard.
-						returned = true
-						break
-					}
-					forwarding = append(forwarding, b)
+			var data []byte
+			if ready > 0 && readable.IsSet(fd) {
+				n, err := unix.Read(fd, buf)
+				if err != nil || n == 0 {
+					state.inputMu.Unlock()
+					continue
 				}
-				data = forwarding
-				if returned {
-					state.active.Store(false)
+				data = buf[:n]
+			}
+			manualReturn := false
+			if state.manual.Load() {
+				if len(data) > 0 {
+					data, manualReturn = keys.feed(data)
+				} else if len(keys.escape) > 0 && !time.Now().Before(keys.until) {
 					manualReturn = true
+				}
+				if manualReturn {
+					state.active.Store(false)
 				}
 			}
 			if len(data) > 0 {
