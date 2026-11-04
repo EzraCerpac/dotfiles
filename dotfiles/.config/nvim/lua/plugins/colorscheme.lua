@@ -116,6 +116,10 @@ return {
           -- Keep Typst references and label definitions distinct from prose.
           ["@markup.link.typst"] = { fg = colors.peach, bold = true },
           ["@markup.link.label.typst"] = { fg = colors.teal, bold = true },
+          -- Notes are context, so use ordinary comment styling without a badge.
+          TodoBgNOTE = { link = "Comment" },
+          TodoFgNOTE = { link = "Comment" },
+          TodoSignNOTE = { link = "Comment" },
         }
       end,
       integrations = {
