@@ -137,6 +137,7 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/rex/init.lua" = { source = "dotfiles/.config/rex/init.lua", mode = "symlink" }
 "~/.config/rex/navigation.lua" = { source = "dotfiles/.config/rex/navigation.lua", mode = "symlink" }
 "~/.config/rex/projects.lua" = { source = "dotfiles/.config/rex/projects.lua", mode = "symlink" }
+"~/.config/rex/themes" = { source = "dotfiles/.config/rex/themes", mode = "symlink" }
 "~/.config/rex/hosts.lua" = { source = "templates/.config/rex/hosts.lua.tera", mode = "template" }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }

@@ -112,6 +112,19 @@ with private encrypted settings history.
 The native Glass style and Use glass for panes option provide translucency.
 The installed beta does not document a numeric background-opacity or blur control.
 
+Catppuccin's Ghostty palettes are managed under `~/.config/rex/themes/`:
+`catppuccin-latte.conf` for light mode and `catppuccin-mocha.conf` for dark mode.
+Import them through Rex's Appearance settings and select each for its matching mode.
+Keep appearance on Auto to follow macOS automatically.
+The imported choices remain private app-written preferences;
+routine updates deploy the files without resetting those choices.
+The upstream palettes and their license come from
+[Catppuccin for Ghostty](https://github.com/catppuccin/ghostty).
+
+Neovim uses the plugin's unambiguous `catppuccin-nvim` entry point,
+because Neovim 0.12 also ships a built-in theme named `catppuccin`.
+Its transparent-background callback preserves foreground colors and styles.
+
 ## References
 
 - [Rex remote access](https://www.superlogical.com/rex/docs/linux/remote-access)

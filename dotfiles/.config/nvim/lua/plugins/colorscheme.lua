@@ -4,7 +4,8 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "catppuccin",
+      -- Avoid Neovim 0.12's built-in theme with the same "catppuccin" name.
+      colorscheme = "catppuccin-nvim",
     },
   },
   -- Makes relative numbers go until 5
