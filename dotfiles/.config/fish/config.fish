@@ -5,6 +5,7 @@ if status is-interactive
     if test "$__CFBundleIdentifier" = com.openai.codex
         or test "$TERM_PROGRAM" = WezTerm
         or test "$HERDR_ENV" = 1
+        or set -q REX_BLOCK
         set -e NO_COLOR
         if test "$TERM" = dumb
             set -gx TERM xterm-256color
@@ -28,7 +29,7 @@ for path in $portable_paths
 end
 
 # Activate mise in every shell, scripts included, so they find managed tools.
-# Fresh login shells (e.g. herdr tabs) start without shims on PATH.
+# Fresh terminal shells start without shims on PATH.
 if command -q mise
     mise activate fish | source
 end

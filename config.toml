@@ -135,11 +135,16 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/jj/config.toml" = { source = "dotfiles/.config/jj/config.toml", mode = "symlink" }
 "~/.config/hunk/config.toml" = { source = "dotfiles/.config/hunk/config.toml", mode = "symlink" }
 "~/.config/rex/init.lua" = { source = "dotfiles/.config/rex/init.lua", mode = "symlink" }
+"~/.config/rex/navigation.lua" = { source = "dotfiles/.config/rex/navigation.lua", mode = "symlink" }
+"~/.config/rex/projects.lua" = { source = "dotfiles/.config/rex/projects.lua", mode = "symlink" }
+"~/.config/rex/hosts.lua" = { source = "templates/.config/rex/hosts.lua.tera", mode = "template" }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink" }
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
 "~/.local/bin/dots" = { source = "dotfiles/.local/bin/dots", mode = "symlink" }
+"~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
+"~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 
 [bootstrap.hooks]

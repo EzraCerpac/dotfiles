@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=$(cd "$(dirname "$0")/../../.." && pwd)
+case "$(uname -s):$(hostname -s | tr '[:upper:]' '[:lower:]')" in
+    Linux:cerpacnas|Darwin:driehuisnas)
+        sh "$root/setup-scripts/install/rex-nas-setup.sh" --update-existing
+        ;;
+    Darwin:*)
+        if [[ -d '/Applications/Rex Beta.app' || -d "$HOME/Applications/Rex Beta.app" ]]; then
+            printf 'Rex uses its app updater; dots up preserves the running app and server.\n'
+        else
+            sh "$root/setup-scripts/install/rex-macos-install.sh"
+        fi
+        ;;
+esac

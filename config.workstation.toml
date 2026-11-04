@@ -348,6 +348,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/Library/Application Support/superfile/config.toml" = { source = "dotfiles/.config/superfile/config.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/Library/Application Support/superfile/hotkeys.toml" = { source = "dotfiles/.config/superfile/hotkeys.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/aerospace_workspaces.lua" = { source = "dotfiles/.hammerspoon/aerospace_workspaces.lua", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.hammerspoon/rex_navigation.lua" = { source = "dotfiles/.hammerspoon/rex_navigation.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.hammerspoon/init.lua" = { source = "dotfiles/.hammerspoon/init.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.julia/config/pluto_user.js" = { source = "dotfiles/.julia/config/pluto_user.js", mode = "symlink" }
 "~/.julia/config/startup.jl" = { source = "dotfiles/.julia/config/startup.jl", mode = "symlink" }
@@ -359,6 +360,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/aegis-local-install" = { source = "templates/.local/bin/aegis-local-install.tera", mode = "template", variants = [{ os = "macos" }] }
 "~/.local/bin/aegis-local-signing-setup" = { source = "dotfiles/.local/bin/aegis-local-signing-setup", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/aerospace-default-workspaces" = { source = "dotfiles/.local/bin/aerospace-default-workspaces", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.local/bin/rex-open" = { source = "dotfiles/.local/bin/rex-open", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/agenda" = { source = "dotfiles/.local/bin/agenda", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/ai-text-detector" = { source = "dotfiles/.local/bin/ai-text-detector", mode = "symlink" }
 "~/.local/bin/antinote" = { source = "dotfiles/.local/bin/antinote", mode = "symlink", variants = [{ os = "macos" }] }

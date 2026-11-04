@@ -108,6 +108,7 @@ if [[ "$SETUP_PROFILE" == workstation ]]; then
         '~/.config/karabiner/karabiner.json'
         '~/.config/atuin/config.toml'
         '~/.config/gitlogue-saver/config.toml'
+        '~/Library/Preferences/com.superlogical.rex.plist'
         '~/.config/nvim/lazyvim.json'
         '~/.config/nvim/lazy-lock.json'
         '~/.config/nvim/spell/en.utf-8.add'

@@ -1,0 +1,14 @@
+#!/bin/sh
+# Keep the CLI paired with the installed app or personal Linux release.
+set -eu
+for executable in \
+  "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" \
+  "$HOME/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex" \
+  "$HOME/.local/opt/rex/current"
+do
+  if [ -x "$executable" ]; then
+    exec "$executable" "$@"
+  fi
+done
+printf '%s\n' 'Rex is not installed. Install the signed Mac app or run rex:setup on an enrolled NAS.' >&2
+exit 127

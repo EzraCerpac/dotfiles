@@ -78,3 +78,16 @@ rex.bind("ctrl+b>d", "session.close")
 rex.bind("ctrl+b>ctrl+b", "pane.send_key", { key = "ctrl+b" })
 for _, key in ipairs({ "up", "down", "left", "right", "v" }) do bind("ctrl+" .. key, "pane.send_key", { key = "ctrl+" .. key }) end
 bind("ctrl+shift+v", "pane.send_key", { key = "ctrl+v" })
+
+local config_file = os.getenv("REX_CONFIG") or ((os.getenv("XDG_CONFIG_HOME") or (os.getenv("HOME") .. "/.config")) .. "/rex/init.lua")
+local config_dir = assert(config_file:match("^(.*)/[^/]+$"))
+dofile(config_dir .. "/navigation.lua")
+dofile(config_dir .. "/projects.lua")
+local hosts = io.open(config_dir .. "/hosts.lua", "r")
+if hosts then hosts:close(); dofile(config_dir .. "/hosts.lua") end
+for _, mode in ipairs({ "", "locked", "pane", "tab", "resize", "move", "scroll", "search", "session", "tmux" }) do
+  local prefix = mode == "" and "" or mode .. "/"
+  for key, direction in pairs({ f13 = "left", f14 = "down", f15 = "up", f16 = "right" }) do
+    bind(prefix .. "ctrl+shift+" .. key, "rex_navigate", { direction = direction })
+  end
+end

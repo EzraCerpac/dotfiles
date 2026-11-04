@@ -2,16 +2,15 @@
 
 set -euo pipefail
 
-WEZTERM_BIN="/opt/homebrew/bin/wezterm"
+REX_OPEN="${REX_OPEN:-${HOME}/.local/bin/rex-open}"
 GITLOGUE_BIN="/opt/homebrew/bin/gitlogue"
 PROJECTS_DIR="${HOME}/Projects"
-WORKSPACE="gitlogue-screensaver"
 WINDOW_TITLE="gitlogue-screensaver"
 THEME="tokyo-night"
 SPEED="20"
 
-if [[ ! -x "${WEZTERM_BIN}" ]]; then
-    echo "gitlogue-screensaver: missing WezTerm at ${WEZTERM_BIN}" >&2
+if [[ ! -x "${REX_OPEN}" ]]; then
+    echo "gitlogue-screensaver: missing Rex launcher at ${REX_OPEN}" >&2
     exit 1
 fi
 
@@ -52,7 +51,5 @@ exec "${GITLOGUE_BIN}" \
     --background=false
 EOF
 
-exec "${WEZTERM_BIN}" start \
-    --workspace "${WORKSPACE}" \
-    --cwd "${repo}" \
-    -- /bin/bash -lc "${launch_command}"
+cd "${repo}"
+exec "${REX_OPEN}" --title "${WINDOW_TITLE}" -- /bin/bash -lc "${launch_command}"

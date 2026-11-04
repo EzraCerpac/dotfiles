@@ -345,7 +345,8 @@ The role selection and private history origin belong in ignored local mise confi
 | Shared shell history and Atuin login | [Atuin](docs/atuin.md) |
 | Editing linked files and templates, cross-platform notes | [Dotfiles](docs/dotfiles.md) |
 | Review defaults and shortcuts (`hunk`, `jjui`, `wto`, `prdiff`, `glf`) | [Review tools](docs/review-tools.md) |
-| Herdr sessions, workspaces and keys | [Herdr](docs/herdr.md) |
+| Rex sessions, NAS connections and project launcher | [Rex](docs/rex.md) |
+| WezTerm/Herdr rollback workflow | [Herdr](docs/herdr.md) |
 | Corne keyboard and Kanata | [Keyboard](docs/keyboard.md) |
 | CerpacNAS and remote Codex tasks | [NAS guide](docs/cerpacnas.md) |
 | Cloud proxy access to NAS web services and HouseAtlas | [Cloud NAS access](docs/cloud-nas-access.md) |
