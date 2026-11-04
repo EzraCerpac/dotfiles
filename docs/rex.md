@@ -12,6 +12,8 @@ for rollback.
 | Cmd+K | Rex session picker |
 | Ctrl+B, Left/Right | Previous/next session |
 | Ctrl+B, Up | Open a recent project on the selected host |
+| Ctrl+S | Pass through to the terminal program, including jjui |
+| Ctrl+B, [ | Enter Rex scroll mode; Escape or Enter leaves it |
 | Ctrl+B, D | Close the current session and its processes |
 | Meh+H/J/K/L or arrows | Neovim split, then Rex pane, then AeroSpace window |
 | Hyper+Enter | Open a new Rex shell window on T |

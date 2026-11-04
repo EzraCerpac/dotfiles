@@ -1,3 +1,2 @@
-if os.getenv("REX_SESSION") then
-  require("config.modules.rex-navigation").start()
-end
+-- An editor may outlive its launching shell and accept a later Rex TUI.
+require("config.modules.rex-navigation").start()
