@@ -61,4 +61,4 @@ rex.action{
     return result
   end,
 }
-rex.bind("ctrl+b>up", "open_recent_project")
+rex.bind("shift+cmd+o", "open_recent_project")

@@ -41,7 +41,7 @@ local function navigate(direction)
   hs.timer.doAfter(5, function()
     if pending and pending.id == id then pending = nil end
   end)
-  hs.eventtap.keyStroke({ "ctrl", "shift" }, keys[direction], 0, app)
+  hs.eventtap.keyStroke({ "cmd" }, keys[direction], 0, app)
 end
 
 function M.start()

@@ -1,7 +1,7 @@
 local definitions, calls, queued = {}, {}, {}
 rex = {
   action = function(def) definitions[def.name] = def.run end,
-  bind = function(key, action) assert(key == "ctrl+b>up" and action == "open_recent_project") end,
+  bind = function(key, action) assert(key == "shift+cmd+o" and action == "open_recent_project") end,
   layout = { block = function(spec) return spec end },
   client = { queue = function(action, args) table.insert(queued, {action, args}) end },
   call = function(method, args)

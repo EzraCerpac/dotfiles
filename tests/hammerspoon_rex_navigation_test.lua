@@ -12,7 +12,7 @@ hs = {
   window = { focusedWindow = function() return window end },
   task = { new = function(_, _, args) return { start = function() tasks[#tasks + 1] = args[1] end } end },
   timer = { absoluteTime = function() return 123 end, doAfter = function() end },
-  eventtap = { keyStroke = function(_, k) key = k end },
+  eventtap = { keyStroke = function(modifiers, k) assert(#modifiers == 1 and modifiers[1] == "cmd"); key = k end },
   urlevent = { bind = function(_, fn) callbacks.reply = fn end },
   hotkey = { bind = function(_, k, fn) bindings[k] = fn end },
 }

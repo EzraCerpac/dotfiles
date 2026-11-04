@@ -10,20 +10,26 @@ for rollback.
 | Shortcut | Action |
 | --- | --- |
 | Cmd+K | Rex session picker |
-| Ctrl+B, Left/Right | Previous/next session |
-| Ctrl+B, Up | Open a recent project on the selected host |
-| Ctrl+S | Pass through to the terminal program, including jjui |
-| Ctrl+B, [ | Enter Rex scroll mode; Escape or Enter leaves it |
-| Ctrl+B, D | Close the current session and its processes |
+| Cmd+Shift+O | Open a recent project on the selected host |
+| Cmd+T | New tab |
+| Cmd+D / Cmd+Shift+D | Split right / down |
+| Ctrl/Alt combinations without Cmd | Pass through to the terminal program |
 | Meh+H/J/K/L or arrows | Neovim split, then Rex pane, then AeroSpace window |
 | Hyper+Enter | Open a new Rex shell window on T |
 | Meh+9 | Open or reuse the dedicated Ops btop window |
 
 Meh means Cmd+Ctrl+Alt;
 Hyper adds Shift.
-The existing Alt-direction bindings remain Rex pane controls.
+Rex uses its native Cmd shortcuts with no imported modal keymap or Ctrl+B prefix.
+Ctrl/Alt combinations without Cmd belong to Neovim, jjui and the shell,
+including Ctrl+B and Ctrl+S.
 Use Meh-direction for the editor-aware navigation chain.
 Cmd+K and the Open recent project palette action also work without the prefix.
+
+In Rex's Terminal settings,
+set Option key to **Sends Alt** so Option shortcuts reach terminal programs
+instead of composing macOS layout characters.
+This app-written preference is included in the private settings history.
 
 Choose the host in Rex before opening a recent project.
 The launcher uses that host's zoxide history and fzf,
