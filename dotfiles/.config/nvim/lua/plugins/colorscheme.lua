@@ -108,11 +108,16 @@ return {
     priority = 1000,
     opts = {
       transparent_background = true,
-      custom_highlights = {
-        LineNr = { fg = "#a6adc8" }, -- Lighter color
-        CursorLineNr = { fg = "#cdd6f4" }, -- Even lighter for active line
-        Visual = { bg = "#585b70", fg = "#cdd6f4" }, -- Brighter visual selection
-      },
+      custom_highlights = function(colors)
+        return {
+          LineNr = { fg = colors.subtext0 },
+          CursorLineNr = { fg = colors.text },
+          Visual = { bg = colors.surface2, fg = colors.text },
+          -- Keep Typst references and label definitions distinct from prose.
+          ["@markup.link.typst"] = { fg = colors.peach, bold = true },
+          ["@markup.link.label.typst"] = { fg = colors.teal, bold = true },
+        }
+      end,
       integrations = {
         aerial = true,
         alpha = true,

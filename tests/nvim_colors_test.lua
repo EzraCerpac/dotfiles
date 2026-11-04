@@ -45,8 +45,34 @@ end)
 assert(vim.g.colors_name == "catppuccin-mocha", "Did not load the plugin's dark palette")
 assert(vim.api.nvim_get_hl(0, { name = "Normal" }).fg == 0xcdd6f4, "Lost the plugin foreground")
 assert(vim.api.nvim_get_hl(0, { name = "LineNr" }).fg == 0xa6adc8, "Lost custom plugin highlights")
+local function check_links(flavour)
+  local palette = require("catppuccin.palettes").get_palette(flavour)
+  for group, color in pairs({
+    ["@markup.link.typst"] = "peach",
+    ["@markup.link.label.typst"] = "teal",
+  }) do
+    local hl = vim.api.nvim_get_hl(0, { name = group })
+    assert(
+      hl.fg == tonumber(palette[color]:sub(2), 16) and hl.bold,
+      "Typst link blends into prose: " .. group
+    )
+  end
+  assert(
+    not vim.deep_equal(
+      vim.api.nvim_get_hl(0, { name = "@markup.link.typst" }),
+      vim.api.nvim_get_hl(0, { name = "@markup.link" })
+    ),
+    "Typst styling must remain language-specific"
+  )
+end
+check_links("mocha")
 vim.o.background = "light"
 assert(vim.g.colors_name == "catppuccin-latte", "Background detection did not reload the plugin")
+check_links("latte")
+assert(
+  vim.api.nvim_get_hl(0, { name = "CursorLineNr" }).fg == 0x4c4f69,
+  "Light mode line numbers lost contrast"
+)
 vim.o.background = "dark"
 assert(vim.g.colors_name == "catppuccin-mocha", "Background detection loaded another theme")
 vim.wait(20, function()

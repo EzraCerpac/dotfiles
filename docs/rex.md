@@ -118,12 +118,16 @@ Import them through Rex's Appearance settings and select each for its matching m
 Keep appearance on Auto to follow macOS automatically.
 The imported choices remain private app-written preferences;
 routine updates deploy the files without resetting those choices.
+Leave **Force theme palette for text** off so Neovim and other truecolor programs
+retain their own RGB colors instead of being remapped into the terminal palette.
 The upstream palettes and their license come from
 [Catppuccin for Ghostty](https://github.com/catppuccin/ghostty).
 
 Neovim uses the plugin's unambiguous `catppuccin-nvim` entry point,
 because Neovim 0.12 also ships a built-in theme named `catppuccin`.
 Its transparent-background callback preserves foreground colors and styles.
+Typst references use peach and label definitions use teal,
+with bold text to distinguish them from prose in both light and dark mode.
 
 ## References
 
