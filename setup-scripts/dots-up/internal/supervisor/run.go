@@ -1000,9 +1000,7 @@ func printProgress(e ui.Event) {
 	case "notice":
 		fmt.Printf("Attention: %s\n", e.Summary)
 	case "change":
-		if e.Before != "" && e.After != "" {
-			fmt.Printf("Change: %s %s → %s\n", e.Item, e.Before, e.After)
-		}
+		fmt.Println(ui.ChangeLine(e.Action, e.Item, e.Before, e.After))
 	case "app_store_start":
 		fmt.Println("Mac App Store updates · running in the background")
 	case "app_store_end":

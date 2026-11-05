@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../../lib/quiet-probe.sh"
+source "$(dirname "$0")/../../lib/dots-up-events.sh"
 
 fail() {
     printf 'typ2docx installer exception: %s\n' "$1" >&2
@@ -39,6 +40,7 @@ exception_root="${mise_data_dir}/uv-exceptions/typ2docx"
 exception_root="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$exception_root")"
 launcher="${HOME}/.local/bin/typ2docx"
 launcher_state="absent"
+installed_version=""
 old_launcher_text=""
 current_run_root=""
 
@@ -198,4 +200,12 @@ printf 'Installed typ2docx version: %s\n' "$latest_version"
 printf 'Isolated tool directory: %s\n' "$tool_dir"
 if [[ "$launcher_state" != absent ]]; then
     printf 'Previous launcher backup: %s\n' "$backup_launcher"
+fi
+
+if [[ "$launcher_state" == absent ]]; then
+    dots_up_emit_change typ2docx installed 'not installed' "$latest_version"
+elif [[ -n "$installed_version" && "$installed_version" != "$latest_version" ]]; then
+    dots_up_emit_change typ2docx updated "$installed_version" "$latest_version"
+else
+    dots_up_emit_change typ2docx changed "$installed_version" "$latest_version"
 fi
