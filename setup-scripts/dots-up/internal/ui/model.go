@@ -816,8 +816,8 @@ func (m *Model) resize() {
 	m.viewport.SetWidth(max(1, m.Width-4))
 	if m.outcomesView() {
 		m.viewport.SetWidth(max(1, m.Width))
-		m.viewport.SoftWrap = false
-		m.viewport.SetHeight(max(1, min(m.Height-6, strings.Count(m.lastLog, "\n")+1)))
+		m.viewport.SoftWrap = m.ExpandedGroup >= 0
+		m.viewport.SetHeight(max(1, min(m.Height-6, m.viewport.TotalLineCount())))
 		return
 	}
 	m.viewport.SoftWrap = true

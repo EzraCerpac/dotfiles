@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestActionFormattingIncludesChangesWithoutVersions(t *testing.T) {
@@ -74,5 +75,47 @@ func TestFinishedReportDoesNotClaimUnfinishedStepIsRunning(t *testing.T) {
 	m.apply(Event{Kind: "run_end"})
 	if m.Stages[0].Status != "unknown" || m.Stages[0].Summary != "Outcome unknown" {
 		t.Fatalf("stale running result: %+v", m.Stages[0])
+	}
+}
+
+func TestExpandedAreaWrapsCompleteRevisionTransitions(t *testing.T) {
+	const before = "0123456789abcdef0123456789abcdef01234567"
+	const after = "fedcba9876543210fedcba9876543210fedcba98"
+	for _, size := range [][2]int{{80, 18}, {32, 8}} {
+		t.Run(fmt.Sprintf("%dx%d", size[0], size[1]), func(t *testing.T) {
+			m := NewModel(t.TempDir(), false)
+			m.Width, m.Height = size[0], size[1]
+			m.apply(Event{Kind: "stage_start", ID: "source", Group: "Source & settings"})
+			m.apply(Event{Kind: "change", Stage: "source", Item: "Configuration source", Before: before, After: after})
+			m.apply(Event{Kind: "stage_end", ID: "source", Status: "ok"})
+			m.apply(Event{Kind: "run_end"})
+			m.selectGroup(m.groupIndex("Source & settings"))
+			m = press(m, tea.KeyPressMsg{Code: tea.KeyEnter})
+			var rows []string
+			for {
+				view := ansi.Strip(m.View().Content)
+				lines := strings.Split(view, "\n")
+				if len(lines) > m.Height {
+					t.Fatalf("wrapped area exceeds terminal: %s", view)
+				}
+				for _, line := range lines {
+					if ansi.StringWidth(line) > m.Width {
+						t.Fatalf("wrapped line exceeds terminal: %q", line)
+					}
+				}
+				if m.viewport.AtBottom() {
+					for _, line := range lines[3 : 3+m.viewport.Height()] {
+						rows = append(rows, strings.TrimRight(line, " "))
+					}
+					break
+				}
+				rows = append(rows, strings.TrimRight(lines[3], " "))
+				m = press(m, tea.KeyPressMsg{Code: tea.KeyDown})
+			}
+			content := strings.Join(rows, "")
+			if !strings.Contains(content, before) || !strings.Contains(content, after) || strings.Contains(content, "…") {
+				t.Fatalf("vertical scrolling lost revision text: %s", content)
+			}
+		})
 	}
 }
