@@ -1883,7 +1883,7 @@ exit 90
             self._calls(),
         )
 
-    def _run_lazy_fixture(self, fail: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:
+    def _run_lazy_fixture(self, fail: bool = False, parser_case: str = "", parser_loaded: bool = True, parser_load_on_update: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:
         nvim = shutil.which("nvim")
         if not nvim:
             self.skipTest("Neovim is unavailable for isolated Lazy updater fixture")
@@ -1913,11 +1913,18 @@ exit 90
   { name = "version-false-plugin", dir = vim.env.VERSION_FALSE_PLUGIN, version = false, _ = { tasks = {} } },
   { name = "missing-plugin", dir = vim.env.MISSING_PLUGIN, _ = { tasks = {} } },
 }
+if vim.env.TEST_PARSERS and vim.env.TEST_PARSERS ~= "" then
+  table.insert(plugins, { name = "nvim-treesitter", dir = vim.env.PINNED_PLUGIN, pin = true,
+    _ = { tasks = {}, loaded = vim.env.TEST_PARSER_LOADED == "1" } })
+end
 local by_name = {}
 for _, plugin in ipairs(plugins) do by_name[plugin.name] = plugin end
 local M = {}
 function M.plugins() return plugins end
 function M.update(opts)
+  if vim.env.TEST_PARSER_LOAD_ON_UPDATE == "1" then
+    by_name["nvim-treesitter"]._.loaded = true
+  end
   local file = assert(io.open(vim.env.UPDATE_LOG, "w"))
   for _, selected in ipairs(opts.plugins) do
     local plugin = type(selected) == "string" and by_name[selected] or selected
@@ -1938,6 +1945,34 @@ return M
 local plugins = {}
 for _, plugin in ipairs(lazy.plugins()) do plugins[plugin.name] = plugin end
 return { plugins = plugins }
+"""
+        )
+        (lua / "lazy/core/plugin.lua").write_text(
+            """return { values = function(_, prop, is_list)
+  assert(prop == "opts" and is_list == false)
+  return { ensure_installed = { "lua", "javascript", "unsupported" } }
+end }
+"""
+        )
+        (lua / "nvim-treesitter.lua").write_text(
+            """local M = {}
+local installed = { "lua" }
+function M.get_available() return { "lua", "javascript" } end
+function M.get_installed(kind) assert(kind == "parsers"); return installed end
+function M.install(langs, opts)
+  assert(opts.force and opts.summary)
+  local file = assert(io.open(vim.env.PARSER_LOG, "w"))
+  file:write(table.concat(langs, ","))
+  file:close()
+  return { wait = function(_, timeout)
+    assert(timeout == 300000)
+    if vim.env.TEST_PARSERS == "error" then error("fixture timeout") end
+    if vim.env.TEST_PARSERS == "false" then return false end
+    if vim.env.TEST_PARSERS == "success" then table.insert(installed, "javascript") end
+    return true
+  end }
+end
+return M
 """
         )
         self._write_executable(
@@ -1964,6 +1999,10 @@ return { plugins = plugins }
                 "MISSING_PLUGIN": str(fixture / "plugins/missing-plugin"),
                 "UPDATE_LOG": str(updates),
                 "TEST_FAIL": "1" if fail else "0",
+                "TEST_PARSERS": parser_case,
+                "TEST_PARSER_LOADED": "1" if parser_loaded else "0",
+                "TEST_PARSER_LOAD_ON_UPDATE": "1" if parser_load_on_update else "0",
+                "PARSER_LOG": str(fixture / "parsers.txt"),
             }
         )
         try:
@@ -2005,6 +2044,60 @@ return { plugins = plugins }
         self.assertEqual(result.returncode, 1)
         self.assertIn("Lazy plugin update failures", result.stderr)
         self.assertIn("fixture task failure", result.stderr)
+
+    def test_mason_prefers_host_tools_only_for_source_built_nas(self) -> None:
+        nvim = shutil.which("nvim")
+        if not nvim:
+            self.skipTest("Neovim is unavailable for isolated Mason config fixture")
+        for flag, expected in ((None, "prepend"), ("0", "prepend"), ("1", "append")):
+            with self.subTest(flag=flag):
+                env = os.environ.copy()
+                if flag is None:
+                    env.pop("SETUP_NAS_NEOVIM_BUILD", None)
+                else:
+                    env["SETUP_NAS_NEOVIM_BUILD"] = flag
+                env["MASON_SPEC"] = str(SOURCE_ROOT / "dotfiles/.config/nvim/lua/plugins/mason.lua")
+                env["EXPECTED_MASON_PATH"] = expected
+                result = subprocess.run(
+                    [nvim, "--headless", "-u", "NONE", "-c",
+                     "lua local p = dofile(vim.env.MASON_SPEC)[1]; local o = { PATH = 'prepend' }; p.opts(nil, o); assert(o.PATH == vim.env.EXPECTED_MASON_PATH)",
+                     "-c", "qa"], env=env, text=True, capture_output=True, timeout=20, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_lazy_updater_waits_for_missing_supported_parsers(self) -> None:
+        result, updates = self._run_lazy_fixture(parser_case="success")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.base / "lazy-fixture/parsers.txt").read_text(), "javascript")
+        self.assertEqual(updates.read_text().splitlines(), ["clean-plugin", "version-false-plugin"])
+
+    def test_lazy_updater_reports_parser_failure_or_missing_binary(self) -> None:
+        for case in ("false", "error", "race"):
+            with self.subTest(case=case):
+                # Each case owns a separate isolated Neovim fixture.
+                with tempfile.TemporaryDirectory() as directory:
+                    original_base = self.base
+                    self.base = Path(directory)
+                    try:
+                        result, _ = self._run_lazy_fixture(parser_case=case)
+                    finally:
+                        self.base = original_base
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("Tree-sitter parser update failed", result.stderr)
+                self.assertIn("fixture timeout" if case == "error" else "javascript", result.stderr)
+                if case == "race":
+                    self.assertIn("parser binaries still missing", result.stderr)
+
+    def test_lazy_updater_checks_treesitter_loaded_during_update(self) -> None:
+        result, updates = self._run_lazy_fixture(parser_case="race", parser_loaded=False, parser_load_on_update=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(updates.read_text().splitlines(), ["clean-plugin", "version-false-plugin"])
+        self.assertIn("parser binaries still missing: javascript", result.stderr)
+
+    def test_lazy_updater_does_not_load_deferred_treesitter(self) -> None:
+        result, _ = self._run_lazy_fixture(parser_case="success", parser_loaded=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.base / "lazy-fixture/parsers.txt").exists())
 
     def test_first_restore_clones_fetches_and_applies_remote_seed_without_publishing(self) -> None:
         origin = "git@github.com:EzraCerpac/dotfiles-state.git"
