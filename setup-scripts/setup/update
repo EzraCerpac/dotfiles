@@ -57,7 +57,7 @@ event_group() {
         "new Homebrew formulae"|"Homebrew formulae"|"new Homebrew casks"|"Homebrew casks"|"Mac App Store tool"|"Mac App Store authorization"|"Mac App Store result"|"newly declared host packages"|"declared host packages") printf 'Packages' ;;
         "newly declared mise tools"|"declared mise tools"|"Herdr shell configuration"|"standalone mise") printf 'Tools' ;;
         "Neovim plugins") printf 'Editor plugins' ;;
-        "Codex ACP native executable"|"jw main source"|"Capd fork main"|"installer exception"*) printf 'Managed apps/local builds' ;;
+        "Codex ACP native executable"|"jw main source"|"jw NAS release"|"Capd fork main"|"installer exception"*) printf 'Managed apps/local builds' ;;
         *) printf 'Final checks' ;;
     esac
 }
@@ -441,6 +441,9 @@ if run_stage "newly declared mise tools" setup_mise install; then
         printf '\nSkipped: Herdr shell configuration (NAS profile does not own Herdr).\n'
     fi
 fi
+if [[ "$SETUP_PROFILE" == nas ]]; then
+    run_stage "jw NAS release" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-nas-release.sh" --if-missing || true
+fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true
     run_stage "jw main source" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-build-install.sh" --update-existing || true
@@ -470,10 +473,7 @@ update_editor_plugins() {
     local lazy_root="$data_home/$app_name/lazy/lazy.nvim"
     local guard_script
 
-    if [[ ! -d "$lazy_root" ]]; then
-        printf 'Deferred: Lazy.nvim is not installed at %s.\n' "$lazy_root"
-        return 0
-    fi
+    setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/nvim-initialize" || return $?
 
     guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")" || return 1
     cat > "$guard_script" <<'LUA'

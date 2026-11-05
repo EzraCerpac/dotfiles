@@ -48,6 +48,16 @@ class RetireDotfilesTests(unittest.TestCase):
         self.assertFalse(path.is_symlink())
         self.assertIn("Removed retired link ~/.config/nvim/lua/plugins/old.lua", result.stdout)
 
+    def test_removed_nvim_plugins_are_listed_and_retired(self) -> None:
+        names = ("copilot-native.lua", "sidekick-tabout.lua", "tabout.lua")
+        listing = (SCRIPT.parents[1] / "setup/retired-dotfiles").read_text().splitlines()
+        entries = [f"~/.config/nvim/lua/plugins/{name}" for name in names]
+        paths = [self.link(f".config/nvim/lua/plugins/{name}", self.root / "dotfiles/.config/nvim/lua/plugins" / name) for name in names]
+        self.assertTrue(all(entry in listing for entry in entries))
+        result = self.retire(*entries)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(all(not path.is_symlink() for path in paths))
+
     def test_links_spelled_through_a_symlinked_directory_match(self) -> None:
         # macOS spells temporary paths as /var/... while `pwd -P` says
         # /private/var/...; a retired directory may also be gone entirely.

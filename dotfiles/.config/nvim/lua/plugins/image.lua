@@ -4,7 +4,7 @@ return {
     ft = { "markdown", "norg", "typst" },
     event = "VeryLazy",
     cond = function()
-      return vim.fn.has("tty") == 1
+      return vim.fn.has("tty") == 1 and vim.fn.executable("magick") == 1
     end,
     build = false,
     opts = {

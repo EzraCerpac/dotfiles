@@ -120,6 +120,9 @@ fi
 if [[ "${1:-}" == "exec" ]]; then
     shift
     [[ "${1:-}" == "--" ]] && shift
+    if [[ "${1:-}" == "bash" && "${2:-}" == */setup-scripts/install/jw-nas-release.sh ]]; then
+        exit "${JW_NAS_FIXTURE_RESULT:-0}"
+    fi
     if [[ "${1:-}" == "node" && "${2:-}" == */setup-scripts/bootstrap/herdr.mjs ]]; then
         exit "${HERDR_CONFIG_RESULT:-0}"
     fi
@@ -201,6 +204,10 @@ if [[ "${1:-}" == "clone" ]]; then
     printf '%s\\n' "$origin" > "$destination/FIXTURE_ORIGIN"
     printf 'fixture-remote-commit\\n' > "$destination/FIXTURE_COMMIT"
     touch "$destination/FIXTURE_BARE"
+    if [[ "$origin" == https://github.com/folke/lazy.nvim.git ]]; then
+        mkdir -p "$destination/lua/lazy"
+        touch "$destination/lua/lazy/init.lua"
+    fi
     exit 0
 fi
 if [[ "${1:-}" == "ls-remote" ]]; then
@@ -1197,7 +1204,7 @@ exit 90
         self.assertIn("Capd already matches EzraCerpac/capd main", result.stdout)
         calls = [call[4:] for call in self._calls()]
         self.assertIn(["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/local/capd-update.sh")], calls)
-        self.assertNotIn("clone", self.git_log.read_text())
+        self.assertFalse(any("\tclone\t" in line and "capd" in line for line in self.git_log.read_text().splitlines()))
         self.assertFalse(self.capd_security_log.exists(), "no-op must not require a private signing identity")
         self.assertNotIn("capd-install.sh", self.log.read_text())
 
@@ -1835,11 +1842,11 @@ exit 90
         self.assertIn(["upgrade", "--cask", "--greedy", "zoom"], calls)
         self.assertFalse(sudo_log.exists())
 
-    def test_update_defers_missing_lazy_without_starting_editor(self) -> None:
+    def test_update_initializes_missing_lazy_before_editor_update(self) -> None:
         result = self._run("update")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Deferred: Lazy.nvim is not installed", result.stdout)
-        self.assertNotIn("NVIM", self.log.read_text())
+        self.assertTrue((Path(self.env["XDG_DATA_HOME"]) / "nvim/lazy/lazy.nvim/lua/lazy/init.lua").exists())
+        self.assertIn("nvim-initialize", self.log.read_text())
 
     def test_delftblue_update_refuses_before_any_mise_command(self) -> None:
         result = self._run("update", extra_env={"SETUP_PROFILE": "delftblue", "SETUP_MACHINE_ID": "delftblue"})
