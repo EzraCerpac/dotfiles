@@ -52,7 +52,8 @@ return {
         copy_to_clipboard = "<space>yy",
         zip_and_copy = "<space>yz",
         paste_from_clipboard = "<space>p",
-        copy_path = "<M-c>",
+        copy_path = "<space>yr",
+        copy_absolute_path = "<space>ya",
         -- Don't use "i" as it conflicts wit insert mode
         preview_image = "<space>i",
         preview_image_popup = "<M-i>",

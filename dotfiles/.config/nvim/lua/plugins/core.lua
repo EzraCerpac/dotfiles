@@ -1,8 +1,11 @@
 return {
   {
     "LazyVim/LazyVim",
-    -- opts = {
-    -- },
+    opts = {
+      kind_filter = {
+        typst = { "Namespace" },
+      },
+    },
   },
   {
     "nvim-mini/mini.ai",

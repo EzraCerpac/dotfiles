@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REX_BIN=${REX_BIN:-$HOME/.local/bin/rex}
+AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
+LOCKF=${LOCKF:-/usr/bin/lockf}
+JQ=${JQ:-jq}
+SLEEP=${SLEEP:-sleep}
+OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
+LOCK_PATH=${REX_OPEN_LOCK_PATH:-${TMPDIR:-/tmp}/rex-open.lock}
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+title=
+workspace=
+background=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --title) title=$2; shift 2 ;;
+        --workspace) workspace=$2; shift 2 ;;
+        --background) background=true; shift ;;
+        --) shift; break ;;
+        *) echo 'usage: rex-open [--title NAME] [--workspace NAME] [--background] -- COMMAND...' >&2; exit 2 ;;
+    esac
+done
+[[ $# -gt 0 ]] || { echo 'rex-open: command required' >&2; exit 2; }
+
+if [[ ${REX_OPEN_LOCKED:-0} != 1 ]]; then
+    args=()
+    [[ -z "$title" ]] || args+=(--title "$title")
+    [[ -z "$workspace" ]] || args+=(--workspace "$workspace")
+    $background && args+=(--background)
+    exec "$LOCKF" -k "$LOCK_PATH" /usr/bin/env REX_OPEN_LOCKED=1 \
+        "$SCRIPT_PATH" "${args[@]}" -- "$@"
+fi
+
+rex() { "$REX_BIN" --autostart=false "$@"; }
+windows() { "$AEROSPACE_BIN" list-windows --all --format '%{window-id}%{tab}%{app-pid}%{tab}%{app-bundle-id}%{tab}%{window-title}%{tab}%{workspace}%{newline}'; }
+sessions() { rex ls --json | "$JQ" -er '[.sessions[].session_id] | sort'; }
+
+# The CLI never starts a daemon. Start the installed app when it is not
+# connected and wait for its own server/client to become ready.
+clients=$(rex --timeout 1s client ls --json 2>/dev/null || printf '{"clients":[]}')
+client_count=$(printf '%s\n' "$clients" | "$JQ" -er '[.clients[] | select(.info.kind == "app" and .info.platform == "macos" and .connection_state == "connected")] | length')
+if [[ "$client_count" == 0 ]]; then
+    app=${REX_APP:-}
+    if [[ -z "$app" ]]; then
+        for candidate in '/Applications/Rex Beta.app' "$HOME/Applications/Rex Beta.app"; do
+            if [[ -d "$candidate" ]]; then app=$candidate; break; fi
+        done
+    fi
+    [[ -n "$app" && -d "$app" ]] || { echo 'rex-open: Rex Beta.app not found' >&2; exit 1; }
+    "$OPEN_BIN" -a "$app"
+    for _ in {1..30}; do
+        clients=$(rex --timeout 1s client ls --json 2>/dev/null || printf '{"clients":[]}')
+        client_count=$(printf '%s\n' "$clients" | "$JQ" -er '[.clients[] | select(.info.kind == "app" and .info.platform == "macos" and .connection_state == "connected")] | length')
+        [[ "$client_count" == 0 ]] || break
+        "$SLEEP" 0.1
+    done
+fi
+[[ "$client_count" == 1 ]] || { echo 'rex-open: expected one connected Rex app' >&2; exit 1; }
+client=$(printf '%s\n' "$clients" | "$JQ" -er '.clients[] | select(.info.kind == "app" and .info.platform == "macos" and .connection_state == "connected") | .client_id')
+pid=$(printf '%s\n' "$clients" | "$JQ" -er --arg id "$client" '.clients[] | select(.client_id == $id) | .principal.pid | select(type == "number")')
+previous=$($AEROSPACE_BIN list-windows --focused --format '%{window-id}' || true)
+before_sessions=$(sessions)
+before_windows=$(windows | awk -F '\t' -v pid="$pid" '$2 == pid && $3 == "com.superlogical.rex" {print $1}' | sort -n)
+rex -C "$client" do client.window.new
+new_session=
+new_window=
+for _ in {1..100}; do
+    after_sessions=$(sessions) || exit 1
+    added_sessions=$("$JQ" -nr --argjson before "$before_sessions" --argjson after "$after_sessions" '$after - $before | .[]')
+    after_windows=$(windows | awk -F '\t' -v pid="$pid" '$2 == pid && $3 == "com.superlogical.rex" {print $1}' | sort -n)
+    added_windows=$(comm -13 <(printf '%s\n' "$before_windows" | sed '/^$/d' | sort) <(printf '%s\n' "$after_windows" | sed '/^$/d' | sort))
+    [[ $(printf '%s\n' "$added_sessions" | sed '/^$/d' | wc -l | tr -d ' ') -le 1 ]] || { echo 'rex-open: ambiguous new session' >&2; exit 1; }
+    [[ $(printf '%s\n' "$added_windows" | sed '/^$/d' | wc -l | tr -d ' ') -le 1 ]] || { echo 'rex-open: ambiguous new native window' >&2; exit 1; }
+    if [[ -n "$added_sessions" && -n "$added_windows" ]]; then
+        new_session=$added_sessions
+        new_window=$added_windows
+        break
+    fi
+    "$SLEEP" 0.1
+done
+[[ -n "$new_session" && "$new_window" =~ ^[0-9]+$ ]] || { echo 'rex-open: new window or session not detected' >&2; exit 1; }
+
+inspection=$(rex session inspect "$new_session" --json)
+initial_label=$(printf '%s\n' "$inspection" | "$JQ" -er '.label | select(type == "string" and length > 0)')
+window_title=$(windows | awk -F '\t' -v id="$new_window" -v pid="$pid" '$1 == id && $2 == pid && $3 == "com.superlogical.rex" {print $4}')
+[[ "$window_title" == *" - $initial_label" ]] || {
+    echo 'rex-open: new window and session could not be matched' >&2; exit 1;
+}
+initial_tab=$(printf '%s\n' "$inspection" | "$JQ" -er --arg client "$client" '
+    if (.windows | length) == 1 and ([.windows[0].layers[].blocks[]] | length) == 1
+       and .windows[0].layers[0].blocks[0].owner == $client
+    then .windows[0].window_id else error("unexpected new session layout") end')
+[[ -z "$title" ]] || rex session rename "$new_session" "$title" >/dev/null
+created=$(rex run -s "$new_session" -c "$PWD" --json -- "$@")
+block_id=$(printf '%s\n' "$created" | "$JQ" -er '.block_ids | if length == 1 then .[0] else error("unexpected block count") end')
+rex window close -s "$new_session" "$initial_tab"
+[[ -z "$workspace" ]] || "$AEROSPACE_BIN" move-node-to-workspace --window-id "$new_window" "$workspace"
+if ! $background && [[ -n "$workspace" ]]; then
+    "$AEROSPACE_BIN" workspace "$workspace"
+    "$AEROSPACE_BIN" focus --window-id "$new_window"
+elif $background && [[ "$previous" =~ ^[0-9]+$ ]]; then
+    current=$($AEROSPACE_BIN list-windows --focused --format '%{window-id}' || true)
+    [[ "$current" != "$new_window" ]] || "$AEROSPACE_BIN" focus --window-id "$previous" || true
+fi
+printf '%s\t%s\t%s\t%s\n' "$new_window" "$pid" "$new_session" "$block_id"

@@ -153,21 +153,22 @@ M.setup = function(opts)
         vim.notify("Pasted successfully.", vim.log.levels.INFO)
       end, { buffer = buf_id, noremap = true, silent = true, desc = "[P]Paste from clipboard" })
 
-      -- Copy the current file or directory path (relative to home) to clipboard
-      vim.keymap.set("n", keymaps.copy_path, function()
-        -- Get the current entry (file or directory)
+      local function copy_path(shorten_home)
         local curr_entry = mini_files.get_fs_entry()
         if curr_entry then
-          -- Convert path to be relative to home directory
-          local home_dir = vim.fn.expand("~")
-          local relative_path = curr_entry.path:gsub("^" .. home_dir, "~")
-          vim.fn.setreg("+", relative_path) -- Copy the relative path to the clipboard register
-          vim.notify(vim.fn.fnamemodify(relative_path, ":t"), vim.log.levels.INFO)
-          vim.notify("Path copied to clipboard: ", vim.log.levels.INFO)
+          local path = shorten_home and vim.fn.fnamemodify(curr_entry.path, ":~") or curr_entry.path
+          vim.fn.setreg("+", path)
+          vim.notify("Copied path: " .. path, vim.log.levels.INFO)
         else
           vim.notify("No file or directory selected", vim.log.levels.WARN)
         end
-      end, { buffer = buf_id, noremap = true, silent = true, desc = "[P]Copy relative path to clipboard" })
+      end
+      vim.keymap.set("n", keymaps.copy_path, function()
+        copy_path(true)
+      end, { buffer = buf_id, silent = true, desc = "Copy home-relative path to clipboard" })
+      vim.keymap.set("n", keymaps.copy_absolute_path, function()
+        copy_path(false)
+      end, { buffer = buf_id, silent = true, desc = "Copy absolute path to clipboard" })
 
       -- Preview the selected image in macOS Quick Look
       --

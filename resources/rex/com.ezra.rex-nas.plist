@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.ezra.rex-nas</string>
+  <key>UserName</key><string>server</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>HOME</key><string>/Users/server</string>
+    <key>SHELL</key><string>/usr/local/bin/fish</string>
+    <key>PATH</key><string>/Users/server/.local/bin:/Users/server/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>ProgramArguments</key><array>
+    <string>/Users/server/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex</string>
+    <string>server</string><string>run</string><string>--tailscale</string>
+    <string>--tailscale-hostname</string><string>rex-driehuisnas</string>
+    <string>--state-dir</string><string>/Users/server/Library/Application Support/Rex NAS</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/server/Library/Logs/rex-nas.log</string>
+  <key>StandardErrorPath</key><string>/Users/server/Library/Logs/rex-nas.log</string>
+</dict></plist>

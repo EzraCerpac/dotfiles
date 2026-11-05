@@ -1,7 +1,8 @@
 if [[ "$-" == *i* \
     && ( "${__CFBundleIdentifier:-}" == "com.openai.codex" \
         || "${TERM_PROGRAM:-}" == "WezTerm" \
-        || "${HERDR_ENV:-}" == "1" ) ]]; then
+        || "${HERDR_ENV:-}" == "1" \
+        || -n "${REX_BLOCK:-}" ) ]]; then
     unset NO_COLOR
     if [[ "${TERM:-}" == "dumb" ]]; then
         export TERM="xterm-256color"
@@ -38,8 +39,8 @@ v() {
     fi
 }
 
-__wezterm_set_cwd() {
-    if [[ -z "${WEZTERM_PANE:-}" ]]; then
+__terminal_set_cwd() {
+    if [[ -z "${WEZTERM_PANE:-}${REX_BLOCK:-}" ]]; then
         return 0
     fi
 
@@ -47,11 +48,11 @@ __wezterm_set_cwd() {
     printf '\033]7;file://%s%s\033\\' "${host:-localhost}" "$PWD"
 }
 
-if [[ -n "${WEZTERM_PANE:-}" ]]; then
+if [[ -n "${WEZTERM_PANE:-}${REX_BLOCK:-}" ]]; then
     if [[ -n "${PROMPT_COMMAND:-}" ]]; then
-        PROMPT_COMMAND="__wezterm_set_cwd; ${PROMPT_COMMAND}"
+        PROMPT_COMMAND="__terminal_set_cwd; ${PROMPT_COMMAND}"
     else
-        PROMPT_COMMAND="__wezterm_set_cwd"
+        PROMPT_COMMAND="__terminal_set_cwd"
     fi
 fi
 

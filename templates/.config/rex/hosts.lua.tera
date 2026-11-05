@@ -1,0 +1,5 @@
+-- Config/CLI hosts; this beta also needs one-time GUI Add Remote Host entries.
+{% if os() == "macos" and vars.profile == "workstation" -%}
+rex.host { id = "host:96a873db-e38c-4ceb-844a-1024d8975aad", label = "CerpacNAS", endpoint = "https://rex-cerpacnas.manatee-python.ts.net" }
+rex.host { id = "host:2c8ff2d4-4986-4980-b819-79184a728b4a", label = "DriehuisNAS", endpoint = "https://rex-driehuisnas.manatee-python.ts.net" }
+{% endif -%}

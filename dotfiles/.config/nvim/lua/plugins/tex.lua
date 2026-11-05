@@ -27,8 +27,9 @@ return {
     -- Fix for returning focus to Neovim after inverse search on macOS
     local function tex_focus_vim()
       if vim.fn.has("mac") ~= 1 then return end
-      -- Use 'open -a' to focus the terminal application (WezTerm)
-      vim.fn.system("open -a WezTerm")
+      -- Return to the terminal running this Neovim instance.
+      local terminal = vim.env.REX_SESSION and "Rex Beta" or "WezTerm"
+      vim.fn.system({ "open", "-a", terminal })
       vim.cmd("redraw!")
     end
 

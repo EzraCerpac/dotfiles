@@ -4,7 +4,8 @@ return {
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "catppuccin",
+      -- Avoid Neovim 0.12's built-in theme with the same "catppuccin" name.
+      colorscheme = "catppuccin-nvim",
     },
   },
   -- Makes relative numbers go until 5
@@ -107,11 +108,20 @@ return {
     priority = 1000,
     opts = {
       transparent_background = true,
-      custom_highlights = {
-        LineNr = { fg = "#a6adc8" }, -- Lighter color
-        CursorLineNr = { fg = "#cdd6f4" }, -- Even lighter for active line
-        Visual = { bg = "#585b70", fg = "#cdd6f4" }, -- Brighter visual selection
-      },
+      custom_highlights = function(colors)
+        return {
+          LineNr = { fg = colors.subtext0 },
+          CursorLineNr = { fg = colors.text },
+          Visual = { bg = colors.surface2, fg = colors.text },
+          -- Keep Typst references and label definitions distinct from prose.
+          ["@markup.link.typst"] = { fg = colors.peach, bold = true },
+          ["@markup.link.label.typst"] = { fg = colors.teal, bold = true },
+          -- Notes are context, so use ordinary comment styling without a badge.
+          TodoBgNOTE = { link = "Comment" },
+          TodoFgNOTE = { link = "Comment" },
+          TodoSignNOTE = { link = "Comment" },
+        }
+      end,
       integrations = {
         aerial = true,
         alpha = true,

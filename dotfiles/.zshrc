@@ -1,7 +1,8 @@
 if [[ -o interactive \
     && ( "${__CFBundleIdentifier:-}" == "com.openai.codex" \
         || "${TERM_PROGRAM:-}" == "WezTerm" \
-        || "${HERDR_ENV:-}" == "1" ) ]]; then
+        || "${HERDR_ENV:-}" == "1" \
+        || -n "${REX_BLOCK:-}" ) ]]; then
     unset NO_COLOR
     if [[ "${TERM:-}" == "dumb" ]]; then
         export TERM="xterm-256color"

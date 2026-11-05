@@ -73,6 +73,7 @@ jobs:
           LazyVim LazyVim/LazyVim 999700997f72227187d49d8b92667183dc7fc809
           conform.nvim stevearc/conform.nvim 016802de402556da54c36bd7359b441266b01cdd
           blink.cmp Saghen/blink.cmp 78336bc89ee5365633bcf754d93df01678b5c08f
+          catppuccin catppuccin/nvim edefef779ab08ce1a4a404713e3012b0d202bd35
           PLUGINS
           echo "NVIM_TEST_PLUGIN_ROOT=$plugin_root" >> "$GITHUB_ENV"
 
