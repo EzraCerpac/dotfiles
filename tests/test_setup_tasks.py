@@ -46,6 +46,32 @@ while [[ $# -gt 0 ]]; do
         *) break ;;
     esac
 done
+if [[ "${1:-}" == "config" && "${2:-}" == "ls" ]]; then
+    if [[ -n "${INVALID_CONFIG_MARKER:-}" && -e "$INVALID_CONFIG_MARKER" ]]; then
+        printf 'fixture invalid configuration\\n' >&2
+        exit 1
+    fi
+    exit 0
+fi
+if [[ "${1:-}" == "which" && "${2:-}" == "jq" ]]; then
+    printf '%s\\n' "${TEST_JQ_BIN:-}"
+    exit 0
+fi
+if [[ "${INVALIDATE_ON_INSTALL:-0}" == "1" && "${1:-}" == "install" ]]; then
+    touch "$INVALID_CONFIG_MARKER"
+    exit 1
+fi
+if [[ "${INVALIDATE_ON_FORMULA:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "status" ]]; then
+    touch "$INVALID_CONFIG_MARKER"
+    exit 1
+fi
+if [[ "${WAIT_MAS_MARKER:-}" != "" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "apply" && "${5:-}" == "mas" ]]; then
+    for ((i = 0; i < 300; i++)); do
+        [[ -e "$INVALID_CONFIG_MARKER" ]] && break
+        sleep 0.01
+    done
+    touch "$WAIT_MAS_MARKER"
+fi
 if [[ "${1:-}" == "settings" && "${2:-}" == "get" ]]; then
     printf '%s\\n' "${MISE_HISTORY_MODE:-manual}"
     exit 0
@@ -452,7 +478,6 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
         *args: str,
         extra_env: dict[str, str | None] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
-        event_read, event_write = os.pipe()
         env = self.env.copy()
         if extra_env:
             for key, value in extra_env.items():
@@ -460,11 +485,12 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                     env.pop(key, None)
                 else:
                     env[key] = value
-        env["DOTS_UP_EVENT_FD"] = str(event_write)
         jq = shutil.which("jq", path=env.get("PATH"))
-        if jq:
+        if jq and not (extra_env and "DOTS_UP_EVENT_JQ" in extra_env):
             env["DOTS_UP_EVENT_JQ"] = jq
-        try:
+        events_path = self.base / "fixture-events.jsonl"
+        with events_path.open("w", encoding="utf-8") as stream:
+            env["DOTS_UP_EVENT_FD"] = str(stream.fileno())
             result = subprocess.run(
                 [str(self.root / "setup-scripts" / "setup" / task), *args],
                 cwd=self.base,
@@ -472,12 +498,9 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                 text=True,
                 capture_output=True,
                 check=False,
-                pass_fds=(event_write,),
+                pass_fds=(stream.fileno(),),
             )
-        finally:
-            os.close(event_write)
-        with os.fdopen(event_read, encoding="utf-8") as stream:
-            events = [json.loads(line) for line in stream if line.strip()]
+        events = [json.loads(line) for line in events_path.read_text().splitlines() if line.strip()]
         return result, events
 
     def _calls(self) -> list[list[str]]:
@@ -936,13 +959,78 @@ esac
         commands = [call[4:] for call in calls]
         self.assertIn(["upgrade", "--no-prune"], commands)
         self.assertIn(["self-update", "--yes"], commands)
-        self.assertEqual(commands[2], ["bootstrap", "dotfiles", "save"])
+        self.assertEqual(commands[4], ["bootstrap", "dotfiles", "save"])
         self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
         self.assertLess(commands.index(["self-update", "--yes"]), len(commands) - 1)
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("npm", rendered)
         self.assertNotIn("uv tool upgrade", rendered)
         self.assertNotIn("--prune", [arg for command in commands for arg in command])
+
+    def test_update_stops_before_sync_when_config_cannot_load(self) -> None:
+        marker = self.base / "invalid-config"
+        marker.touch()
+        result, events = self._run_with_events("update", extra_env={"INVALID_CONFIG_MARKER": str(marker)})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("fixture invalid configuration", result.stderr)
+        self.assertEqual([call[4:] for call in self._calls() if call[4:6] != ["which", "jq"]], [["config", "ls"]])
+        self.assertEqual(sum(event.get("kind") == "notice" and "Cannot load update configuration" in str(event.get("summary")) for event in events), 1)
+
+    def test_update_stops_after_config_becomes_invalid(self) -> None:
+        real_jq = os.environ.get("DOTS_TEST_REAL_JQ") or shutil.which("jq", path=self.env["PATH"])
+        self.assertIsNotNone(real_jq)
+        self._write_executable(self.bin / "jq", "#!/usr/bin/env bash\nexit 91\n")
+        result, events = self._run_with_events("update", extra_env={
+            "SETUP_PROFILE": "nas", "INVALID_CONFIG_MARKER": str(self.base / "invalid-config"),
+            "INVALIDATE_ON_INSTALL": "1", "DOTS_UP_EVENT_JQ": None, "TEST_JQ_BIN": real_jq,
+        })
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("fixture invalid configuration", result.stderr)
+        calls = [call[4:] for call in self._calls()]
+        self.assertNotIn(["self-update", "--yes"], calls)
+        self.assertEqual(calls.count(["bootstrap", "dotfiles", "save"]), 1)
+        ends = [event for event in events if event.get("id") == "newly-declared-mise-tools" and event.get("kind") == "stage_end"]
+        self.assertEqual(len(ends), 1)
+        self.assertEqual(ends[0]["status"], "failed")
+        self.assertEqual(sum(event.get("kind") == "notice" and "Cannot load update configuration" in str(event.get("summary")) for event in events), 1)
+
+    def test_update_waits_for_app_store_when_config_becomes_invalid(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        self._write_executable(self.bin / "sudo", "#!/usr/bin/env bash\nexit 0\n")
+        finished = self.base / "mas-finished"
+        result, events = self._run_with_events("update", "--mas", extra_env={
+            "INVALID_CONFIG_MARKER": str(self.base / "invalid-config"),
+            "INVALIDATE_ON_FORMULA": "1", "WAIT_MAS_MARKER": str(finished),
+        })
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue(finished.exists())
+        self.assertEqual(sum(event.get("kind") == "app_store_end" for event in events), 1)
+        self.assertNotIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
+
+    def test_handoff_acknowledgements_end_stage_and_aggregate_failure(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        for ack, expected in (("", "failed"), ("wrong\n", "failed"),
+                              ("go:new-Homebrew-casks\ngo:Homebrew-casks\n", "ok")):
+            with self.subTest(ack=ack):
+                self.log.unlink(missing_ok=True)
+                ack_path = self.base / "ack"
+                ack_path.write_text(ack)
+                event_path = self.base / "ack-events"
+                with ack_path.open() as ack_file, event_path.open("w") as event_file:
+                    result = self._run("update", extra_env={
+                        "DOTS_UP_ACK_FD": str(ack_file.fileno()), "DOTS_UP_EVENT_FD": str(event_file.fileno()),
+                        "DOTS_UP_EVENT_JQ": shutil.which("jq", path=self.env["PATH"]),
+                    }, pass_fds=(ack_file.fileno(), event_file.fileno()))
+                events = [json.loads(line) for line in event_path.read_text().splitlines()]
+                ends = [event for event in events if event.get("kind") == "stage_end" and event.get("id") == "new-Homebrew-casks"]
+                self.assertEqual(len(ends), 1)
+                self.assertEqual(ends[0]["status"], expected)
+                self.assertEqual(ends[0]["exit_code"], 0 if expected == "ok" else 1)
+                self.assertEqual(ends[0]["summary"], "completed" if expected == "ok" else "failed (exit 1)")
+                if expected == "failed":
+                    self.assertNotIn(["bootstrap", "packages", "apply", "--manager", "brew-cask", "--yes"], [call[4:] for call in self._calls()])
+                self.assertEqual(result.returncode, 0 if expected == "ok" else 1, result.stderr)
+                self.assertIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
 
     def test_update_syncs_once_then_reloads_the_fresh_updater(self) -> None:
         result = self._run("update")
@@ -1218,9 +1306,9 @@ exit 90
         self.assertEqual(result.returncode, 17)
         self.assertIn("source synchronization failed", result.stderr)
         commands = [call[4:] for call in self._calls()]
-        self.assertEqual(len(commands), 1)
+        self.assertEqual(len(commands), 2)
         resolved_root = self.root.resolve()
-        self.assertEqual(commands[0], ["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)])
+        self.assertEqual(commands[1], ["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)])
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("bootstrap packages", rendered)
         self.assertNotIn("install", rendered)
