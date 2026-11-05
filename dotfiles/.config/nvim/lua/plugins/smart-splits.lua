@@ -5,10 +5,8 @@ return {
   event = "VeryLazy",
   opts = function()
     return {
-      multiplexer_integration = false,
-      at_edge = "stop",
-      default_amount = 5, -- default is 3
-      float_win_behavior = "mux",
+      resize = { amount = 5 }, -- default is 3
+      move = { float = "mux" },
     }
   end,
   config = function(_, opts)
@@ -21,7 +19,7 @@ return {
       end
     end
 
-    opts.at_edge = function(ctx)
+    opts.move.at_edge = function(ctx)
       local command, backend = resolve_focus_command(ctx.direction)
       if not command then
         return
@@ -55,7 +53,7 @@ return {
 
       local all_modes = { "n", "i", "v", "x", "s", "o", "t" }
       -- these keymaps will also accept a range,
-      -- for example `10<A-h>` will `resize_left` by `(10 * config.default_amount)`
+      -- for example `10<S-A-h>` resizes by 10 times the configured amount.
       vim.keymap.set(all_modes, "<S-A-h>", smart_splits.resize_left)
       vim.keymap.set(all_modes, "<S-A-j>", smart_splits.resize_down)
       vim.keymap.set(all_modes, "<S-A-k>", smart_splits.resize_up)

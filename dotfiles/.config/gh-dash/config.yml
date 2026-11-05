@@ -88,7 +88,7 @@ keybindings:
     - key: C
       name: code review
       command: >
-        wezterm cli spawn --cwd {{.RepoPath}} -- 'wt switch pr:{{.PrNumber}} -x "opencode --prompt `@code-reviewer: review-pr-for-this-branch`"'
+        rex run -s "$REX_SESSION" -c "{{.RepoPath}}" -- wt switch pr:{{.PrNumber}} -x 'opencode --prompt "@code-reviewer: review-pr-for-this-branch"'
 
 repoPaths: {}
 theme:

@@ -29,6 +29,7 @@ on-window-detected = [
   { if = 'test %{app-bundle-id} = com.raycast.macos || test %{app-bundle-id} = com.chabomakers.Antinote || test %{app-bundle-id} = com.apple.weather || test %{app-bundle-id} = com.apple.AddressBook', run = 'layout floating' },
   { if = 'test %{app-bundle-id} = com.openai.codex', run = 'move-node-to-workspace 2' },
   { if = 'test %{app-bundle-id} = com.kagi.kagimacOS', run = 'move-node-to-workspace B' },
+  { if = 'test %{app-bundle-id} = com.superlogical.rex', run = 'move-node-to-workspace T' },
   { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^herdr([[:space:]]|$)"', run = 'move-node-to-workspace T' },
   { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^btop([[:space:]]|$)"', run = 'move-node-to-workspace 9' },
   { if = 'test %{app-bundle-id} = com.apple.mail || test %{app-bundle-id} = net.whatsapp.WhatsApp', run = 'move-node-to-workspace E' },
@@ -45,14 +46,7 @@ outer.top = [{ monitor.'Built-in Retina Display' = 10 }, 45]
 
 # Ops and Media have connection-time defaults, not forced monitor assignments.
 [mode.main.binding]
-cmd-ctrl-alt-h = 'exec-and-forget ~/.local/bin/wm-focus left'
-cmd-ctrl-alt-j = 'exec-and-forget ~/.local/bin/wm-focus down'
-cmd-ctrl-alt-k = 'exec-and-forget ~/.local/bin/wm-focus up'
-cmd-ctrl-alt-l = 'exec-and-forget ~/.local/bin/wm-focus right'
-cmd-ctrl-alt-left = 'exec-and-forget ~/.local/bin/wm-focus left'
-cmd-ctrl-alt-down = 'exec-and-forget ~/.local/bin/wm-focus down'
-cmd-ctrl-alt-up = 'exec-and-forget ~/.local/bin/wm-focus up'
-cmd-ctrl-alt-right = 'exec-and-forget ~/.local/bin/wm-focus right'
+# Hammerspoon owns Meh+direction, navigating Neovim, Rex, then AeroSpace.
 cmd-ctrl-alt-shift-h = 'move --boundaries all-monitors-outer-frame left'
 cmd-ctrl-alt-shift-j = 'move --boundaries all-monitors-outer-frame down'
 cmd-ctrl-alt-shift-k = 'move --boundaries all-monitors-outer-frame up'
@@ -110,7 +104,7 @@ cmd-ctrl-alt-shift-f = 'exec-and-forget open -a "Finder"'
 cmd-ctrl-alt-shift-y = 'exec-and-forget open -a "System Settings"'
 cmd-ctrl-alt-shift-w = 'exec-and-forget open -a "WhatsApp"'
 cmd-ctrl-alt-shift-m = ['workspace M', 'exec-and-forget open -a "Music"']
-cmd-ctrl-alt-shift-enter = 'exec-and-forget /opt/homebrew/bin/wezterm start -- /opt/homebrew/bin/fish -l'
+cmd-ctrl-alt-shift-enter = 'exec-and-forget ~/.local/bin/rex-open --workspace T -- /opt/homebrew/bin/fish -l'
 
 cmd-ctrl-alt-shift-semicolon = 'mode service'
 [mode.service.binding]

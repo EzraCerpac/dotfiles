@@ -3,8 +3,9 @@ set -euo pipefail
 
 AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
 BTOP=${BTOP:-/opt/homebrew/bin/btop}
-OPEN_BIN=${OPEN_BIN:-/usr/bin/open}
-WEZTERM_APP=${WEZTERM_APP:-/Applications/WezTerm.app}
+REX_OPEN=${REX_OPEN:-$HOME/.local/bin/rex-open}
+REX_BIN=${REX_BIN:-$HOME/.local/bin/rex}
+OWNED_STATE=${START_BTOP_OWNED_STATE:-${TMPDIR:-/tmp}/start-btop.owned}
 LOCKF=${LOCKF:-/usr/bin/lockf}
 JQ=${JQ:-jq}
 PGREP=${PGREP:-/usr/bin/pgrep}
@@ -13,7 +14,7 @@ LOCK_PATH=${START_BTOP_LOCK_PATH:-${TMPDIR:-/tmp}/start-btop.lock}
 TIMER_STATE=${START_BTOP_TIMER_STATE:-${TMPDIR:-/tmp}/start-btop.timer}
 CLOSE_AFTER=${START_BTOP_CLOSE_AFTER:-60}
 OPS_WORKSPACE=${START_BTOP_WORKSPACE:-9}
-WEZTERM_BUNDLE=com.github.wez.wezterm
+REX_BUNDLE=com.superlogical.rex
 WINDOW_FORMAT='%{window-id}%{tab}%{app-pid}%{tab}%{app-bundle-id}%{tab}%{window-title}%{tab}%{workspace}%{newline}'
 SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 BASH_BIN=${BASH:-/bin/bash}
@@ -62,28 +63,19 @@ list_windows() {
 }
 
 find_btop_window() {
-    local windows id pid bundle title workspace
-    local count=0
-    local record=
-
+    local owned_id owned_pid owned_session owned_block windows id pid bundle title workspace
+    [[ -f "$OWNED_STATE" ]] || return 1
+    IFS=$'\t' read -r owned_id owned_pid owned_session owned_block <"$OWNED_STATE" || return 1
+    [[ "$owned_id" =~ ^[0-9]+$ && "$owned_pid" =~ ^[0-9]+$ && "$owned_session" == session:* && "$owned_block" == block:* ]] || return 2
     windows=$(list_windows) || return 2
     while IFS=$'\t' read -r id pid bundle title workspace; do
-        [[ "$id" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ ]] || continue
-        [[ "$bundle" == "$WEZTERM_BUNDLE" ]] || continue
-        [[ "$title" =~ ^[bB][tT][oO][pP]([[:space:]]|$) ]] || continue
-        [[ "$title" != *$'\t'* && "$title" != *$'\n'* ]] || continue
-
-        count=$((count + 1))
-        record="$id"$'\t'"$pid"$'\t'"$bundle"$'\t'"$title"$'\t'"$workspace"
+        if [[ "$id" == "$owned_id" && "$pid" == "$owned_pid" && "$bundle" == "$REX_BUNDLE" \
+            && "$title" =~ ^[bB][tT][oO][pP]([[:space:]]|$) && "$title" == *' - btop-ops' ]]; then
+            printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$pid" "$bundle" "$title" "$workspace"
+            return 0
+        fi
     done <<<"$windows"
-
-    if [[ $count -eq 1 ]]; then
-        printf '%s\n' "$record"
-        return 0
-    elif [[ $count -eq 0 ]]; then
-        return 1
-    fi
-    return 3
+    return 1
 }
 
 has_exact_window() {
@@ -247,9 +239,44 @@ expire_btop_window() {
         fi
     fi
 
+    # The saved session must still contain only the block we launched. Never
+    # close a window after it has acquired other work.
+    local owned_id owned_pid owned_session owned_block inspection matches
+    [[ -f "$OWNED_STATE" ]] || { remove_timer_state "$expected_generation"; return 0; }
+    IFS=$'\t' read -r owned_id owned_pid owned_session owned_block <"$OWNED_STATE" || return 0
+    [[ "$owned_id" == "$expected_id" && "$owned_pid" == "$expected_pid" \
+        && "$owned_session" == session:* && "$owned_block" == block:* ]] || return 0
+    inspection=$("$REX_BIN" --autostart=false session inspect "$owned_session" --json) || { remove_timer_state "$expected_generation"; return 0; }
+    printf '%s\n' "$inspection" | "$JQ" -e --arg block "$owned_block" '
+        (.windows | length) == 1 and
+        ([.windows[0].layers[].blocks[]] | length) == 1 and
+        .windows[0].layers[0].blocks[0].block_id == $block
+    ' >/dev/null || { remove_timer_state "$expected_generation"; return 0; }
+    matches=$(list_windows | awk -F '\t' -v pid="$expected_pid" '$2 == pid && $3 == "com.superlogical.rex" && $4 ~ / - btop-ops$/ {n++} END {print n+0}') || return 0
+    [[ "$matches" == 1 ]] || { remove_timer_state "$expected_generation"; return 0; }
+    if ! daemon_is_unchanged "$expected_daemon_pid" \
+        || ! has_exact_window "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title" "$OPS_WORKSPACE"; then
+        remove_timer_state "$expected_generation"
+        return 0
+    fi
+    if ops_workspace_is_visible; then
+        schedule_close "$expected_id" "$expected_pid" "$expected_bundle" "$expected_title"
+        return 0
+    else
+        [[ $? -eq 1 ]] || { remove_timer_state "$expected_generation"; return 0; }
+    fi
     if ! "$AEROSPACE_BIN" close --window-id "$expected_id"; then
         remove_timer_state "$expected_generation"
         return 0
+    fi
+    matches=$(list_windows | awk -F '\t' -v pid="$expected_pid" '$2 == pid && $3 == "com.superlogical.rex" && $4 ~ / - btop-ops$/ {n++} END {print n+0}') || return 0
+    inspection=$("$REX_BIN" --autostart=false session inspect "$owned_session" --json) || return 0
+    if [[ "$matches" == 0 ]] && printf '%s\n' "$inspection" | "$JQ" -e --arg block "$owned_block" '
+        (.windows | length) == 1 and ([.windows[0].layers[].blocks[]] | length) == 1 and
+        .windows[0].layers[0].blocks[0].block_id == $block
+    ' >/dev/null; then
+        "$REX_BIN" --autostart=false kill "$owned_session" >/dev/null 2>&1 || true
+        rm -f "$OWNED_STATE"
     fi
     remove_timer_state "$expected_generation"
 }
@@ -274,25 +301,21 @@ fi
 if [[ -n "$existing_window" ]]; then
     IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$existing_window"
 else
-    "$OPEN_BIN" -na "$WEZTERM_APP" --args start -- "$BTOP"
-
+    launch_args=(--title btop-ops --workspace "$OPS_WORKSPACE")
+    $focus_workspace || launch_args+=(--background)
+    launch_record=$("$REX_OPEN" "${launch_args[@]}" -- "$BTOP")
+    IFS=$'\t' read -r window_id app_pid session_id block_id <<<"$launch_record"
+    [[ "$window_id" =~ ^[0-9]+$ && "$app_pid" =~ ^[0-9]+$ && "$session_id" == session:* && "$block_id" == block:* ]] || {
+        echo "start-btop: invalid Rex window identity" >&2; exit 1;
+    }
+    umask 077
+    printf '%s\t%s\t%s\t%s\n' "$window_id" "$app_pid" "$session_id" "$block_id" >"$OWNED_STATE"
     window_record=
     for _ in {1..200}; do
-        if window_record=$(find_btop_window); then
-            break
-        else
-            status=$?
-            [[ $status -eq 1 || $status -eq 2 ]] || {
-                echo "start-btop: multiple btop windows appeared" >&2
-                exit 1
-            }
-        fi
+        if window_record=$(find_btop_window); then break; fi
         "$SLEEP" 0.1
     done
-    if [[ -z "$window_record" ]]; then
-        echo "start-btop: AeroSpace WezTerm btop window not detected" >&2
-        exit 1
-    fi
+    [[ -n "$window_record" ]] || { echo "start-btop: Rex btop window not detected" >&2; exit 1; }
     IFS=$'\t' read -r window_id app_pid app_bundle title workspace <<<"$window_record"
 fi
 

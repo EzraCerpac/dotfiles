@@ -1,0 +1,119 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# ///
+"""Choose a recent directory and print its host-local Rex session ID."""
+
+import argparse
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+
+
+def command(name):
+    if name == "rex":
+        mac = "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex"
+        if os.path.isfile(mac):
+            return mac
+    path = shutil.which(name)
+    if not path:
+        raise RuntimeError(f"{name} is not installed")
+    return path
+
+
+def run(argv, **kwargs):
+    return subprocess.run(argv, check=True, **kwargs)
+
+
+def choose_directory():
+    recent = run([command("zoxide"), "query", "--list"], stdout=subprocess.PIPE).stdout
+    # zoxide's list format is newline-delimited; paths containing newlines are unsupported.
+    candidates = [p for p in recent.splitlines() if p.startswith(b"/") and os.path.isdir(p)]
+    if not candidates:
+        return None
+    try:
+        selected = subprocess.run(
+            [command("fzf"), "--read0", "--print0", "--no-sort", "--prompt=Project> "],
+            input=b"\0".join(candidates) + b"\0", stdout=subprocess.PIPE,
+        )
+    except KeyboardInterrupt:
+        return None
+    if selected.returncode in (1, 130):
+        return None
+    if selected.returncode:
+        raise RuntimeError(f"fzf exited with status {selected.returncode}")
+    path = selected.stdout.removesuffix(b"\0")
+    if b"\n" in path or b"\r" in path or path not in candidates:
+        raise RuntimeError("Unsupported or invalid project path")
+    canonical = os.path.realpath(os.fsdecode(path))
+    if "\n" in canonical or "\r" in canonical:
+        raise RuntimeError("Project paths containing newlines are unsupported")
+    return canonical
+
+
+def session_for(directory, rex):
+    state = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "rex"
+    state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    registry = state / "projects.json"
+    # flock is released even if the launcher is interrupted. The lock file remains private.
+    with open(state / "projects.lock", "a", encoding="utf-8") as lock:
+        os.chmod(lock.name, 0o600)
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            mapping = json.loads(registry.read_text())
+            if not isinstance(mapping, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in mapping.items()):
+                raise ValueError("invalid mapping")
+        except FileNotFoundError:
+            mapping = {}
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Cannot read {registry}: {exc}") from exc
+        sessions = json.loads(run([rex, "--autostart=false", "ls", "--json"], stdout=subprocess.PIPE).stdout)["sessions"] or []
+        existing = mapping.get(directory)
+        if existing and any(s["session_id"] == existing for s in sessions):
+            return existing
+        label = os.path.basename(directory.rstrip(os.sep)) or os.sep
+        created = json.loads(run([rex, "--autostart=false", "new", label[:128], "-c", directory, "--window", "Terminal", "--json"], stdout=subprocess.PIPE).stdout)
+        session_id = created["session_id"]
+        mapping[directory] = session_id
+        fd, name = tempfile.mkstemp(prefix=".projects-", dir=state)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                json.dump(mapping, out, ensure_ascii=True)
+                out.write("\n")
+            os.replace(name, registry)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
+        return session_id
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--previous-session", required=True)
+    args = parser.parse_args()
+    picker = os.environ.get("REX_SESSION")
+    if not picker:
+        raise RuntimeError("This command must run in a Rex picker session")
+    directory = choose_directory()
+    rex = command("rex")
+    clients = json.loads(run([rex, "--autostart=false", "client", "ls", "-s", picker, "--json"], stdout=subprocess.PIPE).stdout)["clients"] or []
+    apps = [c["client_id"] for c in clients if c.get("info", {}).get("kind") == "app"]
+    if len(apps) != 1:
+        raise RuntimeError("Expected exactly one app attached to the picker; switch sessions manually")
+    target = session_for(directory, rex) if directory is not None else args.previous_session
+    run([rex, "--autostart=false", "-C", apps[0], "do", "session.select", "session_id=" + target])
+    # The picker is task-owned. Run this last because it terminates this process.
+    run([rex, "--autostart=false", "kill", picker])
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError, KeyError, subprocess.CalledProcessError) as exc:
+        print(f"rex-project: {exc}", file=sys.stderr)
+        sys.exit(1)

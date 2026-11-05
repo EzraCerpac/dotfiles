@@ -1,4 +1,23 @@
 # Included only when mise runs in the setup checkout.
+["rex:install-app"]
+description = "Install the official signed Rex Mac app only if absent"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "sh setup-scripts/install/rex-macos-install.sh"
+
+["rex:setup"]
+description = "Provision the personal Rex server on an explicitly selected NAS"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "sh setup-scripts/install/rex-nas-setup.sh --setup"
+
+["rex:install-daemon"]
+description = "Register DriehuisNAS Rex startup at boot (administrator authentication required)"
+dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
+run = "sh setup-scripts/install/rex-nas-macos-daemon.sh"
+
+["rex:status"]
+description = "Inspect the existing Rex server without starting it"
+run = "rex --autostart=false whoami"
+
 ["concierge:plan"]
 description = "Inspect explicit NAS concierge service staging plan"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"

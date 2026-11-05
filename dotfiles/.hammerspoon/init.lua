@@ -34,11 +34,13 @@ local gitlogue_screen_watcher = nil
 local gitlogue_has_launched = false
 local gitlogue_has_locked = false
 local gitlogue_screen_locked = false
+local gitlogue_task = nil
+local gitlogue_target = nil
+local gitlogue_stop_pending = false
 
 local gitlogue_config = {
     launcher = home .. "/.local/bin/gitlogue-screensaver",
-    wezterm = "/opt/homebrew/bin/wezterm",
-    workspace = "gitlogue-screensaver",
+    rex = home .. "/.local/bin/rex",
     window_title = "gitlogue-screensaver",
     idle_start_seconds = 300,
     lock_after_seconds = 900,
@@ -67,47 +69,42 @@ local function command_output(command)
     return nil
 end
 
-local function gitlogue_targets()
-    if not image_exists(gitlogue_config.wezterm) then
-        return {}
-    end
-
-    local list_command = shell_quote(gitlogue_config.wezterm) .. " cli list --format json"
-    local output = command_output(list_command)
-    if not output or output == "" then
-        return {}
-    end
-
-    local decoded = hs.json.decode(output)
-    if type(decoded) ~= "table" then
-        return {}
-    end
-
-    local targets = {}
-    for _, entry in ipairs(decoded) do
-        if entry.workspace == gitlogue_config.workspace
-            or entry.window_title == gitlogue_config.window_title
-            or entry.title == gitlogue_config.window_title then
-            table.insert(targets, entry)
-        end
-    end
-
-    return targets
+-- Only act on the exact window and session returned by our launcher.
+local function gitlogue_window()
+    local target = gitlogue_target
+    if not target then return nil end
+    local window = hs.window.get(target.window_id)
+    if not window then return nil end
+    local app = window:application()
+    if not app or app:bundleID() ~= "com.superlogical.rex" or app:pid() ~= target.pid then return nil end
+    if not window:title():match(" %- gitlogue%-screensaver$") then return nil end
+    return window
 end
 
-local function gitlogue_window()
-    local app = hs.application.get("WezTerm")
-    if not app then
-        return nil
+local function gitlogue_session_is_ours()
+    local target = gitlogue_target
+    if not target then return false end
+    local output = command_output(shell_quote(gitlogue_config.rex)
+        .. " --autostart=false session inspect " .. shell_quote(target.session) .. " --json")
+    if not output then return false end
+    local ok, data = pcall(hs.json.decode, output)
+    if not ok or type(data) ~= "table" or type(data.windows) ~= "table" or #data.windows ~= 1 then return false end
+    local blocks = {}
+    for _, layer in ipairs(data.windows[1].layers or {}) do
+        for _, block in ipairs(layer.blocks or {}) do blocks[#blocks + 1] = block end
     end
+    return #blocks == 1 and blocks[1].block_id == target.block
+end
 
+local function matching_gitlogue_windows()
+    local target = gitlogue_target
+    local app = target and hs.application.get("com.superlogical.rex")
+    if not app or app:pid() ~= target.pid then return nil end
+    local count = 0
     for _, window in ipairs(app:allWindows()) do
-        if window:title() == gitlogue_config.window_title then
-            return window
-        end
+        if window:title():match(" %- gitlogue%-screensaver$") then count = count + 1 end
     end
-
-    return nil
+    return count
 end
 
 local function focus_gitlogue_window(attempt)
@@ -115,55 +112,53 @@ local function focus_gitlogue_window(attempt)
     if window then
         window:focus()
         window:setFullScreen(true)
-        return
+    elseif attempt < 8 and gitlogue_target then
+        gitlogue_focus_timer = hs.timer.doAfter(0.5, function() focus_gitlogue_window(attempt + 1) end)
     end
-
-    if attempt >= 8 then
-        return
-    end
-
-    gitlogue_focus_timer = hs.timer.doAfter(0.5, function()
-        focus_gitlogue_window(attempt + 1)
-    end)
 end
 
-local function stop_gitlogue()
-    local targets = gitlogue_targets()
-    for _, entry in ipairs(targets) do
-        local kill_command = string.format(
-            "%s cli kill-pane --pane-id %s",
-            shell_quote(gitlogue_config.wezterm),
-            tostring(entry.pane_id)
-        )
-        hs.execute(kill_command, true)
+local function stop_gitlogue(attempt)
+    attempt = attempt or 0
+    gitlogue_stop_pending = true
+    if gitlogue_focus_timer then gitlogue_focus_timer:stop(); gitlogue_focus_timer = nil end
+    local target = gitlogue_target
+    local window = gitlogue_window()
+    if target and not window and attempt < 8 then
+        gitlogue_focus_timer = hs.timer.doAfter(0.5, function() stop_gitlogue(attempt + 1) end)
+        return
     end
+    if not target or not window or matching_gitlogue_windows() ~= 1 or not gitlogue_session_is_ours() then
+        gitlogue_target = nil
+        return
+    end
+    -- Closing a Rex window detaches its session. Kill only our still-unchanged
+    -- one-block session, after confirming no matching window remains.
+    if window:close() and matching_gitlogue_windows() == 0 and gitlogue_session_is_ours() then
+        hs.execute(shell_quote(gitlogue_config.rex) .. " --autostart=false kill " .. shell_quote(target.session), true)
+    end
+    gitlogue_target = nil
 end
 
 local function launch_gitlogue()
     if not image_exists(gitlogue_config.launcher) then
-        hs.notify.new({
-            title = "Gitlogue Screensaver",
-            informativeText = "Missing launcher: " .. gitlogue_config.launcher,
-        }):send()
+        hs.notify.new({ title = "Gitlogue Screensaver", informativeText = "Missing launcher: " .. gitlogue_config.launcher }):send()
         return false
     end
-
-    if #gitlogue_targets() > 0 then
-        focus_gitlogue_window(0)
-        return true
-    end
-
-    local task = hs.task.new(gitlogue_config.launcher, nil, {})
-    if not task then
-        hs.notify.new({
-            title = "Gitlogue Screensaver",
-            informativeText = "Could not create launcher task.",
-        }):send()
-        return false
-    end
-
-    task:start()
-    focus_gitlogue_window(0)
+    if gitlogue_task then return true end
+    if gitlogue_window() then focus_gitlogue_window(0); return true end
+    gitlogue_stop_pending = false
+    gitlogue_task = hs.task.new(gitlogue_config.launcher, function(code, output)
+        gitlogue_task = nil
+        local window_id, pid, session, block = (output or ""):match("^(%d+)\t(%d+)\t(session:[%w%-]+)\t(block:[%w%-]+)%s*$")
+        if code ~= 0 or not window_id then
+            gitlogue_has_launched = false
+            return
+        end
+        gitlogue_target = { window_id = tonumber(window_id), pid = tonumber(pid), session = session, block = block }
+        if gitlogue_stop_pending then stop_gitlogue() else focus_gitlogue_window(0) end
+    end, {})
+    if not gitlogue_task then return false end
+    gitlogue_task:start()
     return true
 end
 
@@ -195,7 +190,7 @@ local function handle_gitlogue_idle()
     if idle_seconds >= gitlogue_config.idle_start_seconds then
         if not gitlogue_has_launched then
             gitlogue_has_launched = launch_gitlogue()
-        elseif #gitlogue_targets() == 0 then
+        elseif not gitlogue_task and not gitlogue_window() then
             gitlogue_has_launched = false
         end
     end
@@ -315,6 +310,7 @@ if enable_gitlogue_idle then
 end
 
 aerospace_workspaces = require("aerospace_workspaces").new():start()
+rex_navigation = require("rex_navigation").start()
 
 local registered = {}
 for _, key in ipairs({"f17", "f18", "f19", "f23"}) do

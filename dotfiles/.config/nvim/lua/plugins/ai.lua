@@ -52,12 +52,12 @@ return {
           },
           tools = {
             ["create_file"] = { opts = { require_approval_before = false } },
-            ["delete_file"] = { opts = { allowed_in_yolo_mode = true, require_approval_before = false } },
+            ["delete_file"] = { opts = { protect = false, require_approval_before = false } },
             ["grep_search"] = { opts = { require_approval_before = false } },
             ["read_file"] = { opts = { require_approval_before = false } },
             ["run_command"] = {
               opts = {
-                allowed_in_yolo_mode = true,
+                protect = false,
                 require_approval_before = false,
                 require_cmd_approval = false,
               },
