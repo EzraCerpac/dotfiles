@@ -24,7 +24,7 @@ var (
 	focus  = lipgloss.NewStyle().Foreground(lipgloss.Color("#D7E5FF")).Bold(true)
 )
 
-type Change struct{ Item, Before, After string }
+type Change struct{ Item, Before, After, Action string }
 type Stage struct {
 	ID, Group, Label, Terminal, Status, Summary, Action, LogPath string
 	Changes                                                      []Change
@@ -43,6 +43,7 @@ type Model struct {
 	DurationMS                                                               int64
 	Running, Finished, ShowLog, RawLog, Help, DetailFocus, NoWait, Searching bool
 	AttentionExpanded                                                        bool
+	Diagnostics                                                              bool
 	SelectedIssue                                                            string
 	SearchQuery                                                              string
 	AppliedSearch                                                            string
@@ -105,6 +106,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.outcomesView() && m.ExpandedGroup >= 0 {
+			switch v.String() {
+			case "up", "k":
+				m.viewport.ScrollUp(1)
+				return m, nil
+			case "down", "j":
+				m.viewport.ScrollDown(1)
+				return m, nil
+			case "enter", "right":
+				return m, nil
+			case "d":
+				m.Diagnostics = true
+				m.refreshDetail()
+				return m, nil
+			}
+		}
 		switch v.String() {
 		case "left", "esc", "q":
 			if m.back() {
@@ -151,6 +168,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.refreshDetail()
 			} else if m.ExpandedGroup == m.SelectedGroup {
 				m.DetailFocus, m.ShowLog, m.RawLog = false, false, false
+				m.Diagnostics = false
 				m.collapseGroup()
 				m.refreshDetail()
 			} else {
@@ -255,7 +273,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) apply(e Event) {
+	selectedGroup, expandedGroup := "", ""
+	if m.isUp() {
+		groups := m.groups()
+		if m.SelectedGroup >= 0 && m.SelectedGroup < len(groups) {
+			selectedGroup = groups[m.SelectedGroup]
+		}
+		if m.ExpandedGroup >= 0 && m.ExpandedGroup < len(groups) {
+			expandedGroup = groups[m.ExpandedGroup]
+		}
+	}
 	e.Label, e.Group, e.Summary, e.Action = cleanLine(e.Label), cleanLine(e.Group), cleanLine(e.Summary), cleanLine(e.Action)
+	if m.isUp() && e.Group == "Source" {
+		e.Group = "Source & settings"
+	}
 	e.Item, e.Before, e.After = cleanLine(e.Item), cleanLine(e.Before), cleanLine(e.After)
 	switch e.Kind {
 	case "run_start":
@@ -271,7 +302,7 @@ func (m *Model) apply(e Event) {
 		s := &m.Stages[i]
 		s.Group, s.Label, s.Status, s.Summary, s.Action = e.Group, e.Label, e.Status, e.Summary, e.Action
 		if e.Before != "" || e.After != "" {
-			s.Changes = []Change{{e.Label, e.Before, e.After}}
+			s.Changes = []Change{{Item: e.Label, Before: e.Before, After: e.After, Action: e.Action}}
 		}
 		if m.Selected < 0 && m.SelectedGroup >= 0 {
 			m.Selected = i
@@ -312,7 +343,7 @@ func (m *Model) apply(e Event) {
 		}
 	case "change":
 		if i := m.stageIndex(e.Stage); i >= 0 {
-			m.Stages[i].Changes = append(m.Stages[i].Changes, Change{e.Item, e.Before, e.After})
+			m.Stages[i].Changes = append(m.Stages[i].Changes, Change{Item: e.Item, Before: e.Before, After: e.After, Action: e.Action})
 		}
 	case "notice":
 		m.Notices = append(m.Notices, e)
@@ -320,9 +351,23 @@ func (m *Model) apply(e Event) {
 		m.TerminalRequested = false
 	case "run_end":
 		m.Running, m.Finished, m.ExitCode, m.DurationMS = false, true, e.ExitCode, e.DurationMS
+		if m.isUp() {
+			for i := range m.Stages {
+				s := &m.Stages[i]
+				if s.Status == "running" || (s.Status == "unknown" && s.Summary == "running") {
+					s.Status, s.Summary = "unknown", "Outcome unknown"
+				}
+			}
+		}
 		if e.DurationMS > 0 {
 			m.Elapsed = time.Duration(e.DurationMS) * time.Millisecond
 		}
+	}
+	if selectedGroup != "" {
+		m.SelectedGroup = m.groupIndex(selectedGroup)
+	}
+	if expandedGroup != "" {
+		m.ExpandedGroup = m.groupIndex(expandedGroup)
 	}
 	if m.AttentionExpanded {
 		m.syncIssueSelection()
@@ -362,6 +407,17 @@ func (m Model) groups() []string {
 			groups = append(groups, group)
 			seen[group] = true
 		}
+	}
+	if m.isUp() {
+		var ordered []string
+		for _, changed := range []bool{true, false} {
+			for _, group := range groups {
+				if (len(m.groupChanges(group)) > 0) == changed {
+					ordered = append(ordered, group)
+				}
+			}
+		}
+		return ordered
 	}
 	return groups
 }
@@ -421,7 +477,19 @@ func (m *Model) selectGroup(index int) {
 }
 
 func (m *Model) moveGroup(delta int) {
-	m.selectGroup(m.SelectedGroup + delta)
+	index := m.SelectedGroup + delta
+	if m.outcomesView() {
+		if delta > 0 && m.SelectedGroup == len(m.groups())-1 {
+			index = -1
+		}
+		if delta < 0 && m.SelectedGroup < 0 {
+			index = len(m.groups()) - 1
+		}
+	}
+	m.selectGroup(index)
+	if m.outcomesView() {
+		m.scrollToOutcomeGroup()
+	}
 }
 
 func (m *Model) moveChild(delta int) {
@@ -655,6 +723,14 @@ func (m Model) issues() []issue {
 }
 
 func (m Model) overviewContent() string {
+	if m.isUp() {
+		if m.AttentionExpanded {
+			return "Select an issue; Enter opens details."
+		}
+		if m.Diagnostics {
+			return "Select a step; Enter opens details, l opens logs."
+		}
+	}
 	var b strings.Builder
 	issues := m.issues()
 	fmt.Fprintf(&b, "NEEDS ATTENTION  %d\n", len(issues))
@@ -685,6 +761,9 @@ func (m Model) overviewContent() string {
 
 func (m *Model) refreshDetail() {
 	content := m.overviewContent()
+	if m.outcomesView() {
+		content = m.outcomesContent()
+	}
 	if !m.overview() {
 		content = "Select a stage to see details."
 		if item := m.selectedIssue(); m.AttentionExpanded && item != nil && item.notice {
@@ -715,7 +794,7 @@ func (m *Model) refreshDetail() {
 					fmt.Fprintf(&b, "Next: %s\n", s.Action)
 				}
 				for _, c := range s.Changes {
-					fmt.Fprintf(&b, "\n%s  %s → %s", c.Item, c.Before, c.After)
+					fmt.Fprint(&b, "\n"+ChangeLine(c.Action, c.Item, c.Before, c.After))
 				}
 				if s.Summary == "" && len(s.Changes) == 0 {
 					b.WriteString("Working…")
@@ -735,6 +814,13 @@ func (m *Model) refreshDetail() {
 
 func (m *Model) resize() {
 	m.viewport.SetWidth(max(1, m.Width-4))
+	if m.outcomesView() {
+		m.viewport.SetWidth(max(1, m.Width))
+		m.viewport.SoftWrap = false
+		m.viewport.SetHeight(max(1, min(m.Height-6, strings.Count(m.lastLog, "\n")+1)))
+		return
+	}
+	m.viewport.SoftWrap = true
 	available := m.Height - 16
 	if m.ExpandedGroup < 0 && !m.AttentionExpanded {
 		available--
@@ -781,6 +867,9 @@ var groupOrder = []string{
 }
 
 func (m Model) View() tea.View {
+	if m.outcomesView() {
+		return m.outcomeView()
+	}
 	width := max(1, m.Width)
 	issues := m.issues()
 	ok, attention, failed := 0, 0, 0
@@ -1006,6 +1095,8 @@ func (m *Model) back() bool {
 		m.AppliedSearch, m.SearchQuery = "", ""
 	} else if m.AttentionExpanded {
 		m.AttentionExpanded = false
+	} else if m.Diagnostics {
+		m.Diagnostics = false
 	} else if m.ExpandedGroup >= 0 {
 		m.collapseGroup()
 	} else {

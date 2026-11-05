@@ -285,12 +285,20 @@ function validateIncoming(root, gitDir, commit, miseBin) {
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
-function sourceProgress(id, label, status, summary) {
-  const event = JSON.stringify({ v: 1, kind: 'item_upsert', id: `source:${id}`, group: 'Source', label, status, summary, action: '', before: '', after: '' });
+function sourceEvent(value) {
+  const event = JSON.stringify(value);
   try {
     if (process.env.DOTS_UP_STREAM_NONCE) process.stdout.write(`\x1edots-up/1:${process.env.DOTS_UP_STREAM_NONCE}:${event}\x1f`);
     else if (process.env.DOTS_UP_EVENT_FD) fs.writeSync(Number(process.env.DOTS_UP_EVENT_FD), `${event}\n`);
   } catch { /* Progress must not change the source operation. */ }
+}
+
+function sourceProgress(id, label, status, summary) {
+  sourceEvent({ v: 1, kind: 'item_upsert', id: `source:${id}`, group: 'Source', label, status, summary, action: '', before: '', after: '' });
+}
+
+function sourceChanged(before, after) {
+  if (before !== after) sourceEvent({ v: 1, kind: 'change', stage: 'source-sync', item: 'Configuration source', action: 'updated', before, after });
 }
 
 export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
@@ -322,6 +330,7 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
     }
     if (sourceOnly) {
       const result = syncSourceOnly(root, gitDir, incoming[0], base[0], incomingFiles, inspectedRevision, changed, miseBin);
+      sourceChanged(base[0], incoming[0]);
       sourceProgress('validate', 'Validate source', 'ok', 'completed');
       sourceProgress('advance', 'Advance source', 'ok', 'completed');
       return result;
@@ -347,7 +356,7 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
       for (const [name, content] of localLocks) fs.writeFileSync(path.join(backup, name), content, { mode: 0o600 });
     }
     if (base[0] !== incoming[0] || changed.length) {
-      try { jj(root, ['new', incoming[0]]); }
+      try { jj(root, ['new', incoming[0]]); sourceChanged(base[0], incoming[0]); }
       finally {
         if (migratesLocks) for (const [name, content] of localLocks) fs.writeFileSync(path.join(root, name), content, { mode: 0o600 });
       }

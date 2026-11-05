@@ -1,6 +1,8 @@
 """Exercise typ2docx launcher recovery without network access or source builds."""
 
+import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -117,6 +119,27 @@ elif args != ["tool", "list", "--show-paths"]:
                 backups = list(self.launcher.parent.glob(".typ2docx.uv-backup.*"))
                 self.assertTrue(any(backup.readlink() == self.old_candidate for backup in backups))
                 self.assertTrue(self.old_candidate.exists())
+
+    @unittest.skipUnless(shutil.which("jq"), "jq required for event fixture")
+    def test_events_only_follow_verified_install_or_repair(self):
+        self.env.update(DOTS_UP_STREAM_NONCE="fixture", DOTS_UP_STAGE_ID="installer-exception-typ2docx",
+                        DOTS_UP_EVENT_JQ=shutil.which("jq"))
+        self._executable(self.old_candidate, "#!/bin/sh\nexit 0\n")
+        current = self._run()
+        self.assertEqual(current.returncode, 0, current.stderr)
+        self.assertNotIn("dots-up/1:fixture:", current.stdout)
+        self._executable(self.old_candidate, "#!/bin/sh\nexit 1\n")
+        repaired = self._run()
+        self.assertEqual(repaired.returncode, 0, repaired.stderr)
+        event = json.loads(repaired.stdout.split("\x1edots-up/1:fixture:")[1].split("\x1f")[0])
+        self.assertEqual((event["item"], event["action"], event["before"], event["after"]),
+                         ("typ2docx", "changed", "0.8.0", "0.8.0"))
+        self.launcher.unlink()
+        installed = self._run()
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        event = json.loads(installed.stdout.split("\x1edots-up/1:fixture:")[1].split("\x1f")[0])
+        self.assertEqual((event["action"], event["before"], event["after"]),
+                         ("installed", "not installed", "0.8.0"))
 
     def test_install_only_still_refuses_broken_existing_install(self):
         self._executable(self.old_candidate, "#!/bin/sh\nexit 1\n")
