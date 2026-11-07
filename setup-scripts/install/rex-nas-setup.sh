@@ -83,9 +83,14 @@ UNIT
     if [ "$mode" = --setup ]; then
       sh "$(dirname "$0")/rex-macos-install.sh"
     fi
-    plist="$(dirname "$0")/../../resources/rex/com.ezra.rex-nas.plist"
-    if [ -f /Library/LaunchDaemons/com.ezra.rex-nas.plist ] && ! cmp -s "$plist" /Library/LaunchDaemons/com.ezra.rex-nas.plist; then
-      echo 'Rex daemon configuration changed; apply and restart explicitly when sessions may be interrupted.'
+    target=/Library/LaunchDaemons/com.ezra.rex-nas.plist
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      tmp=$(mktemp -d)
+      trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+      sh "$(dirname "$0")/rex-nas-macos-plist.sh" "$tmp/expected.plist"
+      if ! plutil -convert xml1 -o "$tmp/existing.plist" "$target" || ! cmp -s "$tmp/expected.plist" "$tmp/existing.plist"; then
+        echo 'Rex daemon configuration changed; apply and restart explicitly when sessions may be interrupted.'
+      fi
     fi
     echo 'Use rex:install-daemon for initial boot registration on DriehuisNAS.'
     echo 'Running servers are never restarted by this setup helper.'

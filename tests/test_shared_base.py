@@ -26,10 +26,11 @@ class SharedBaseTests(unittest.TestCase):
         for path in ('~/.config/fish/config.fish','~/.config/jj/config.toml','~/.config/git/config','~/.local/bin/dots'):
             self.assertIn(path, base['dotfiles'])
         self.assertEqual(base['min_version'], '2026.10.3')
-        self.assertEqual(base['bootstrap']['dotfile_groups'], ['bat', 'nvim'])
-        for name in ('bat', 'nvim'):
+        self.assertEqual(base['bootstrap']['dotfile_groups'], ['bat', 'nvim', 'rex-themes'])
+        self.assertNotIn('~/.config/rex/themes', base['dotfiles'])
+        for name, directory in {'bat': 'bat', 'nvim': 'nvim', 'rex-themes': 'rex/themes'}.items():
             self.assertEqual(base['dotfile_groups'][name], {
-                'root': f'.config/{name}', 'target': f'~/.config/{name}',
+                'root': f'.config/{directory}', 'target': f'~/.config/{directory}',
                 'mode': 'symlink-each', 'relative': False,
             })
         self.assertIn('github:fish-shell/fish-shell', tools)
