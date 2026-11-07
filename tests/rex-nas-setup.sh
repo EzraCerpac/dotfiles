@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-repo=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+repo=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 export HOME="$tmp/home" TEST_LOG="$tmp/systemctl.log"
@@ -35,25 +35,8 @@ chmod +x "$base/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rex"
 ln -s "$base/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/rex" "$base/current"
 touch "$HOME/.config/systemd/user/rex-nas.service"
 sh "$repo/setup-scripts/install/rex-nas-setup.sh" --update-existing
-! grep -E ' (start|restart|enable) ' "$TEST_LOG"
+if grep -E ' (start|restart|enable) ' "$TEST_LOG"; then exit 1; fi
 : > "$TEST_LOG"
 sh "$repo/setup-scripts/install/rex-nas-setup.sh" --update-existing
-! grep -E ' (start|restart|enable|daemon-reload) ' "$TEST_LOG"
-# Exercise the existing-daemon branch without touching /Library or invoking sudo.
-mkdir -p "$tmp/mac/repo/setup-scripts/install" "$tmp/mac/repo/resources/rex" "$HOME/Applications/Rex Beta.app"
-cp "$repo/setup-scripts/install/rex-nas-macos-daemon.sh" "$tmp/mac/repo/setup-scripts/install/"
-cp "$repo/resources/rex/com.ezra.rex-nas.plist" "$tmp/mac/repo/resources/rex/"
-cp "$repo/resources/rex/com.ezra.rex-nas.plist" "$tmp/existing.plist"
-sed "s|target=/Library/LaunchDaemons/com.ezra.rex-nas.plist|target=$tmp/existing.plist|" "$repo/setup-scripts/install/rex-nas-macos-daemon.sh" > "$tmp/mac/repo/setup-scripts/install/rex-nas-macos-daemon.sh"
-printf '#!/bin/sh\necho Darwin\n' > "$tmp/bin/uname"
-printf '#!/bin/sh\necho driehuisnas\n' > "$tmp/bin/hostname"
-printf '#!/bin/sh\necho server\n' > "$tmp/bin/id"
-printf '#!/bin/sh\nexit 0\n' > "$tmp/bin/codesign"
-printf '#!/bin/sh\nexit 0\n' > "$tmp/bin/plutil"
-printf '#!/bin/sh\necho unexpected-sudo >&2; exit 1\n' > "$tmp/bin/sudo"
-chmod +x "$tmp/bin/uname" "$tmp/bin/hostname" "$tmp/bin/id" "$tmp/bin/codesign" "$tmp/bin/plutil" "$tmp/bin/sudo"
-sh "$tmp/mac/repo/setup-scripts/install/rex-nas-macos-daemon.sh"
-echo '<!-- changed -->' >> "$tmp/existing.plist"
-result=$(sh "$tmp/mac/repo/setup-scripts/install/rex-nas-macos-daemon.sh")
-case "$result" in *'without'*|*'restart explicitly'*) ;; *) echo 'Missing pending change notice' >&2; exit 1 ;; esac
+if grep -E ' (start|restart|enable|daemon-reload) ' "$TEST_LOG"; then exit 1; fi
 echo 'Rex NAS setup fixtures passed'

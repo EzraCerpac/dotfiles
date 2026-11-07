@@ -68,7 +68,9 @@ mise -C ~/.config/mise run rex:setup
 ```
 
 On DriehuisNAS,
-setup installs the official signed app in `~/Applications` if it is absent.
+setup reuses an existing app in `~/Applications/Rex Beta.app`, then
+`/Applications/Rex Beta.app`, or installs the official signed app in
+`~/Applications` if neither exists.
 Then register the boot daemon from an interactive administrator terminal:
 
 ```sh
@@ -78,6 +80,10 @@ mise -C ~/.config/mise run rex:install-daemon
 Complete the one-time Tailscale sign-in for each server.
 The installer refuses to replace an existing daemon silently
 or stop an unrelated personal Rex server.
+It verifies the selected app's official signature and executable server helper,
+then records that helper's actual path in the daemon definition.
+Existing definitions are compared by their effective plist values;
+changes only produce a notice for an explicit later update and restart.
 
 Inspect the existing server without starting another one:
 
