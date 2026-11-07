@@ -57,7 +57,7 @@ event_group() {
         "new Homebrew formulae"|"Homebrew formulae"|"new Homebrew casks"|"Homebrew casks"|"Mac App Store tool"|"Mac App Store authorization"|"Mac App Store result"|"newly declared host packages"|"declared host packages") printf 'Packages' ;;
         "newly declared mise tools"|"declared mise tools"|"Herdr shell configuration"|"standalone mise") printf 'Tools' ;;
         "Neovim plugins") printf 'Editor plugins' ;;
-        "Codex ACP native executable"|"jw main source"|"Capd fork main"|"installer exception"*) printf 'Managed apps/local builds' ;;
+        "Codex ACP native executable"|"jw main source"|"jw NAS release"|"Capd fork main"|"installer exception"*) printf 'Managed apps/local builds' ;;
         *) printf 'Final checks' ;;
     esac
 }
@@ -139,6 +139,30 @@ if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_STARTED:-}" ]]; then
     emit_event "$(event_json --arg profile "$SETUP_PROFILE" --arg host "$(hostname -s 2>/dev/null || uname -n)" '{v:1,kind:"run_start",profile:$profile,host:$host}')"
 fi
 
+# Validate the selected config without installing tools. A failed check can also
+# indicate a trust or other loading error, so preserve mise's diagnostic.
+validate_update_config() {
+    local diagnostic
+    if diagnostic="$(setup_mise config ls 2>&1)"; then
+        return 0
+    fi
+    setup_error 'cannot load update configuration; dependent updates stopped. Review the diagnostic and rerun dots up.'
+    printf '%s\n' "$diagnostic" >&2
+    emit_event "$(event_json --arg summary 'Cannot load update configuration; dependent updates stopped' --arg action 'Review the configuration diagnostic and rerun dots up' '{v:1,kind:"notice",severity:"error",summary:$summary,action:$action}')"
+    return 1
+}
+
+abort_invalid_config() {
+    # The optional App Store installer may already be running independently.
+    # Wait for it and emit its outcome before returning control to the caller.
+    if [[ -n "${app_store_pid:-}" ]]; then
+        finish_app_store_packages || true
+    fi
+    exit 1
+}
+
+validate_update_config || abort_invalid_config
+
 # Reload after sync so maintenance runs from the newly adopted source.
 if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
     sync_result=0
@@ -173,9 +197,9 @@ if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
             ;;
     esac
     if [[ "$sync_result" -eq 3 ]]; then
-        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: deferred; local source changes were preserved.\n'; fi
-        emit_event "$(event_json --arg summary 'Source sync deferred; local changes preserved' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
-        emit_event "$(event_json --arg id source-sync --arg summary 'Deferred; local source preserved' '{v:1,kind:"stage_end",id:$id,status:"attention",exit_code:0,summary:$summary}')"
+        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: source sync deferred; see the source sync log for details.\n'; fi
+        emit_event "$(event_json --arg summary 'Source sync deferred; see the source sync log for details' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
+        emit_event "$(event_json --arg id source-sync --arg summary 'Source sync deferred' '{v:1,kind:"stage_end",id:$id,status:"attention",exit_code:0,summary:$summary}')"
     else
         if [[ "$plain_output" -eq 1 ]]; then printf 'Result: completed\n'; fi
         emit_event "$(event_json --arg id source-sync --arg summary 'Source synchronized' '{v:1,kind:"stage_end",id:$id,status:"ok",exit_code:0,summary:$summary}')"
@@ -194,13 +218,18 @@ run_stage() {
     local group
     group="$(event_group "$label")"
     local before_snapshot='[]' after_snapshot='[]' before_valid=0 after_valid=0
-    local stage_log=""
+    local stage_log="" handoff_failed=0
     if dots_up_event_sink_enabled; then
         emit_event "$(event_json --arg id "$event_id" --arg group "$group" --arg label "$label" --arg terminal "$terminal" '{v:1,kind:"stage_start",id:$id,group:$group,label:$label,terminal:$terminal}')"
         if [[ "$terminal" == handoff && -n "${DOTS_UP_ACK_FD:-}" ]]; then
             local acknowledgement
-            IFS= read -r -u "$DOTS_UP_ACK_FD" acknowledgement || { setup_error "terminal handoff did not complete for $label"; return 1; }
-            [[ "$acknowledgement" == "go:$event_id" ]] || { setup_error "invalid terminal handoff for $label"; return 1; }
+            if ! IFS= read -r -u "$DOTS_UP_ACK_FD" acknowledgement; then
+                setup_error "terminal handoff did not complete for $label"
+                handoff_failed=1
+            elif [[ "$acknowledgement" != "go:$event_id" ]]; then
+                setup_error "invalid terminal handoff for $label"
+                handoff_failed=1
+            fi
         fi
     fi
     if dots_up_event_sink_enabled; then
@@ -215,7 +244,9 @@ run_stage() {
     fi
     if [[ "$plain_output" -eq 1 ]]; then printf 'Working: %s\n' "$label"; else printf '\n== %s ==\n' "$label"; fi
     local result=0
-    if [[ -n "$stage_log" && ( "$terminal" != handoff || ! -t 0 || ! -t 1 ) ]]; then
+    if [[ "$handoff_failed" -eq 1 ]]; then
+        result=1
+    elif [[ -n "$stage_log" && ( "$terminal" != handoff || ! -t 0 || ! -t 1 ) ]]; then
         "$@" > "$stage_log" 2>&1 || result=$?
     else
         "$@" || result=$?
@@ -243,6 +274,7 @@ run_stage() {
         if dots_up_event_sink_enabled; then
             emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "failed (exit $result)" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:"failed",exit_code:$code,summary:$summary}')"
         fi
+        validate_update_config || abort_invalid_config
         return "$result"
     fi
     return 0
@@ -409,6 +441,9 @@ if run_stage "newly declared mise tools" setup_mise install; then
         printf '\nSkipped: Herdr shell configuration (NAS profile does not own Herdr).\n'
     fi
 fi
+if [[ "$SETUP_PROFILE" == nas ]]; then
+    run_stage "jw NAS release" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-nas-release.sh" --if-missing || true
+fi
 if [[ "$SETUP_PROFILE" == workstation ]]; then
     run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true
     run_stage "jw main source" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-build-install.sh" --update-existing || true
@@ -438,10 +473,7 @@ update_editor_plugins() {
     local lazy_root="$data_home/$app_name/lazy/lazy.nvim"
     local guard_script
 
-    if [[ ! -d "$lazy_root" ]]; then
-        printf 'Deferred: Lazy.nvim is not installed at %s.\n' "$lazy_root"
-        return 0
-    fi
+    setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/nvim-initialize" || return $?
 
     guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")" || return 1
     cat > "$guard_script" <<'LUA'
@@ -479,7 +511,7 @@ fi
 
 if [[ "${#failures[@]}" -eq 0 ]]; then
     if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
-        printf '\nUpdate report: completed; source sync deferred; local changes were preserved.\n'
+        printf '\nUpdate report: completed; source sync deferred; see the source sync log for details.\n'
         exit 0
     fi
     printf '\nUpdate report: completed; no updater failures.\n'

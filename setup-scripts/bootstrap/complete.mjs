@@ -132,8 +132,9 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   if (privateReady && historyReady && role === 'workstation' && Object.keys(secrets).length) {
     privateReady = stage('Private configuration', () => applyPrivateFiles(secrets, { home, miseBin, root }));
   }
+  let defaultsReady = true;
   if (restoreId && privateReady && historyReady) {
-    stage('Missing public defaults', () => {
+    defaultsReady = stage('Missing public defaults', () => {
       delete childEnv.SETUP_RESTORE_MACHINE_ID;
       try { script('setup-scripts/local/seed-configs.sh'); }
       finally { childEnv.SETUP_RESTORE_MACHINE_ID = restoreId; }
@@ -141,6 +142,14 @@ export function complete({ root, home, miseBin, env = process.env, run = spawnSy
   }
 
   stage('Installer exceptions', () => script('setup-scripts/local/install-exceptions.sh'));
+  if (role === 'nas') {
+    stage('jw NAS release', () => script('setup-scripts/install/jw-nas-release.sh', ['--if-missing']));
+  }
+  if (privateReady && historyReady && defaultsReady) {
+    stage('Neovim plugins', () => script('setup-scripts/setup/nvim-initialize'));
+  } else {
+    record('Neovim plugins', 'deferred', 'Complete configuration recovery before initializing Neovim');
+  }
   stage('Atuin', () => {
     const result = mise(['exec', '--', 'uv', 'run', '--no-project', 'python', path.join(root, 'setup-scripts/bootstrap/atuin.py'), 'enroll', '--root', root, '--identity', recoveryIdentity]);
     if (result.status === 3) throw new Deferred('Atuin enrollment needs credentials or account approval; rerun dots bootstrap after the displayed step');

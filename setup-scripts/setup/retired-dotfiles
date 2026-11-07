@@ -5,6 +5,9 @@
 # Rendered templates are regular files and are never deleted automatically.
 ~/.config/nvim/lua/config/delftblue.lua
 ~/.config/nvim/lua/plugins/delftblue.lua
+~/.config/nvim/lua/plugins/copilot-native.lua
+~/.config/nvim/lua/plugins/sidekick-tabout.lua
+~/.config/nvim/lua/plugins/tabout.lua
 ~/.config/delftblue/spack/dev/spack.yaml
 ~/.local/bin/dbacct
 ~/.local/bin/dbcpu

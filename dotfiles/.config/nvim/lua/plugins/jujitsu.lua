@@ -1,3 +1,4 @@
+local jw_plugin_dir = vim.fn.expand("~/Projects/jj-waltz.nvim")
 
 return {
   {
@@ -37,7 +38,8 @@ return {
     },
   },
   {
-    dir = vim.fn.expand("~/Projects/jj-waltz.nvim"),
+    "EzraCerpac/jj-waltz.nvim",
+    dir = vim.fn.isdirectory(jw_plugin_dir) == 1 and jw_plugin_dir or nil,
     name = "jj-waltz.nvim",
     main = "jj-waltz",
     cmd = {
@@ -112,7 +114,6 @@ return {
           revisions = "'all()'", -- equivalent to jj log -r ::
         })
       end, { desc = "JJ log all" })
-
     end,
   },
 }

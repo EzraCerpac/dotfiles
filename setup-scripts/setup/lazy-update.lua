@@ -67,7 +67,10 @@ if #updates > 0 then
     for _, task in ipairs(plugin and plugin._.tasks or {}) do
       if not previous[name][task] and task:has_errors() then
         local detail = task:output(vim.log.levels.ERROR)
-        table.insert(failures, name .. (detail ~= "" and (": " .. detail) or ": update task failed"))
+        table.insert(
+          failures,
+          name .. (detail ~= "" and (": " .. detail) or ": update task failed")
+        )
       end
     end
   end
@@ -75,6 +78,13 @@ if #updates > 0 then
     vim.api.nvim_err_writeln("Lazy plugin update failures:\n  " .. table.concat(failures, "\n  "))
     vim.cmd("cquit 1")
   end
+end
+
+local parser_script = debug.getinfo(1, "S").source:sub(2):gsub("[^/]+$", "nvim-parsers.lua")
+local ok, err = pcall(dofile(parser_script))
+if not ok then
+  vim.api.nvim_err_writeln(tostring(err))
+  vim.cmd("cquit 1")
 end
 
 vim.cmd("qa")
