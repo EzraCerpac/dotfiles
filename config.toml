@@ -137,7 +137,6 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/rex/init.lua" = { source = "dotfiles/.config/rex/init.lua", mode = "symlink" }
 "~/.config/rex/navigation.lua" = { source = "dotfiles/.config/rex/navigation.lua", mode = "symlink" }
 "~/.config/rex/projects.lua" = { source = "dotfiles/.config/rex/projects.lua", mode = "symlink" }
-"~/.config/rex/themes" = { source = "dotfiles/.config/rex/themes", mode = "symlink" }
 "~/.config/rex/hosts.lua" = { source = "templates/.config/rex/hosts.lua.tera", mode = "template" }
 "~/.config/starship-jj/starship-jj.toml" = { source = "dotfiles/.config/starship-jj/starship-jj.toml", mode = "symlink" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
@@ -155,7 +154,7 @@ pre-packages = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local
 "modem-dev/tap" = "https://github.com/modem-dev/homebrew-tap"
 
 [bootstrap]
-dotfile_groups = ["bat", "nvim"]
+dotfile_groups = ["bat", "nvim", "rex-themes"]
 
 [dotfile_groups.bat]
 root = ".config/bat"
@@ -166,5 +165,11 @@ relative = false
 [dotfile_groups.nvim]
 root = ".config/nvim"
 target = "~/.config/nvim"
+mode = "symlink-each"
+relative = false
+
+[dotfile_groups.rex-themes]
+root = ".config/rex/themes"
+target = "~/.config/rex/themes"
 mode = "symlink-each"
 relative = false

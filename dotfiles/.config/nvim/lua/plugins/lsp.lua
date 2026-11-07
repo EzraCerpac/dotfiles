@@ -1,6 +1,62 @@
 local typst_root_markers = { "typst.toml", ".jj", ".git" }
 local harper_root_markers = { ".harper-dictionary.txt", "typst.toml", ".jj", ".git" }
 
+local function filter_harper_typst(params, client)
+  local bufnr = vim.fn.bufnr(vim.uri_to_fname(params.uri))
+  if bufnr < 0 or not vim.api.nvim_buf_is_loaded(bufnr) or vim.bo[bufnr].filetype ~= "typst" then
+    return params
+  end
+  if params.version and params.version ~= vim.lsp.util.buf_versions[bufnr] then return params end
+
+  local parser = vim.treesitter.get_parser(bufnr, "typst")
+  local tree = parser:parse()[1]
+  if not tree then return params end
+  local root = tree:root()
+  local diagnostics = {}
+  for _, diagnostic in ipairs(params.diagnostics) do
+    local range = diagnostic.range
+    local start = range and range.start
+    local finish = range and range["end"]
+    local suppress = false
+    if start and finish and start.line == finish.line and finish.character > start.character then
+      local line = vim.api.nvim_buf_get_lines(bufnr, start.line, start.line + 1, true)[1]
+      if line then
+        local first = vim.str_byteindex(line, client.offset_encoding, start.character)
+        local last = vim.str_byteindex(line, client.offset_encoding, finish.character)
+        -- A position in the middle of a UTF-16 surrogate pair is not reliable.
+        if vim.str_utfindex(line, client.offset_encoding, first) == start.character
+          and vim.str_utfindex(line, client.offset_encoding, last) == finish.character
+          and last > first
+        then
+          local node = root:named_descendant_for_range(start.line, first, finish.line, last - 1)
+          while node and node:type() ~= "ident" and node:type() ~= "string" do
+            if node:type() == "content" or node:type() == "ERROR" then break end
+            node = node:parent()
+          end
+          if node and (node:type() == "ident" or node:type() == "string") and not node:has_error() then
+            local candidate = node:type() == "ident"
+            if node:type() == "string" then
+              local value = vim.treesitter.get_node_text(node, bufnr):match('^"([%w_%-]+)"$')
+              candidate = value ~= nil and (value:find("[%d_]") ~= nil or value:find("%l%u") ~= nil)
+            end
+            local parent = node:parent()
+            while candidate and parent do
+              if parent:type() == "content" or parent:type() == "ERROR" then break end
+              if parent:type() == "code" then
+                suppress = not parent:has_error()
+                break
+              end
+              parent = parent:parent()
+            end
+          end
+        end
+      end
+    end
+    if not suppress then diagnostics[#diagnostics + 1] = diagnostic end
+  end
+  return vim.tbl_extend("force", params, { diagnostics = diagnostics })
+end
+
 return {
   {
     "folke/lazydev.nvim",
@@ -144,6 +200,18 @@ return {
           },
         }),
       })
+      local handlers = opts.servers.harper_ls.handlers or {}
+      local previous_harper_diagnostics = handlers["textDocument/publishDiagnostics"]
+        or vim.lsp.handlers["textDocument/publishDiagnostics"]
+      handlers["textDocument/publishDiagnostics"] = function(err, params, ctx, config)
+        local client = vim.lsp.get_client_by_id(ctx.client_id)
+        if not err and params and params.uri and params.diagnostics and client and client.name == "harper_ls" then
+          local ok, filtered = pcall(filter_harper_typst, params, client)
+          if ok then params = filtered end
+        end
+        return previous_harper_diagnostics(err, params, ctx, config)
+      end
+      opts.servers.harper_ls.handlers = handlers
       local previous_harper_init = opts.servers.harper_ls.on_init
       opts.servers.harper_ls.on_init = function(client, result)
         if previous_harper_init then previous_harper_init(client, result) end

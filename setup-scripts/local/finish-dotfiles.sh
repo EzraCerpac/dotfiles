@@ -12,6 +12,9 @@ source "${SCRIPT_DIR}/common"
 # still executed by the previous source's code, so retirement lives here.
 bash "${SETUP_ROOT}/setup-scripts/lib/retire-dotfiles.sh" "$SETUP_ROOT"
 
+# Expose skills installed for all agents (~/.agents/skills) to Claude Code.
+bash "${SCRIPT_DIR}/link-agent-skills.sh"
+
 # Dotfiles must already be applied. This only tightens the modes of explicit
 # private destinations; it never changes linked source files or services.
 "${SCRIPT_DIR}/private-permissions.sh"

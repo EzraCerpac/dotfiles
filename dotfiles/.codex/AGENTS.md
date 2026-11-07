@@ -19,7 +19,7 @@ Edit mise-managed jj config through its linked file or source. For deliberate di
 
 Unless the task is extremely small, delegate heavily: tell each subagent what to do, which model and reasoning effort fit the task, and what to return. Limit the work you do yourself. Choose models by strength:
 - gpt-6.1-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
-- gpt-6.1-terra for browser and desktop computer use, visual inspection, and routine drafting or revision. Consider it for straightforward, bounded implementation. And it is FAST.
+- gpt-6.1-terra for browser and desktop computer use, visual inspection, and drafting, writing or revision. Consider it for straightforward, bounded implementation. It is most often the best choice and it is FAST.
 - gpt-6.1-sol for complex implementation, architecture-sensitive changes, difficult debugging, and computer-use tasks that require stronger technical judgment.
 - Never spawn gpt-6-astra as a subagent.
 - Claude agents: use Opus for frontend and UI design and substantial writing.
@@ -39,12 +39,10 @@ For file and directory discovery, prefer fd over find.
 Prefer using the in-app browser over external browsers.
 
 For PRs and messages on GitHub, begin with this disclosure. Use the exact model identifier only when verified
-from this task's supported metadata. If it cannot be verified, write "model
-unverified". Do not guess the provider, model version, variant or reasoning effort
-from a task title, generic label, or brand-selection placeholder:
+from this task's supported metadata; try `rg -m 1 -o '"model":"[^"]+"' ~/.codex/sessions/<session>`. If it cannot be verified, write "model unverified".
 
 > [!NOTE]
-> **<verified model identifier, or model unverified>** is writing on behalf of Ezra.
+> **<model>** is writing on behalf of Ezra.
 
 Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
 <!-- End shared Codex policy -->
