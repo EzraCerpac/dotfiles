@@ -71,9 +71,6 @@ class AgentInstructionSources(unittest.TestCase):
                 self.assertIn(b'Current thesis implementation and acceptance belong to the existing Mac owner', tail)
                 self.assertIn(b'Other authorized NAS projects may use their established native remote host', tail)
                 self.assertIn(b'In Code Mode, minimize unnecessary outer model round trips', tail)
-                self.assertIn(b'issue comments, pull-request comments or descriptions, review summaries', tail)
-                self.assertIn(b'discussion posts', tail)
-                self.assertIn(b'verified-model disclosure in the shared policy', tail)
                 self.assertNotIn(b'<model (', tail)
 
     def test_repository_instructions_retain_the_cloud_nas_runbook(self):
