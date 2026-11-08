@@ -4,7 +4,9 @@ On managed hosts, `~/.config/mise` is the active setup source. Native mise deplo
 
 Use JJ where the checkout supports it and Git in Git-only worktrees. Retain the old checkouts and protected backups for rollback.
 
-Use `dots status`, `dots up`, `dots backup`, or `dots restore` for routine maintenance. `dots` selects the setup directory before mise loads configuration; internal scripts retain explicit directory selection. Project dependencies remain project-owned. Updates must not prune packages, restart services, or publish source automatically.
+Use `dots status`, `dots up`, `dots backup`, or `dots restore` for routine maintenance. `dots` selects the setup directory before mise loads configuration; internal scripts retain explicit directory selection. Project dependencies remain project-owned. Updates must not prune packages or restart services.
+Ordinary sync captures and publishes public live-source changes through `dev`;
+`main` stays reviewed and task worktrees stay separate.
 
 Capd is a user-authorized exception to the routine update boundary: macOS workstation `dots up` may install a changed, locally built `EzraCerpac/capd` `main` revision and restore its prior running state. Its updater must exit without rebuild or restart when the installed app matches current fork `main`; NAS updates must skip Capd.
 

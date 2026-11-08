@@ -47,3 +47,7 @@
 ~/.config/fish/completions/ya.fish
 ~/.config/fish/completions/yazi.fish
 ~/.config/yazi/init.lua
+# Removed agent skills; retain foreign or user-owned files.
+~/.codex/skills/audio-diarization/SKILL.md
+~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py
+~/.codex/skills/perch/SKILL.md

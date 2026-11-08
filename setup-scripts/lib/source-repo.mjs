@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { syncDev } from './source-dev.mjs';
 
 export class SourceDeferred extends Error { constructor(message) { super(message); this.code = 3; } }
 const lockfiles = ['mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
@@ -12,7 +13,7 @@ const isLocalConfigPath = name => isLocalConfig(name.split('/')[0].toLowerCase()
 const origins = new Set(['https://github.com/EzraCerpac/dotfiles', 'https://github.com/EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles', 'ssh://git@github.com/EzraCerpac/dotfiles.git']);
 const command = (bin, args, root, options = {}) => {
   const { trimOutput = true, ...spawnOptions } = options;
-  const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', ...spawnOptions });
+  const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', timeout: 30000, ...spawnOptions });
   if (result.error || result.status !== 0) throw new Error(`${bin} failed: ${result.error?.message || String(result.stderr || '').trim() || `exit ${result.status}`}`);
   return trimOutput ? result.stdout?.trim() || '' : result.stdout || '';
 };
@@ -165,7 +166,7 @@ function localFileMetadata(root) {
   });
 }
 
-function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
+export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
   const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-ignore-'));
   try {
     if (incomingFiles.has('.gitignore')) {
@@ -261,7 +262,7 @@ function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRe
   return incoming;
 }
 
-function validateIncoming(root, gitDir, commit, miseBin) {
+export function validateIncoming(root, gitDir, commit, miseBin) {
   const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-preview-'));
   try {
     const archive = spawnSync('git', [`--git-dir=${gitDir}`, 'archive', commit], { maxBuffer: 64 * 1024 * 1024 });
@@ -293,7 +294,7 @@ function sourceProgress(id, label, status, summary) {
   } catch { /* Progress must not change the source operation. */ }
 }
 
-export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
+export function syncReviewedSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
   if (expectedMain && (!sourceOnly || !/^[a-f0-9]{40}$/.test(expectedMain))) throw new Error('expectedMain requires source-only mode and a full lowercase commit ID');
   miseBin ||= resolveMiseBin();
   if (!executable(miseBin)) invalidMiseOverride('miseBin', miseBin);
@@ -359,6 +360,20 @@ export function syncSource(root, { miseBin, expectedRemote, sourceOnly = false, 
   });
 }
 
+export function syncSource(root, options = {}) {
+  if (options.sourceOnly || options.expectedMain) return syncReviewedSource(root, options);
+  root = fs.realpathSync(root);
+  return withRepositoryLock(root, () => {
+    const info = metadata(root);
+    const remote = command('git', ['config', '--get', 'remote.origin.url'], root);
+    if (options.expectedRemote ? remote !== options.expectedRemote : !origins.has(remote)) throw new Error('Refusing source operations: origin is not EzraCerpac/dotfiles');
+    for (const marker of ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG']) {
+      if (fs.existsSync(path.join(info.gitDir, marker))) throw new SourceDeferred(`Finish the Git operation (${marker}) before syncing configuration`);
+    }
+    return syncDev(root, { ...info, miseBin: options.miseBin || resolveMiseBin() });
+  });
+}
+
 export function parseSourceArguments(args) {
   const [action, root, ...options] = args;
   if (!root || !['init', 'sync', 'status'].includes(action)
@@ -381,13 +396,17 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
         const revision = info.hasJj
           ? command('jj', ['--ignore-working-copy', '-R', root, 'log', '-r', '@-', '--no-graph', '-T', 'commit_id'], root)
           : command('git', ['rev-parse', 'HEAD'], root);
-        console.log(JSON.stringify({ workspace: info.hasJj ? 'jj' : 'git', base_revision: revision, shared: 'origin/main', publication: 'explicit' }));
+        console.log(JSON.stringify({ workspace: info.hasJj ? 'jj' : 'git', base_revision: revision, shared: 'origin/dev', publication: 'automatic; main reviewed' }));
       }
       else {
-        console.log(`Source: ${info.hasJj ? 'JJ workspace' : 'Git checkout; JJ initialization pending'}`);
-        console.log('Shared source: origin/main; publication is explicit.');
+        console.log(`Source: ${info.hasJj ? 'JJ workspace' : 'Git checkout'}`);
+        console.log('Shared source: origin/dev; automatic capture and push; main stays reviewed.');
+        const queue = path.join(info.gitDir, 'dots-dev.json');
+        if (fs.existsSync(queue)) {
+          const state = JSON.parse(fs.readFileSync(queue, 'utf8'));
+          console.log(`Recovery: ${state.queued}; ${state.pending ? 'Push pending; Saved locally' : 'saved source'}`);
+        }
       }
-      if (!info.hasJj) process.exitCode = 3;
     }
     else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));
     else syncSource(root, { sourceOnly, expectedMain });

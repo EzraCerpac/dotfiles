@@ -15,13 +15,13 @@
           "authority": "active mise symlink selected by macOS workstation role and native OS variant",
           "source": {
             "path": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md",
-            "sha256": "17e00b0af6a3f2d9aa6268b4f113649b2856df017f29d67c7af19f3a1b298ff0",
+            "sha256": "e78ed97bb61e76b590e118a5c901aa864375552ff4bd662e49110f813b4a308e",
             "is_symlink": false,
             "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md"
           },
           "target": {
             "path": "/Users/ezracerpac/.codex/AGENTS.md",
-            "sha256": "17e00b0af6a3f2d9aa6268b4f113649b2856df017f29d67c7af19f3a1b298ff0",
+            "sha256": "e78ed97bb61e76b590e118a5c901aa864375552ff4bd662e49110f813b4a308e",
             "is_symlink": true,
             "realpath": "/Users/ezracerpac/.config/mise/dotfiles/.codex/AGENTS.md"
           },
@@ -73,13 +73,13 @@
           "authority": "active mise symlink selected by NAS role and native OS variant",
           "source": {
             "path": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md",
-            "sha256": "4705b862cc0bd11d944f9c38d9487bba2b3c5accc94c7e218ab94d5d923bf1a0",
+            "sha256": "81eaa083a83a0a299402a7b57ff81da0bc057a9b861667b2c2fa100aa465cfbb",
             "is_symlink": false,
             "realpath": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md"
           },
           "target": {
             "path": "/root/.codex/AGENTS.md",
-            "sha256": "4705b862cc0bd11d944f9c38d9487bba2b3c5accc94c7e218ab94d5d923bf1a0",
+            "sha256": "81eaa083a83a0a299402a7b57ff81da0bc057a9b861667b2c2fa100aa465cfbb",
             "is_symlink": true,
             "realpath": "/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md"
           },
@@ -115,13 +115,13 @@
           "authority": "active mise symlink selected by NAS role and native OS variant",
           "source": {
             "path": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md",
-            "sha256": "cbb6751a02282ffd8af00d757a898a4cb45e97f46116ea607a6cfeb0224dac7d",
+            "sha256": "0ddb9dfdebc440f769eb825fa994cb7a579d421bbe4191050d2a19bfbf48e4ca",
             "is_symlink": false,
             "realpath": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md"
           },
           "target": {
             "path": "/Users/server/.codex/AGENTS.md",
-            "sha256": "cbb6751a02282ffd8af00d757a898a4cb45e97f46116ea607a6cfeb0224dac7d",
+            "sha256": "0ddb9dfdebc440f769eb825fa994cb7a579d421bbe4191050d2a19bfbf48e4ca",
             "is_symlink": true,
             "realpath": "/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md"
           },
@@ -173,7 +173,7 @@
   "shared_block": {
     "start_marker": "<!-- Shared Codex policy: agentic-cleanup-20261005 -->",
     "end_marker": "<!-- End shared Codex policy -->",
-    "sha256": "f6f4bc7f5435ccf4153264b90934937d02fb34998e616d37e0ca126d7ca9b96d",
+    "sha256": "9f7430cd9e4e362481a1a81ff61c38f050f69796b1dd61bde6d69993060d10d4",
     "includes_end_marker_newline": true
   }
 }

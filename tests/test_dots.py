@@ -109,7 +109,7 @@ with open(os.environ["RENDERER_LOG"], "w") as output:
         result = self.run_dots('up', '--mas', DOTS_UP_BIN=str(renderer), RENDERER_LOG=str(renderer_log))
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(renderer_log.read_text()), ['--root', str(self.root), '--mas'])
+        self.assertEqual(json.loads(renderer_log.read_text()), ['--root', str(self.root), '--no-wait', '--mas'])
         self.assertEqual(self.calls(), [])
 
     def test_configured_renderer_takes_precedence_over_stale_path(self):
