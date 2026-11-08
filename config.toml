@@ -98,6 +98,25 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 # as an individual entry so application state beside it remains unmanaged.
 [dotfiles]
 
+# Shared agent workflow skills, installed for Codex and linked into Claude Code.
+"~/.agents/skills/babysit-pr/SKILL.md" = { source = "dotfiles/.agents/skills/babysit-pr/SKILL.md", mode = "symlink" }
+"~/.agents/skills/babysit-pr/scripts/pr-wait" = { source = "dotfiles/.agents/skills/babysit-pr/scripts/pr-wait", mode = "symlink" }
+"~/.agents/skills/full-send/agents/openai.yaml" = { source = "dotfiles/.agents/skills/full-send/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/full-stop/agents/openai.yaml" = { source = "dotfiles/.agents/skills/full-stop/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/leaving-pr-comments/agents/openai.yaml" = { source = "dotfiles/.agents/skills/leaving-pr-comments/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/modernize/agents/openai.yaml" = { source = "dotfiles/.agents/skills/modernize/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/council/SKILL.md" = { source = "dotfiles/.agents/skills/council/SKILL.md", mode = "symlink" }
+"~/.agents/skills/file-pr/SKILL.md" = { source = "dotfiles/.agents/skills/file-pr/SKILL.md", mode = "symlink" }
+"~/.agents/skills/full-send/SKILL.md" = { source = "dotfiles/.agents/skills/full-send/SKILL.md", mode = "symlink" }
+"~/.agents/skills/full-stop/SKILL.md" = { source = "dotfiles/.agents/skills/full-stop/SKILL.md", mode = "symlink" }
+"~/.agents/skills/frontend-design/SKILL.md" = { source = "dotfiles/.agents/skills/frontend-design/SKILL.md", mode = "symlink" }
+"~/.agents/skills/frontend-design/LICENSE.txt" = { source = "dotfiles/.agents/skills/frontend-design/LICENSE.txt", mode = "symlink" }
+"~/.agents/skills/leaving-pr-comments/SKILL.md" = { source = "dotfiles/.agents/skills/leaving-pr-comments/SKILL.md", mode = "symlink" }
+"~/.agents/skills/modernize/SKILL.md" = { source = "dotfiles/.agents/skills/modernize/SKILL.md", mode = "symlink" }
+"~/.agents/skills/sol-loop/SKILL.md" = { source = "dotfiles/.agents/skills/sol-loop/SKILL.md", mode = "symlink" }
+"~/.agents/skills/sembr/SKILL.md" = { source = "dotfiles/.agents/skills/sembr/SKILL.md", mode = "symlink" }
+"~/.agents/skills/takeover/SKILL.md" = { source = "dotfiles/.agents/skills/takeover/SKILL.md", mode = "symlink" }
+
 # Personal implementation planning skill; individual links preserve neighboring state.
 "~/.codex/skills/implementation-planning/SKILL.md" = { source = "dotfiles/.codex/skills/implementation-planning/SKILL.md", mode = "symlink" }
 "~/.codex/skills/implementation-planning/agents/openai.yaml" = { source = "dotfiles/.codex/skills/implementation-planning/agents/openai.yaml", mode = "symlink" }

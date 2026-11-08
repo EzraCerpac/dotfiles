@@ -38,12 +38,6 @@ For file and directory discovery, prefer fd over find.
 
 Prefer using the in-app browser over external browsers.
 
-For PRs and messages on GitHub, begin with this disclosure. Use the exact model identifier only when verified
-from this task's supported metadata; try `rg -m 1 -o '"model":"[^"]+"' ~/.codex/sessions/<session>`. If it cannot be verified, write "model unverified".
-
-> [!NOTE]
-> **<model>** is writing on behalf of Ezra.
-
 Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
 <!-- End shared Codex policy -->
 
@@ -52,11 +46,6 @@ Describe the final change for a reviewer who has not seen the conversation. Lead
 For personal reminders, read `personal-concierge:apple-reminders` before acting and follow its access checks, list rules, duplicate check, alarms, and read-back. Keep a simple reminder request scoped to that reminder; use `personal-concierge:activity-concierge` for requested cross-source reviews.
 
 Thesis execution on the NAS is retired at Ezra's request. Preserve retained thesis checkouts, research, data, and history; do not start thesis validation lanes, experiments, benchmarks, or manuscript builds here. Current thesis implementation and acceptance belong to the existing Mac owner. Other authorized NAS projects may use their established native remote host and project workflow.
-
-Whenever you write user-facing prose on GitHub on Ezra's behalf—including
-issue comments, pull-request comments or descriptions, review summaries, and
-discussion posts—begin with the verified-model disclosure in the shared policy
-above, using "model unverified" when supported metadata does not identify it.
 
 In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
 
