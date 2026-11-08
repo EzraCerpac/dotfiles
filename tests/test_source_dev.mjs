@@ -210,3 +210,22 @@ done
   f.sync(f.a);
   assert.equal(git(f.origin, 'show', 'dev:text'), 'late local save');
 });
+
+test('a tracked dev fast-forward is adopted while private ref moves are preserved', available, t => {
+  const f = fixture(t, true); f.sync(f.a); f.sync(f.b);
+  const applied = f.head(f.a);
+  run('jj', ['bookmark', 'track', 'dev@origin'], f.a);
+  f.write(f.b, 'remote', 'incoming shared change\n'); f.sync(f.b);
+  const incoming = f.head(f.b);
+  git(f.a, 'fetch', 'origin');
+  run('jj', ['git', 'import'], f.a);
+  assert.equal(f.head(f.a), incoming);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.a, '.git/dots-dev.json'))).applied, applied);
+  f.sync(f.a);
+  assert.equal(fs.readFileSync(path.join(f.a, 'remote'), 'utf8'), 'incoming shared change\n');
+  const privateMove = git(f.a, '-c', 'commit.gpgsign=false', 'commit-tree', `${incoming}^{tree}`, '-p', incoming, '-m', 'Private dev work');
+  git(f.a, 'update-ref', 'refs/heads/dev', privateMove);
+  assert.throws(() => f.sync(f.a), /Local dev moved concurrently/);
+  assert.equal(f.head(f.a), privateMove);
+  assert.equal(git(f.origin, 'rev-parse', 'dev'), incoming);
+});
