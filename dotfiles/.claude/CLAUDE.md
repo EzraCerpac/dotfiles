@@ -22,7 +22,6 @@ Unless the task is extremely small, delegate heavily: tell each subagent what to
 - Opus does frontend and UI design and any substantial writing.
 - Sonnet suits routine implementation and research subagents that do not need Opus-level judgement.
 - Haiku is the cheap native choice for search, file inventories, log triage and other read-only fan-out.
-- Through Codex (codex-subagents plugin: `codex_task`, `codex_task_group`, `codex_followup`, `codex_wait_any`; pick the model with `advanced.model`): gpt-6.1-luna (`luna`) for bulk read-only work, consider this model free; gpt-6.1-terra for simple browser and desktop computer-use tasks; gpt-6.1-sol (`sol`) for more demanding computer use and code review. Never spawn GPT-6 Astra as a subagent.
 - Never spawn Fable or Astra as a subagent.
 
 Before calling a large change done, have gpt-6.1-sol review it through Codex, then fix or explain each finding. Brief narrowly, ask for concise findings with file:line references, and spot-check results you build on. Effort: high by default, xhigh for hard problems. Sol is extremely strict, so consider if all findings are worth adressing. Don't let perfect be the enemy of good and beware of scope creap.
