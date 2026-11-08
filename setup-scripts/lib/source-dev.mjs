@@ -160,7 +160,11 @@ export function syncDev(root, { gitDir, hasJj, miseBin }) {
     if (state.applied && base !== state.applied) deferred('Source revision moved outside managed dev; preserving task work');
     if (!hasJj && run('git', ['diff', '--cached', '--name-only'], { env: { ...env, GIT_INDEX_FILE: path.join(gitDir, 'index') } })) deferred('Staged source requires manual reconciliation');
     const originalDev = optional('rev-parse', '--verify', 'refs/heads/dev');
-    if (state.applied && originalDev !== state.devRef) deferred('Local dev moved concurrently; preserving it');
+    // JJ can advance a tracked bookmark when another checkout fetches origin.
+    const followedRemote = Boolean(state.devRef && originalDev && originalDev !== state.devRef
+      && originalDev === optional('rev-parse', '--verify', 'refs/remotes/origin/dev')
+      && optional('merge-base', '--is-ancestor', state.devRef, originalDev) !== null);
+    if (state.applied && originalDev !== state.devRef && !followedRemote) deferred('Local dev moved concurrently; preserving it');
     if (!state.applied && !adopt && originalDev && base !== originalDev) deferred('Existing dev needs explicit adoption');
     const captureBase = state.capture || state.applied || base;
     const previous = tree(captureBase);
@@ -168,7 +172,7 @@ export function syncDev(root, { gitDir, hasJj, miseBin }) {
     const capturedTree = writeTree(captured);
     const signature = JSON.stringify(captured), local = JSON.stringify(localSignature());
     let candidate = state.queued || base;
-    if (adopt && originalDev) candidate = merge(candidate, originalDev);
+    if ((adopt || followedRemote) && originalDev) candidate = merge(candidate, originalDev);
     if (capturedTree !== git('rev-parse', `${captureBase}^{tree}`)) {
       // Compare with the last capture, so undoing a queued edit is a new save.
       state.capture = commit(captured, [captureBase], 'Save local setup');
