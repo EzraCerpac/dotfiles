@@ -38,7 +38,6 @@ btop = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 "cargo:https://github.com/typst/package-check" = { version = "rev:d1bd0af255d688ce568be3c254efbdb002dc247a", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"] }
 "cargo:cargo-audit" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], depends = ["rust"] }
 "aqua:Kitware/CMake" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-"core:deno" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "git-lfs" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 glow = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }

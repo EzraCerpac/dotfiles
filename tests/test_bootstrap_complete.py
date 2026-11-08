@@ -23,6 +23,7 @@ const run = (command, args, options) => {
   if (command === 'age-keygen') return {status:0, stdout:'age1fixturepublicrecipient\n'};
   if (text.includes('dot status --json')) return {status:0, stdout:JSON.stringify({history:{watcher:process.env.WATCHER_STATE || 'running'}})};
   if (text.includes('setup-scripts/setup/restore') && process.env.FAIL_RESTORE) return {status:1};
+  if (text.includes('setup-scripts/setup/nvim-initialize') && process.env.FAIL_NVIM) return {status:1};
   if (text.includes('setup-scripts/local/shell-select.sh')) {
     const prepare = args.at(-1) === '--prepare-only';
     return {status:Number(process.env[prepare ? 'SHELL_PREPARE_STATUS' : 'SHELL_SELECT_STATUS'] || 0)};
@@ -73,6 +74,12 @@ class CompleteTests(unittest.TestCase):
         enroll = next(i for i,c in enumerate(calls) if 'setup-scripts/bootstrap/enroll-history' in c)
         services = next(i for i,c in enumerate(calls) if 'bootstrap services apply' in c)
         atuin = next(c for c in data['calls'] if 'setup-scripts/bootstrap/atuin.py' in ' '.join(c['args']))
+        nvim = next(i for i,c in enumerate(calls) if 'setup-scripts/setup/nvim-initialize' in c)
+        defaults = next(i for i,c in enumerate(calls) if 'setup-scripts/local/seed-configs.sh' in c)
+        exceptions = next(i for i,c in enumerate(calls) if 'setup-scripts/local/install-exceptions.sh' in c)
+        self.assertLess(restore, defaults)
+        self.assertLess(defaults, nvim)
+        self.assertLess(exceptions, nvim)
         self.assertLess(restore, enroll)
         self.assertLess(enroll, services)
         self.assertIn('--identity', atuin['args'])
@@ -85,7 +92,14 @@ class CompleteTests(unittest.TestCase):
         data, report = self.run_fixture(FAIL_RESTORE='1')
         self.assertEqual(data['result'], 1)
         self.assertFalse(any('bootstrap services apply' in ' '.join(c['args']) for c in data['calls']))
+        self.assertFalse(any('setup-scripts/setup/nvim-initialize' in ' '.join(c['args']) for c in data['calls']))
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage'] == 'Neovim plugins'), 'deferred')
         self.assertTrue(any(s['stage']=='Restore private settings' and s['status']=='failed' for s in report['stages']))
+
+    def test_neovim_failure_is_reported(self):
+        data, report = self.run_fixture(FAIL_NVIM='1')
+        self.assertEqual(data['result'], 1)
+        self.assertEqual(next(s['status'] for s in report['stages'] if s['stage'] == 'Neovim plugins'), 'failed')
 
     def test_unavailable_user_service_is_deferred(self):
         data, report = self.run_fixture(WATCHER_STATE='stopped')

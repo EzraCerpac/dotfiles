@@ -46,6 +46,32 @@ while [[ $# -gt 0 ]]; do
         *) break ;;
     esac
 done
+if [[ "${1:-}" == "config" && "${2:-}" == "ls" ]]; then
+    if [[ -n "${INVALID_CONFIG_MARKER:-}" && -e "$INVALID_CONFIG_MARKER" ]]; then
+        printf 'fixture invalid configuration\\n' >&2
+        exit 1
+    fi
+    exit 0
+fi
+if [[ "${1:-}" == "which" && "${2:-}" == "jq" ]]; then
+    printf '%s\\n' "${TEST_JQ_BIN:-}"
+    exit 0
+fi
+if [[ "${INVALIDATE_ON_INSTALL:-0}" == "1" && "${1:-}" == "install" ]]; then
+    touch "$INVALID_CONFIG_MARKER"
+    exit 1
+fi
+if [[ "${INVALIDATE_ON_FORMULA:-0}" == "1" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "status" ]]; then
+    touch "$INVALID_CONFIG_MARKER"
+    exit 1
+fi
+if [[ "${WAIT_MAS_MARKER:-}" != "" && "${1:-}" == "bootstrap" && "${2:-}" == "packages" && "${3:-}" == "apply" && "${5:-}" == "mas" ]]; then
+    for ((i = 0; i < 300; i++)); do
+        [[ -e "$INVALID_CONFIG_MARKER" ]] && break
+        sleep 0.01
+    done
+    touch "$WAIT_MAS_MARKER"
+fi
 if [[ "${1:-}" == "settings" && "${2:-}" == "get" ]]; then
     printf '%s\\n' "${MISE_HISTORY_MODE:-manual}"
     exit 0
@@ -94,6 +120,9 @@ fi
 if [[ "${1:-}" == "exec" ]]; then
     shift
     [[ "${1:-}" == "--" ]] && shift
+    if [[ "${1:-}" == "bash" && "${2:-}" == */setup-scripts/install/jw-nas-release.sh ]]; then
+        exit "${JW_NAS_FIXTURE_RESULT:-0}"
+    fi
     if [[ "${1:-}" == "node" && "${2:-}" == */setup-scripts/bootstrap/herdr.mjs ]]; then
         exit "${HERDR_CONFIG_RESULT:-0}"
     fi
@@ -175,6 +204,10 @@ if [[ "${1:-}" == "clone" ]]; then
     printf '%s\\n' "$origin" > "$destination/FIXTURE_ORIGIN"
     printf 'fixture-remote-commit\\n' > "$destination/FIXTURE_COMMIT"
     touch "$destination/FIXTURE_BARE"
+    if [[ "$origin" == https://github.com/folke/lazy.nvim.git ]]; then
+        mkdir -p "$destination/lua/lazy"
+        touch "$destination/lua/lazy/init.lua"
+    fi
     exit 0
 fi
 if [[ "${1:-}" == "ls-remote" ]]; then
@@ -452,7 +485,6 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
         *args: str,
         extra_env: dict[str, str | None] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, object]]]:
-        event_read, event_write = os.pipe()
         env = self.env.copy()
         if extra_env:
             for key, value in extra_env.items():
@@ -460,11 +492,12 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                     env.pop(key, None)
                 else:
                     env[key] = value
-        env["DOTS_UP_EVENT_FD"] = str(event_write)
         jq = shutil.which("jq", path=env.get("PATH"))
-        if jq:
+        if jq and not (extra_env and "DOTS_UP_EVENT_JQ" in extra_env):
             env["DOTS_UP_EVENT_JQ"] = jq
-        try:
+        events_path = self.base / "fixture-events.jsonl"
+        with events_path.open("w", encoding="utf-8") as stream:
+            env["DOTS_UP_EVENT_FD"] = str(stream.fileno())
             result = subprocess.run(
                 [str(self.root / "setup-scripts" / "setup" / task), *args],
                 cwd=self.base,
@@ -472,12 +505,9 @@ case " ${BREW_BUSY_PROCESSES:-} " in *" ${2:-} "*) exit 0 ;; *) exit 1 ;; esac
                 text=True,
                 capture_output=True,
                 check=False,
-                pass_fds=(event_write,),
+                pass_fds=(stream.fileno(),),
             )
-        finally:
-            os.close(event_write)
-        with os.fdopen(event_read, encoding="utf-8") as stream:
-            events = [json.loads(line) for line in stream if line.strip()]
+        events = [json.loads(line) for line in events_path.read_text().splitlines() if line.strip()]
         return result, events
 
     def _calls(self) -> list[list[str]]:
@@ -936,13 +966,78 @@ esac
         commands = [call[4:] for call in calls]
         self.assertIn(["upgrade", "--no-prune"], commands)
         self.assertIn(["self-update", "--yes"], commands)
-        self.assertEqual(commands[2], ["bootstrap", "dotfiles", "save"])
+        self.assertEqual(commands[4], ["bootstrap", "dotfiles", "save"])
         self.assertEqual(commands[-1], ["bootstrap", "dotfiles", "save"])
         self.assertLess(commands.index(["self-update", "--yes"]), len(commands) - 1)
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("npm", rendered)
         self.assertNotIn("uv tool upgrade", rendered)
         self.assertNotIn("--prune", [arg for command in commands for arg in command])
+
+    def test_update_stops_before_sync_when_config_cannot_load(self) -> None:
+        marker = self.base / "invalid-config"
+        marker.touch()
+        result, events = self._run_with_events("update", extra_env={"INVALID_CONFIG_MARKER": str(marker)})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("fixture invalid configuration", result.stderr)
+        self.assertEqual([call[4:] for call in self._calls() if call[4:6] != ["which", "jq"]], [["config", "ls"]])
+        self.assertEqual(sum(event.get("kind") == "notice" and "Cannot load update configuration" in str(event.get("summary")) for event in events), 1)
+
+    def test_update_stops_after_config_becomes_invalid(self) -> None:
+        real_jq = os.environ.get("DOTS_TEST_REAL_JQ") or shutil.which("jq", path=self.env["PATH"])
+        self.assertIsNotNone(real_jq)
+        self._write_executable(self.bin / "jq", "#!/usr/bin/env bash\nexit 91\n")
+        result, events = self._run_with_events("update", extra_env={
+            "SETUP_PROFILE": "nas", "INVALID_CONFIG_MARKER": str(self.base / "invalid-config"),
+            "INVALIDATE_ON_INSTALL": "1", "DOTS_UP_EVENT_JQ": None, "TEST_JQ_BIN": real_jq,
+        })
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("fixture invalid configuration", result.stderr)
+        calls = [call[4:] for call in self._calls()]
+        self.assertNotIn(["self-update", "--yes"], calls)
+        self.assertEqual(calls.count(["bootstrap", "dotfiles", "save"]), 1)
+        ends = [event for event in events if event.get("id") == "newly-declared-mise-tools" and event.get("kind") == "stage_end"]
+        self.assertEqual(len(ends), 1)
+        self.assertEqual(ends[0]["status"], "failed")
+        self.assertEqual(sum(event.get("kind") == "notice" and "Cannot load update configuration" in str(event.get("summary")) for event in events), 1)
+
+    def test_update_waits_for_app_store_when_config_becomes_invalid(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        self._write_executable(self.bin / "sudo", "#!/usr/bin/env bash\nexit 0\n")
+        finished = self.base / "mas-finished"
+        result, events = self._run_with_events("update", "--mas", extra_env={
+            "INVALID_CONFIG_MARKER": str(self.base / "invalid-config"),
+            "INVALIDATE_ON_FORMULA": "1", "WAIT_MAS_MARKER": str(finished),
+        })
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertTrue(finished.exists())
+        self.assertEqual(sum(event.get("kind") == "app_store_end" for event in events), 1)
+        self.assertNotIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
+
+    def test_handoff_acknowledgements_end_stage_and_aggregate_failure(self) -> None:
+        self._write_executable(self.bin / "uname", "#!/usr/bin/env bash\n[[ \"${1:-}\" == -m ]] && printf 'arm64\\n' || printf 'Darwin\\n'\n")
+        for ack, expected in (("", "failed"), ("wrong\n", "failed"),
+                              ("go:new-Homebrew-casks\ngo:Homebrew-casks\n", "ok")):
+            with self.subTest(ack=ack):
+                self.log.unlink(missing_ok=True)
+                ack_path = self.base / "ack"
+                ack_path.write_text(ack)
+                event_path = self.base / "ack-events"
+                with ack_path.open() as ack_file, event_path.open("w") as event_file:
+                    result = self._run("update", extra_env={
+                        "DOTS_UP_ACK_FD": str(ack_file.fileno()), "DOTS_UP_EVENT_FD": str(event_file.fileno()),
+                        "DOTS_UP_EVENT_JQ": shutil.which("jq", path=self.env["PATH"]),
+                    }, pass_fds=(ack_file.fileno(), event_file.fileno()))
+                events = [json.loads(line) for line in event_path.read_text().splitlines()]
+                ends = [event for event in events if event.get("kind") == "stage_end" and event.get("id") == "new-Homebrew-casks"]
+                self.assertEqual(len(ends), 1)
+                self.assertEqual(ends[0]["status"], expected)
+                self.assertEqual(ends[0]["exit_code"], 0 if expected == "ok" else 1)
+                self.assertEqual(ends[0]["summary"], "completed" if expected == "ok" else "failed (exit 1)")
+                if expected == "failed":
+                    self.assertNotIn(["bootstrap", "packages", "apply", "--manager", "brew-cask", "--yes"], [call[4:] for call in self._calls()])
+                self.assertEqual(result.returncode, 0 if expected == "ok" else 1, result.stderr)
+                self.assertIn(["self-update", "--yes"], [call[4:] for call in self._calls()])
 
     def test_update_syncs_once_then_reloads_the_fresh_updater(self) -> None:
         result = self._run("update")
@@ -1109,7 +1204,7 @@ exit 90
         self.assertIn("Capd already matches EzraCerpac/capd main", result.stdout)
         calls = [call[4:] for call in self._calls()]
         self.assertIn(["exec", "--", "bash", str(self.root.resolve() / "setup-scripts/local/capd-update.sh")], calls)
-        self.assertNotIn("clone", self.git_log.read_text())
+        self.assertFalse(any("\tclone\t" in line and "capd" in line for line in self.git_log.read_text().splitlines()))
         self.assertFalse(self.capd_security_log.exists(), "no-op must not require a private signing identity")
         self.assertNotIn("capd-install.sh", self.log.read_text())
 
@@ -1218,9 +1313,9 @@ exit 90
         self.assertEqual(result.returncode, 17)
         self.assertIn("source synchronization failed", result.stderr)
         commands = [call[4:] for call in self._calls()]
-        self.assertEqual(len(commands), 1)
+        self.assertEqual(len(commands), 2)
         resolved_root = self.root.resolve()
-        self.assertEqual(commands[0], ["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)])
+        self.assertEqual(commands[1], ["exec", "--", "node", str(resolved_root / "setup-scripts/lib/source-repo.mjs"), "sync", str(resolved_root)])
         rendered = " ".join(" ".join(command) for command in commands)
         self.assertNotIn("bootstrap packages", rendered)
         self.assertNotIn("install", rendered)
@@ -1747,11 +1842,11 @@ exit 90
         self.assertIn(["upgrade", "--cask", "--greedy", "zoom"], calls)
         self.assertFalse(sudo_log.exists())
 
-    def test_update_defers_missing_lazy_without_starting_editor(self) -> None:
+    def test_update_initializes_missing_lazy_before_editor_update(self) -> None:
         result = self._run("update")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Deferred: Lazy.nvim is not installed", result.stdout)
-        self.assertNotIn("NVIM", self.log.read_text())
+        self.assertTrue((Path(self.env["XDG_DATA_HOME"]) / "nvim/lazy/lazy.nvim/lua/lazy/init.lua").exists())
+        self.assertIn("nvim-initialize", self.log.read_text())
 
     def test_delftblue_update_refuses_before_any_mise_command(self) -> None:
         result = self._run("update", extra_env={"SETUP_PROFILE": "delftblue", "SETUP_MACHINE_ID": "delftblue"})
@@ -1795,7 +1890,7 @@ exit 90
             self._calls(),
         )
 
-    def _run_lazy_fixture(self, fail: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:
+    def _run_lazy_fixture(self, fail: bool = False, parser_case: str = "", parser_loaded: bool = True, parser_load_on_update: bool = False) -> tuple[subprocess.CompletedProcess[str], Path]:
         nvim = shutil.which("nvim")
         if not nvim:
             self.skipTest("Neovim is unavailable for isolated Lazy updater fixture")
@@ -1825,11 +1920,18 @@ exit 90
   { name = "version-false-plugin", dir = vim.env.VERSION_FALSE_PLUGIN, version = false, _ = { tasks = {} } },
   { name = "missing-plugin", dir = vim.env.MISSING_PLUGIN, _ = { tasks = {} } },
 }
+if vim.env.TEST_PARSERS and vim.env.TEST_PARSERS ~= "" then
+  table.insert(plugins, { name = "nvim-treesitter", dir = vim.env.PINNED_PLUGIN, pin = true,
+    _ = { tasks = {}, loaded = vim.env.TEST_PARSER_LOADED == "1" } })
+end
 local by_name = {}
 for _, plugin in ipairs(plugins) do by_name[plugin.name] = plugin end
 local M = {}
 function M.plugins() return plugins end
 function M.update(opts)
+  if vim.env.TEST_PARSER_LOAD_ON_UPDATE == "1" then
+    by_name["nvim-treesitter"]._.loaded = true
+  end
   local file = assert(io.open(vim.env.UPDATE_LOG, "w"))
   for _, selected in ipairs(opts.plugins) do
     local plugin = type(selected) == "string" and by_name[selected] or selected
@@ -1850,6 +1952,34 @@ return M
 local plugins = {}
 for _, plugin in ipairs(lazy.plugins()) do plugins[plugin.name] = plugin end
 return { plugins = plugins }
+"""
+        )
+        (lua / "lazy/core/plugin.lua").write_text(
+            """return { values = function(_, prop, is_list)
+  assert(prop == "opts" and is_list == false)
+  return { ensure_installed = { "lua", "javascript", "unsupported" } }
+end }
+"""
+        )
+        (lua / "nvim-treesitter.lua").write_text(
+            """local M = {}
+local installed = { "lua" }
+function M.get_available() return { "lua", "javascript" } end
+function M.get_installed(kind) assert(kind == "parsers"); return installed end
+function M.install(langs, opts)
+  assert(opts.force and opts.summary)
+  local file = assert(io.open(vim.env.PARSER_LOG, "w"))
+  file:write(table.concat(langs, ","))
+  file:close()
+  return { wait = function(_, timeout)
+    assert(timeout == 300000)
+    if vim.env.TEST_PARSERS == "error" then error("fixture timeout") end
+    if vim.env.TEST_PARSERS == "false" then return false end
+    if vim.env.TEST_PARSERS == "success" then table.insert(installed, "javascript") end
+    return true
+  end }
+end
+return M
 """
         )
         self._write_executable(
@@ -1876,6 +2006,10 @@ return { plugins = plugins }
                 "MISSING_PLUGIN": str(fixture / "plugins/missing-plugin"),
                 "UPDATE_LOG": str(updates),
                 "TEST_FAIL": "1" if fail else "0",
+                "TEST_PARSERS": parser_case,
+                "TEST_PARSER_LOADED": "1" if parser_loaded else "0",
+                "TEST_PARSER_LOAD_ON_UPDATE": "1" if parser_load_on_update else "0",
+                "PARSER_LOG": str(fixture / "parsers.txt"),
             }
         )
         try:
@@ -1917,6 +2051,60 @@ return { plugins = plugins }
         self.assertEqual(result.returncode, 1)
         self.assertIn("Lazy plugin update failures", result.stderr)
         self.assertIn("fixture task failure", result.stderr)
+
+    def test_mason_prefers_host_tools_only_for_source_built_nas(self) -> None:
+        nvim = shutil.which("nvim")
+        if not nvim:
+            self.skipTest("Neovim is unavailable for isolated Mason config fixture")
+        for flag, expected in ((None, "prepend"), ("0", "prepend"), ("1", "append")):
+            with self.subTest(flag=flag):
+                env = os.environ.copy()
+                if flag is None:
+                    env.pop("SETUP_NAS_NEOVIM_BUILD", None)
+                else:
+                    env["SETUP_NAS_NEOVIM_BUILD"] = flag
+                env["MASON_SPEC"] = str(SOURCE_ROOT / "dotfiles/.config/nvim/lua/plugins/mason.lua")
+                env["EXPECTED_MASON_PATH"] = expected
+                result = subprocess.run(
+                    [nvim, "--headless", "-u", "NONE", "-c",
+                     "lua local p = dofile(vim.env.MASON_SPEC)[1]; local o = { PATH = 'prepend' }; p.opts(nil, o); assert(o.PATH == vim.env.EXPECTED_MASON_PATH)",
+                     "-c", "qa"], env=env, text=True, capture_output=True, timeout=20, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_lazy_updater_waits_for_missing_supported_parsers(self) -> None:
+        result, updates = self._run_lazy_fixture(parser_case="success")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.base / "lazy-fixture/parsers.txt").read_text(), "javascript")
+        self.assertEqual(updates.read_text().splitlines(), ["clean-plugin", "version-false-plugin"])
+
+    def test_lazy_updater_reports_parser_failure_or_missing_binary(self) -> None:
+        for case in ("false", "error", "race"):
+            with self.subTest(case=case):
+                # Each case owns a separate isolated Neovim fixture.
+                with tempfile.TemporaryDirectory() as directory:
+                    original_base = self.base
+                    self.base = Path(directory)
+                    try:
+                        result, _ = self._run_lazy_fixture(parser_case=case)
+                    finally:
+                        self.base = original_base
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("Tree-sitter parser update failed", result.stderr)
+                self.assertIn("fixture timeout" if case == "error" else "javascript", result.stderr)
+                if case == "race":
+                    self.assertIn("parser binaries still missing", result.stderr)
+
+    def test_lazy_updater_checks_treesitter_loaded_during_update(self) -> None:
+        result, updates = self._run_lazy_fixture(parser_case="race", parser_loaded=False, parser_load_on_update=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(updates.read_text().splitlines(), ["clean-plugin", "version-false-plugin"])
+        self.assertIn("parser binaries still missing: javascript", result.stderr)
+
+    def test_lazy_updater_does_not_load_deferred_treesitter(self) -> None:
+        result, _ = self._run_lazy_fixture(parser_case="success", parser_loaded=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.base / "lazy-fixture/parsers.txt").exists())
 
     def test_first_restore_clones_fetches_and_applies_remote_seed_without_publishing(self) -> None:
         origin = "git@github.com:EzraCerpac/dotfiles-state.git"

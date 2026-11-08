@@ -44,6 +44,11 @@ rift_signing_identity = "Rift Local Code Signing"
 "github:fish-shell/fish-shell" = { version = "latest", os = ["linux/x64", "linux/arm64"] }
 # Bootstrap orchestration and the shared Codex CLI both need Node.
 node = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
+# Shared Neovim plugins use Deno for builds and runtime integrations.
+"core:deno" = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
+# The LazyVim GitUI extra uses the native upstream release for each platform.
+"aqua:gitui-org/gitui" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
+"github:gitui-org/gitui" = { version = "latest", os = ["macos/x64"], asset_pattern = "gitui-mac-x86.tar.gz" }
 age = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 uv = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 # Aqua excludes Intel macOS; use its official release directly on that platform.
