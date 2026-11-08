@@ -36,6 +36,7 @@ __pycache__/
 # Machine tool resolutions are host-local; project lockfiles remain tracked.
 /locks/
 /mise.lock
+/mise.local.lock
 /mise.nas.lock
 /mise.workstation.lock
 # Per-package companions of those lockfiles (npm aube locks).
