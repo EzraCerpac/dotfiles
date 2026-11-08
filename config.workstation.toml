@@ -293,10 +293,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.codex/rules/macos.rules" = { source = "dotfiles/.codex/rules/macos.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/portless.rules" = { source = "dotfiles/.codex/rules/portless.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.codex/skills/audio-diarization/SKILL.md" = { source = "dotfiles/.codex/skills/audio-diarization/SKILL.md", mode = "symlink" }
-"~/.codex/skills/perch/SKILL.md" = { source = "dotfiles/.codex/skills/perch/SKILL.md", mode = "symlink" }
 "~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink" }
-"~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py" = { source = "dotfiles/.codex/skills/audio-diarization/scripts/transcribe_diarize.py", mode = "symlink" }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
