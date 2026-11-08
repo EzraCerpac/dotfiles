@@ -122,9 +122,10 @@ if "which" in sys.argv:
                 self.assertEqual(self.renderer_calls()[-1], self.expected(command, *args))
                 self.assertEqual(self.mise_calls(), [])
 
-    def test_up_alias_keeps_legacy_renderer_argv(self):
-        for invocation, flags in ((('up', '--mas'), ('--mas',)),
-                                  (('update', '--plain', '--no-wait'), ('--plain', '--no-wait'))):
+    def test_up_alias_closes_on_completion_and_last_keeps_report_open(self):
+        for invocation, flags in ((('up', '--mas'), ('--no-wait', '--mas')),
+                                  (('update', '--plain', '--no-wait'), ('--plain', '--no-wait')),
+                                  (('up', '--last'), ('--last',))):
             with self.subTest(invocation=invocation):
                 result = self.run_dots(*invocation)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -192,7 +193,7 @@ if "which" in sys.argv:
     def test_old_renderer_is_only_used_for_legacy_up_and_other_commands_fall_back(self):
         up = self.run_dots("up", "--mas", OLD_RENDERER="1")
         self.assertEqual(up.returncode, 0, up.stderr)
-        self.assertEqual(self.renderer_calls()[-1], ["--root", str(self.root), "--mas"])
+        self.assertEqual(self.renderer_calls()[-1], ["--root", str(self.root), "--no-wait", "--mas"])
         calls_before = self.renderer_calls()
         status = self.run_dots("status", OLD_RENDERER="1")
         self.assertEqual(status.returncode, 0, status.stderr)

@@ -38,12 +38,6 @@ For file and directory discovery, prefer fd over find.
 
 Prefer using the in-app browser over external browsers.
 
-For PRs and messages on GitHub, begin with this disclosure. Use the exact model identifier only when verified
-from this task's supported metadata; try `rg -m 1 -o '"model":"[^"]+"' ~/.codex/sessions/<session>`. If it cannot be verified, write "model unverified".
-
-> [!NOTE]
-> **<model>** is writing on behalf of Ezra.
-
 Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
 <!-- End shared Codex policy -->
 

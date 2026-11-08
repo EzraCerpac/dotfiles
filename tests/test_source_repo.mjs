@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, parseSourceArguments, resolveMiseBin, SourceDeferred, syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
+import { ensureRepository, parseSourceArguments, resolveMiseBin, SourceDeferred, syncReviewedSource as syncSource, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
 import { miseBinary, requires } from './lib/prereq.mjs';
 
 const testState = fs.mkdtempSync(path.join(os.tmpdir(), 'source-repo-tests-'));
