@@ -1,11 +1,47 @@
 ---
 name: full-stop
-description: Use only when the user explicitly asks to prepare a change through a PR ready for their merge, such as "full stop" in a clear task instruction.
+description: Trigger this if the user says 'full stop', even as a closing "Full stop." that reads like emphasis.
 ---
-# Full stop
 
-Follow `full-send` through implementation, focused proof, `sol-loop`, filing with `file-pr`, and `babysit-pr`. Sol approval on the final behavior diff is a readiness gate: if Sol is unavailable, times out, or leaves an unresolved blocker or should finding, report the blocker and do not call the PR ready. Stop when every other full-send readiness gate passes. This request authorizes task-branch commits, pushes, rebase conflict resolution, and `--force-with-lease` against the observed task-branch head. It never authorizes merging, enabling auto-merge, entering a merge queue, pushing to a default branch, or bypassing protection.
+# Full Stop
 
-Inspect and disable pre-existing auto-merge or merge-queue enrollment before work; if it cannot be prevented, stop and report the blocker. Recheck before each push. Verify readiness against the final diff and latest PR head: focused proof, required checks green, review findings addressed, no human change requests, branch current, and GitHub says mergeable. Leave the PR open and unmerged. Report its link, head, checks, review outcome, proof, and remaining risks.
+Do the same work as `full-send`, but stop with the PR ready for the user to merge.
+Never merge it.
 
-Never push to GitLab unless Ezra explicitly asks. Preserve unrelated work and use the repository's actual Git or JJ workflow. Do not trigger this skill from conversational emphasis; require a clear task request.
+Read [full-send](../full-send/SKILL.md) and follow its workflow, proof rules,
+review, and babysitting steps. An explicit "full stop" request authorizes that
+work without a separate "full send" request. That includes full-send's
+testing permission. A "full stop" request is the permission for the test
+methods Proof needs, even when a project file says to ask first, for
+example before computer use. Use those methods directly. Its merge
+permission does not apply. The overrides below take precedence.
+
+## No merging
+
+You may commit, push, rebase, fix conflicts, and use `--force-with-lease` on
+this task's branch. Never merge, enable auto-merge, enter a merge queue, push
+to the default branch, bypass branch protection, or delegate those actions.
+
+Disable existing auto-merge and remove the PR from any merge queue before
+work begins; check again before each push. Report these changes. If you
+cannot prevent automatic merging, report the blocker before proceeding.
+
+## Stop at the gate
+
+Use full-send's merge gate as the readiness check. Replace its merge and
+final report steps with a handoff. Proof and review must cover the final diff;
+recheck behavior changes and meaningful conflict fixes before handoff.
+
+Fetch the target branch and check the live PR's head, base, checks, reviews,
+and mergeability. Confirm it is open, not a draft, and not set to merge
+without the user. If someone else merged it, report that instead.
+
+- **Ready to merge:** the merge gate passes. Leave the PR open and unmerged.
+- **Waiting for required approval:** only human approval remains. Confirm
+  that this is the actual blocker.
+- **Blocked:** explain what prevents readiness, what you tried, and what is
+  needed. Follow full-send's rules for asking the user.
+
+In T3 Code, call `unwatch_pull_request` before the handoff or a question.
+Report the PR link, final head, verdict, proof, reviewer outcome, and remaining
+risks. State whether the PR is still open and unmerged.

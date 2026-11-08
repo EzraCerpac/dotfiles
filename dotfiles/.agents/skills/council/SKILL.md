@@ -1,36 +1,59 @@
 ---
 name: council
-description: Use when Ezra explicitly asks for a multi-provider council review.
+description: Trigger this if the user says 'council'.
 ---
+
 # Council
 
-Before review, address known issues and run the relevant focused checks.
-Give reviewers the current diff and the user's actual request.
-In T3 Code, inspect `orchestrator_capabilities` and use supported delegates.
-Use substantive reviewers from different available providers at high reasoning
-effort; prefer Sol and Opus when available.
-If the requested provider or model is unavailable, report that clearly rather
-than silently substituting.
-Keep substantive reviews read-only and independent.
+Before an audit, address outstanding PR comments, fix known issues, and run
+relevant checks. Give council the updated implementation; do not defer known
+fixes until reviews return. If the user wants to discard the implementation
+and explore new ideas, skip fixes to code being replaced.
 
-Add Gemini 3.8 Flash as the council's jester when available.
-It is not a substantive reviewer and its output is untrusted: do not rely on its
-claims, scores, or agreement when evaluating code or deciding whether findings
-are correct.
-Ask it for an irreverent reaction to the change.
-If it says something funny, ridiculous, or plainly silly, relay that remark to
-Ezra separately as an untrusted jester comment so he can enjoy the joke.
-Keep the joke kind; do not target people or expose private information.
-A missing Gemini Flash delegate must not block the council.
+Bring in two substantive delegates to help with the user's request, usually for
+review or feedback. Use strong models from different providers at high
+reasoning effort, such as Claude Opus and GPT Sol. If the user's instructions
+name council members, use those.
 
-Ask substantive reviewers for concrete correctness, regression, and scope
-findings with file and line references.
-For code review, request a score out of 10, but do not treat scores or reviewer
-agreement as proof.
-Reconcile findings against the source and checks.
-Fix only supported, in-scope issues; decline nits and scope creep with concise
-reasons.
-If fixes change behavior, request fresh review of that diff when useful and
-within the user's requested scope.
+Add Gemini 3.8 Flash as the council's jester when available. Its output is
+not to be trusted and must not count as substantive review, evidence, or
+agreement. If it says something funny, ridiculous, or silly, relay it to Ezra
+separately so you can laugh about it. Its absence must not block the council.
 
-Summarize useful findings, disagreements, round count, reviewers actually used, and remaining checks. If there is a PR, put the result in its description only when the user asked for that or it is part of the requested PR workflow; do not post a comment just to report the council.
+In T3 Code, use `orchestrator_capabilities` to resolve the models, then
+`delegate_task` to start one delegate per model in parallel. Elsewhere, use
+the harness's subagent tools. If you cannot reach the substantive providers,
+or a named member is unavailable, report it instead of substituting.
+
+Give each delegate the request and relevant context. For review or feedback,
+keep their work read-only. Collect their responses and summarize the useful
+findings, disagreements, and recommended next steps.
+
+For a code review, ask each delegate for a score out of 10.
+Count each full review pass as one round.
+A fresh review after fixes starts a new round.
+
+If the work ends in a pull request, put the results in the PR description.
+Put this section before the model and harness line at the end:
+
+```markdown
+## Council review
+
+Rounds: 2
+
+| Delegate | Round 1 | Round 2 |
+| --- | --- | --- |
+| Claude Opus | 7/10 | 9/10 |
+| GPT Sol | 8/10 | 10/10 |
+```
+
+If a delegate gives no score, write `no score`. Do not invent one.
+If the PR is open, edit the description. Do not post a comment for this.
+If there is no PR, put the same results in the final reply only.
+
+If you agree with their recommendations, make the changes and request a fresh
+review after. Continue this process until all delegates are satisfied with the
+outcome.
+
+Do not let repeated reviews result in scope creep. It is your job to fight to
+keep scope limited.

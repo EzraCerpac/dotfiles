@@ -100,6 +100,11 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 
 # Shared agent workflow skills, installed for Codex and linked into Claude Code.
 "~/.agents/skills/babysit-pr/SKILL.md" = { source = "dotfiles/.agents/skills/babysit-pr/SKILL.md", mode = "symlink" }
+"~/.agents/skills/babysit-pr/scripts/pr-wait" = { source = "dotfiles/.agents/skills/babysit-pr/scripts/pr-wait", mode = "symlink" }
+"~/.agents/skills/full-send/agents/openai.yaml" = { source = "dotfiles/.agents/skills/full-send/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/full-stop/agents/openai.yaml" = { source = "dotfiles/.agents/skills/full-stop/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/leaving-pr-comments/agents/openai.yaml" = { source = "dotfiles/.agents/skills/leaving-pr-comments/agents/openai.yaml", mode = "symlink" }
+"~/.agents/skills/modernize/agents/openai.yaml" = { source = "dotfiles/.agents/skills/modernize/agents/openai.yaml", mode = "symlink" }
 "~/.agents/skills/council/SKILL.md" = { source = "dotfiles/.agents/skills/council/SKILL.md", mode = "symlink" }
 "~/.agents/skills/file-pr/SKILL.md" = { source = "dotfiles/.agents/skills/file-pr/SKILL.md", mode = "symlink" }
 "~/.agents/skills/full-send/SKILL.md" = { source = "dotfiles/.agents/skills/full-send/SKILL.md", mode = "symlink" }

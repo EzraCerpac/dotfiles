@@ -1,11 +1,42 @@
 ---
 name: takeover
-description: Use when Ezra explicitly asks to take over an existing PR, branch, or agent task.
+description: Take over existing work. Use when the user asks to take over a PR, branch, or agent thread, or requests a takeover.
 ---
+
 # Takeover
 
-Finish the original goal while preserving prior contributors' credit. Read the original request, current code and head, review findings, later user corrections, and uncommitted state. Treat the handoff as context, not proof. Do not defend a flawed implementation because someone already built it.
+Take responsibility for finishing the original goal while preserving the
+original contributors' credit. Do not defend an implementation just because
+another agent already built it.
 
-Inspect the actual Git or JJ checkout. Preserve authorship, co-author trailers, bookmarks, and other contributors' work. Do not overwrite unrelated work or update the original PR in place unless explicitly requested. Use `modernize` to determine whether an old PR still fits current code. Rework only what is needed to finish the original goal.
+Read the source PR, branch, or thread, including review findings and the user's
+later corrections. Resolve the handoff to the actual code and current head,
+and account for uncommitted work. Treat the handoff as context, not proof.
 
-Verify the original failure and realistic workflow using checks proportionate to the change. If asked to file/update and monitor a PR, use `file-pr` then `babysit-pr`. Use `leaving-pr-comments` for replies. Merge or close an inherited PR only when Ezra explicitly authorizes that action. Report inherited state, changes, proof, preserved credit, and remaining decisions.
+For a replacement PR, import the original commits onto a new branch and add
+your fixes separately. Honor an explicitly requested in-place or stacked
+continuation instead. Do not overwrite unrelated work or change the original
+PR without authorization.
+
+Preserve Git authorship and existing co-author trailers. Credit the original
+contributors in the PR description and link the original PR when there is one.
+If the work will be squashed, preserve human author/co-author credit in the
+merge commit too, using verified identities rather than guessed emails. Model
+attribution is not a substitute for contributor credit.
+
+Use `modernize` to update the continuation against its intended base and
+current architecture. Rework what is necessary to finish the same goal, not
+unrelated features. Simplify the implementation without dropping intended
+behavior or surfaces. Recheck the source PR too: it may have improved while
+you were working.
+
+Independently verify the original failure and realistic workflows, following
+repository guidance and permissions. Green mocked tests do not prove the user
+experience works. State what remains unverified.
+
+When the requested finish includes a PR, use `file-pr` to file or update it,
+then `babysit-pr` rather than stopping at creation. Use `leaving-pr-comments`
+for replies. Merge or close the original PR only when authorized.
+
+Report what you inherited, what you changed, how you verified it, how credit
+was preserved, and any remaining decision.
