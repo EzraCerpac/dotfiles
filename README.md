@@ -84,29 +84,55 @@ Up/Down recall commands entered in this shell session. Ctrl-R searches Atuin's
 persistent history across sessions. To switch an already open shell to local
 recall, run `set -g fish_history ''`; existing saved history is retained.
 
-When the shortcut is ready to share, run `dots publish` from any directory.
-It shows the proposed source diff, scans every commit in it for secrets
-(see [security guardrails](docs/security.md)), asks for a short description and
-confirmation, then publishes a `wip/` branch and opens a pull request. Review and merge that PR
-on GitHub. Source publication is always explicit; the settings watcher and
-updater never push your edits.
+Run `dots sync` or `dots up` to share ordinary public source edits through `dev`.
+Managed live checkouts follow `dev`;
+native task worktrees stay separate and are never initialized or published by sync.
+`main` remains the reviewed branch.
+The settings watcher and encrypted private settings history stay separate.
 
-If you are already working on a private JJ stack, select its bookmark explicitly
-with `dots publish --bookmark wip/your-task`. The command will not quietly include
-unrelated unpublished commits in the default flow.
+Sync captures public files, scans them before creating snapshot ancestry,
+merges away from the live tree, validates the host configuration with local overlays,
+and pushes without force.
+Compatible text edits merge.
+Conflicting text uses the genuine file save time attached to its content,
+with a stable machine identifier breaking ties.
+Receiving, merging and reviewing files do not count as saves.
+The first import has unknown save times;
+conflicts with unknown or implausible timestamps stay pending.
+Ambiguous delete-versus-edit keeps edited content;
+type conflicts stay pending.
+Merge parents retain alternatives, and sync prints commit IDs for recovery:
+`git show COMMIT:path/to/file`.
 
-Use `dots publish --all` to put every unpublished commit leading to the current
-checkout into one PR. It skips an empty working child and leaves other local
-heads alone. If `main` advanced, it previews the stack and asks before merging
-`main` into it. A conflicted merge stays local for you to resolve; no branch is
-pushed until a later run shows and confirms the full final diff. Repeating
-`--all` updates the open aggregate PR when one exists.
+Network or authentication failure leaves a durable local queue and reports
+“Saved locally” or “Push pending”.
+The next `dots up` retries while useful maintenance continues after deferral.
+Secret findings queue publication without putting flagged files in snapshot ancestry.
+Private selectors, ignored local lockfiles and app state stay local.
 
-On the other machine, run `dots up`. It fetches merged `main`, applies the Fish
-change and other ordinary dotfiles, then updates tools. Open a new shell to load
-the shortcut. If you only want configuration, use `dots sync`; this does not
-upgrade software or activate services. `dots apply ~/.ssh/config` remains useful
-when you want to render one locally edited template.
+For a one-time migration of an inspected older live checkout,
+set `DOTS_ADOPT_DEV_PARENT` to its full current source-parent commit ID
+(`jj log --ignore-working-copy -r @- --no-graph -T commit_id`, or Git `HEAD`).
+This opt-in applies only before the first managed adoption;
+it preserves existing edits and records their observed mtimes as unverified history.
+Unset it after adoption.
+Historical save-time collisions remain pending.
+
+PR extraction is manual.
+Create a focused task branch from `origin/main`,
+copy or cherry-pick only the desired change from `dev`,
+and review the resulting diff against `main`.
+Do not move shared `dev` or merge it wholesale into `main`.
+Use `dots publish --bookmark wip/your-task` for a reviewed main-based JJ stack.
+`dots publish --all` remains available for private main-based stacks;
+it refuses shared dev ancestry.
+Publication scans outgoing commits and asks for review confirmation.
+
+On the other machine, run `dots up` to fetch shared `dev`, apply ordinary dotfiles,
+and update tools.
+Open a new shell to load changed shell configuration.
+Use `dots sync` for configuration without software upgrades,
+or `dots apply ~/.ssh/config` to render one locally edited template.
 
 Use `dots sync --source-only` to fetch and advance only the reviewed shared source.
 It keeps the repository, ancestry, local-edit and concurrent-change guards, and
@@ -126,11 +152,12 @@ For an exact reviewed revision, set `DOTS_EXPECTED_MAIN` to its full commit ID w
 running source-only sync. The wrapper captures that value before mise selects its
 environment; a changed remote main then defers before advancement.
 
-Local edits or unpublished history are preserved. When they prevent a safe
-source advance, `dots up` says “source sync deferred” and still updates tools
-using the current configuration. It returns status 3 for that partial result;
-actual failures return status 1. Review or publish the local changes, then rerun
-it. Neither command stashes, rebases private work, or resolves conflicts for you.
+Unrelated task history and concurrent edits are preserved.
+When safe adoption is deferred, `dots up` reports “source sync deferred”
+and continues maintenance using the current configuration.
+The sync backend returns status 3 for deferral;
+the updater completes successfully if its remaining stages succeed.
+No command force-pushes, rebases a task, or writes conflict markers into live files.
 
 ## Update this computer
 

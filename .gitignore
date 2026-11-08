@@ -38,6 +38,7 @@ __pycache__/
 /mise.lock
 /mise.nas.lock
 /mise.workstation.lock
+/mise.local.lock
 # Per-package companions of those lockfiles (npm aube locks).
 /locks/
 *.pyo
