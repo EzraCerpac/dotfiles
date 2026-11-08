@@ -278,6 +278,9 @@ func (m *Model) apply(e Event) {
 			m.SelectedGroup = m.groupIndex(stageGroup(*s))
 		}
 	case "stage_start":
+		if e.Terminal == "handoff" {
+			m.TerminalRequested = true
+		}
 		i := m.stageIndex(e.ID)
 		stage := Stage{ID: e.ID, Group: e.Group, Label: e.Label, Terminal: e.Terminal, Status: "running", LogPath: safeLogPath(m.StateDir, e.LogPath)}
 		if i < 0 {
@@ -316,7 +319,7 @@ func (m *Model) apply(e Event) {
 		}
 	case "notice":
 		m.Notices = append(m.Notices, e)
-	case "terminal_end":
+	case "terminal_end", "handoff_end":
 		m.TerminalRequested = false
 	case "run_end":
 		m.Running, m.Finished, m.ExitCode, m.DurationMS = false, true, e.ExitCode, e.DurationMS

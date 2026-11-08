@@ -27,7 +27,22 @@ func Run(events <-chan Event, control io.Writer, stateDir string, noWait bool) e
 	done := make(chan result, 1)
 	go func() { _, err := p.Run(); done <- result{err} }()
 	encoder := json.NewEncoder(control)
+	discardTerminalRequests := func() error {
+		for {
+			select {
+			case intent := <-model.intents:
+				if intent != "terminal_request" {
+					if err := encoder.Encode(controlRecord{V: 1, Kind: intent}); err != nil {
+						return err
+					}
+				}
+			default:
+				return nil
+			}
+		}
+	}
 	var handoffID string
+	command := "up"
 	var released, manual, sawEnd bool
 	defer func() {
 		if released {
@@ -42,14 +57,15 @@ func Run(events <-chan Event, control io.Writer, stateDir string, noWait bool) e
 		case intent := <-model.intents:
 			if intent == "terminal_request" {
 				if released {
-					p.Send(Event{V: 1, Kind: "terminal_end"}) // discard a request that raced with an automatic handoff
+					// Discard requests queued before a manual or automatic release.
+					// The matching end event will allow another manual request.
 					continue
 				}
 				if err := p.ReleaseTerminal(); err != nil {
 					return fmt.Errorf("release dashboard for manual terminal: %w", err)
 				}
 				released, manual = true, true
-				fmt.Fprint(tty, "\nTerminal view — ← / Esc / q return to the dashboard; update keeps running (Ctrl+] also works).\n\n")
+				fmt.Fprintf(tty, "\nTerminal view — ← / Esc / q return to the dashboard; dots %s keeps running (Ctrl+] also works).\n\n", command)
 				if err := encoder.Encode(controlRecord{V: 1, Kind: "terminal_ready"}); err != nil {
 					return err
 				}
@@ -73,16 +89,26 @@ func Run(events <-chan Event, control io.Writer, stateDir string, noWait bool) e
 			if e.Kind == "run_end" {
 				sawEnd = true
 			}
+			if e.Kind == "run_start" && e.Command != "" {
+				command = cleanLine(e.Command)
+			}
 			switch {
 			case e.Kind == "stage_start" && e.Terminal == "handoff":
-				if released {
+				if released && !manual {
 					return errors.New("nested terminal handoff")
 				}
 				p.Send(e)
-				if err := p.ReleaseTerminal(); err != nil {
-					return fmt.Errorf("release dashboard terminal: %w", err)
+				// Earlier model updates have now completed. Drop their pending
+				// requests so none can reopen a manual view after this prompt ends.
+				if err := discardTerminalRequests(); err != nil {
+					return err
 				}
-				released, handoffID = true, e.ID
+				if !released {
+					if err := p.ReleaseTerminal(); err != nil {
+						return fmt.Errorf("release dashboard terminal: %w", err)
+					}
+				}
+				released, manual, handoffID = true, false, e.ID
 				fmt.Fprintf(tty, "\n%s — terminal input is now available for this step.\n", e.Label)
 				if err := encoder.Encode(controlRecord{V: 1, Kind: "handoff_ready", ID: e.ID}); err != nil {
 					return err

@@ -160,6 +160,25 @@ func TestManualTerminalRequestAndReturn(t *testing.T) {
 	}
 }
 
+func TestAutomaticHandoffPreventsManualRequests(t *testing.T) {
+	m := NewModel(t.TempDir(), false)
+	m.intents = make(chan string, 2)
+	m = send(m, Event{V: 1, Kind: "run_start", ID: "run"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "installer", Terminal: "handoff"})
+	m = press(m, tea.KeyPressMsg{Code: 't'})
+	if len(m.intents) != 0 {
+		t.Fatal("automatic handoff allowed a manual terminal request")
+	}
+	m = send(m, Event{V: 1, Kind: "handoff_end", ID: "installer"})
+	if m.TerminalRequested {
+		t.Fatal("automatic handoff did not return to the dashboard")
+	}
+	m = press(m, tea.KeyPressMsg{Code: 't'})
+	if len(m.intents) != 1 {
+		t.Fatal("manual terminal request was not available after automatic handoff")
+	}
+}
+
 func TestConcurrentAppStoreDoesNotReplaceMainStage(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "app-store.log")

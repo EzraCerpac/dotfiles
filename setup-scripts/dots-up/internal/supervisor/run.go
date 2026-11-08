@@ -266,7 +266,7 @@ func Run(opts Options) int {
 			// After growth, the previous footer is now an ordinary content row.
 			fmt.Fprintf(backend.tty, "\x1b[%d;1H\x1b[2K", manualHintRows)
 		}
-		manualHintRows = drawManualTerminalHint(backend.tty, width, height, initialize)
+		manualHintRows = drawManualTerminalHint(backend.tty, width, height, initialize, opts.Command)
 		manualHintCols = width
 		if manualHintRows == 0 {
 			fmt.Fprint(backend.tty, "\x1b7\x1b[r\x1b8")
@@ -323,6 +323,17 @@ func Run(opts Options) int {
 			return fmt.Errorf("acknowledge terminal handoff: %w", err)
 		}
 		return nil
+	}
+	startAutomaticRelay := func() {
+		err := startRelay("auto")
+		if err == nil {
+			err = ackChild(pendingHandoff)
+		}
+		if err != nil {
+			backendError = err
+			cancelRequested = true
+			cancelBackend(backend)
+		}
 	}
 	finishStage := func(e ui.Event) {
 		if stageLog != nil && stageID == e.ID {
@@ -390,17 +401,21 @@ func Run(opts Options) int {
 				e.LogPath = files.logPath(e.ID)
 				stageLog = openStageLog(e.LogPath)
 			}
-			emit(e)
 			if e.Terminal == "handoff" && backend.pty {
-				pendingHandoff = e.ID
-				if !dashboard {
-					if err := startRelay("auto"); err != nil {
-						backendError = err
-						cancelRequested = true
-						cancelBackend(backend)
-					} else if err := ackChild(e.ID); err != nil {
+				// Automatic prompts take ownership from a manual view. Stop its
+				// input filtering and clear its footer before the UI prints the prompt.
+				if relayKind == "manual" {
+					if err := stopRelay(); err != nil {
 						backendError = err
 					}
+					relayKind = ""
+				}
+				pendingHandoff = e.ID
+			}
+			emit(e)
+			if e.Terminal == "handoff" && backend.pty {
+				if !dashboard {
+					startAutomaticRelay()
 				}
 			}
 		case "stage_end":
@@ -487,13 +502,7 @@ func Run(opts Options) int {
 				}
 			case "handoff_ready":
 				if dashboard && pendingHandoff == control.ID && relayKind == "" {
-					if err := startRelay("auto"); err != nil {
-						backendError = err
-						cancelRequested = true
-						cancelBackend(backend)
-					} else if err := ackChild(control.ID); err != nil {
-						backendError = err
-					}
+					startAutomaticRelay()
 				}
 			case "handoff_ack":
 				if restorePending && restoreKind == "auto" && restoreID == control.ID {
@@ -502,7 +511,9 @@ func Run(opts Options) int {
 			case "terminal_request":
 				// The UI releases the terminal before sending terminal_ready.
 			case "terminal_ready":
-				if dashboard && backend.pty && relayKind == "" {
+				// A manual release may race with the next automatic prompt. Its
+				// stale readiness must not replace that prompt's pending ACK.
+				if dashboard && backend.pty && relayKind == "" && pendingHandoff == "" && !restorePending {
 					if err := startRelay("manual"); err != nil {
 						backendError = err
 					} else {
@@ -588,13 +599,13 @@ func Run(opts Options) int {
 				}
 				if relayKind == "manual" {
 					_ = stopRelay()
-					relayKind, pendingHandoff = "", ""
+					relayKind = ""
+				}
+				if pendingHandoff == "manual" {
+					pendingHandoff = ""
 				}
 				if pendingHandoff != "" && relayKind == "" && backend.pty {
-					if err := startRelay("auto"); err == nil {
-						relayKind = "auto"
-						_ = ackChild(pendingHandoff)
-					}
+					startAutomaticRelay()
 				}
 			}
 		case sig := <-signals:
@@ -1036,7 +1047,7 @@ func terminalSize() (int, int) {
 }
 
 // Reserve the last row so ordinary updater output cannot scroll the back keys away.
-func drawManualTerminalHint(tty io.Writer, width, height int, initialize bool) int {
+func drawManualTerminalHint(tty io.Writer, width, height int, initialize bool, command string) int {
 	if width < 2 || height < 2 {
 		return 0
 	}
@@ -1046,7 +1057,7 @@ func drawManualTerminalHint(tty io.Writer, width, height int, initialize bool) i
 		// Saving/restoring that original cursor would strand output on the footer.
 		fmt.Fprintf(tty, "\x1b[r\x1b[%d;1H\r\n\x1b[1;%dr\x1b[%d;1H", height, height-1, height-1)
 	}
-	hint := ansi.Truncate("← / Esc / q dashboard · update keeps running · Ctrl+] also returns", width-1, "")
+	hint := ansi.Truncate(fmt.Sprintf("← / Esc / q dashboard · dots %s keeps running · Ctrl+] also returns", command), width-1, "")
 	// Routine repaint preserves the output cursor and its scrolling margins.
 	fmt.Fprintf(tty, "\x1b7\x1b[%d;1H\x1b[0;7m\x1b[2K%s\x1b[0m\x1b8", height, hint)
 	return height
