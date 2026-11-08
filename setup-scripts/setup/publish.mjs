@@ -390,6 +390,15 @@ export function publish({
     if (!repository || !repository.gitDir) throw new Error('source repository helper did not return gitDir');
     publishPhase('fetch', 'Fetch main', () => invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], root));
 
+    const devResult = run('git', ['rev-parse', '--verify', 'refs/heads/dev'], { cwd: root, encoding: 'utf8' });
+    if (devResult.status === 0) {
+      const target = bookmark || '@';
+      const dev = devResult.stdout.trim();
+      if (revisionList(run, root, `${dev} & ancestors(${target}) ~ ancestors(main@origin)`).length) {
+        throw new Error('Extract a focused change onto a main-based task branch before publishing; shared dev cannot be an aggregate PR');
+      }
+    }
+
     if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt });
 
     const explicit = Boolean(bookmark);
