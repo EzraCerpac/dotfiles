@@ -5,6 +5,8 @@ On managed hosts, `~/.config/mise` is the active setup source. Native mise deplo
 Use JJ where the checkout supports it and Git in Git-only worktrees. Retain the old checkouts and protected backups for rollback.
 
 Use `dots status`, `dots up`, `dots backup`, or `dots restore` for routine maintenance. `dots` selects the setup directory before mise loads configuration; internal scripts retain explicit directory selection. Project dependencies remain project-owned. Updates must not prune packages or restart services.
+
+Small changes (instruction text, a config line) go straight into this live checkout, not a task worktree: edit the source, then run `dots up`, which applies them and pushes to shared `dev`. Use a task worktree and PR for larger or risky changes.
 Ordinary sync captures and publishes public live-source changes through `dev`;
 `main` stays reviewed and task worktrees stay separate.
 
