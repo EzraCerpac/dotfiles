@@ -124,7 +124,6 @@ app_rules = [
   { app_id = "net.whatsapp.WhatsApp", workspace = 12 },
   { app_id = "com.apple.Music", workspace = 13 },
   { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 11 },
-  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^btop([[:space:]]|$)", workspace = 9 },
   { app_id = "com.apple.weather", floating = true },
   { app_id = "com.apple.AddressBook", floating = true },
 ]
@@ -191,9 +190,6 @@ Hyper = "Meta + Ctrl + Alt + Shift"
 "Hyper + E" = { move_window_to_workspace = { workspace = 12, follow = true } }
 "Hyper + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace move 9"] }
 "Hyper + M" = { exec = ["/bin/sh", "-lc", "~/.local/bin/rift-preferred-workspace launch 13 com.apple.Music Music"] }
-
-# Ops launcher: the helper creates/reuses the temporary btop window.
-"Meh + 9" = { exec = ["/bin/sh", "-lc", "~/.local/bin/start-btop --focus"] }
 
 # Scrolling layout and stacking.
 "Meh + F" = "toggle_fullscreen_within_gaps"

@@ -16,7 +16,7 @@ for rollback.
 | Ctrl/Alt combinations without Cmd | Pass through to the terminal program |
 | Meh+H/J/K/L or arrows | Neovim split, then Rex pane, then AeroSpace window |
 | Hyper+Enter | Open a new Rex shell window on T |
-| Meh+9 | Open or reuse the dedicated Ops btop window |
+| Meh+9 | Show btop (Rex session `ops`); press again to return to the previous session and workspace |
 
 Meh means Cmd+Ctrl+Alt;
 Hyper adds Shift.
@@ -39,10 +39,9 @@ Cancellation returns to the previous session.
 It does not create or remove Git/JJ workspaces.
 
 Normal Rex windows route to T.
-The Ops helper creates its own native window on 9;
-it never selects a session in an existing work window.
-Hidden Ops windows expire after the existing timer interval,
-but cleanup stops if the window or session has acquired other work.
+Meh+9 shows btop in the Rex window on T as the `ops` session;
+pressing it again restores the previous session and workspace.
+Quitting btop ends the `ops` session.
 
 ## NAS connections and startup
 
