@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Meh+9: show btop in the Rex window, or go back to where you were.
+#
+# btop lives in its own Rex session. Showing it remembers the focused workspace
+# and the session the Rex window showed; pressing again while btop is in front
+# restores both.
+set -euo pipefail
+
+AEROSPACE_BIN=${AEROSPACE_BIN:-/opt/homebrew/bin/aerospace}
+REX_BIN=${REX_BIN:-$HOME/.local/bin/rex}
+BTOP=${BTOP:-/opt/homebrew/bin/btop}
+SESSION=${TOGGLE_BTOP_SESSION:-ops}
+STATE=${TOGGLE_BTOP_STATE:-${TMPDIR:-/tmp}/toggle-btop.state}
+REX_BUNDLE=com.superlogical.rex
+
+rex() { "$REX_BIN" --autostart=false "$@"; }
+
+# Show the session labelled $1 in the Rex app; fails when no session has it.
+show_session() {
+    rex "do" -e '
+        for _, s in ipairs(rex.call("session.list").sessions) do
+            if s.label == rex.args.label then
+                return rex.client.queue("session.select", { session_id = s.session_id })
+            end
+        end
+        error("no session")
+    ' label="$1" >/dev/null 2>&1
+}
+
+IFS=$'\t' read -r focused_bundle focused_title workspace < <(
+    "$AEROSPACE_BIN" list-windows --focused --format '%{app-bundle-id}%{tab}%{window-title}%{tab}%{workspace}' 2>/dev/null
+) || true
+
+# Rex window titles end in " - <session label>".
+if [[ "${focused_bundle:-}" == "$REX_BUNDLE" && "$focused_title" == *" - $SESSION" ]]; then
+    [[ -f "$STATE" ]] || exit 0
+    IFS=$'\t' read -r prev_workspace prev_label <"$STATE" || true
+    [[ -z "$prev_workspace" || "$prev_workspace" == "$workspace" ]] || "$AEROSPACE_BIN" workspace "$prev_workspace" &
+    [[ -z "$prev_label" ]] || show_session "$prev_label" || true
+    wait
+    exit 0
+fi
+
+[[ -n "${workspace:-}" ]] || workspace=$("$AEROSPACE_BIN" list-workspaces --focused)
+IFS=$'\t' read -r rex_id rex_title < <(
+    "$AEROSPACE_BIN" list-windows --monitor all --app-bundle-id "$REX_BUNDLE" \
+        --format '%{window-id}%{tab}%{window-title}'
+) || true
+if [[ -z "${rex_id:-}" ]]; then
+    echo "toggle-btop: no Rex window" >&2
+    exit 1
+fi
+
+prev_label=${rex_title##* - }
+if [[ "$rex_title" != *" - "* ]]; then
+    prev_label=
+elif [[ "$prev_label" == "$SESSION" ]]; then
+    # Rex was left on btop: keep the session remembered before that.
+    prev_label=
+    [[ ! -f "$STATE" ]] || IFS=$'\t' read -r _ prev_label <"$STATE" || true
+fi
+# Workspace first: it is never empty, and read collapses empty tab fields.
+printf '%s\t%s\n' "$workspace" "$prev_label" >"$STATE"
+
+"$AEROSPACE_BIN" focus --window-id "$rex_id" &
+show_session "$SESSION" || {
+    # Quitting btop ends its session, so the next press starts a fresh one.
+    # shellcheck disable=SC2016 # expanded by the inner sh
+    rex new "$SESSION" --window btop -- /bin/sh -c '"$1"; exec "$2" --autostart=false kill "$3"' \
+        toggle-btop "$BTOP" "$REX_BIN" "$SESSION" >/dev/null
+    show_session "$SESSION"
+}
+wait

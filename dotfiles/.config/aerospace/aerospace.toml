@@ -31,7 +31,6 @@ on-window-detected = [
   { if = 'test %{app-bundle-id} = com.kagi.kagimacOS', run = 'move-node-to-workspace B' },
   { if = 'test %{app-bundle-id} = com.superlogical.rex', run = 'move-node-to-workspace T' },
   { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^herdr([[:space:]]|$)"', run = 'move-node-to-workspace T' },
-  { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^btop([[:space:]]|$)"', run = 'move-node-to-workspace 9' },
   { if = 'test %{app-bundle-id} = com.apple.mail || test %{app-bundle-id} = net.whatsapp.WhatsApp', run = 'move-node-to-workspace E' },
   { if = 'test %{app-bundle-id} = com.apple.Music', run = 'move-node-to-workspace M' },
 ]
@@ -64,7 +63,7 @@ cmd-ctrl-alt-5 = 'workspace 5'
 cmd-ctrl-alt-6 = 'workspace 6'
 cmd-ctrl-alt-7 = 'workspace 7'
 cmd-ctrl-alt-8 = 'workspace 8'
-cmd-ctrl-alt-9 = 'exec-and-forget ~/.local/bin/start-btop --focus'
+cmd-ctrl-alt-9 = 'exec-and-forget ~/.local/bin/toggle-btop'
 cmd-ctrl-alt-b = 'workspace B'
 cmd-ctrl-alt-t = 'workspace T'
 cmd-ctrl-alt-e = 'workspace E'
