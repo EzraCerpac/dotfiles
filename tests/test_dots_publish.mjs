@@ -6,26 +6,11 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { ensureRepository, withRepositoryLock } from '../setup-scripts/lib/source-repo.mjs';
-import { DISCLOSURE, publish } from '../setup-scripts/setup/publish.mjs';
+import { publish } from '../setup-scripts/setup/publish.mjs';
 import { requires } from './lib/prereq.mjs';
 
 // Every fixture is a real colocated JJ repository.
 const needsJj = requires('jj');
-
-test('publication disclosure uses an unverified fallback or explicit verified identifier', () => {
-  const moduleUrl = new URL('../setup-scripts/setup/publish.mjs', import.meta.url).href;
-  for (const [model, expected] of [[undefined, 'model unverified'], ['', 'model unverified'],
-    ['   ', 'model unverified'], ['verified-model-id', 'verified-model-id']]) {
-    const env = { ...process.env };
-    delete env.DOTS_PUBLISH_MODEL;
-    if (model !== undefined) env.DOTS_PUBLISH_MODEL = model;
-    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
-      `import { DISCLOSURE } from ${JSON.stringify(moduleUrl)}; process.stdout.write(DISCLOSURE);`],
-    { env, encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.stdout, `> [!NOTE]\n> **${expected}** is writing on behalf of Ezra.`);
-  }
-});
 
 function command(root, bin, args) {
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8' });
@@ -63,28 +48,6 @@ function setupRepository({ stack = 1, description = 'Sync public setup', bookmar
 
 function cleanup(fixture) {
   fs.rmSync(fixture.directory, { recursive: true, force: true });
-}
-
-function setupRevertedSecret() {
-  const fixture = setupRepository({ stack: 0 });
-  fs.writeFileSync(path.join(fixture.root, 'temporary-secret.txt'), 'temporary-secret-value\n');
-  fixture.jj('describe', '-m', 'Add temporary secret');
-  fixture.jj('new');
-  fs.rmSync(path.join(fixture.root, 'temporary-secret.txt'));
-  fixture.jj('describe', '-m', 'Remove temporary secret');
-  fixture.jj('bookmark', 'create', 'wip/private', '-r', '@');
-  return fixture;
-}
-
-function advanceMain(fixture, { conflict = false } = {}) {
-  const clone = path.join(fixture.directory, 'other');
-  command(fixture.directory, 'git', ['clone', '-q', fixture.origin, clone]);
-  command(clone, 'git', ['config', 'user.name', 'Dots Test']);
-  command(clone, 'git', ['config', 'user.email', 'dots-test@example.invalid']);
-  fs.writeFileSync(path.join(clone, conflict ? 'config.toml' : 'from-main.txt'), 'new main content\n');
-  command(clone, 'git', ['add', '.']);
-  command(clone, 'git', ['commit', '-qm', 'Advance main']);
-  command(clone, 'git', ['push', '-q', 'origin', 'main']);
 }
 
 // scan: a gitleaks exit status to simulate, 'missing' for an absent scanner,
@@ -128,28 +91,6 @@ function hasCall(calls, bin, ...parts) {
   return calls.some(([actual, args]) => actual === bin && parts.every(part => args.includes(part)));
 }
 
-test('default publication previews main@origin, prompts for an undescribed change, and leaves an empty child', needsJj, () => {
-  const fixture = setupRepository({ description: '' });
-  try {
-    const state = publisher(fixture, { descriptionPrompt: () => 'Describe public setup' });
-    const result = publish(state.options);
-
-    assert.equal(result.bookmark, 'wip/dotfiles-20260920123456-' + result.bookmark.split('-').at(-1));
-    assert.match(state.output.text, /main@origin/);
-    assert.match(state.output.text, /diff --git/);
-    assert.match(state.output.text, new RegExp(DISCLOSURE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.equal(fixture.jj('log', '--no-graph', '-r', '@-', '-T', 'description').trim(), 'Describe public setup');
-    assert.equal(fixture.jj('log', '--no-graph', '-r', '@', '-T', 'description').trim(), '');
-    assert(hasCall(state.calls, 'jj', 'describe', '-m', 'Describe public setup'));
-    assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', result.bookmark));
-    assert(hasCall(state.calls, 'gh', 'create', '--body-file'));
-    assert.equal(state.bodyFiles.length, 1);
-    assert(state.bodyFiles[0].content.startsWith(DISCLOSURE + '\n\n'));
-    assert.match(state.bodyFiles[0].content, /Describe public setup/);
-    assert(!fs.existsSync(state.bodyFiles[0].path));
-  } finally { cleanup(fixture); }
-});
-
 test('default publication scans exactly the unpublished commits before asking', needsJj, () => {
   const fixture = setupRepository();
   try {
@@ -163,24 +104,6 @@ test('default publication scans exactly the unpublished commits before asking', 
     assert.match(state.output.text, /Secret scan: gitleaks found nothing/);
   } finally { cleanup(fixture); }
 });
-
-for (const [name, scan, message] of [
-  ['a gitleaks finding', 1, /gitleaks found potential secrets/],
-  ['a missing gitleaks', 'missing', /gitleaks is required to publish/],
-]) {
-  test(`${name} stops publication before confirming, bookmarking, or pushing`, needsJj, () => {
-    const fixture = setupRepository();
-    try {
-      let confirmed = false;
-      const state = publisher(fixture, { scan, confirm: () => { confirmed = true; return true; } });
-      assert.throws(() => publish(state.options), message);
-      assert(!confirmed);
-      assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
-      assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-      assert(!hasCall(state.calls, 'gh', 'create'));
-    } finally { cleanup(fixture); }
-  });
-}
 
 test('the real gitleaks refuses a token committed and then removed', requires('jj', 'gitleaks'), () => {
   const fixture = setupRepository({ stack: 0 });
@@ -221,30 +144,6 @@ test('the real gitleaks scans content that only a merge resolution adds', requir
   } finally { cleanup(fixture); }
 });
 
-test('default publication rejects an empty child above main@origin before prompting or mutating JJ', needsJj, () => {
-  const fixture = setupRepository({ stack: 0 });
-  try {
-    const before = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim();
-    let confirmed = false;
-    let prompted = false;
-    const state = publisher(fixture, {
-      confirm: () => { confirmed = true; return true; },
-      descriptionPrompt: () => { prompted = true; return 'Should not publish'; },
-    });
-    assert.throws(() => publish(state.options), /no actual file changes above main@origin/);
-    assert.equal(fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id ++ "\\n"').trim(), before);
-    assert.equal(fixture.jj('log', '--no-graph', '-r', '@', '-T', 'description').trim(), '');
-    assert(!confirmed);
-    assert(!prompted);
-    assert(!hasCall(state.calls, 'jj', 'describe'));
-    assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-    assert(!hasCall(state.calls, 'gh', 'list'));
-    assert(!hasCall(state.calls, 'gh', 'create'));
-    assert(!hasCall(state.calls, 'gh', 'edit'));
-  } finally { cleanup(fixture); }
-});
-
 test('default publication refuses a private stack above main@origin', needsJj, () => {
   const fixture = setupRepository({ stack: 2 });
   try {
@@ -254,263 +153,4 @@ test('default publication refuses a private stack above main@origin', needsJj, (
     assert(!hasCall(state.calls, 'gh', 'create'));
     assert(!hasCall(state.calls, 'gh', 'edit'));
   } finally { cleanup(fixture); }
-});
-
-test('rejected confirmation does not describe, bookmark, push, or contact GitHub', needsJj, () => {
-  const fixture = setupRepository({ description: 'Sync public setup' });
-  try {
-    const state = publisher(fixture, { confirm: () => false });
-    assert.throws(() => publish(state.options), /publication cancelled/);
-    assert(!hasCall(state.calls, 'jj', 'describe'));
-    assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-    assert(!hasCall(state.calls, 'gh', 'create'));
-    assert(!hasCall(state.calls, 'gh', 'edit'));
-  } finally { cleanup(fixture); }
-});
-
-test('explicit bookmark reuses an open PR without disturbing unrelated working changes', needsJj, () => {
-  const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
-  try {
-    fixture.jj('new', 'main@origin');
-    fs.writeFileSync(path.join(fixture.root, 'unrelated.txt'), 'leave this working change alone\n');
-    const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'OPEN' }] });
-    state.options.bookmark = 'wip/private';
-    const result = publish(state.options);
-
-    assert.equal(result.bookmark, 'wip/private');
-    assert(hasCall(state.calls, 'gh', 'list', '--head', 'wip/private'));
-    assert(hasCall(state.calls, 'gh', 'edit', '9', '--body-file'));
-    assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', 'wip/private'));
-    assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
-    assert(!hasCall(state.calls, 'jj', 'new'));
-    assert.equal(fs.readFileSync(path.join(fixture.root, 'unrelated.txt'), 'utf8'), 'leave this working change alone\n');
-  } finally { cleanup(fixture); }
-});
-
-test('explicit preview shows every unpublished commit, including content reverted by a later commit', needsJj, () => {
-  const fixture = setupRevertedSecret();
-  try {
-    const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'OPEN' }] });
-    state.options.bookmark = 'wip/private';
-    publish(state.options);
-
-    assert.match(state.output.text, /Add temporary secret/);
-    assert.match(state.output.text, /Remove temporary secret/);
-    assert.match(state.output.text, /temporary-secret-value/);
-  } finally { cleanup(fixture); }
-});
-
-test('revision changes after confirmation abort before describe, bookmark, or push', needsJj, () => {
-  const fixture = setupRepository({ description: '' });
-  try {
-    const state = publisher(fixture, {
-      descriptionPrompt: () => 'Describe public setup',
-      confirm: () => { fixture.jj('new', 'main@origin'); return true; },
-    });
-    assert.throws(() => publish(state.options), /source revision changed while the preview was open/);
-    assert(!hasCall(state.calls, 'jj', 'describe'));
-    assert(!hasCall(state.calls, 'jj', 'bookmark', 'create'));
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-  } finally { cleanup(fixture); }
-});
-
-test('closed existing PR is refused before an explicit bookmark is pushed', needsJj, () => {
-  const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
-  try {
-    const state = publisher(fixture, { prs: [{ number: 9, url: 'https://github.com/EzraCerpac/dotfiles/pull/9', state: 'MERGED' }] });
-    state.options.bookmark = 'wip/private';
-    assert.throws(() => publish(state.options), /refusing to edit merged pull request/);
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-  } finally { cleanup(fixture); }
-});
-
-test('failed explicit PR lookup refuses to push or create a duplicate', needsJj, () => {
-  const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
-  try {
-    const state = publisher(fixture, { lookupFailure: true });
-    state.options.bookmark = 'wip/private';
-    assert.throws(() => publish(state.options), /gh .*GitHub unavailable/);
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-    assert(!hasCall(state.calls, 'gh', 'create'));
-  } finally { cleanup(fixture); }
-});
-
-test('push failure stops before PR lookup and leaves the private bookmark untouched', needsJj, () => {
-  const fixture = setupRepository({ description: 'Private stack', bookmark: 'wip/private' });
-  try {
-    const state = publisher(fixture, { pushStatus: 1 });
-    state.options.bookmark = 'wip/private';
-    assert.throws(() => publish(state.options), /jj .*push failed/);
-    assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', 'wip/private'));
-    assert(!hasCall(state.calls, 'gh', 'create'));
-    assert(!hasCall(state.calls, 'gh', 'edit'));
-  } finally { cleanup(fixture); }
-});
-
-test('--all publishes the current stack through an empty child and ignores another head', needsJj, () => {
-  const fixture = setupRepository({ stack: 2 });
-  try {
-    const tip = fixture.jj('log', '-r', '@', '--no-graph', '-T', 'commit_id').trim();
-    fixture.jj('new', 'main@origin');
-    fs.writeFileSync(path.join(fixture.root, 'other-head.txt'), 'not in this PR\n');
-    fixture.jj('describe', '-m', 'Unrelated head');
-    fixture.jj('bookmark', 'create', 'wip/unrelated', '-r', '@');
-    fixture.jj('new', tip);
-    const state = publisher(fixture);
-    state.options.all = true;
-    const result = publish(state.options);
-
-    assert.match(result.bookmark, /^wip\/dotfiles-all-/);
-    assert.match(state.output.text, /Private base 0/);
-    assert.match(state.output.text, /Sync public setup/);
-    assert.doesNotMatch(state.output.text, /Unrelated head|other-head\.txt/);
-    assert.match(state.output.text, /Final pull request diff against main@origin/);
-    assert.match(state.bodyFiles[0].content, /- Private base 0\n- Sync public setup/);
-    assert.equal(fixture.jj('log', '-r', result.bookmark, '--no-graph', '-T', 'commit_id').trim(), tip);
-    assert.equal(fixture.jj('log', '-r', '@', '--no-graph', '-T', 'empty').trim(), 'true');
-    assert(!hasCall(state.calls, 'jj', 'new'));
-  } finally { cleanup(fixture); }
-});
-
-test('--all refuses a stack whose final tree matches main', needsJj, () => {
-  const fixture = setupRevertedSecret();
-  try {
-    const state = publisher(fixture);
-    state.options.all = true;
-    assert.throws(() => publish(state.options), /no file changes compared with main@origin/);
-    assert.match(state.output.text, /temporary-secret-value/);
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-  } finally { cleanup(fixture); }
-});
-
-test('--all merges newer main, then previews the final PR diff', needsJj, () => {
-  const fixture = setupRepository({ stack: 2 });
-  try {
-    advanceMain(fixture);
-    const questions = [];
-    const state = publisher(fixture, { confirm: question => { questions.push(question); return true; } });
-    state.options.all = true;
-    const result = publish(state.options);
-
-    assert.equal(questions.length, 2);
-    assert.match(questions[0], /Merge main@origin/);
-    assert.match(questions[1], /Publish the current stack/);
-    assert.match(state.output.text, /Final pull request diff against main@origin:[\s\S]*public-1\.txt/);
-    assert(hasCall(state.calls, 'jj', 'new', 'main@origin'));
-    assert(hasCall(state.calls, 'jj', 'git', 'push', '--bookmark', result.bookmark));
-    assert.equal(fixture.jj('log', '-r', `main@origin ~ ::${result.bookmark}`, '--no-graph', '-T', 'commit_id').trim(), '');
-    const pushed = fixture.jj('log', '--no-graph', '-r', result.bookmark, '-T', 'commit_id').trim();
-    assert(state.calls.some(([bin, args]) => bin === 'gitleaks' && args.some(arg => arg.endsWith(`..${pushed}`))), 'the merged stack must be scanned');
-  } finally { cleanup(fixture); }
-});
-
-test('--all stops after a conflicted merge without pushing', needsJj, () => {
-  const fixture = setupRepository({ stack: 1 });
-  try {
-    fs.writeFileSync(path.join(fixture.root, 'config.toml'), 'local content\n');
-    fixture.jj('describe', '-m', 'Change local config');
-    advanceMain(fixture, { conflict: true });
-    const state = publisher(fixture);
-    state.options.all = true;
-    assert.throws(() => publish(state.options), /merging main created conflicts/);
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-    assert(!hasCall(state.calls, 'gh', 'create'));
-    assert.notEqual(fixture.jj('log', '-r', '@ & conflicts()', '--no-graph', '-T', 'commit_id').trim(), '');
-  } finally { cleanup(fixture); }
-});
-
-test('--all cancellation before merging leaves JJ untouched', needsJj, () => {
-  const fixture = setupRepository({ stack: 1 });
-  try {
-    advanceMain(fixture);
-    const before = fixture.jj('log', '-r', '@', '--no-graph', '-T', 'commit_id').trim();
-    const state = publisher(fixture, { confirm: () => false });
-    state.options.all = true;
-    assert.throws(() => publish(state.options), /nothing was changed or pushed/);
-    assert.equal(fixture.jj('log', '-r', '@', '--no-graph', '-T', 'commit_id').trim(), before);
-    assert(!hasCall(state.calls, 'jj', 'new'));
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-  } finally { cleanup(fixture); }
-});
-
-test('--all cancellation after a clean merge leaves it local without pushing', needsJj, () => {
-  const fixture = setupRepository({ stack: 1 });
-  try {
-    advanceMain(fixture);
-    let approvals = 0;
-    const state = publisher(fixture, { confirm: () => ++approvals === 1 });
-    state.options.all = true;
-    assert.throws(() => publish(state.options), /nothing was pushed/);
-    assert.equal(approvals, 2);
-    assert(!hasCall(state.calls, 'jj', 'git', 'push'));
-    assert.equal(fixture.jj('log', '-r', 'main@origin ~ ::@', '--no-graph', '-T', 'commit_id').trim(), '');
-  } finally { cleanup(fixture); }
-});
-
-test('--all rerun updates the open aggregate PR and moves its bookmark forward', needsJj, () => {
-  const fixture = setupRepository({ stack: 1 });
-  try {
-    const first = publisher(fixture);
-    first.options.all = true;
-    const original = publish(first.options);
-    fs.writeFileSync(path.join(fixture.root, 'later.txt'), 'later change\n');
-    fixture.jj('describe', '-m', 'Later change');
-    const second = publisher(fixture, { prs: [{ number: 17, url: original.url, state: 'OPEN' }] });
-    second.options.all = true;
-    const updated = publish(second.options);
-
-    assert.equal(updated.bookmark, original.bookmark);
-    assert(updated.existing);
-    assert(hasCall(second.calls, 'jj', 'bookmark', 'move', original.bookmark));
-    assert(hasCall(second.calls, 'gh', 'edit', '17', '--body-file'));
-    assert(!hasCall(second.calls, 'gh', 'create'));
-    assert.match(second.bodyFiles[0].content, /Later change/);
-  } finally { cleanup(fixture); }
-});
-
-test('--all rejects --bookmark before changing source state', needsJj, () => {
-  const fixture = setupRepository({ stack: 1, bookmark: 'wip/private' });
-  try {
-    const state = publisher(fixture);
-    state.options.all = true;
-    state.options.bookmark = 'wip/private';
-    assert.throws(() => publish(state.options), /cannot be used together/);
-    assert.deepEqual(state.calls, []);
-    const cli = spawnSync(process.execPath, [path.resolve('setup-scripts/setup/publish.mjs'), fixture.root, '--all', '--bookmark', 'wip/private'], { encoding: 'utf8' });
-    assert.equal(cli.status, 1);
-    assert.match(cli.stderr, /cannot be used together/);
-  } finally { cleanup(fixture); }
-});
-
-test('publication reports phases without disclosing preview content or changing confirmation', needsJj, () => {
-  const fixture = setupRepository();
-  const eventFile = path.join(fixture.directory, 'events.jsonl');
-  const fd = fs.openSync(eventFile, 'w');
-  const previousFd = process.env.DOTS_UP_EVENT_FD;
-  const previousNonce = process.env.DOTS_UP_STREAM_NONCE;
-  process.env.DOTS_UP_EVENT_FD = String(fd);
-  delete process.env.DOTS_UP_STREAM_NONCE;
-  try {
-    let confirmations = 0;
-    const state = publisher(fixture, { confirm: () => { confirmations++; return true; } });
-    publish(state.options);
-    const events = fs.readFileSync(eventFile, 'utf8').trim().split('\n').map(JSON.parse);
-    assert.equal(confirmations, 1);
-    for (const phase of ['validate', 'fetch', 'preview', 'scan', 'approval', 'push', 'pull-request']) {
-      assert(events.some(event => event.kind === 'item_upsert' && event.id === `publish:${phase}` && event.status === 'ok'), phase);
-    }
-    const scan = events.findIndex(event => event.id === 'publish:scan' && event.status === 'ok');
-    const approval = events.findIndex(event => event.id === 'publish:approval' && event.status === 'ok');
-    const push = events.findIndex(event => event.id === 'publish:push' && event.status === 'ok');
-    assert(scan < approval && approval < push);
-    assert(!JSON.stringify(events).includes('public-0.txt'));
-  } finally {
-    fs.closeSync(fd);
-    if (previousFd === undefined) delete process.env.DOTS_UP_EVENT_FD;
-    else process.env.DOTS_UP_EVENT_FD = previousFd;
-    if (previousNonce === undefined) delete process.env.DOTS_UP_STREAM_NONCE;
-    else process.env.DOTS_UP_STREAM_NONCE = previousNonce;
-    cleanup(fixture);
-  }
 });

@@ -39,10 +39,3 @@ Shortcut, quitting apps, signaling processes, or writing presentation state.
 `present status` shows the selected demo PID and URL while showcase is active.
 `present doctor` retains its ordinary Shortcut, resource, and backup preflight
 checks. Leave either presentation mode with `present off` before entering again.
-
-The isolated regression tests use fake macOS commands and HTTP responses, and
-intercept Bash's signal builtin:
-
-```sh
-uv run --no-project python -m unittest discover -s tests -p test_present.py
-```
