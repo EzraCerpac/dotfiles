@@ -373,7 +373,7 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/rift-local-install" = { source = "templates/.local/bin/rift-local-install.tera", mode = "template", variants = [{ os = "macos" }] }
 "~/.local/bin/rift-local-signing-setup" = { source = "templates/.local/bin/rift-local-signing-setup.tera", mode = "template", variants = [{ os = "macos" }] }
 "~/.local/bin/rift-preferred-workspace" = { source = "dotfiles/.local/bin/rift-preferred-workspace", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/start-btop" = { source = "dotfiles/.local/bin/start-btop", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.local/bin/toggle-btop" = { source = "dotfiles/.local/bin/toggle-btop", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/wm-focus" = { source = "dotfiles/.local/bin/wm-focus", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/worktree-opencode" = { source = "dotfiles/.local/bin/worktree-opencode", mode = "symlink" }
 "~/.local/bin/humanize-clipboard" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
