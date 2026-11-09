@@ -229,3 +229,12 @@ test('a tracked dev fast-forward is adopted while private ref moves are preserve
   assert.equal(f.head(f.a), privateMove);
   assert.equal(git(f.origin, 'rev-parse', 'dev'), incoming);
 });
+
+test('sync merges reviewed main into shared dev', available, t => {
+  const f = fixture(t); f.sync(f.a);
+  const c = path.join(f.dir, 'c'); git(f.dir, 'clone', f.origin, c);
+  fs.writeFileSync(path.join(c, 'reviewed'), 'merged PR\n'); git(c, 'add', '.'); git(c, 'commit', '-m', 'Reviewed'); git(c, 'push', 'origin', 'main');
+  f.sync(f.a);
+  assert.equal(fs.readFileSync(path.join(f.a, 'reviewed'), 'utf8'), 'merged PR\n');
+  git(f.origin, 'merge-base', '--is-ancestor', 'main', 'dev');
+});
