@@ -130,3 +130,7 @@ end
 if test -d "$HOME/.local/bin"
     fish_add_path --global --path --prepend --move "$HOME/.local/bin"
 end
+
+# >>> grok installer >>>
+fish_add_path $HOME/.grok/bin
+# <<< grok installer <<<

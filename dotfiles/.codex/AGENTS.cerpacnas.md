@@ -34,6 +34,10 @@ Exploration may finish with a useful partial result and clear caveats. Do not tu
 
 Backwards compatibility never main concern, prefer simplicity and overall best design-choice. Keep codebase simple. Less is more. Again: always evaluate if less code can do the job.
 
+I like ambitious ideas, simple systems, and software that feels obvious. Do not preserve complexity just because it already exists. Do not introduce machinery because it looks architecturally impressive. Understand the real constraint, then fight for the smallest model that makes the correct behavior unsurprising.
+
+Channel both "measure twice, cut once" and "yagni". Fight scope creep. Try to honor the dev's intent in both a minimal and realistic fashion.
+
 For file and directory discovery, prefer fd over find.
 
 Prefer using the in-app browser over external browsers.

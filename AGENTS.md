@@ -1,24 +1,13 @@
-# Setup source ownership
+# Machine setup
 
-On managed hosts, `~/.config/mise` is the active setup source. Native mise deploys static files under `dotfiles/` in their declared symlink or copy mode. For symlinked files, edit the linked file or its source. For copy-mode files, edit the source and reapply only that intentional file through native mise; editing the deployed copy does not update its source. Use native mise dotfile application for templates. Do not run chezmoi against these destinations. Isolated task checkouts hold reviewed source changes; inspect the selected checkout before editing or deploying.
+`~/.config/mise` is the live setup source (JJ). Native mise deploys `dotfiles/` as symlinks or copies: edit the source, and for copy-mode files and templates reapply only that target through native mise. Never run chezmoi against these destinations.
 
-Use JJ where the checkout supports it and Git in Git-only worktrees. Retain the old checkouts and protected backups for rollback.
+Small changes (instruction text, a config line) go straight into the live checkout: edit, then run `dots up`, which applies them and pushes to shared `dev`. Larger or risky changes use a task worktree (Git) and a PR into `main`, which stays reviewed.
 
-Use `dots status`, `dots up`, `dots backup`, or `dots restore` for routine maintenance. `dots` selects the setup directory before mise loads configuration; internal scripts retain explicit directory selection. Project dependencies remain project-owned. Updates must not prune packages or restart services.
-Ordinary sync captures and publishes public live-source changes through `dev`;
-`main` stays reviewed and task worktrees stay separate.
+Use `dots status`, `dots up`, `dots backup`, and `dots restore` for routine maintenance. Updates must not prune packages or restart services. The one exception is Capd: macOS `dots up` may rebuild and reinstall a changed `EzraCerpac/capd` `main` and restore its running state, and does nothing when it is already current; NAS updates skip it.
 
-Capd is a user-authorized exception to the routine update boundary: macOS workstation `dots up` may install a changed, locally built `EzraCerpac/capd` `main` revision and restore its prior running state. Its updater must exit without rebuild or restart when the installed app matches current fork `main`; NAS updates must skip Capd.
+This repository is public. `miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored; app-written settings live in the private `dotfiles-state` repository. Claude Code `settings.json` renders from a template (see `docs/agent-instructions.md`). Never commit keys or app state.
 
-`miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored. App-written settings remain regular files with encrypted history in the private `dotfiles-state` repository. Claude Code `settings.json` is the exception: it renders from a reviewed template (see `docs/agent-instructions.md`). Keep private keys and application state out of this public repository.
+Roles are `workstation` and `nas`. Preserve host exceptions, services, system software, app data, and signed local desktop builds. Read `docs/agent-instructions.md` before changing agent instructions and `docs/migration.md` before changing installer exceptions or moving an app.
 
-The shared base loads for every machine. Explicit roles are `workstation` and `nas`; DelftBlue is retired. Codex instructions on the Mac, CerpacNAS, and Driehuis NAS resolve to their local mise sources. This verifies selected instruction ownership, not full machine cutover. Preserve host exceptions, services, and system software. DelftBlue is preserved without a cluster deployment. See `docs/agent-instructions.md` for the selected sources and on-demand drift check.
-
-See `docs/migration.md` and the ownership guides before changing installer exceptions or transferring an app. Keep existing app data and signed local desktop builds intact.
-
-# Cloud NAS tasks
-
-For cloud tasks accessing the NASes or HouseAtlas, read
-[Cloud NAS access](docs/cloud-nas-access.md) before choosing a route or testing
-connectivity. It records bounded read-only checks and dated service observations;
-it does not authorize login, service changes, or broader network access.
+For cloud tasks that touch the NASes or HouseAtlas, read [Cloud NAS access](docs/cloud-nas-access.md) first. It does not authorize logins, service changes, or broader network access.
