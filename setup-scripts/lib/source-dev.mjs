@@ -188,6 +188,7 @@ export function syncDev(root, { gitDir, hasJj, miseBin }) {
     persist();
     console.log(`Saved locally: ${candidate}; recovery: git show ${candidate}:PATH`);
     let fetched = false;
+    optional('fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main');
     try {
       git('fetch', '--no-tags', 'origin', 'refs/heads/dev:refs/remotes/origin/dev');
       fetched = true;
@@ -198,6 +199,9 @@ export function syncDev(root, { gitDir, hasJj, miseBin }) {
     }
     let remote = fetched ? optional('rev-parse', '--verify', 'refs/remotes/origin/dev') : null;
     if (remote) candidate = merge(candidate, remote);
+    // Dev carries everything: reviewed main merges in on every sync.
+    const main = optional('rev-parse', '--verify', 'refs/remotes/origin/main');
+    if (main) candidate = merge(candidate, main);
     for (let attempt = 0; attempt < 2; attempt++) {
       const entries = tree(candidate);
       scanTree(entries);
