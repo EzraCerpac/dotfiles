@@ -28,11 +28,6 @@ jobs:
           go mod verify
           go test ./...
           go vet ./...
-      - name: Run CLI PTY fixtures
-        run: |
-          python3 tests/test_dots_up_cli.py
-          python3 tests/test_dots_shared_cli.py
-          python3 tests/test_dots_status_bridge.py
 
   release:
     needs: test

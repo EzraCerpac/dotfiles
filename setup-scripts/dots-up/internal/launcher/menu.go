@@ -100,7 +100,7 @@ func formFor(it item) form {
 	case "bundle-check":
 		f.fields = []field{text("Bundle path", "--bundle", "Encrypted bundle", true), text("Identity path", "--identity", "Age identity file path", true)}
 	case "test":
-		f.fields = []field{choice("Python", "python", "Select test suites; none runs all", "off", "on"), choice("Node", "node", "", "off", "on"), choice("Shell", "shell", "", "off", "on"), choice("Lua", "lua", "", "off", "on")}
+		f.fields = []field{choice("Python", "python", "Select test suites; none runs all", "off", "on"), choice("Node", "node", "", "off", "on")}
 	case "publish":
 		f.fields = []field{choice("Scope", "", "Current change by default", "current", "all", "bookmark"), text("Bookmark", "--bookmark", "Required when scope is bookmark", false)}
 	}
