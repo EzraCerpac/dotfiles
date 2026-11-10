@@ -6,10 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { syncDev } from './source-dev.mjs';
 
-export class SourceDeferred extends Error { constructor(message) { super(message); this.code = 3; } }
-const lockfiles = ['mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
 const isLocalConfig = name => name === 'config.local.toml' || name === 'miserc.toml' || /^config\.host-[a-z0-9-]+\.toml$/.test(name);
-const isLocalConfigPath = name => isLocalConfig(name.split('/')[0].toLowerCase());
 const dotsVars = new Map();
 
 // Read one [vars] dots_* setting from ROOT/config.toml through mise, once per
@@ -54,54 +51,63 @@ const command = (bin, args, root, options = {}) => {
   if (result.error || result.status !== 0) throw new Error(`${bin} failed: ${result.error?.message || String(result.stderr || '').trim() || `exit ${result.status}`}`);
   return trimOutput ? result.stdout?.trim() || '' : result.stdout || '';
 };
-const jj = (root, args) => command('jj', ['-R', root, ...args], root);
-const lines = value => value.split('\n').map(x => x.trim()).filter(Boolean);
-const revisions = (root, revset) => lines(jj(root, ['log', '-r', revset, '--no-graph', '-T', 'commit_id ++ "\\n"']));
+export const MIGRATION_DOC = 'docs/sync-migration.md';
+const fatal = message => Object.assign(new Error(message), { fatal: true });
 
 function metadata(root) {
   root = fs.realpathSync(root);
-  if (fs.existsSync(path.join(root, '.jj'))) {
-    if (fs.realpathSync(command('jj', ['root'], root)) !== root) throw new Error('The setup directory must be the JJ workspace root');
-    return { root, gitDir: fs.realpathSync(command('jj', ['git', 'root'], root)), hasJj: true };
-  }
-  const gitPath = path.join(root, '.git');
-  if (!fs.existsSync(gitPath) || !fs.lstatSync(gitPath).isDirectory()) throw new Error('Expected an adopted Git checkout; linked Git worktrees are not automatically initialized');
-  if (fs.realpathSync(command('git', ['rev-parse', '--show-toplevel'], root)) !== root) throw new Error('The setup directory must be the Git checkout root');
-  const gitDir = fs.realpathSync(command('git', ['rev-parse', '--absolute-git-dir'], root));
-  const common = fs.realpathSync(path.resolve(root, command('git', ['rev-parse', '--git-common-dir'], root)));
-  if (gitDir !== common) throw new Error('Linked Git worktrees are not automatically initialized');
-  return { root, gitDir, hasJj: false };
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel', '--absolute-git-dir', '--git-common-dir'], { cwd: root, encoding: 'utf8' });
+  if (result.status !== 0) throw fatal(`${root} is not a Git repository`);
+  const [top, gitDir, common] = result.stdout.trim().split('\n');
+  if (fs.realpathSync(top) !== root) throw fatal(`${root} is not the root of its Git repository`);
+  return { root, gitDir: fs.realpathSync(gitDir), commonDir: fs.realpathSync(path.resolve(root, common)) };
 }
 
+// Repository and origin checks shared by sync, status and publish.
 export function ensureRepository(root, { expectedRemote } = {}) {
   const info = metadata(root);
-  const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
-  requireOrigin(info.root, remote, expectedRemote);
-  for (const marker of ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG']) {
-    if (fs.existsSync(path.join(info.gitDir, marker))) throw new SourceDeferred(`Finish the Git operation (${marker}) before syncing configuration`);
-  }
-  if (!info.hasJj) {
-    // JJ does not preserve a distinct staged/unstaged split. Refuse rather than
-    // silently losing an intermediate version from the Git index.
-    if (command('git', ['diff', '--cached', '--name-only'], root)) throw new SourceDeferred('The Git index has staged changes; reconcile them before JJ initialization');
-    command('jj', ['git', 'init', '--colocate', root], root);
-    console.log('Initialized colocated JJ; existing files and Git branches were preserved.');
-  }
-  return { root: info.root, gitDir: info.gitDir };
+  const remote = spawnSync('git', ['config', '--get', 'remote.origin.url'], { cwd: info.root, encoding: 'utf8' });
+  if (remote.status !== 0) throw fatal('this checkout has no origin remote');
+  try { requireOrigin(info.root, remote.stdout.trim(), expectedRemote); }
+  catch (error) { throw fatal(error.message); }
+  return info;
 }
 
+// The one shape sync works on: plain Git with HEAD on dev and no legacy state.
+// Converting an older checkout is a one-time manual step (MIGRATION_DOC).
+export function shapeProblem({ root, gitDir }) {
+  if (fs.existsSync(path.join(root, '.jj'))) return 'a JJ workspace (.jj) is present';
+  if (fs.existsSync(path.join(gitDir, 'dots-dev.json'))) return 'legacy sync state (.git/dots-dev.json) is present';
+  const head = spawnSync('git', ['symbolic-ref', '-q', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout?.trim();
+  if (head !== 'refs/heads/dev') return head ? `HEAD is on ${head.replace(/^refs\/heads\//, '')}, not dev` : 'HEAD is detached, not on dev';
+  if (spawnSync('git', ['rev-parse', '--verify', '-q', 'HEAD'], { cwd: root }).status !== 0) return 'dev has no commits';
+  return null;
+}
+
+// One source operation per repository. A lock left by a dead process on this
+// host is reclaimed; a live one makes the caller skip.
 export function withRepositoryLock(root, callback) {
-  const { gitDir } = metadata(root);
-  const directory = path.join(gitDir, 'dots-source.lock');
-  try { fs.mkdirSync(directory, { mode: 0o700 }); }
+  const { commonDir } = metadata(root);
+  const directory = path.join(commonDir, 'dots-source.lock');
+  const owner = path.join(directory, 'owner.json');
+  const take = () => fs.mkdirSync(directory, { mode: 0o700 });
+  try { take(); }
   catch (error) {
-    if (error.code === 'EEXIST') throw new SourceDeferred(`Another source operation owns ${directory}; inspect its owner.json before removing a stale lock`);
-    throw error;
+    if (error.code !== 'EEXIST') throw error;
+    let holder = {};
+    try { holder = JSON.parse(fs.readFileSync(owner, 'utf8')); } catch { /* being written or empty */ }
+    let alive = true;
+    if (holder.host === os.hostname() && Number.isInteger(holder.pid)) {
+      try { process.kill(holder.pid, 0); } catch (probe) { alive = probe.code !== 'ESRCH'; }
+    }
+    if (alive) throw Object.assign(new Error(`another source operation is running (pid ${holder.pid ?? 'unknown'}); lock ${directory}`), { locked: true });
+    fs.rmSync(directory, { recursive: true, force: true });
+    take();
   }
   try {
-    fs.writeFileSync(path.join(directory, 'owner.json'), JSON.stringify({ pid: process.pid, host: os.hostname(), started: new Date().toISOString() }), { mode: 0o600 });
+    fs.writeFileSync(owner, JSON.stringify({ pid: process.pid, host: os.hostname(), started: new Date().toISOString() }), { mode: 0o600 });
     return callback();
-  } finally { fs.rmSync(directory, { recursive: true }); }
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 }
 
 function miseEnvironment(root) {
@@ -156,51 +162,7 @@ function validateMiseVersion(root, config, miseBin, parsedMinimum) {
   if (!version) throw new Error('Cannot determine the installed mise version');
   const a = version.split('.').map(Number), b = minimum.split('.').map(Number);
   const difference = a.map((n, i) => n - b[i]).find(n => n !== 0) || 0;
-  if (difference < 0) throw new SourceDeferred(`Incoming configuration requires mise ${minimum}; update standalone mise before source sync`);
-}
-
-function publicMinimumVersion(config, miseBin) {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-toml-'));
-  try {
-    const input = path.join(work, 'input.toml'), empty = path.join(work, 'empty.toml');
-    fs.writeFileSync(input, config, { mode: 0o600 });
-    fs.writeFileSync(empty, '', { mode: 0o600 });
-    const env = { ...process.env };
-    for (const key of Object.keys(env)) if (key.startsWith('MISE_') || key.startsWith('__MISE_')) delete env[key];
-    Object.assign(env, { HOME: work, MISE_CONFIG_DIR: work, MISE_GLOBAL_CONFIG_FILE: empty,
-      MISE_GLOBAL_CONFIG_ROOT: work, MISE_SYSTEM_CONFIG_DIR: work, MISE_CEILING_PATHS: work,
-      MISE_DATA_DIR: path.join(work, 'data'), MISE_CACHE_DIR: path.join(work, 'cache'), MISE_STATE_DIR: path.join(work, 'state'),
-      MISE_ENV: '', MISE_AUTO_ENV: '0', MISE_NO_ENV: '1', MISE_NO_HOOKS: '1', MISE_AUTO_INSTALL: '0',
-      MISE_EXEC_AUTO_INSTALL: '0', MISE_AUTO_UPDATE: '0', MISE_TRUSTED_CONFIG_PATHS: work, NO_COLOR: '1' });
-    const get = key => {
-      const result = spawnSync(miseBin, ['config', 'get', '--file', input, key], { cwd: work, env, encoding: 'utf8' });
-      if (result.error) throw new Error('Cannot parse incoming public TOML');
-      if (result.status === 0) return result.stdout.replace(/\r?\n$/, '');
-      if (result.status === 1 && result.stderr.startsWith(`mise ERROR Key not found: ${key} in `)) return null;
-      throw new Error('Incoming public TOML could not be parsed');
-    };
-    const value = get('min_version');
-    if (value === null) return null;
-    if (/^\d+\.\d+\.\d+$/.test(value)) return value;
-    const hard = get('min_version.hard');
-    const soft = get('min_version.soft');
-    if (soft !== null && !/^\d+\.\d+\.\d+$/.test(soft)) throw new Error('Incoming soft minimum must be a full numeric version');
-    if (hard === null) {
-      if (soft !== null) return null;
-      throw new Error('Incoming min_version must be a version string or hard/soft table');
-    }
-    if (!/^\d+\.\d+\.\d+$/.test(hard)) throw new Error('Incoming hard minimum must be a full numeric version');
-    return hard;
-  } finally { fs.rmSync(work, { recursive: true }); }
-}
-
-function localFileMetadata(root) {
-  const names = fs.readdirSync(root).filter(name => isLocalConfigPath(name) || lockfiles.includes(name.toLowerCase())).sort();
-  return names.map(name => {
-    const stat = fs.lstatSync(path.join(root, name), { bigint: true });
-    if (!stat.isFile()) throw new Error(`Local setup configuration must be a regular file: ${name}`);
-    return [name, ...['dev', 'ino', 'mode', 'uid', 'gid', 'size', 'mtimeNs', 'ctimeNs'].map(key => String(stat[key]))];
-  });
+  if (difference < 0) throw new Error(`incoming configuration requires mise ${minimum}; update standalone mise`);
 }
 
 export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local) {
@@ -212,7 +174,7 @@ export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, l
       const ignore = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:.gitignore`], root, { trimOutput: false, encoding: null });
       const rules = ignore.toString('utf8').split(/\r?\n/);
       const hostRule = rules.findLastIndex(rule => rule === '/config.host-*.toml' || rule === 'config.host-*.toml');
-      if (hostRule < 0) throw new SourceDeferred('Incoming ignore rules must protect every config.host-*.toml selector');
+      if (hostRule < 0) throw new Error('incoming ignore rules must protect every config.host-*.toml selector');
       // Conservatively reject later root-file negations whose literal prefix can
       // overlap the host namespace. Directory-only and other literal namespaces
       // cannot unignore a root selector. One probe cannot cover future host IDs.
@@ -226,77 +188,21 @@ export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, l
         let length = 0;
         while (length < pattern.length && !['*', '?', '[', '\\'].includes(pattern[length])) length++;
         const prefix = pattern.slice(0, length), namespace = 'config.host-';
-        if (namespace.startsWith(prefix) || prefix.startsWith(namespace)) throw new SourceDeferred('Incoming ignore negations could expose a future host selector; preserving the current source');
+        if (namespace.startsWith(prefix) || prefix.startsWith(namespace)) throw new Error('incoming ignore negations could expose a future host selector');
       }
       fs.writeFileSync(path.join(preview, '.gitignore'), ignore, { mode: 0o600 });
     }
     // An isolated Git index checks only public incoming rules. No private files,
     // global excludes, or repository-local excludes are copied into the preview.
     command('git', ['init', '--quiet', '--template=', preview], root);
-    const names = [...new Set(['config.local.toml', 'miserc.toml', 'config.host-source-only.toml', ...lockfiles, ...local.map(([name]) => name)])];
+    const names = [...new Set(['config.local.toml', 'miserc.toml', 'config.host-source-only.toml', ...local])];
     const result = spawnSync('git', ['-c', `core.excludesFile=${os.devNull}`, 'check-ignore', '--no-index', '-z', '--stdin'], {
       cwd: preview, encoding: 'utf8', input: names.join('\0') + '\0',
     });
     if (result.error || ![0, 1].includes(result.status)) throw new Error(`Cannot validate incoming ignore rules: ${result.error?.message || result.stderr?.trim()}`);
     const ignored = new Set(result.stdout.split('\0').filter(Boolean));
-    if (names.some(name => !ignored.has(name))) throw new SourceDeferred('Incoming ignore rules would expose local settings or lockfiles; preserving the current source');
+    if (names.some(name => !ignored.has(name))) throw new Error('incoming ignore rules would expose local settings or lockfiles');
   } finally { fs.rmSync(preview, { recursive: true }); }
-}
-
-function restoreSourceAfterRace(root, inspectedRevision, incoming) {
-  // Keep any concurrent public edits and their revision. Recovery is safe only
-  // while the newly created child is still empty and has the expected parent.
-  const parents = revisions(root, '@-');
-  if (parents.length !== 1 || parents[0] !== incoming || lines(jj(root, ['diff', '-r', '@', '--summary'])).length) {
-    throw new SourceDeferred('Local settings changed during advancement; concurrent source work prevents automatic recovery. All edits are retained; reconcile the source before retrying');
-  }
-  const expected = lines(command('jj', ['--ignore-working-copy', '-R', root, 'log', '-r', '@ & empty()', '--no-graph', '-T', 'commit_id ++ "\\n"'], root));
-  if (expected.length !== 1) throw new SourceDeferred('Source changed before recovery; current source and settings are retained for reconciliation');
-  // edit snapshots and resolves this gate within the same JJ operation. A public
-  // write or JJ move after the checks makes the target empty instead of replacing
-  // the writer's checkout. The prior child belongs to children of base ancestors.
-  const target = `${inspectedRevision} & children(ancestors(@ & ${expected[0]} & empty()))`;
-  try { jj(root, ['edit', target]); }
-  catch { throw new SourceDeferred('Source changed before recovery; current source and settings are retained for reconciliation'); }
-  throw new SourceDeferred('Local settings changed during advancement; restored the prior source revision and retained the changed settings. Rerun sync when ready');
-}
-
-function syncSourceOnly(root, gitDir, incoming, base, incomingFiles, inspectedRevision, changed, miseBin) {
-  if ([...incomingFiles].some(isLocalConfigPath)) throw new Error('Incoming source must not track private setup selectors');
-  const local = localFileMetadata(root);
-  const previousFiles = new Set(lines(command('git', [`--git-dir=${gitDir}`, 'ls-tree', '-r', '--name-only', base], root)));
-  if ([...previousFiles].some(isLocalConfigPath)) throw new SourceDeferred('Tracked private selectors require manual reconciliation; source-only sync preserves local settings');
-  if ([...incomingFiles, ...previousFiles].some(name => lockfiles.includes(name.split('/')[0].toLowerCase()))) {
-    throw new SourceDeferred('Tracked lockfiles require ordinary dots sync; source-only sync preserves local files without migration');
-  }
-  const entry = command('git', [`--git-dir=${gitDir}`, 'ls-tree', incoming, '--', 'config.toml'], root);
-  if (!/^100(?:644|755) blob [a-f0-9]+\tconfig\.toml$/.test(entry)) throw new Error('Incoming config.toml must be a regular source file');
-  const config = command('git', [`--git-dir=${gitDir}`, 'show', `${incoming}:config.toml`], root, { trimOutput: false, encoding: null });
-  validateIncomingIgnores(root, gitDir, incoming, incomingFiles, local);
-  validateMiseVersion(root, config, miseBin, publicMinimumVersion(config, miseBin));
-  if (revisions(root, '@')[0] !== inspectedRevision || JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local)) {
-    throw new SourceDeferred('Source or local settings changed during validation; preserving them. Rerun sync when ready');
-  }
-  const advances = base !== incoming || changed.length;
-  if (advances) {
-    // new snapshots and resolves the target within one native JJ operation.
-    // Late public edits change @ and make this guarded target empty.
-    const target = `${incoming} & descendants(parents(@ & ${inspectedRevision} & empty()))`;
-    try { jj(root, ['new', target]); }
-    catch { throw new SourceDeferred('Source changed before advancement or JJ could not advance; current source is retained. Rerun sync when ready'); }
-  }
-  let settingsChanged;
-  try { settingsChanged = JSON.stringify(localFileMetadata(root)) !== JSON.stringify(local); }
-  catch (error) {
-    if (advances) restoreSourceAfterRace(root, inspectedRevision, incoming);
-    throw error;
-  }
-  if (settingsChanged) {
-    if (advances) restoreSourceAfterRace(root, inspectedRevision, incoming);
-    throw new SourceDeferred('Local settings changed during source-only synchronization; preserving the current source and changed settings');
-  }
-  console.log(`Source synchronized to ${incoming.slice(0, 12)} (source only; dotfiles not applied).`);
-  return incoming;
 }
 
 export function validateIncoming(root, gitDir, commit, miseBin) {
@@ -331,133 +237,84 @@ function sourceEvent(value) {
   } catch { /* Progress must not change the source operation. */ }
 }
 
-function sourceProgress(id, label, status, summary) {
-  sourceEvent({ v: 1, kind: 'item_upsert', id: `source:${id}`, group: 'Source', label, status, summary, action: '', before: '', after: '' });
-}
-
 function sourceChanged(before, after) {
-  if (before !== after) sourceEvent({ v: 1, kind: 'change', stage: 'source-sync', item: 'Configuration source', action: 'updated', before, after });
+  if (before && after && before !== after) sourceEvent({ v: 1, kind: 'change', stage: 'source-sync', item: 'Configuration source', action: 'updated', before, after });
 }
 
-export function syncReviewedSource(root, { miseBin, expectedRemote, sourceOnly = false, expectedMain } = {}) {
-  if (expectedMain && (!sourceOnly || !/^[a-f0-9]{40}$/.test(expectedMain))) throw new Error('expectedMain requires source-only mode and a full lowercase commit ID');
-  miseBin ||= resolveMiseBin();
-  if (!executable(miseBin)) invalidMiseOverride('miseBin', miseBin);
-  miseBin = path.resolve(miseBin);
-  root = fs.realpathSync(root);
-  return withRepositoryLock(root, () => {
-    const { gitDir } = ensureRepository(root, { expectedRemote });
-    sourceProgress('fetch', 'Fetch source', 'unknown', 'running');
-    try { jj(root, ['git', 'fetch', '--remote', 'origin', '--branch', 'main']); }
-    catch (error) { throw new SourceDeferred(`Could not fetch origin/main; keeping the current source. ${error.message}`); }
-    sourceProgress('fetch', 'Fetch source', 'ok', 'completed');
-    sourceProgress('validate', 'Validate source', 'unknown', 'running');
-    const incoming = revisions(root, 'main@origin');
-    if (incoming.length !== 1) throw new Error('origin/main must resolve to one revision');
-    if (expectedMain && incoming[0] !== expectedMain) throw new SourceDeferred('origin/main changed after review; preserving the current source');
-    const base = revisions(root, '@-');
-    if (base.length !== 1) throw new SourceDeferred('The working copy has multiple parents; reconcile the source manually');
-    if (revisions(root, '@ & conflicts()').length) throw new SourceDeferred('The source has unresolved conflicts');
-    if (!revisions(root, `${base[0]} & ancestors(${incoming[0]})`).length) throw new SourceDeferred('The current source contains unpublished or divergent history; preserving it');
-    const inspectedRevision = revisions(root, '@')[0];
-    const changed = lines(jj(root, ['diff', '-r', '@', '--summary']));
-    const incomingFiles = new Set(lines(command('git', [`--git-dir=${gitDir}`, 'ls-tree', '-r', '--name-only', incoming[0]], root)));
-    const migratesLocks = lockfiles.every(name => !incomingFiles.has(name));
-    if (changed.length && !(migratesLocks && changed.every(line => /^M (mise(?:\.nas|\.workstation)?\.lock)$/.test(line)))) {
-      throw new SourceDeferred('Local source edits need review; preserving them. Use dots publish when ready');
-    }
-    if (sourceOnly) {
-      const result = syncSourceOnly(root, gitDir, incoming[0], base[0], incomingFiles, inspectedRevision, changed, miseBin);
-      sourceChanged(base[0], incoming[0]);
-      sourceProgress('validate', 'Validate source', 'ok', 'completed');
-      sourceProgress('advance', 'Advance source', 'ok', 'completed');
-      return result;
-    }
-    validateIncoming(root, gitDir, incoming[0], miseBin);
-    sourceProgress('validate', 'Validate source', 'ok', 'completed');
-    sourceProgress('apply', 'Advance and apply source', 'unknown', 'running');
-    const env = miseEnvironment(root);
-    command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save'], root, { env });
-    if (revisions(root, '@')[0] !== inspectedRevision) throw new SourceDeferred('Source changed during validation; preserving the new edits. Rerun sync when ready');
-    const localLocks = new Map();
-    for (const name of lockfiles) {
-      const filename = path.join(root, name);
-      if (fs.existsSync(filename)) {
-        if (!fs.lstatSync(filename).isFile()) throw new Error(`Refusing unexpected lockfile path: ${name}`);
-        localLocks.set(name, fs.readFileSync(filename));
-      }
-    }
-    const previousFiles = new Set(lines(command('git', [`--git-dir=${gitDir}`, 'ls-tree', '-r', '--name-only', base[0]], root)));
-    if (migratesLocks && localLocks.size && lockfiles.some(name => previousFiles.has(name))) {
-      const backup = path.join(root, '.setup-state', 'local-lockfiles', `${Date.now()}-${process.pid}`);
-      fs.mkdirSync(backup, { recursive: true, mode: 0o700 });
-      for (const [name, content] of localLocks) fs.writeFileSync(path.join(backup, name), content, { mode: 0o600 });
-    }
-    if (base[0] !== incoming[0] || changed.length) {
-      try { jj(root, ['new', incoming[0]]); sourceChanged(base[0], incoming[0]); }
-      finally {
-        if (migratesLocks) for (const [name, content] of localLocks) fs.writeFileSync(path.join(root, name), content, { mode: 0o600 });
-      }
-    }
-    command(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes'], root, { env, stdio: 'inherit' });
-    sourceProgress('apply', 'Advance and apply source', 'ok', 'completed');
-    console.log(`Source synchronized to ${incoming[0].slice(0, 12)}; dotfiles applied.`);
-    return incoming[0];
-  });
-}
+const IN_PROGRESS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG'];
 
-export function syncSource(root, options = {}) {
-  if (options.sourceOnly || options.expectedMain) return syncReviewedSource(root, options);
-  root = fs.realpathSync(root);
-  return withRepositoryLock(root, () => {
-    const info = metadata(root);
-    const remote = command('git', ['config', '--get', 'remote.origin.url'], root);
-    requireOrigin(root, remote, options.expectedRemote);
-    for (const marker of ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG']) {
-      if (fs.existsSync(path.join(info.gitDir, marker))) throw new SourceDeferred(`Finish the Git operation (${marker}) before syncing configuration`);
-    }
-    return syncDev(root, { ...info, miseBin: options.miseBin || resolveMiseBin() });
-  });
-}
-
-export function parseSourceArguments(args) {
-  const [action, root, ...options] = args;
-  if (!root || !['init', 'sync', 'status'].includes(action)
-      || (options.length && !(action === 'status' && options.length === 1 && options[0] === '--json') && (action !== 'sync' || options[0] !== '--source-only'
-        || ![1, 3].includes(options.length) || (options.length === 3 && (options[1] !== '--expected-main' || !/^[a-f0-9]{40}$/.test(options[2])))))) {
-    throw new Error('Usage: source-repo.mjs init|status ROOT, or sync ROOT [--source-only [--expected-main COMMIT]]');
+// Run one sync and print one block. Only a missing or foreign repository and a
+// checkout in the wrong shape are fatal (exit 1); every other outcome exits 0.
+export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = console.log } = {}) {
+  let info;
+  try {
+    info = ensureRepository(root, { expectedRemote });
+    const problem = shapeProblem(info);
+    if (problem) throw fatal(`${problem}. Sync needs a plain Git checkout on dev; convert this machine once by hand: see ${MIGRATION_DOC}`);
+  } catch (error) {
+    print(`dots sync: stopped · ${error.message}`);
+    return 1;
   }
-  return { action, root, ...(action === 'status' && options[0] === '--json' ? { json: true } : {}), sourceOnly: action === 'sync' && options.length > 0, ...(options.length === 3 ? { expectedMain: options[2] } : {}) };
+  const marker = IN_PROGRESS.find(name => fs.existsSync(path.join(info.gitDir, name)));
+  if (marker) {
+    print(`dots sync: skipped · a Git operation is in progress (${marker}); finish or abort it, then rerun`);
+    return 0;
+  }
+  let result;
+  try {
+    result = withRepositoryLock(info.root, () => syncDev(info.root, { gitDir: info.gitDir, miseBin: miseBin || resolveMiseBin(), gitleaks }));
+  } catch (error) {
+    print(error.locked ? `dots sync: skipped · ${error.message}` : `dots sync: failed · ${error.message}`);
+    return error.locked ? 0 : 1;
+  }
+  sourceChanged(result.before, result.after);
+  print([result.header, ...result.lines.map(line => `  ${line}`)].join('\n'));
+  return 0;
+}
+
+// Bootstrap: put a fresh, clean clone (on main) onto dev. Anything else is left
+// alone; an older checkout is converted by hand (MIGRATION_DOC).
+export function initSource(root) {
+  const info = ensureRepository(root);
+  const problem = shapeProblem(info);
+  if (!problem) return;
+  const git = (...args) => spawnSync('git', args, { cwd: info.root, encoding: 'utf8' });
+  if (problem !== 'HEAD is on main, not dev' || git('status', '--porcelain').stdout.trim()) throw new Error(`${problem}; see ${MIGRATION_DOC}`);
+  const remote = git('rev-parse', '--verify', '-q', 'refs/remotes/origin/dev').status === 0;
+  const result = git('switch', '--quiet', ...(remote ? ['-c', 'dev', 'refs/remotes/origin/dev'] : ['-c', 'dev']));
+  if (result.status !== 0) throw new Error(`could not switch to dev: ${result.stderr.trim()}`);
+  console.log(`Source checkout is on dev${remote ? ' (from origin/dev)' : ''}.`);
+}
+
+export function sourceStatus(root) {
+  const info = ensureRepository(root);
+  const git = (...args) => spawnSync('git', args, { cwd: info.root, encoding: 'utf8' }).stdout?.trim() || '';
+  const problem = shapeProblem(info);
+  const revision = git('rev-parse', '--verify', '-q', 'HEAD');
+  const unpushed = Number(git('rev-list', '--count', 'HEAD', ...(git('rev-parse', '--verify', '-q', 'refs/remotes/origin/dev') ? ['^refs/remotes/origin/dev'] : []))) || 0;
+  return { workspace: 'git', branch: git('symbolic-ref', '-q', '--short', 'HEAD'), base_revision: revision, unpushed, problem, shared: 'origin/dev', publication: 'automatic; main reviewed' };
 }
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    const { action, root, json, sourceOnly, expectedMain } = parseSourceArguments(process.argv.slice(2));
-    if (action === 'status') {
-      const info = metadata(root);
-      const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
-      requireOrigin(info.root, remote, undefined, 'Origin');
-      if (json) {
-        // Ignore the working copy: status inspection must not snapshot or mutate it.
-        const revision = info.hasJj
-          ? command('jj', ['--ignore-working-copy', '-R', root, 'log', '-r', '@-', '--no-graph', '-T', 'commit_id'], root)
-          : command('git', ['rev-parse', 'HEAD'], root);
-        console.log(JSON.stringify({ workspace: info.hasJj ? 'jj' : 'git', base_revision: revision, shared: 'origin/dev', publication: 'automatic; main reviewed' }));
-      }
+  const [action, root, ...options] = process.argv.slice(2);
+  const usage = 'Usage: source-repo.mjs init|sync|status ROOT, status ROOT --json';
+  if (!root || !(['init', 'sync', 'status'].includes(action)) || options.length > (action === 'status' ? 1 : 0) || (options.length && options[0] !== '--json')) {
+    console.error(usage);
+    process.exitCode = 2;
+  } else if (action === 'sync') process.exitCode = syncSource(root);
+  else if (action === 'init') {
+    try { initSource(root); } catch (error) { console.error(`Source init failed: ${error.message}`); process.exitCode = 1; }
+  } else {
+    try {
+      const status = sourceStatus(root);
+      if (options.length) console.log(JSON.stringify(status));
       else {
-        console.log(`Source: ${info.hasJj ? 'JJ workspace' : 'Git checkout'}`);
-        console.log('Shared source: origin/dev; automatic capture and push; main stays reviewed.');
-        const queue = path.join(info.gitDir, 'dots-dev.json');
-        if (fs.existsSync(queue)) {
-          const state = JSON.parse(fs.readFileSync(queue, 'utf8'));
-          console.log(`Recovery: ${state.queued}; ${state.pending ? 'Push pending; Saved locally' : 'saved source'}`);
-        }
+        console.log(`Source: Git checkout${status.branch ? ` on ${status.branch}` : ' (detached)'} at ${status.base_revision.slice(0, 12)}; ${status.unpushed} commits not on origin/dev as of the last fetch`);
+        if (status.problem) console.log(`Attention: ${status.problem}; see ${MIGRATION_DOC}`);
       }
+    } catch (error) {
+      console.error(`Source status failed: ${error.message}`);
+      process.exitCode = 1;
     }
-    else if (action === 'init') withRepositoryLock(root, () => ensureRepository(root));
-    else syncSource(root, { sourceOnly, expectedMain });
-  } catch (error) {
-    console.error(`${error.code === 3 ? 'Source sync deferred' : 'Source operation failed'}: ${error.message}`);
-    process.exitCode = error.code === 3 ? 3 : 1;
   }
 }
