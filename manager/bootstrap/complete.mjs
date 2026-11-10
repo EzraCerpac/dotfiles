@@ -10,23 +10,17 @@ import { dotsVar, dotsList } from '../lib/source-repo.mjs';
 
 class Deferred extends Error {}
 
-// Configuration hooks are the regular executable files in a hook directory
-// with a plain [A-Za-z0-9._-] name, in name order. A missing directory has none.
-export function listHooks(directory) {
-  let names;
-  try { names = fs.readdirSync(directory); }
-  catch (error) { if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return []; throw error; }
-  return names.filter(name => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)).sort()
-    .map(name => path.join(directory, name))
-    .filter(file => {
-      try { if (!fs.statSync(file).isFile()) return false; fs.accessSync(file, fs.constants.X_OK); return true; }
-      catch { return false; }
-    });
+// The configuration hooks in DIRECTORY that apply to PROFILE, in name order,
+// as [{ label, path }]. lib/dots-hooks owns the naming contract (shared with
+// the updater); an invalid hook name throws its message.
+function listHooks(dotsHome, directory, profile, profiles) {
+  const result = spawnSync('bash', [path.join(dotsHome, 'lib/dots-hooks'), directory, profile, ...profiles], { encoding: 'utf8' });
+  if (result.error || result.status !== 0) throw new Error(String(result.stderr || result.error?.message || 'could not list hooks').trim());
+  return result.stdout.split('\n').filter(Boolean).map(line => {
+    const tab = line.indexOf('\t');
+    return { label: line.slice(0, tab), path: line.slice(tab + 1) };
+  });
 }
-
-// A hook's stage label: its name without a leading order number or a file
-// extension, with dashes and underscores as spaces (20-Login-shell.sh -> Login shell).
-export const hookLabel = file => path.basename(file).replace(/^[0-9]+[-_](?=.)/, '').replace(/(?<=.)\.[A-Za-z0-9]+$/, '').replace(/[-_]/g, ' ');
 
 // Hook exit statuses: 0 completed, 3 deferred (needs attention), 4 skipped.
 export const hookStatus = code => code === 0 ? 'completed' : code === 3 ? 'deferred' : code === 4 ? 'skipped' : 'failed';
@@ -169,11 +163,14 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
     DOTS_PRIVATE_READY: privateReady && historyReady ? '1' : '0',
     DOTS_RESTORED: restoreId ? '1' : '0',
   };
-  for (const hook of listHooks(path.join(root, 'dots/hooks/bootstrap.d'))) {
-    const result = run(miseBin, ['-C', root, 'exec', '--', hook], { cwd: root, env: hookEnv, encoding: 'utf8', stdio: 'inherit' });
+  let hooks = [];
+  try { hooks = listHooks(dotsHome, path.join(root, 'dots/hooks/bootstrap.d'), role, dotsList(setting('dots_profiles'))); }
+  catch (error) { record('Bootstrap hooks', 'failed', error.message); }
+  for (const hook of hooks) {
+    const result = run(miseBin, ['-C', root, 'exec', '--', hook.path], { cwd: root, env: hookEnv, encoding: 'utf8', stdio: 'inherit' });
     const status = result.error ? 'failed' : hookStatus(result.status);
-    record(hookLabel(hook), status,
-      status === 'failed' ? `dots/hooks/bootstrap.d/${path.basename(hook)} needs attention; rerun after resolving its message`
+    record(hook.label, status,
+      status === 'failed' ? `dots/hooks/bootstrap.d/${path.basename(hook.path)} needs attention; rerun after resolving its message`
         : status === 'deferred' ? 'See its message above; rerun dots bootstrap after resolving it' : '');
   }
   stage('Atuin', () => {

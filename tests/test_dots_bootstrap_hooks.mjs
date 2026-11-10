@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { complete, listHooks, hookLabel, hookStatus } from '../manager/bootstrap/complete.mjs';
+import { complete, hookStatus } from '../manager/bootstrap/complete.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -60,23 +60,8 @@ function bootstrap(f, calls, env = {}, vars) {
   }
 }
 
-test('hook listing keeps plain executable names in name order', () => {
-  const f = fixture();
-  try {
-    f.hook('b-two', '');
-    f.hook('A-one.sh', '');
-    f.hook('plain', '', 0o644);
-    f.hook('odd name', '');
-    f.hook('.hidden', '');
-    fs.mkdirSync(path.join(f.root, 'dots/hooks/bootstrap.d/10-directory'));
-    const directory = path.join(f.root, 'dots/hooks/bootstrap.d');
-    assert.deepEqual(listHooks(directory), [path.join(directory, 'A-one.sh'), path.join(directory, 'b-two')]);
-    assert.deepEqual(listHooks(path.join(f.root, 'missing')), []);
-    assert.deepEqual(['10-Login-shell.sh', '20_a.b.c', '7', 'x-'].map(hookLabel), ['Login shell', 'a.b', '7', 'x ']);
-    assert.deepEqual([0, 3, 4, 1, 2, 5].map(hookStatus), ['completed', 'deferred', 'skipped', 'failed', 'failed', 'failed']);
-  } finally {
-    f.cleanup();
-  }
+test('hook exit statuses map to completed, deferred, skipped and failed', () => {
+  assert.deepEqual([0, 3, 4, 1, 2, 5].map(hookStatus), ['completed', 'deferred', 'skipped', 'failed', 'failed', 'failed']);
 });
 
 test('bootstrap runs hooks after installer exceptions with readiness facts', () => {
@@ -89,19 +74,38 @@ test('bootstrap runs hooks after installer exceptions with readiness facts', () 
     f.hook('25-not-here', 'exit 4\n');
     f.hook('10-Facts', `printf '%s\\n' "$DOTS_ROOT" "$DOTS_HOME" "$DOTS_PROFILE" "$DOTS_PRIVATE_READY" "$DOTS_RESTORED" "$PWD" > ${out}\n`);
     f.hook('50-skipped-mode', 'exit 0\n', 0o644);
+    f.hook('35-Laptop-only@laptop', 'exit 0\n');
+    f.hook('36-Server-only@server', `touch ${f.base}/server\n`);
     const calls = [];
     const { code, report } = bootstrap(f, calls);
     assert.equal(code, 1);
     const stages = report.stages.map(({ stage, status }) => `${stage}:${status}`);
     const first = stages.indexOf('Facts:completed');
     assert.deepEqual(stages.slice(first - 1, first + 5), [
-      'Installer exceptions:completed', 'Facts:completed', 'later:deferred', 'not here:skipped', 'broken:failed', 'after failure:completed',
+      'Installer exceptions:completed', 'Facts:completed', 'later:deferred', 'not here:skipped', 'broken:failed', 'Laptop only:completed',
     ]);
-    assert.equal(stages[first + 5], 'Atuin:completed');
+    assert.deepEqual(stages.slice(first + 5, first + 7), ['after failure:completed', 'Atuin:completed']);
+    assert.ok(!fs.existsSync(path.join(f.base, 'server')), 'a hook for another profile ran');
     assert.ok(fs.existsSync(path.join(f.base, 'after')));
     assert.deepEqual(fs.readFileSync(out, 'utf8').trim().split('\n'),
       [f.root, path.join(ROOT, 'manager'), 'laptop', '1', '0', f.root]);
     assert.ok(!stages.some(stage => stage.startsWith('skipped mode')));
+  } finally {
+    f.cleanup();
+  }
+});
+
+test('an unknown profile suffix fails the hook stage and runs no hooks', () => {
+  const f = fixture();
+  try {
+    f.hook('10-fine', `touch ${f.base}/ran\n`);
+    f.hook('20-typo@labtop', 'exit 0\n');
+    const { code, report } = bootstrap(f, []);
+    assert.equal(code, 1);
+    const failed = report.stages.find(stage => stage.stage === 'Bootstrap hooks');
+    assert.equal(failed.status, 'failed');
+    assert.match(failed.detail, /names unknown profile "labtop"; use one of: laptop server/);
+    assert.ok(!fs.existsSync(path.join(f.base, 'ran')));
   } finally {
     f.cleanup();
   }

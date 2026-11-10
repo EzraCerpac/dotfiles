@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Rebuild and reinstall a changed Capd fork main on macOS workstations.
-set -euo pipefail
-if [[ "${DOTS_PROFILE:-}" != workstation || "$(uname -s 2>/dev/null || true)" != Darwin ]]; then
-    printf 'Skipped: Capd fork main (macOS workstation only).\n'
-    exit 4
-fi
-exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/local/capd-update.sh"

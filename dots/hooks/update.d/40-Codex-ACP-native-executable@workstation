@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Repair the selected Codex ACP native payload.
+set -euo pipefail
+exec "${DOTS_ROOT:?run through dots}/setup-scripts/setup/fix-codex-acp-mode"

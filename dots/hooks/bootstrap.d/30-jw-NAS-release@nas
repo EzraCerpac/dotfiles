@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Install the pinned jj-waltz release when it is missing.
+set -euo pipefail
+exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-nas-release.sh" --if-missing

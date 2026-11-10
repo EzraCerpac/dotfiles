@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Rebuild an existing jj-waltz install from its main source on workstations.
-set -euo pipefail
-if [[ "${DOTS_PROFILE:-}" != workstation ]]; then
-    printf 'Skipped: jw main source (workstation profile only).\n'
-    exit 4
-fi
-exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-build-install.sh" --update-existing

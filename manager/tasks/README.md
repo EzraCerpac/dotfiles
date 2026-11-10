@@ -38,6 +38,13 @@ from `DOTS_ROOT` inside the setup's mise environment. The stage label is the
 name without a leading order number or file extension, with dashes and
 underscores as spaces: `20-Login-shell.sh` is reported as `Login shell`.
 
+A name ending in `@PROFILE` (for example `30-Release@server`) makes the hook
+apply only to that profile; other profiles neither list nor run it, and the
+suffix is not part of the label. A suffix naming a profile outside
+`dots_profiles` fails the hook stage before any hook runs.
+`manager/lib/dots-hooks` implements this listing for both the updater and
+bootstrap.
+
 Every hook receives `DOTS_ROOT`, `DOTS_HOME` (the manager) and `DOTS_PROFILE`.
 Update hooks also receive `DOTS_TOOLS_OK=1` when `mise install` succeeded and
 `DOTS_TOOLS_UPGRADED=1` when the following tools upgrade succeeded. Bootstrap

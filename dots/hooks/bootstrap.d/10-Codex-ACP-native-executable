@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Install the selected Codex ACP native payload on workstations.
-set -euo pipefail
-if [[ "${DOTS_PROFILE:-}" != workstation ]]; then
-    printf 'Skipped: Codex ACP native executable (workstation profile only).\n'
-    exit 4
-fi
-exec "${DOTS_ROOT:?run through dots}/setup-scripts/setup/fix-codex-acp-mode" --install-only

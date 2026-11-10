@@ -243,28 +243,11 @@ setup_print_exception_row() {
     fi
 }
 
-# Print the executable hooks in DIR, one path per line, in name order. Only
-# regular executable files with a plain [A-Za-z0-9._-] name are hooks; a
-# missing directory has none.
+# Print "LABEL<TAB>PATH" for each hook in DIR that applies to the selected
+# profile, in name order (contract in lib/dots-hooks).
 setup_list_hooks() {
-    local directory="$1" path name
-    [[ -d "$directory" ]] || return 0
-    for path in "$directory"/*; do
-        name="${path##*/}"
-        [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || continue
-        [[ -f "$path" && -x "$path" ]] || continue
-        printf '%s\n' "$path"
-    done | LC_ALL=C sort
-}
-
-# A hook's stage label is its name without a leading order number or a file
-# extension, with dashes and underscores as spaces: 20-Login-shell.sh -> Login shell.
-setup_hook_label() {
-    local label="${1##*/}"
-    if [[ "$label" =~ ^[0-9]+[-_](.+)$ ]]; then label="${BASH_REMATCH[1]}"; fi
-    if [[ "$label" =~ ^(.+)\.[A-Za-z0-9]+$ ]]; then label="${BASH_REMATCH[1]}"; fi
-    label="${label//[-_]/ }"
-    printf '%s\n' "$label"
+    setup_dots_profiles || return $?
+    bash "$DOTS_HOME/lib/dots-hooks" "$1" "$SETUP_PROFILE" $SETUP_DOTS_PROFILES
 }
 
 setup_read_history_mode() { setup_mise settings get history.sync; }

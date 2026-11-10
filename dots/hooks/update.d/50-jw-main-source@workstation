@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Rebuild an existing jj-waltz install from its main source.
+set -euo pipefail
+exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-build-install.sh" --update-existing

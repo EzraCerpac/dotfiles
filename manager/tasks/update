@@ -481,14 +481,15 @@ fi
 
 # Configuration hooks (dots/hooks/update.d) run after installer exceptions, in
 # name order, each as its own stage with this run's stdin; a failed hook does
-# not stop later ones.
-hooks=()
-while IFS= read -r hook_path; do
-    [[ -z "$hook_path" ]] || hooks+=("$hook_path")
-done < <(setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d")
-for hook_path in ${hooks[@]+"${hooks[@]}"}; do
-    run_stage "$(setup_hook_label "$hook_path")" --hook setup_mise exec -- "$hook_path" || true
-done
+# not stop later ones. An invalid hook name runs none of them.
+if hook_list="$(setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d")"; then
+    # Read the list on descriptor 9 so each hook keeps this run's stdin.
+    while IFS=$'\t' read -r -u 9 hook_label hook_path; do
+        [[ -z "$hook_path" ]] || run_stage "$hook_label" --hook setup_mise exec -- "$hook_path" 9<&- || true
+    done 9<<< "$hook_list"
+else
+    failures+=("update hooks")
+fi
 
 if [[ "$include_mas" -eq 1 && "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
     run_stage "Mac App Store result" finish_app_store_packages || true

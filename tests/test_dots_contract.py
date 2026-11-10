@@ -128,6 +128,8 @@ class UpdateHookTests(ContractTestCase):
         """)
         self.f.hook("update.d", "60-not-executable", f"touch {out}/not-executable\n", mode=0o644)
         self.f.hook("update.d", "70 odd name", f"touch {out}/odd\n")
+        self.f.hook("update.d", "45-laptop-only@laptop", "true\n")
+        self.f.hook("update.d", "46-server-only@server", f"touch {out}/server\n")
         (self.f.config / "dots/hooks/update.d/80-directory").mkdir()
 
         result = self.f.update()
@@ -135,7 +137,7 @@ class UpdateHookTests(ContractTestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         labels = [line[3:-3] for line in result.stdout.splitlines() if line.startswith("== ")]
         hooks = labels[labels.index("first"):labels.index("standalone mise")]
-        self.assertEqual(hooks, ["first", "Deferred step", "skipped", "broken", "after failure"])
+        self.assertEqual(hooks, ["first", "Deferred step", "skipped", "broken", "laptop only", "after failure"])
         self.assertIn("== Deferred step ==\nResult: deferred; needs attention", result.stdout)
         self.assertIn("== skipped ==\nSkipped: not here\nResult: skipped", result.stdout)
         self.assertIn("== broken ==\nbroken-output\nResult: failed (exit 7)", result.stdout)
@@ -143,10 +145,21 @@ class UpdateHookTests(ContractTestCase):
         self.assertTrue((out / "after").exists(), "a later hook did not run after a failure")
         self.assertFalse((out / "not-executable").exists())
         self.assertFalse((out / "odd").exists())
+        self.assertFalse((out / "server").exists())
         self.assertEqual((out / "env").read_text().splitlines(),
                          [str(self.f.config), str(self.f.manager), "laptop", "1", "1", str(self.f.config)])
         # Hooks run after installer exceptions and before standalone mise.
         self.assertLess(result.stdout.index("== declared mise tools =="), result.stdout.index("== first =="))
+
+    def test_unknown_profile_suffix_runs_no_hooks_and_fails(self) -> None:
+        marker = self.f.base / "ran"
+        self.f.hook("update.d", "10-fine", f"touch {marker}\n")
+        self.f.hook("update.d", "20-typo@labtop", "true\n")
+        result = self.f.update()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('names unknown profile "labtop"', result.stderr)
+        self.assertIn("Update report: failures: update hooks; ", result.stdout)
+        self.assertFalse(marker.exists())
 
     def test_deferred_hook_is_reported_without_failing_the_run(self) -> None:
         self.f.hook("update.d", "10-Later", "exit 3\n")
@@ -205,18 +218,40 @@ class UpdateHookTests(ContractTestCase):
 
 
 class HookListingTests(ContractTestCase):
-    def test_listing_and_labels(self) -> None:
+    def list(self, directory: Path, profile: str = "laptop") -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["bash", str(self.f.manager / "lib/dots-hooks"), str(directory), profile, "laptop", "server"],
+                              capture_output=True, text=True, timeout=60, check=False)
+
+    def test_listing_labels_and_profile_suffixes(self) -> None:
         self.f.hook("bootstrap.d", "b-two", "")
         self.f.hook("bootstrap.d", "A-one.sh", "")
         self.f.hook("bootstrap.d", "-dash", "")
         self.f.hook("bootstrap.d", "skip.me~", "")
         self.f.hook("bootstrap.d", "plain", "", mode=0o644)
+        self.f.hook("bootstrap.d", "10-Login-shell.sh", "")
+        self.f.hook("bootstrap.d", "20_a.b.c", "")
+        self.f.hook("bootstrap.d", "30-Laptop-only@laptop", "")
+        self.f.hook("bootstrap.d", "31-x.sh@server", "")
+        self.f.hook("bootstrap.d", "32-backup@laptop~", "")
         directory = self.f.config / "dots/hooks/bootstrap.d"
-        result = self.f.bash(f'setup_list_hooks "{directory}"; setup_list_hooks "{directory}/missing"; '
-                             'for n in 10-Login-shell.sh 20_a.b.c 7 x-; do setup_hook_label "$n"; done')
+        result = self.list(directory)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines(), [f"{directory}/A-one.sh", f"{directory}/b-two",
-                                                      "Login shell", "a.b", "7", "x "])
+        self.assertEqual(result.stdout.splitlines(), [
+            f"Login shell\t{directory}/10-Login-shell.sh", f"a.b\t{directory}/20_a.b.c",
+            f"Laptop only\t{directory}/30-Laptop-only@laptop", f"A one\t{directory}/A-one.sh", f"b two\t{directory}/b-two"])
+        server = self.list(directory, "server")
+        self.assertEqual([line.split("\t")[0] for line in server.stdout.splitlines()],
+                         ["Login shell", "a.b", "x", "A one", "b two"])
+        missing = self.list(directory / "missing")
+        self.assertEqual((missing.returncode, missing.stdout), (0, ""))
+
+    def test_unknown_profile_suffix_fails_without_listing(self) -> None:
+        self.f.hook("update.d", "10-fine", "")
+        typo = self.f.hook("update.d", "20-typo@labtop", "")
+        result = self.list(typo.parent)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn(f'dots: hook {typo} names unknown profile "labtop"; use one of: laptop server', result.stderr)
 
 
 class CommandTests(ContractTestCase):
@@ -327,7 +362,7 @@ class MinimalConfigurationTests(ContractTestCase):
         self.assertNotIn("Configuration commands", help_text.stdout)
         self.assertEqual(self.f.dots("anything").stderr, "dots: unknown command 'anything'; use dots help\n")
         listed = self.f.bash(f'SETUP_ROOT="{self.f.config}"; SETUP_EXCEPTION_MANIFEST="$SETUP_ROOT/dots/exceptions.tsv"; '
-                             'setup_print_exceptions && setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d"')
+                             f'DOTS_HOME="{self.f.manager}"; setup_print_exceptions && setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d"')
         self.assertEqual(listed.returncode, 0, listed.stderr)
         self.assertEqual(listed.stdout, "Installer exceptions: none declared\n")
 
