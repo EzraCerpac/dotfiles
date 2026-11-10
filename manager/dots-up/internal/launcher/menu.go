@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,7 +27,7 @@ type group struct {
 	items []item
 }
 
-var groups = []group{
+var builtinGroups = []group{
 	{"Inspect", []item{{"status", "Status", "Inspect machine setup", nil}, {"reports", "Reports", "Browse saved reports", nil}, {"last", "Last update report", "Open the saved update report", []string{"up", "--last"}}}},
 	{"Maintain", []item{{"up", "Update", "Sync configuration and update tools", nil}, {"sync", "Sync", "Fetch source and apply configuration", nil}, {"apply", "Apply files", "Apply all or selected dotfiles", nil}}},
 	{"Software", []item{{"add", "Add", "Install and record software", nil}, {"remove", "Remove", "Remove declarations and optionally uninstall", nil}}},
@@ -63,8 +66,16 @@ func positional(label, help string, required bool) field {
 	f.positional = true
 	return f
 }
-func formFor(it item) form {
+
+// formFor builds the form for one command. profiles are the configuration's
+// [vars] dots_profiles; without them a profile is typed rather than chosen.
+func formFor(it item, profiles []string) form {
 	f := form{item: it}
+	destinations := append(append([]string{"current", "base"}, profiles...), "path")
+	profile := choice("Profile", "--profile", "Required remote machine role", append([]string{"choose"}, profiles...)...)
+	if len(profiles) == 0 {
+		profile = text("Profile", "--profile", "Required remote machine role", true)
+	}
 	switch it.name {
 	case "up":
 		f.fields = []field{choice("Mac App Store", "--mas", "Include App Store updates", "off", "on"), choice("Output", "", "Dashboard is the default", "dashboard", "plain", "verbose"), choice("Close automatically", "--no-wait", "Close when update completes", "off", "on")}
@@ -73,7 +84,7 @@ func formFor(it item) form {
 	case "apply":
 		f.fields = []field{positional("Target", "Optional; empty applies all. Add further targets as argument tokens.", false)}
 	case "add", "remove":
-		f.fields = []field{positional("Tool or package", "One request; add further requests as argument tokens", true), choice("Destination", "", "Default uses the selected profile", "current", "base", "workstation", "nas", "path"), text("Destination path", "--path", "Required only when destination is path", false)}
+		f.fields = []field{positional("Tool or package", "One request; add further requests as argument tokens", true), choice("Destination", "", "Default uses the selected profile", destinations...), text("Destination path", "--path", "Required only when destination is path", false)}
 		f.fields[0].label = "Tools or packages"
 		f.fields[0].help = "Enter adds a target; Backspace removes the last"
 		f.fields[0].multiple = true
@@ -94,7 +105,7 @@ func formFor(it item) form {
 	case "bootstrap":
 		f.fields = []field{text("Bundle path", "--bundle", "Optional encrypted bootstrap bundle", false), text("Identity path", "--identity", "Optional age identity file path", false), text("Restore machine", "--restore", "Optional machine identity", false)}
 	case "remote":
-		f.fields = []field{positional("SSH host", "Existing SSH host", true), choice("Profile", "--profile", "Required remote machine role", "choose", "workstation", "nas"), choice("Dry run", "--dry-run", "Preview remote bootstrap", "off", "on"), text("SSH identity file", "--identity-file", "Optional SSH identity path", false), text("SSH port", "--port", "Optional port", false), text("Connect timeout", "--connect-timeout", "Optional timeout", false), text("GitHub relay repository", "--github-relay-repo", "Optional relay repository", false), choice("Read-only relay", "--github-relay-read-only", "Use a read-only GitHub relay", "off", "on")}
+		f.fields = []field{positional("SSH host", "Existing SSH host", true), profile, choice("Dry run", "--dry-run", "Preview remote bootstrap", "off", "on"), text("SSH identity file", "--identity-file", "Optional SSH identity path", false), text("SSH port", "--port", "Optional port", false), text("Connect timeout", "--connect-timeout", "Optional timeout", false), text("GitHub relay repository", "--github-relay-repo", "Optional relay repository", false), choice("Read-only relay", "--github-relay-read-only", "Use a read-only GitHub relay", "off", "on")}
 	case "bundle-create":
 		f.fields = []field{text("Input path", "--input", "Private JSON input; or select live inputs", false), choice("Use live inputs", "--from-live", "Read existing private inputs", "off", "on"), text("Output path", "--output", "Encrypted bundle destination", true), text("Recipient", "--recipient", "Public age recipient", true)}
 	case "bundle-check":
@@ -133,15 +144,16 @@ func (f form) args() ([]string, error) {
 				}
 			case "Destination":
 				switch x.value {
+				case "current":
 				case "base":
 					out = append(out, "--base")
-				case "workstation", "nas":
-					out = append(out, "--profile", x.value)
 				case "path":
 					if f.fields[2].value == "" {
 						return nil, errors.New("Destination path is required")
 					}
 					out = append(out, "--path", f.fields[2].value)
+				default:
+					out = append(out, "--profile", x.value)
 				}
 			case "Profile":
 				if x.value == "choose" {
@@ -185,10 +197,48 @@ func (f form) args() ([]string, error) {
 }
 
 // Session preserves selection while the caller runs commands between menus.
+// Profiles and Commands come from the configuration: its [vars] dots_profiles
+// and its dots/commands executables, listed after the built-ins.
 type Session struct {
-	group, child int
-	expanded     bool
-	selected     map[int]int
+	Profiles, Commands []string
+	group, child       int
+	expanded           bool
+	selected           map[int]int
+}
+
+// Discover asks the manager (home/bin/dots) for the configuration's profiles
+// and commands, so their validation stays in one place. A failed listing
+// leaves that list empty.
+func Discover(home, root string) *Session {
+	list := func(name string) []string {
+		if home == "" {
+			return nil
+		}
+		cmd := exec.Command("bash", filepath.Join(home, "bin", "dots"), "internal", name)
+		cmd.Env = append(os.Environ(), "DOTS_HOME="+home, "DOTS_ROOT="+root, "MISE_CONFIG_DIR="+root)
+		out, err := cmd.Output()
+		if err != nil {
+			return nil
+		}
+		return strings.Fields(string(out))
+	}
+	return &Session{Profiles: list("profiles"), Commands: list("commands")}
+}
+
+// IsCommand reports whether name is one of the configuration's commands.
+func (s *Session) IsCommand(name string) bool {
+	return slices.Contains(s.Commands, name)
+}
+
+func (s *Session) groups() []group {
+	if len(s.Commands) == 0 {
+		return builtinGroups
+	}
+	configuration := group{name: "Configuration"}
+	for _, name := range s.Commands {
+		configuration.items = append(configuration.items, item{name, name, "dots/commands/" + name, nil})
+	}
+	return append(append([]group(nil), builtinGroups...), configuration)
 }
 
 func NewSession() *Session                { return &Session{selected: map[int]int{}} }
@@ -199,10 +249,10 @@ func (s *Session) Run(args []string) ([]string, error) {
 	}
 	m := model{s: s, width: 80, height: 24}
 	if len(args) > 0 {
-		for _, g := range groups {
+		for _, g := range s.groups() {
 			for _, it := range g.items {
 				if it.name == args[0] {
-					m.form = formFor(it)
+					m.form = formFor(it, s.Profiles)
 					m.page = "form"
 					break
 				}
@@ -239,7 +289,7 @@ type model struct {
 func (m model) Init() tea.Cmd { return nil }
 func (m model) visible() []int {
 	var a []int
-	for i, it := range groups[m.s.group].items {
+	for i, it := range m.s.groups()[m.s.group].items {
 		if strings.Contains(strings.ToLower(it.label+" "+it.name+" "+it.description), strings.ToLower(m.query)) {
 			a = append(a, i)
 		}
@@ -378,7 +428,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.s.expanded {
 				m.s.child = min(max(0, len(m.visible())-1), m.s.child+1)
 			} else {
-				m.s.group = min(len(groups)-1, m.s.group+1)
+				m.s.group = min(len(m.s.groups())-1, m.s.group+1)
 			}
 		case "left", "esc":
 			if m.s.expanded {
@@ -393,7 +443,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.s.expanded = true
 				m.s.child = min(m.s.selected[m.s.group], len(m.visible())-1)
 			} else if a := m.visible(); len(a) > 0 {
-				m.form = formFor(groups[m.s.group].items[a[m.s.child]])
+				m.form = formFor(m.s.groups()[m.s.group].items[a[m.s.child]], m.s.Profiles)
 				m.page = "form"
 			}
 		}
@@ -461,6 +511,7 @@ func (m model) View() tea.View {
 			add("")
 		}
 		// Reserve the footer and a row for each group. The selected child remains visible.
+		groups := m.s.groups()
 		capacity := max(1, m.height-len(lines)-len(groups)-1)
 		for gi, g := range groups {
 			prefix := "  "

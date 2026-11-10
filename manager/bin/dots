@@ -29,6 +29,19 @@ config_root() {
     printf '%s\n' "${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
 }
 
+# Print the names of the configuration commands in ROOT/dots/commands: plain
+# executable names that are not built-ins. The menu lists the same names.
+config_commands() {
+    local commands_dir="$1/dots/commands" name
+    [[ -d "$commands_dir" ]] || return 0
+    for name in "$commands_dir"/*; do
+        name="${name##*/}"
+        [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && -f "$commands_dir/$name" && -x "$commands_dir/$name" ]] || continue
+        [[ "$builtin_commands" != *" $name "* ]] || continue
+        printf '%s\n' "$name"
+    done
+}
+
 usage() {
     cat <<'HELP'
 Your machine setup, from any directory.
@@ -79,19 +92,12 @@ New requests are recorded after installation; failures ask before recording.
 Ordinary sync shares public source through dev; publish reviews main-based tasks.
 Backup publishes only private settings.
 HELP
-    local commands_dir name listed=0
-    commands_dir="$(config_root)/dots/commands"
-    [[ -d "$commands_dir" ]] || return 0
-    for name in "$commands_dir"/*; do
-        name="${name##*/}"
-        [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && -f "$commands_dir/$name" && -x "$commands_dir/$name" ]] || continue
-        [[ "$builtin_commands" != *" $name "* ]] || continue
-        if [[ "$listed" -eq 0 ]]; then
-            printf '\nConfiguration commands (%s):\n' "$commands_dir"
-            listed=1
-        fi
-        printf '  dots %s [ARGS...]\n' "$name"
-    done
+    local root names name
+    root="$(config_root)"
+    names="$(config_commands "$root")"
+    [[ -n "$names" ]] || return 0
+    printf '\nConfiguration commands (%s):\n' "$root/dots/commands"
+    for name in $names; do printf '  dots %s [ARGS...]\n' "$name"; done
 }
 
 frontend_args=()
@@ -125,6 +131,14 @@ if [[ "${1:-}" == internal ]]; then
     case "$internal_name" in
         persist-selected|profile|enroll-history) exec bash "$DOTS_HOME/bootstrap/$internal_name" "$@" ;;
         complete) exec node "$DOTS_HOME/bootstrap/complete.mjs" "$@" ;;
+        commands) config_commands "$root"; exit 0 ;;
+        profiles)
+            source "$DOTS_HOME/lib/setup-common.sh"
+            SETUP_ROOT="$root"
+            setup_dots_profiles || exit $?
+            printf '%s\n' $SETUP_DOTS_PROFILES
+            exit 0
+            ;;
         update|status|backup|restore|exceptions) exec bash "$DOTS_HOME/tasks/$internal_name" "$@" ;;
         github-install-app) exec uv run --no-project python "$DOTS_HOME/lib/dots-github.py" install-app "$@" ;;
         *) echo "dots: unknown internal command '$internal_name'" >&2; exit 2 ;;

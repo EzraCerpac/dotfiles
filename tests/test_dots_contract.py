@@ -340,6 +340,13 @@ class CommandTests(ContractTestCase):
         write(self.f.config / "dots/commands/nope", "#!/usr/bin/env bash\necho ran\n", 0o644)
         self.assertEqual(self.f.dots("nope").stderr, "dots: unknown command 'nope'; use dots help\n")
 
+    def test_internal_listings_for_the_menu(self) -> None:
+        self.command("hello", "true\n")
+        self.command("status", "true\n")
+        write(self.f.config / "dots/commands/plain", "true\n", 0o644)
+        self.assertEqual(self.f.dots("internal", "commands").stdout, "hello\n")
+        self.assertEqual(self.f.dots("internal", "profiles").stdout, "laptop\nserver\n")
+
     def test_help_lists_configuration_commands(self) -> None:
         self.command("hello", "true\n")
         self.command("status", "true\n")

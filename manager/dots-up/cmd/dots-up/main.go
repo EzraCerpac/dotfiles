@@ -75,7 +75,7 @@ func run(args []string) int {
 			fs.Usage()
 			return 0
 		}
-		session := &launcher.Session{}
+		session := launcher.Discover(opts.Home, opts.Root)
 		for {
 			selected, err := session.Run(nil)
 			if errors.Is(err, launcher.ErrCancelled) {
@@ -91,7 +91,13 @@ func run(args []string) int {
 			selectedOpts := opts
 			selectedOpts.Command = selected[0]
 			selectedOpts.Args = selected[1:]
-			code := execute(selectedOpts)
+			var code int
+			if session.IsCommand(selected[0]) {
+				// Configuration commands run as `dots NAME`, attached to this terminal.
+				code = runDots(opts, selected...)
+			} else {
+				code = execute(selectedOpts)
+			}
 			if code != 0 {
 				fmt.Fprintf(os.Stderr, "dots %s exited with status %d\n", selectedOpts.Command, code)
 			}
@@ -156,12 +162,16 @@ func execute(opts supervisor.Options) int {
 }
 
 func directBackend(opts supervisor.Options) int {
+	return runDots(opts, append([]string{"--backend", opts.Command}, opts.Args...)...)
+}
+
+// runDots runs `dots ARGS...` from the manager, attached to this terminal.
+func runDots(opts supervisor.Options, dotsArgs ...string) int {
 	if opts.Home == "" {
 		fmt.Fprintln(os.Stderr, "dots: the dots manager directory is unknown; pass --home or set DOTS_HOME")
 		return 2
 	}
-	args := []string{filepath.Join(opts.Home, "bin", "dots"), "--backend", opts.Command}
-	args = append(args, opts.Args...)
+	args := append([]string{filepath.Join(opts.Home, "bin", "dots")}, dotsArgs...)
 	cmd := exec.Command("bash", args...)
 	cmd.Env = append(os.Environ(), "DOTS_ROOT="+opts.Root, "DOTS_HOME="+opts.Home)
 	cmd.Stdin = os.Stdin
