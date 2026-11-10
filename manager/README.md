@@ -109,12 +109,53 @@ New machines and private settings:
 | `dots restore [--initialize-history]` | Restore app-written settings from that repository |
 | `dots atuin-bundle`, `dots atuin-login` | Prepare and finish Atuin shell-history enrollment |
 
-`dots add` writes to the current profile's `config.PROFILE.toml` unless `--base` (`config.toml`), `--profile P` or `--path FILE` says otherwise.
-It accepts bare tool names (mise picks the backend), backend prefixes such as `npm:prettier` or `cargo:hexyl`, native packages (`brew:`, `brew-cask:`, `apt:`, `dnf:`, `pacman:`, `apk:`, `mas:`) and GitHub repository URLs.
-A request is recorded only after it installs; on a failure `dots add` asks whether to record it anyway.
+### Adding software
 
-`dots remove` finds the declaration in every active config file, removes the software with its own installer and never prunes other packages.
-`--dry-run` shows the plan; `--keep-installed` deletes only the declaration.
+`dots add` installs first and records only what installed:
+
+```sh
+dots add watchexec                        # current profile: config.PROFILE.toml
+dots add --base watchexec                 # config.toml, every profile
+dots add --profile server ripgrep         # another profile's file
+dots add --path ~/other/config.toml jq    # an explicit file
+dots add npm:prettier cargo:hexyl         # a backend prefix; mise still installs and updates it
+dots add brew:libmagic brew-cask:firefox  # native packages
+dots add https://github.com/OWNER/REPO    # a GitHub release
+```
+
+A bare name uses mise's preferred backend and the latest version.
+`brew:` prefers a formula and selects a cask only when the formula is confirmed absent; `brew-cask:` always selects a cask.
+New Homebrew declarations are restricted to macOS, so they never become Linux requirements.
+`apt:`, `dnf:`, `pacman:`, `apk:` and `mas:` select the other native package managers.
+
+For a GitHub URL, a prebuilt command-line release uses mise's GitHub backend.
+A macOS app shipped as a ZIP or tar archive is recorded with an install hook that also replaces it in `/Applications` on upgrade, and never overwrites an app `dots` did not install.
+DMG and pkg installers are refused.
+When a release has several candidate downloads, name one with `--asset 'tool-*-macos-arm64.zip'` (exactly one URL).
+No script from the repository runs, so a source-only repository cannot be installed.
+
+On a failure `dots add` shows the declaration and asks whether to record it for a later retry; the default is no, and noninteractive runs never record it.
+With several requests, earlier successes stay recorded and the command stops at the first failure.
+A package that an installer exception holds (`hold=` in `dots/exceptions.tsv`) is refused.
+
+### Removing software
+
+```sh
+dots remove watchexec
+dots remove --dry-run brew-cask:firefox   # show the plan only
+dots remove --keep-installed npm:prettier # delete only the declaration
+```
+
+`dots remove` (or `dots uninstall`) searches every active config file, including the machine-local ones; `--base`, `--profile` and `--path` narrow the search.
+Name the target by its exact declaration (`brew-cask:firefox`), by a short name that matches exactly one declaration, or by a GitHub URL; `mise:jq` selects a mise tool when another manager also has `jq`.
+If another active file still declares the tool, only the selected declaration goes and the software stays.
+
+Each kind is removed by its own installer, without pruning anything else:
+mise tools with `mise unuse` and then `mise prune --tools TOOL`, which keeps versions other projects use;
+native packages with one targeted uninstall after checking dependents, never with zap, purge or force;
+GitHub apps by moving the app to the Trash and removing their release installation.
+When a removal cannot be confirmed safe, the command stops; when a step fails, it restores the declarations and any staged app.
+Settings and app data stay where they are.
 
 `dots up`, `dots sync`, `dots apply`, `dots add`, `dots remove`, `dots bootstrap`, `dots backup`, `dots restore` and `dots publish` change the machine, the configuration or a remote repository.
 
