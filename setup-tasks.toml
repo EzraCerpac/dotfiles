@@ -75,33 +75,6 @@ description = "Deploy encrypted private configuration"
 run = "bash manager/bin/dots internal secrets"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
-["jev:save-key"]
-description = "Save a Jev API key privately and encrypt it with age"
-run = "bash setup-scripts/setup/jev-secret save"
-raw = true
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-["jev:restore-key"]
-description = "Restore the private Jev key from its age-encrypted copy"
-run = "bash setup-scripts/setup/jev-secret restore"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
-["jev:sift-build"]
-description = "Rebuild the current Sift checkout with locked dependencies"
-dir = "{{ env.HOME }}/Projects/Tools/sift"
-run = ["npm ci", "npm run build"]
-
-["jev:unclutter-build"]
-description = "Rebuild the current Unclutter Chromium extension"
-dir = "{{ env.HOME }}/Projects/Tools/unclutter"
-run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build"]
-
-["jev:unclutter-firefox-build"]
-description = "Build the alternate Unclutter Firefox extension"
-dir = "{{ env.HOME }}/Projects/Tools/unclutter"
-run = ["mise exec bun@1.4.2 -- bun install --frozen-lockfile", "mise exec bun@1.4.2 -- bun run build:firefox"]
-
-
 ["install:herdr-plugins"]
 description = "Herdr plugins"
 run = "bash setup-scripts/install/herdr-plugins.sh"
