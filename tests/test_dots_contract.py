@@ -176,6 +176,19 @@ class UpdateHookTests(ContractTestCase):
         self.assertEqual(log.read_text().splitlines(), ["plain-app ", "self-updater --install-only", "everywhere "])
         self.assertIn("== installer exception: self-updater ==", result.stdout)
 
+    def test_recipes_get_the_callers_stdin_not_the_manifest(self) -> None:
+        log = self.f.base / "stdin"
+        for name in ("reader", "after-reader"):
+            write(self.f.config / "dots/exceptions" / name,
+                  f'#!/usr/bin/env bash\nIFS= read -r line || line="<eof>"\necho "{name}:$line" >> {log}\n', 0o755)
+        write(self.f.config / "dots/exceptions.tsv", "laptop\treader\nlaptop\tafter-reader\n")
+        result = subprocess.run(["bash", str(self.f.manager / "tasks/update")], cwd=self.f.config,
+                                env={**self.f.env, "SETUP_PROFILE": "laptop", "DOTS_SOURCE_SYNC_DONE": "1"},
+                                input="from-terminal\nsecond-line\n", capture_output=True, text=True, timeout=120, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # Each recipe reads the caller's input; neither consumes a manifest row.
+        self.assertEqual(log.read_text().splitlines(), ["reader:from-terminal", "after-reader:second-line"])
+
     def test_source_sync_that_changes_the_manager_reexecs_once_into_the_new_code(self) -> None:
         update = self.f.manager / "tasks/update"
         changed = self.f.base / "update.new"

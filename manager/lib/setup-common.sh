@@ -148,13 +148,15 @@ setup_exception_path() {
 # Read dots/exceptions.tsv (format in its header) and call
 #   CALLBACK NAME PATH FLAGS
 # for each row selected for PROFILE (base rows always; "" selects every row).
-# A missing manifest declares nothing. Invalid rows stop with status 2.
+# A missing manifest declares nothing. Invalid rows stop with status 2. The
+# manifest is read on descriptor 3, so callbacks (and the recipes they run)
+# keep the caller's stdin, such as the terminal for an administrator prompt.
 setup_read_exceptions() {
     local callback="$1" profile="$2"
     local exception_profile="" name="" flags="" extra="" flag script_path
     [[ -f "$SETUP_EXCEPTION_MANIFEST" ]] || return 0
     setup_dots_profiles || return $?
-    while IFS=$'\t' read -r exception_profile name flags extra || [[ -n "$exception_profile$name$flags$extra" ]]; do
+    while IFS=$'\t' read -r -u 3 exception_profile name flags extra || [[ -n "$exception_profile$name$flags$extra" ]]; do
         [[ -z "$exception_profile" || "$exception_profile" == \#* ]] && continue
         if [[ -n "$extra" ]] || { [[ "$exception_profile" != base ]] && ! setup_is_profile "$exception_profile"; }; then
             setup_error "invalid installer exception row in $SETUP_EXCEPTION_MANIFEST"
@@ -176,8 +178,8 @@ setup_read_exceptions() {
             setup_error "invalid installer exception name in $SETUP_EXCEPTION_MANIFEST"
             return 2
         }
-        "$callback" "$name" "$script_path" "$flags" || return $?
-    done < "$SETUP_EXCEPTION_MANIFEST"
+        "$callback" "$name" "$script_path" "$flags" 3<&- || return $?
+    done 3< "$SETUP_EXCEPTION_MANIFEST"
 }
 
 setup_exception_has_flag() {
