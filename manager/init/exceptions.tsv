@@ -4,4 +4,4 @@
 #   name     the executable recipe dots/exceptions/<name>
 #   flags    comma-separated, optional:
 #              install-only    dots up only installs it when missing (the app updates itself)
-#              hold=PACKAGE    the recipe pins PACKAGE (e.g. brew:kanata); dots add refuses it
+#              hold=PACKAGE    the recipe pins PACKAGE (e.g. brew:some-formula); dots add refuses it

@@ -399,7 +399,7 @@ class ExceptionManifestTests(ContractTestCase):
             "laptop\tone\tinstall-only\textra\n": "invalid installer exception row",
             "desktop\tone\n": "invalid installer exception row",
             "laptop\tone\tsometimes\n": "unknown installer exception flag 'sometimes'",
-            "laptop\tone\thold=kanata\n": "invalid hold package 'kanata'",
+            "laptop\tone\thold=some-app\n": "invalid hold package 'some-app'",
             "laptop\t../one\n": "invalid installer exception name",
         }
         for manifest, message in cases.items():
