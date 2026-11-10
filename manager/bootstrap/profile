@@ -29,6 +29,8 @@ while (($#)); do
     esac
 done
 
+# Resolve the configuration before validating the profile against it.
+bootstrap_init
 bootstrap_validate_profile
 bootstrap_persist_profile
 printf 'Saved local setup profile %s for host %s.\n' "$SETUP_PROFILE" "$SETUP_MACHINE_ID"

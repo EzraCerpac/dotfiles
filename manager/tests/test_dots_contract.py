@@ -271,6 +271,19 @@ class UpdateHookTests(ContractTestCase):
         self.assertEqual(len(reexecs), 1, calls)
 
 
+class ProfileTests(ContractTestCase):
+    def test_internal_profile_selects_a_profile_of_the_configuration(self) -> None:
+        result = self.f.dots("internal", "profile", "--profile", "server", "--machine-id", "fx",
+                             MISE_CONFIG_DIR=str(self.f.config))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Saved local setup profile server for host fx.", result.stdout)
+        self.assertEqual((self.f.config / "miserc.toml").read_text(), 'env = ["server", "host-fx"]\n')
+        unknown = self.f.dots("internal", "profile", "--profile", "desktop", "--machine-id", "fx",
+                              MISE_CONFIG_DIR=str(self.f.config))
+        self.assertEqual(unknown.returncode, 2)
+        self.assertIn("profile must be one of: laptop, server", unknown.stderr)
+
+
 class HookListingTests(ContractTestCase):
     def list(self, directory: Path, profile: str = "laptop") -> subprocess.CompletedProcess[str]:
         return subprocess.run(["bash", str(self.f.manager / "lib/dots-hooks"), str(directory), profile, "laptop", "server"],
