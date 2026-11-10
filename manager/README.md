@@ -245,7 +245,7 @@ ln -s "$(dots internal home)/skills/dots" ~/.claude/skills/dots
 Run the tests from this directory; they need nothing outside it and never touch your machine:
 
 ```sh
-tests/run              # Python and Node suites; tests/run python, tests/run node
+tests/run              # Python, Node and shell suites; tests/run python, node or shell
 (cd dots-up && go vet ./... && go test ./...)
 ```
 

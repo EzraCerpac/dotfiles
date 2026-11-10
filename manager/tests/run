@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the dots manager's test suites: tests/run [python|node ...]
+# Run the dots manager's test suites: tests/run [python|node|shell ...]
 #
 # The suites need only this manager directory: every test builds its own
 # configuration in a temporary directory or copies tests/fixtures. A suite is
@@ -12,7 +12,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
 # The suites test the manager this runner belongs to, whichever dots started them.
 source "$root/lib/dots-up-events.sh"
-readonly all_suites=(python node)
+readonly all_suites=(python node shell)
 
 usage() {
     printf 'usage: tests/run [%s ...]\n' "$(IFS='|'; printf '%s' "${all_suites[*]}")"
@@ -22,7 +22,7 @@ suites=()
 for argument in "$@"; do
     case "$argument" in
         -h|--help) usage; exit 0 ;;
-        python|node) suites+=("$argument") ;;
+        python|node|shell) suites+=("$argument") ;;
         *) usage >&2; exit 2 ;;
     esac
 done
@@ -72,6 +72,17 @@ run_node() {
     fi
     run_fixture node --test "$root"/tests/*.mjs || status=$?
     record node "$status"
+}
+
+# Each tests/*.sh is one fixture script; exit 77 skips it.
+run_shell() {
+    local script status
+    for script in "$root"/tests/*.sh; do
+        [[ -e "$script" ]] || continue
+        status=0
+        run_fixture bash "$script" || status=$?
+        record "shell:${script##*/}" "$status"
+    done
 }
 
 for suite in "${suites[@]}"; do
