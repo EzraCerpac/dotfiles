@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { ensureRepository, withRepositoryLock } from '../manager/lib/source-repo.mjs';
-import { publish } from '../manager/tasks/publish.mjs';
+import { publish, disclosure } from '../manager/tasks/publish.mjs';
 import { requires } from './lib/prereq.mjs';
 
 // Every fixture is a real colocated JJ repository.
@@ -82,6 +82,7 @@ function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, s
     descriptionPrompt: descriptionPrompt || (() => ''),
     ensure: root => ensureRepository(root, { expectedRemote: fixture.origin }),
     repository: 'example/dotfiles',
+    onBehalfOf: '',
     lock: withRepositoryLock,
     now: () => new Date('2026-09-20T12:34:56.000Z'),
   };
@@ -99,8 +100,9 @@ test('default publication scans exactly the unpublished commits before asking', 
     const head = fixture.jj('log', '--no-graph', '-r', '@', '-T', 'commit_id').trim();
     let scannedBeforeConfirm = false;
     const state = publisher(fixture, { confirm: () => { scannedBeforeConfirm = hasCall(state.calls, 'gitleaks', 'git'); return true; } });
-    publish(state.options);
+    publish({ ...state.options, onBehalfOf: 'Sam' });
     assert(scannedBeforeConfirm);
+    assert.match(state.bodyFiles[0].content, /^> \[!NOTE\]\n> \*\*.+\*\* is writing on behalf of Sam\.\n\n\S/);
     assert(hasCall(state.calls, 'gitleaks', 'git', '--redact', `--log-opts=--diff-merges=first-parent ${base}..${head}`, fixture.root));
     assert.match(state.output.text, /Secret scan: gitleaks found nothing/);
   } finally { cleanup(fixture); }
@@ -154,4 +156,11 @@ test('default publication refuses a private stack above main@origin', needsJj, (
     assert(!hasCall(state.calls, 'gh', 'create'));
     assert(!hasCall(state.calls, 'gh', 'edit'));
   } finally { cleanup(fixture); }
+});
+
+test('the disclosure note is optional and names the configured person', () => {
+  assert.equal(disclosure(''), '');
+  assert.equal(disclosure(undefined), '');
+  assert.equal(disclosure('Sam', 'Model 1'), '> [!NOTE]\n> **Model 1** is writing on behalf of Sam.\n\n');
+  assert.equal(disclosure('Sam', ' '), '> [!NOTE]\n> **model unverified** is writing on behalf of Sam.\n\n');
 });

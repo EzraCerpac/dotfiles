@@ -5,10 +5,15 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { ensureRepository, withRepositoryLock, SourceDeferred, sourceRepository } from '../lib/source-repo.mjs';
+import { ensureRepository, withRepositoryLock, SourceDeferred, sourceRepository, dotsVar } from '../lib/source-repo.mjs';
 
-// Set DOTS_PUBLISH_MODEL only to an identifier verified from the task's metadata.
-export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL?.trim() || 'model unverified'}** is writing on behalf of Ezra.`;
+// When [vars] dots_publish_on_behalf_of names a person, pull request text
+// starts with a note that a model writes on their behalf. Set
+// DOTS_PUBLISH_MODEL only to an identifier verified from the task's metadata.
+export function disclosure(onBehalfOf, model = process.env.DOTS_PUBLISH_MODEL) {
+  if (!onBehalfOf) return '';
+  return `> [!NOTE]\n> **${model?.trim() || 'model unverified'}** is writing on behalf of ${onBehalfOf}.\n\n`;
+}
 
 const DEFAULT_BASE = 'main';
 const SECRET_SCANNER = 'gitleaks';
@@ -174,13 +179,13 @@ function previewChanges(output, revision, changes) {
   publishProgress('preview', 'Review changes', 'ok', 'preview shown');
 }
 
-function allPullRequest(changes) {
+function allPullRequest(changes, note) {
   const included = [...changes].reverse().filter(change => change.diff.trim() && change.description !== 'Merge main into unpublished setup stack');
   const title = included.length === 1 && included[0].description
     ? titleFor(included[0].description)
     : `Publish ${included.length} setup changes`;
   const lines = included.map(change => `- ${change.description?.split(/\r?\n/, 1)[0] || `Undescribed change ${change.commit.slice(0, 12)}`}`);
-  return { title, body: `${DISCLOSURE}\n\nChanges:\n${lines.join('\n')}` };
+  return { title, body: `${note}Changes:\n${lines.join('\n')}` };
 }
 
 function shortChangeId(run, root, revision) {
@@ -193,8 +198,8 @@ function timestamp(now) {
   return now().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
 }
 
-function makeBody(description) {
-  return `${DISCLOSURE}\n\n${description.trim()}`;
+function makeBody(description, note) {
+  return `${note}${description.trim()}`;
 }
 
 function titleFor(description) {
@@ -283,7 +288,7 @@ function existingAllPullRequest(run, root, revision, repo) {
   return open[0] || null;
 }
 
-function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo }) {
+function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, note }) {
   let revision = allRevision(run, root);
   const pinnedCommit = commitIdFor(run, root, revision);
   const workingCommit = commitIdFor(run, root, '@');
@@ -327,7 +332,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo }
   if (!finalDiff.trim()) throw new Error('the current stack has no file changes compared with main@origin');
   outputText(output, `Final pull request diff against main@origin:\n${finalDiff}`);
 
-  const { title, body } = allPullRequest(changes);
+  const { title, body } = allPullRequest(changes, note);
   const prior = existingAllPullRequest(run, root, revision, repo);
   const finalCommit = commitIdFor(run, root, revision);
   const finalWorkingCommit = commitIdFor(run, root, '@');
@@ -380,8 +385,10 @@ export function publish({
   ensure = ensureRepository,
   lock = withRepositoryLock,
   repository,
+  onBehalfOf,
 } = {}) {
   if (!root) throw new Error('A source repository root is required');
+  const note = disclosure(onBehalfOf ?? dotsVar(root, 'dots_publish_on_behalf_of', { optional: true }));
   // The GitHub OWNER/NAME pull requests go to; [vars] dots_source_repo by default.
   const repo = repository || sourceRepository(root);
   if (all && bookmark) throw new Error('--all and --bookmark cannot be used together');
@@ -401,7 +408,7 @@ export function publish({
       }
     }
 
-    if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt, repo });
+    if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, note });
 
     const explicit = Boolean(bookmark);
     const revision = explicit ? bookmark : requireSingleDefaultChange(run, root);
@@ -416,15 +423,15 @@ export function publish({
       throw new Error(`${revision} has no actual file changes above main@origin`);
     }
     previewChanges(output, revision, changes);
-    outputText(output, `Proposed pull request description:\n${description ? makeBody(description) : '(one-line description will be requested for this undescribed working change)'}\n`);
+    outputText(output, `Proposed pull request description:\n${description ? makeBody(description, note) : '(one-line description will be requested for this undescribed working change)'}\n`);
     const hadDescription = Boolean(description);
     if (!description) {
       description = descriptionPrompt('Enter a one-line description for the working change');
       if (!description) throw new Error('publication requires a one-line description');
-      outputText(output, `Proposed pull request description:\n${makeBody(description)}\n`);
+      outputText(output, `Proposed pull request description:\n${makeBody(description, note)}\n`);
     }
     const title = titleFor(description);
-    const body = makeBody(description);
+    const body = makeBody(description, note);
     let existing;
     if (explicit) {
       existing = findPullRequest(run, root, bookmark, repo);

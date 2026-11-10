@@ -31,6 +31,7 @@ is one string of space-separated words.
 | `dots_source_repo` | GitHub `OWNER/NAME` of the configuration; sync, publish and remote bootstrap use it |
 | `dots_state_repo` | GitHub `OWNER/NAME` of the private settings history; restore and bootstrap use it |
 | `dots_self_updating_casks` | Optional. Casks routine updates leave to the app's own updater |
+| `dots_publish_on_behalf_of` | Optional. A name; `dots publish` then starts PR text with a note that a model (`DOTS_PUBLISH_MODEL`) writes on that person's behalf |
 
 ### Hooks
 
