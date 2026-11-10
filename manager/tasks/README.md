@@ -52,6 +52,11 @@ hooks also receive `DOTS_PRIVATE_READY=1` when private inputs, restore and
 history recovery are complete (or were not needed) and `DOTS_RESTORED=1` when
 this run restored private settings.
 
+Each update hook also receives `DOTS_CHANGES`, a private empty file. A hook may
+append `ITEM<TAB>BEFORE<TAB>AFTER` lines to it (for example a plugin and its
+old and new revision); `dots up` shows them as changes in that hook's stage
+report and ignores malformed lines with a note.
+
 Exit 0 means completed, 3 deferred (needs attention later), 4 skipped, and any
 other status failed. Output goes to the stage log unchanged. A failed hook is
 reported and later hooks still run, so keep a dependent chain in one hook.

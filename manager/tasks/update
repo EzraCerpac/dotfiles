@@ -119,6 +119,28 @@ emit_snapshot_changes() {
     [[ -n "$changes" ]] || return 0
     while IFS= read -r event; do [[ -n "$event" ]] && emit_event "$event"; done <<< "$changes"
 }
+# A hook may append "ITEM<TAB>BEFORE<TAB>AFTER" lines to $DOTS_CHANGES; each
+# becomes a change in its stage report, like the package and tool changes above.
+emit_hook_changes() {
+    local stage="$1" file="$2" line item rest before after ignored=0
+    [[ -s "$file" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -n "$line" ]] || continue
+        item="${line%%$'\t'*}"
+        rest="${line#*$'\t'}"
+        before="${rest%%$'\t'*}"
+        after="${rest#*$'\t'}"
+        if [[ "$line" != *$'\t'*$'\t'* || "$after" == *$'\t'* || -z "$item" ]]; then
+            ignored=$((ignored + 1))
+            continue
+        fi
+        emit_event "$(event_json --arg stage "$stage" --arg item "$item" --arg before "$before" --arg after "$after" '{v:1,kind:"change",stage:$stage,item:$item,before:$before,after:$after}')"
+    done < "$file"
+    if [[ "$ignored" -gt 0 ]]; then
+        printf 'Note: ignored %s malformed DOTS_CHANGES line(s); expected ITEM<TAB>BEFORE<TAB>AFTER.\n' "$ignored"
+        dots_up_emit_notice info "Ignored $ignored malformed change line(s) from a hook" "Write ITEM<TAB>BEFORE<TAB>AFTER lines to DOTS_CHANGES" "$stage"
+    fi
+}
 
 if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_STARTED:-}" ]]; then
     export DOTS_UP_RUN_STARTED=1
@@ -234,13 +256,25 @@ run_stage() {
         fi
     fi
     if [[ "$plain_output" -eq 1 ]]; then printf 'Working: %s\n' "$label"; else printf '\n== %s ==\n' "$label"; fi
-    local result=0
+    local result=0 changes_file=""
+    if [[ "$hook" -eq 1 ]]; then
+        if changes_file="$(mktemp "${TMPDIR:-/tmp}/dots-changes.XXXXXX")"; then
+            export DOTS_CHANGES="$changes_file"
+        else
+            changes_file=""
+        fi
+    fi
     if [[ "$handoff_failed" -eq 1 ]]; then
         result=1
     elif [[ -n "$stage_log" && ( "$terminal" != handoff || ! -t 0 || ! -t 1 ) ]]; then
         "$@" > "$stage_log" 2>&1 || result=$?
     else
         "$@" || result=$?
+    fi
+    if [[ -n "$changes_file" ]]; then
+        unset DOTS_CHANGES
+        emit_hook_changes "$event_id" "$changes_file"
+        rm -f -- "$changes_file"
     fi
     if dots_up_event_sink_enabled; then
         after_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true

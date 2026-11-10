@@ -151,6 +151,35 @@ class UpdateHookTests(ContractTestCase):
         # Hooks run after installer exceptions and before standalone mise.
         self.assertLess(result.stdout.index("== declared mise tools =="), result.stdout.index("== first =="))
 
+    def test_hook_changes_reach_the_stage_report(self) -> None:
+        import json
+        write(self.f.config / "dots/exceptions/recipe", "#!/usr/bin/env bash\ntrue\n", 0o755)
+        write(self.f.config / "dots/exceptions.tsv", "laptop\trecipe\n")
+        self.f.hook("update.d", "10-Reports-changes", r"""
+            printf 'plugin-a\tabc123\tdef456\n' >> "$DOTS_CHANGES"
+            printf 'no tabs here\n\none\ttwo\n\tempty\titem\na\tb\tc\td\n' >> "$DOTS_CHANGES"
+            printf 'plugin-b\tnot installed\t\n' >> "$DOTS_CHANGES"
+        """)
+        self.f.hook("update.d", "20-Silent", '[[ -f "$DOTS_CHANGES" ]] && printf "%s" "$DOTS_CHANGES" > ' + f'{self.f.base}/path\n')
+        events = self.f.base / "events"
+        # The dashboard passes events on descriptor 3; recipes and hooks must not disturb it.
+        result = subprocess.run(["bash", "-c", 'exec 3>>"$0"; exec bash "$1"', str(events), str(self.f.manager / "tasks/update")],
+                                cwd=self.f.config, env={**self.f.env, "SETUP_PROFILE": "laptop", "DOTS_SOURCE_SYNC_DONE": "1",
+                                                        "DOTS_UP_EVENT_FD": "3"},
+                                capture_output=True, text=True, timeout=120, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        parsed = [json.loads(line) for line in events.read_text().splitlines()]
+        changes = [(e["stage"], e["item"], e["before"], e["after"]) for e in parsed if e["kind"] == "change"]
+        self.assertEqual(changes, [("Reports-changes", "plugin-a", "abc123", "def456"),
+                                   ("Reports-changes", "plugin-b", "not installed", "")])
+        self.assertIn("Note: ignored 4 malformed DOTS_CHANGES line(s)", result.stdout)
+        notices = [e for e in parsed if e["kind"] == "notice" and e.get("stage") == "Reports-changes"]
+        self.assertEqual(len(notices), 1)
+        self.assertIn({"kind": "stage_end", "id": "installer-exception--recipe", "status": "ok"},
+                      [{k: e.get(k) for k in ("kind", "id", "status")} for e in parsed])
+        # Every hook gets its own file, removed after the stage.
+        self.assertFalse(Path((self.f.base / "path").read_text()).exists())
+
     def test_unknown_profile_suffix_runs_no_hooks_and_fails(self) -> None:
         marker = self.f.base / "ran"
         self.f.hook("update.d", "10-fine", f"touch {marker}\n")

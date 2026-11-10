@@ -5,10 +5,31 @@ set -euo pipefail
 source "${DOTS_HOME:-$(dirname "$0")/../../../manager}/lib/setup-common.sh"
 setup_init || exit $?
 
+# Report each plugin whose checked-out revision changed through DOTS_CHANGES.
+lazy_root="${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/lazy"
+plugin_revisions() {
+    local plugin revision
+    for plugin in "$lazy_root"/*; do
+        [[ -d "$plugin" ]] || continue
+        revision="$(git -C "$plugin" rev-parse --short=12 --verify HEAD 2>/dev/null || true)"
+        [[ "$revision" =~ ^[a-f0-9]{7,40}$ ]] || continue
+        printf '%s\t%s\n' "${plugin##*/}" "$revision"
+    done | LC_ALL=C sort
+}
+before_revisions="$(mktemp "${TMPDIR:-/tmp}/lazy-before.XXXXXX")"
+after_revisions="$(mktemp "${TMPDIR:-/tmp}/lazy-after.XXXXXX")"
+guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")"
+plugin_revisions > "$before_revisions"
+report_changes() {
+    [[ -n "${DOTS_CHANGES:-}" ]] || return 0
+    plugin_revisions > "$after_revisions"
+    LC_ALL=C join -t $'\t' -a 1 -a 2 -e 'not installed' -o 0,1.2,2.2 "$before_revisions" "$after_revisions" \
+        | awk -F '\t' '$2 != $3' >> "$DOTS_CHANGES" || true
+}
+trap 'report_changes; rm -f "$guard_script" "$before_revisions" "$after_revisions"' EXIT
+
 setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/nvim-initialize"
 
-guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")"
-trap 'rm -f "$guard_script"' EXIT
 cat > "$guard_script" <<'LUA'
 local lazy_path = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if vim.fn.isdirectory(lazy_path) == 0 then
