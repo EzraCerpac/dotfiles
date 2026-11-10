@@ -10,7 +10,8 @@ configuration directory and those environments.
 
 Everything dots-specific that a configuration supplies lives under
 `DOTS_ROOT/dots/`. Every part is optional; a configuration without any of
-them works.
+them works. `dots init [DIR]` creates the layout, the required `[vars]` and
+`dots/README.md` (from `manager/init/`) without overwriting anything.
 
 | Path | Purpose |
 | --- | --- |

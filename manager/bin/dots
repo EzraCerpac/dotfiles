@@ -23,7 +23,7 @@ fi
 export DOTS_HOME
 
 # Built-in commands always win over configuration commands of the same name.
-builtin_commands=" menu reports up update sync publish atuin-bundle atuin-login status plan test bootstrap remote bundle apply backup restore add remove uninstall help internal "
+builtin_commands=" menu reports up update sync publish atuin-bundle atuin-login status plan test bootstrap remote bundle apply backup restore add remove uninstall help internal init "
 
 config_root() {
     printf '%s\n' "${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
@@ -65,6 +65,7 @@ Your machine setup, from any directory.
   dots apply [TARGET...]          Apply dotfiles and templates
   dots backup                     Publish encrypted settings snapshots
   dots restore [ARGS...]          Restore private settings
+  dots init [DIR]                 Create a minimal dots configuration (never overwrites)
   dots add [OPTIONS] TOOL...       Install and record tools or native packages
   dots remove [OPTIONS] TOOL...    Uninstall software and remove its declarations
   dots uninstall [OPTIONS] TOOL... Alias of remove
@@ -143,6 +144,11 @@ if [[ "${1:-}" == internal ]]; then
         github-install-app) exec uv run --no-project python "$DOTS_HOME/lib/dots-github.py" install-app "$@" ;;
         *) echo "dots: unknown internal command '$internal_name'" >&2; exit 2 ;;
     esac
+fi
+# init creates the configuration (and its [vars]), so it runs before both exist.
+if [[ "${1:-}" == init && "$backend_mode" -eq 0 ]]; then
+    shift
+    exec bash "$DOTS_HOME/tasks/init" "$@"
 fi
 root="$(config_root)"
 [[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }

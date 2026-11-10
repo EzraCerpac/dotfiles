@@ -459,6 +459,53 @@ class MinimalConfigurationTests(ContractTestCase):
         self.assertIn("missing setting: add dots_profiles to [vars]", result.stderr)
 
 
+class InitTests(ContractTestCase):
+    def init(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run([str(self.f.manager / "bin/dots"), "init", *args], cwd=self.f.base,
+                              env={key: value for key, value in self.f.env.items() if key != "DOTS_ROOT"},
+                              capture_output=True, text=True, timeout=60, check=False)
+
+    def test_creates_a_working_minimal_configuration_and_is_idempotent(self) -> None:
+        result = self.init("fresh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        fresh = self.f.base / "fresh"
+        self.assertTrue((fresh / "config.toml").read_text().startswith('[vars]\n'))
+        self.assertIn('dots_profiles = "default"\n', (fresh / "config.toml").read_text())
+        for directory in ("hooks/update.d", "hooks/bootstrap.d", "commands", "exceptions"):
+            self.assertTrue((fresh / "dots" / directory).is_dir(), directory)
+        for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles"):
+            self.assertEqual((fresh / "dots" / name).read_text(), (self.f.manager / "init" / name).read_text())
+        self.assertIn("created  dots/README.md", result.stdout)
+        # The new configuration works: its profile is valid and its manifest parses.
+        listed = self.f.dots("internal", "profiles", DOTS_ROOT=str(fresh), FAKE_VAR_dots_profiles="default")
+        self.assertEqual(listed.stdout, "default\n")
+        (fresh / "dots/README.md").write_text("mine\n")
+        again = self.init("fresh")
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertNotIn("created", again.stdout)
+        self.assertIn("kept     config.toml [vars] dots_profiles", again.stdout)
+        self.assertEqual((fresh / "dots/README.md").read_text(), "mine\n")
+
+    def test_adds_settings_to_an_existing_vars_table_once(self) -> None:
+        config = write(self.f.base / "existing/config.toml",
+                       'min_version = "1"\n\n[vars]\nname = "x"\ndots_source_repo = "a/b"\n\n[tools]\njq = "1"\n', 0o600)
+        result = self.init(str(config.parent))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        text = config.read_text()
+        self.assertEqual(text.count("[vars]"), 1)
+        self.assertLess(text.index("[vars]"), text.index('dots_profiles = "default"'))
+        self.assertLess(text.index('dots_profiles = "default"'), text.index("[tools]"))
+        self.assertNotIn("# dots_source_repo", text)
+        self.assertIn("# dots_state_repo", text)
+        self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
+        no_vars = write(self.f.base / "plain/config.toml", '[tools]\njq = "1"\n')
+        self.init(str(no_vars.parent))
+        self.assertTrue(no_vars.read_text().startswith('[tools]\njq = "1"\n\n[vars]\n'))
+
+    def test_owner_readme_is_the_shipped_template(self) -> None:
+        self.assertEqual((ROOT / "dots/README.md").read_text(), (ROOT / "manager/init/README.md").read_text())
+
+
 class RepositorySettingsTests(unittest.TestCase):
     def test_this_configuration_declares_the_manager_settings(self) -> None:
         text = (ROOT / "config.toml").read_text()

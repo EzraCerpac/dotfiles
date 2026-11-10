@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Create a minimal dots configuration in DIR without overwriting anything:
+#   dots init [DIR]
+# config.toml gets the [vars] settings dots requires when they are absent, and
+# DIR/dots/ gets the hook, command and exception layout with the manager's
+# templates (DOTS_HOME/init). Safe to rerun: existing files are left alone.
+set -euo pipefail
+
+templates="${DOTS_HOME:?run through dots}/init"
+case $# in
+    0) dir="${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}" ;;
+    1) dir="$1" ;;
+    *) echo 'usage: dots init [DIR]' >&2; exit 2 ;;
+esac
+case "$dir" in
+    -h|--help) echo 'usage: dots init [DIR]   Create a minimal dots configuration in DIR (default: DOTS_ROOT)'; exit 0 ;;
+    -*) echo 'usage: dots init [DIR]' >&2; exit 2 ;;
+esac
+
+report() { printf '%-8s %s\n' "$1" "$2"; }
+
+make_dir() {
+    if [[ -d "$dir/$1" ]]; then report kept "$1/"; else mkdir -p "$dir/$1"; report created "$1/"; fi
+}
+
+copy_template() {
+    if [[ -e "$dir/$1" || -L "$dir/$1" ]]; then
+        report kept "$1"
+    else
+        cp "$templates/${1#dots/}" "$dir/$1"
+        report created "$1"
+    fi
+}
+
+if [[ ! -d "$dir" ]]; then
+    mkdir -p "$dir"
+    report created "$dir/"
+fi
+dir="$(cd "$dir" && pwd -P)"
+printf 'Configuration: %s\n' "$dir"
+
+# The settings dots requires, plus commented hints for the common optional ones.
+vars_lines=(
+    '# dots settings (see dots/README.md). mise vars are strings; lists are space-separated words.'
+    '# Profiles this configuration selects with mise -E; each may have a config.<profile>.toml.'
+    'dots_profiles = "default"'
+)
+config="$dir/config.toml"
+has_key() { [[ -f "$config" ]] && grep -Eq "^[[:space:]]*$1[[:space:]]*=" "$config"; }
+if has_key dots_profiles; then
+    report kept 'config.toml [vars] dots_profiles'
+else
+    hints=()
+    has_key dots_source_repo || hints+=('# dots_source_repo = "OWNER/NAME"   # GitHub repository of this configuration (sync, publish)')
+    has_key dots_state_repo || hints+=('# dots_state_repo = "OWNER/NAME"    # private settings history (restore, bootstrap)')
+    lines=("${vars_lines[@]}" ${hints[@]+"${hints[@]}"})
+    if [[ ! -f "$config" ]]; then
+        printf '[vars]\n' > "$config"
+        printf '%s\n' "${lines[@]}" >> "$config"
+        report created 'config.toml with [vars] dots_profiles'
+    elif grep -Eq '^[[:space:]]*\[vars\][[:space:]]*(#.*)?$' "$config"; then
+        # Insert directly below the existing [vars] header; TOML allows one.
+        # Rewrite in place so the file keeps its mode and any symlink.
+        temporary="$(mktemp "${TMPDIR:-/tmp}/dots-init.XXXXXX")"
+        DOTS_INIT_BLOCK="$(printf '%s\n' "${lines[@]}")" awk '
+            { print }
+            !done && /^[[:space:]]*\[vars\][[:space:]]*(#.*)?$/ { print ENVIRON["DOTS_INIT_BLOCK"]; done = 1 }
+        ' "$config" > "$temporary"
+        cat "$temporary" > "$config"
+        rm -f "$temporary"
+        report added 'config.toml [vars] dots_profiles'
+    else
+        { [[ ! -s "$config" ]] || printf '\n'; printf '[vars]\n'; printf '%s\n' "${lines[@]}"; } >> "$config"
+        report added 'config.toml [vars] dots_profiles'
+    fi
+fi
+
+for directory in dots dots/hooks dots/hooks/update.d dots/hooks/bootstrap.d dots/commands dots/exceptions; do
+    make_dir "$directory"
+done
+for file in dots/README.md dots/exceptions.tsv dots/history-files.tsv dots/retired-dotfiles; do
+    copy_template "$file"
+done
