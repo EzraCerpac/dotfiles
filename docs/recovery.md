@@ -20,7 +20,7 @@ under a different identity refuses this operation. Keep an external backup of th
 recovery key: encrypted history alone cannot recover it.
 
 Bootstrap credentials live in an age-encrypted bundle, separate from settings
-history. To capture your existing WakaTime and Himalaya configuration, use
+history. To capture your existing WakaTime configuration, use
 `dots bundle create --from-live --output /tmp/bootstrap.json.age --recipient age1...`,
 with your recovery key's public recipient. Review and move that ciphertext to
 `encrypted/bootstrap.json.age`; the private key stays outside both repositories.

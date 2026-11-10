@@ -106,8 +106,7 @@ running or its state cannot be confirmed, stop it through its service owner and
 retry. The task never stops services itself. Restore begins in fetch-only mode;
 publication remains a separate explicit `setup:backup` operation.
 
-`setup:secrets` installs only `wakatime.cfg.age` and
-`himalaya-config.toml.age`, for the workstation profile. It requires
+`setup:secrets` installs only `wakatime.cfg.age`, for the workstation profile. It requires
 `SETUP_AGE_IDENTITY` or `~/.config/age/keys.txt`. It validates content before
 writing, uses mode `0600`, and refuses differing live files unless the exact
 target is named with `--reconcile`.

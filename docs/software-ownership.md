@@ -119,7 +119,8 @@ Brew version and new tool name. Homebrew's `git-delta` formula becomes mise's
 | `cargo-audit` 0.22.2; `eza` 0.23.5 | `cargo:cargo-audit`; `cargo:eza` (Rust dependency declared) |
 | `cmake` 4.4.1; `deno` 2.9.5; `fd` 10.5.0; `fzf` 0.74.3; `gh` 2.98.0 | Aqua CMake; core Deno; Aqua `fd`, `fzf`, and `gh` |
 | `git-delta` 0.19.2; `git-lfs` 3.7.1; `gitleaks` 8.30.1; `glow` 2.1.2; `gum` 2.0.0 | `delta`; Aqua `git-lfs`, `gitleaks`, `glow`, and `gum` |
-| `jj` 0.45.1; `jjui` 0.10.9; `jq` 1.8.2; `lazygit` 0.64.1 | Same-named Aqua tools |
+| `jj` 0.45.1; `jjui` 0.10.9; `jq` 1.8.2 | Same-named Aqua tools |
+| `lazygit` 0.64.1 | Was an Aqua tool; now archived (`archive/lazygit/`) and no longer declared |
 | `node` 26.7.0; `pnpm` 11.24.0; `opencode` 1.18.15 | Core Node; Aqua pnpm and OpenCode |
 | `pandoc` 3.10.1; `rclone` 1.75.0; `ripgrep` 15.2.0; `sccache` 0.17.0 | GitHub Pandoc; same-named Aqua tools |
 | `starship` 1.26.0; `swiftformat` 0.62.1; `swiftlint` 0.65.0; `television` 0.15.9 | Same-named Aqua/GitHub tools |
@@ -158,7 +159,8 @@ registry or belong in the shared host prefix. Their intended native owner is a
 | `cliproxyapi` 7.2.145 and 7.2.155; `unbound` 1.25.2 | Host services; install/update package separately from service activation, and report any deferred restart |
 | `curl` 8.21.0; `dos2unix` 7.5.6; `fish` 4.8.1; `gnupg` 2.5.21; `htop` 3.5.3; `rsync` 3.5.0; `sshpass` 1.10; `tree` 2.3.2; `wget` 1.25.0 | Host utilities, shell path, or native integration |
 | `ffmpeg` 8.1.2_1; `librsvg` 2.62.3; `openfst` 1.8.4; `pillow` 12.3.0; `poppler` 26.08.0; `pulseaudio` 17.0; `tesseract` 5.5.3 | Native libraries/media stack; retain dependency closure in the Homebrew prefix |
-| `gitlogue` 0.10.0; `harper` 2.8.0; `himalaya` 2.0.0; `modem-dev/tap/hunk` 0.17.0 | Existing application CLIs without a registry backend selected here |
+| `gitlogue` 0.10.0; `harper` 2.8.0; `modem-dev/tap/hunk` 0.17.0 | Existing application CLIs without a registry backend selected here |
+| `himalaya` 2.0.0 | Was a native formula; now archived (`archive/himalaya/`) and no longer declared |
 | `antoniorodr/memo/memo` 0.6.0; `dastrobu/tap/mail-mcp` 0.5.0; `mole` 1.48.1; `openai-whisper` 20250625_5; `pdfpc` 4.7.0 | Keep current native recipes pending direct replacement evidence |
 | `steipete/tap/peekaboo` 3.9.8; `pngpaste` 0.2.3 | Mac-specific applications/helpers without a selected portable backend |
 | `graphviz` 15.1.0; `llvm` 22.1.8; `lua` 5.5.0; `pkgconf` 3.0.7 | Build/runtime support in the native prefix |

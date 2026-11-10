@@ -18,7 +18,7 @@ Implemented and checked against mise 2026.9.10.
 - Bootstrap bundle: real encryption/decryption, wrong keys, native secret/file
   rendering, private permissions, unchanged reapplication, destination drift,
   and symlink rejection pass with synthetic secrets. The approved live WakaTime
-  and Himalaya bundle also decrypts and validates; its identity remains external.
+  bundle also decrypts and validates; its identity remains external.
 - Maintenance: updater and short-command tests pass, including Herdr handoff
   success/failure and preserving the running server after an upgrade failure.
 - Tailscale: fixture tests cover connected no-op, private temporary key cleanup,

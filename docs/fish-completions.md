@@ -18,10 +18,10 @@ The audit of the installed development tools found these working providers:
 
 - Carapace covers the common managed tools, including `age`, `atuin`, `bat`,
   `cargo`, `deno`, `eza`, `fd`, `fzf`, `gh`, `git`, `gitleaks`, `glow`,
-  `lazygit`, `rclone`, `typst`, `wt`, `yt-dlp`, and `zoxide`.
+  `rclone`, `typst`, `wt`, `yt-dlp`, and `zoxide`.
 - Existing Fish or shell initialization covers `atuin`, `fzf`, `jw`, `mole`,
   `openclaw`, `tv`, `wt`, and `zoxide`. Native/vendor files were also observed
-  for `mise`, `jj`, `gh`, `gitleaks`, `glow`, `lazygit`, and `git-lfs`.
+  for `mise`, `jj`, `gh`, `gitleaks`, `glow`, and `git-lfs`.
 - Native Fish generators were checked for `rclone`, `typst`, `starship`, and
   `deno`; Carapace already provides their interactive command completions, so
   no duplicate generated files are tracked.
