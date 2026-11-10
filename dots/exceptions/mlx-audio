@@ -104,7 +104,14 @@ PY
     done
 }
 
+installed_version() {
+    "${tool_root}/bin/python" -c 'import importlib.metadata, sys; print(importlib.metadata.version(sys.argv[1]))' "mlx-audio" 2>/dev/null
+}
+was_installed=0
+before_version=""
 if [[ -f "$receipt" ]]; then
+    was_installed=1
+    before_version="$(installed_version)" || before_version=""
     validate_installed_tool || fail 'existing mlx-audio tool failed validation; leaving its environment untouched'
     if [[ "$action" == install-only ]]; then
         printf 'Already installed and verified mlx-audio: %s\n' "$tool_root"
@@ -126,3 +133,13 @@ fi
 
 validate_installed_tool --require-mise-python || fail 'installed mlx-audio tool failed validation'
 printf 'Installed and verified mlx-audio: %s\n' "$tool_root"
+
+# Report a verified installation or version change to dots up.
+after_version="$(installed_version)" || after_version=""
+if [[ -z "${DOTS_CHANGES:-}" ]]; then
+    :
+elif [[ "$was_installed" -eq 0 ]]; then
+    printf 'mlx-audio\tnot installed\t%s\n' "$after_version" >> "$DOTS_CHANGES"
+elif [[ -n "$before_version" && -n "$after_version" && "$before_version" != "$after_version" ]]; then
+    printf 'mlx-audio\t%s\t%s\n' "$before_version" "$after_version" >> "$DOTS_CHANGES"
+fi

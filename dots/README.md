@@ -66,7 +66,10 @@ laptop	some-app	install-only
 `exceptions/some-app` is an executable that installs or updates exactly that
 app. `install-only` makes `dots up` only install it when missing (for apps that
 update themselves); `hold=brew:formula` records that the recipe pins that
-package, so `dots add` refuses it. Bootstrap passes `--install-only`.
+package, so `dots add` refuses it. Bootstrap passes `--install-only`. Under
+`dots up` a recipe also gets `DOTS_CHANGES`, like an update hook: append
+`ITEM<TAB>BEFORE<TAB>AFTER` for what it verifiably installed (`not installed`
+as BEFORE) or updated.
 
 ## History files and retired dotfiles
 

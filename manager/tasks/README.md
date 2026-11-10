@@ -22,6 +22,7 @@ Homebrew recipes can source `"$DOTS_HOME/lib/brew-exception.sh"` and call:
 - `hold_brew_cask_exception TOKEN VERSION APP_PATH [REASON]`
 
 These disable Homebrew autoremove and install cleanup.
+The update helpers append each verified installation or upgrade to the stage's `DOTS_CHANGES` file.
 If a recipe needs administrator access and none is cached, a noninteractive run defers it and prints `sudo -v && dots up`.
 
 ## `dots up`
@@ -31,6 +32,13 @@ source, then re-executes the updated manager once. It updates declared native
 packages, installs and upgrades declared mise tools (tools pinned to a
 revision keep it), runs installer exceptions and update hooks, and updates
 standalone mise last.
+
+Each stage's changes reach the report and the first screen as `change` events
+with an action (installed, updated, removed or changed). `dots up` derives
+package, tool and standalone mise changes from snapshots taken before and after
+the stage; hooks and installer exception recipes report theirs as
+`ITEM<TAB>BEFORE<TAB>AFTER` lines in `DOTS_CHANGES`; source sync reports the
+configuration revision it adopted.
 
 On macOS, a host whose configuration declares `brew-cask:` or `mas:` packages
 gets separate Homebrew formula and cask stages; other hosts update their

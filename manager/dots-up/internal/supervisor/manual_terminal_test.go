@@ -140,7 +140,7 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 						_ = syscall.Kill(os.Getpid(), syscall.SIGWINCH)
 					}
 				}
-				marker := "update keeps running"
+				marker := "dots up keeps running"
 				if automatic {
 					marker = "fixture output"
 				}
@@ -261,7 +261,7 @@ func runTerminalPTYFixture(t *testing.T, keys []string, want string, automatic b
 		if opts.tinyResize && !strings.Contains(output, "\x1b7\x1b[r\x1b8") {
 			t.Fatal("tiny resize did not reset the manual scrolling region")
 		}
-	} else if strings.Contains(output, "update keeps running") {
+	} else if strings.Contains(output, "keeps running") {
 		t.Fatal("manual hint was displayed during automatic handoff")
 	}
 }

@@ -23,6 +23,28 @@ find_real_brew() {
     return 1
 }
 
+# Read only the named package's installed version. Failure is unknown.
+brew_exception_version() {
+    local brew_bin="$1" kind="$2" token="$3" line
+    line="$("$brew_bin" list --versions "--$kind" "$token" 2>/dev/null)" || return 1
+    [[ "$line" == *' '* ]] || return 1
+    printf '%s' "${line#* }"
+}
+
+# Report a verified installation or version change through the stage's
+# DOTS_CHANGES file (ITEM<TAB>BEFORE<TAB>AFTER), as every exception recipe does.
+brew_exception_record() {
+    local brew_bin="$1" kind="$2" token="$3" action="$4" before="${5:-}" after
+    [[ -n "${DOTS_CHANGES:-}" ]] || return 0
+    "$brew_bin" list "--$kind" "$token" >/dev/null 2>&1 || return 0
+    after="$(brew_exception_version "$brew_bin" "$kind" "$token")" || after=""
+    if [[ "$action" == installed ]]; then
+        printf '%s\t%s\t%s\n' "brew-$kind:$token" 'not installed' "$after" >> "$DOTS_CHANGES" || true
+    elif [[ -n "$before" && -n "$after" && "$before" != "$after" ]]; then
+        printf '%s\t%s\t%s\n' "brew-$kind:$token" "$before" "$after" >> "$DOTS_CHANGES" || true
+    fi
+}
+
 # Install or update one Homebrew cask from its own exception recipe; the
 # reviewed recipe and manifest row are what allow a cask here.
 #   update_brew_cask_exception [--auto-updates] [--admin] TOKEN [PROCESS] [--install-only]
@@ -39,7 +61,7 @@ update_brew_cask_exception() {
         esac
     done
     local token="${1:?cask token required}" running_process="${2:-}" mode="${3:-}"
-    local brew_bin outdated outdated_status=0
+    local brew_bin outdated outdated_status=0 before=""
     if [[ "$(uname -s)" != Darwin ]]; then
         printf 'Deferred: %s is macOS-only.\n' "$token"
         return 0
@@ -56,8 +78,9 @@ update_brew_cask_exception() {
             brew_exception_defer_for_admin "$token"
             return 0
         fi
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" install --cask "$token"
-        return $?
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" install --cask "$token" || return $?
+        brew_exception_record "$brew_bin" cask "$token" installed
+        return 0
     fi
     if [[ "$mode" == --install-only ]]; then
         printf 'Already installed: %s\n' "$token"
@@ -88,11 +111,13 @@ update_brew_cask_exception() {
         brew_exception_defer_for_admin "$token"
         return 0
     fi
+    before="$(brew_exception_version "$brew_bin" cask "$token")" || before=""
     if [[ "$auto_updates" -eq 1 ]]; then
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask --greedy "$token"
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask --greedy "$token" || return $?
     else
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask "$token"
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask "$token" || return $?
     fi
+    brew_exception_record "$brew_bin" cask "$token" updated "$before"
 }
 
 # Install or update one Homebrew formula from its own exception recipe. Keep
@@ -100,7 +125,7 @@ update_brew_cask_exception() {
 #   update_brew_formula_exception TOKEN [--install-only]
 update_brew_formula_exception() {
     local token="${1:?formula required}" mode="${2:-}"
-    local brew_bin outdated outdated_status=0
+    local brew_bin outdated outdated_status=0 before=""
     if [[ "$(uname -s)" != Darwin ]]; then
         printf 'Deferred: %s is macOS-only.\n' "$token"
         return 0
@@ -109,8 +134,9 @@ update_brew_formula_exception() {
 
     if ! "$brew_bin" list --formula "$token" >/dev/null 2>&1; then
         HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-            "$brew_bin" install --formula "$token"
-        return $?
+            "$brew_bin" install --formula "$token" || return $?
+        brew_exception_record "$brew_bin" formula "$token" installed
+        return 0
     fi
     if [[ "$mode" == --install-only ]]; then
         printf 'Already installed: %s\n' "$token"
@@ -126,8 +152,10 @@ update_brew_formula_exception() {
         printf 'Unchanged: %s\n' "$token"
         return 0
     fi
+    before="$(brew_exception_version "$brew_bin" formula "$token")" || before=""
     HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-        "$brew_bin" upgrade --formula "$token"
+        "$brew_bin" upgrade --formula "$token" || return $?
+    brew_exception_record "$brew_bin" formula "$token" updated "$before"
 }
 
 # Hold a package at a known-good version. Homebrew cannot express a portable

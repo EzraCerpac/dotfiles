@@ -39,6 +39,7 @@ exception_root="${mise_data_dir}/uv-exceptions/typ2docx"
 exception_root="$("$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$exception_root")"
 launcher="${HOME}/.local/bin/typ2docx"
 launcher_state="absent"
+installed_version=""
 old_launcher_text=""
 current_run_root=""
 
@@ -198,4 +199,13 @@ printf 'Installed typ2docx version: %s\n' "$latest_version"
 printf 'Isolated tool directory: %s\n' "$tool_dir"
 if [[ "$launcher_state" != absent ]]; then
     printf 'Previous launcher backup: %s\n' "$backup_launcher"
+fi
+
+# Report the change to dots up; a rebuild of the same version shows as changed.
+if [[ -z "${DOTS_CHANGES:-}" ]]; then
+    :
+elif [[ "$launcher_state" == absent ]]; then
+    printf 'typ2docx\tnot installed\t%s\n' "$latest_version" >> "$DOTS_CHANGES"
+else
+    printf 'typ2docx\t%s\t%s\n' "${installed_version:-unknown}" "$latest_version" >> "$DOTS_CHANGES"
 fi

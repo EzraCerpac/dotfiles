@@ -76,13 +76,20 @@ declares_packages() {
     return 1
 }
 snapshot_stage() {
-    local group="$1" data declared
+    local group="$1" label="$2" data declared
+    if [[ "$label" == 'standalone mise' ]]; then
+        local version
+        version="$("$(resolve_mise_bin)" --version 2>/dev/null)" || return 1
+        [[ -n "$version" ]] || return 1
+        setup_mise exec -- jq -cn --arg value "$version" '[{item:"mise",value:$value}]'
+        return
+    fi
     case "$group" in
         Tools)
             data="$(setup_mise ls --json 2>/dev/null)" || return 1
             printf '%s' "$data" | setup_mise exec -- jq -ce '
                 [to_entries[] as $tool | $tool.value[]?
-                    | select(.active == true and (.version | type == "string"))
+                    | select(.active == true and .installed == true and (.version | type == "string"))
                     | {item:$tool.key,value:.version}]
                 | sort_by(.item)
             ' 2>/dev/null
@@ -129,14 +136,26 @@ emit_snapshot_changes() {
         ($after | map({key:.item,value:.value}) | from_entries) as $a |
         ((($b | keys) + ($a | keys)) | unique[]) as $item |
         select(($b[$item] // null) != ($a[$item] // null)) |
-        {v:1,kind:"change",stage:$stage,item:$item,before:($b[$item] // "not installed"),after:($a[$item] // "not installed")}
+        {v:1,kind:"change",stage:$stage,item:$item,action:(if ($b | has($item) | not) then "installed" elif ($a | has($item) | not) then "removed" else "updated" end),before:($b[$item] // "not installed"),after:($a[$item] // "not installed")}
     ' 2>/dev/null || true)"
     [[ -n "$changes" ]] || return 0
     while IFS= read -r event; do [[ -n "$event" ]] && emit_event "$event"; done <<< "$changes"
 }
-# A hook may append "ITEM<TAB>BEFORE<TAB>AFTER" lines to $DOTS_CHANGES; each
-# becomes a change in its stage report, like the package and tool changes above.
-emit_hook_changes() {
+# Hooks and installer exception recipes may append "ITEM<TAB>BEFORE<TAB>AFTER"
+# lines to $DOTS_CHANGES; each becomes a change in its stage report, like the
+# package and tool changes above. An empty or "not installed" side marks an
+# installation or removal; the same value on both sides marks a rebuild.
+change_action() {
+    local before="$1" after="$2" before_missing=0 after_missing=0
+    [[ -n "$before" && "$before" != 'not installed' ]] || before_missing=1
+    [[ -n "$after" && "$after" != 'not installed' ]] || after_missing=1
+    if [[ "$before_missing" -eq 1 && "$after_missing" -eq 0 ]]; then printf installed
+    elif [[ "$before_missing" -eq 0 && "$after_missing" -eq 1 ]]; then printf removed
+    elif [[ "$before_missing" -eq 0 && "$before" != "$after" ]]; then printf updated
+    else printf changed
+    fi
+}
+emit_reported_changes() {
     local stage="$1" file="$2" line item rest before after ignored=0
     [[ -s "$file" ]] || return 0
     while IFS= read -r line || [[ -n "$line" ]]; do
@@ -149,11 +168,11 @@ emit_hook_changes() {
             ignored=$((ignored + 1))
             continue
         fi
-        emit_event "$(event_json --arg stage "$stage" --arg item "$item" --arg before "$before" --arg after "$after" '{v:1,kind:"change",stage:$stage,item:$item,before:$before,after:$after}')"
+        emit_event "$(event_json --arg stage "$stage" --arg item "$item" --arg action "$(change_action "$before" "$after")" --arg before "$before" --arg after "$after" '{v:1,kind:"change",stage:$stage,item:$item,action:$action,before:$before,after:$after}')"
     done < "$file"
     if [[ "$ignored" -gt 0 ]]; then
         printf 'Note: ignored %s malformed DOTS_CHANGES line(s); expected ITEM<TAB>BEFORE<TAB>AFTER.\n' "$ignored"
-        dots_up_emit_notice info "Ignored $ignored malformed change line(s) from a hook" "Write ITEM<TAB>BEFORE<TAB>AFTER lines to DOTS_CHANGES" "$stage"
+        dots_up_emit_notice info "Ignored $ignored malformed change line(s) from this stage" "Write ITEM<TAB>BEFORE<TAB>AFTER lines to DOTS_CHANGES" "$stage"
     fi
 }
 
@@ -233,15 +252,17 @@ fi
 
 failures=()
 deferred=()
-# run_stage LABEL [--terminal-handoff] [--hook] COMMAND...
+# run_stage LABEL [--terminal-handoff] [--hook | --changes] COMMAND...
 # A --hook stage follows the hook contract: exit 3 is deferred (needs
 # attention), 4 is skipped, and any other nonzero status is a failure.
+# --hook and --changes stages get a DOTS_CHANGES file for their change reports.
 run_stage() {
     local label="$1"
     shift
-    local terminal=hidden hook=0
+    local terminal=hidden hook=0 reports_changes=0
     if [[ "${1:-}" == --terminal-handoff ]]; then terminal=handoff; shift; fi
-    if [[ "${1:-}" == --hook ]]; then hook=1; shift; fi
+    if [[ "${1:-}" == --hook ]]; then hook=1 reports_changes=1; shift
+    elif [[ "${1:-}" == --changes ]]; then reports_changes=1; shift; fi
     local event_id="${label//[^a-zA-Z0-9]/-}"
     local group=Hooks
     [[ "$hook" -eq 1 ]] || group="$(event_group "$label")"
@@ -261,7 +282,7 @@ run_stage() {
         fi
     fi
     if dots_up_event_sink_enabled; then
-        before_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
+        before_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
     fi
     if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
         stage_log="$DOTS_UP_RUN_DIR/stages/$event_id.log"
@@ -272,7 +293,7 @@ run_stage() {
     fi
     if [[ "$plain_output" -eq 1 ]]; then printf 'Working: %s\n' "$label"; else printf '\n== %s ==\n' "$label"; fi
     local result=0 changes_file=""
-    if [[ "$hook" -eq 1 ]]; then
+    if [[ "$reports_changes" -eq 1 ]]; then
         if changes_file="$(mktemp "${TMPDIR:-/tmp}/dots-changes.XXXXXX")"; then
             export DOTS_CHANGES="$changes_file"
         else
@@ -288,11 +309,11 @@ run_stage() {
     fi
     if [[ -n "$changes_file" ]]; then
         unset DOTS_CHANGES
-        emit_hook_changes "$event_id" "$changes_file"
+        emit_reported_changes "$event_id" "$changes_file"
         rm -f -- "$changes_file"
     fi
     if dots_up_event_sink_enabled; then
-        after_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
+        after_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
         if [[ "$before_valid" -eq 1 && "$after_valid" -eq 1 ]]; then
             emit_snapshot_changes "$event_id" "$before_snapshot" "$after_snapshot"
         fi
@@ -526,9 +547,9 @@ fi
 run_exception() {
     local name="$1" script_path="$2" flags="$3"
     if setup_exception_has_flag "$flags" install-only; then
-        run_stage "installer exception: $name" setup_mise exec -- "$script_path" --install-only || true
+        run_stage "installer exception: $name" --changes setup_mise exec -- "$script_path" --install-only || true
     else
-        run_stage "installer exception: $name" setup_mise exec -- "$script_path" || true
+        run_stage "installer exception: $name" --changes setup_mise exec -- "$script_path" || true
     fi
 }
 

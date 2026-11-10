@@ -81,6 +81,7 @@ All live in the configuration's `dots/`; read its `README.md` before writing one
 - Installer exception, for an app no mise backend can install: an executable recipe `dots/exceptions/NAME` that updates exactly that app, plus a row `PROFILE<TAB>NAME[<TAB>FLAGS]` in `dots/exceptions.tsv`.
   Flags: `install-only` for self-updating apps, `hold=PACKAGE` for a pinned package.
   Homebrew recipes can use `$DOTS_HOME/lib/brew-exception.sh` (see `$DOTS_HOME/tasks/README.md`).
+  Under `dots up` recipes get `$DOTS_CHANGES` too, for the same change lines.
 
 Make new hooks and recipes executable (`chmod +x`), start them with `set -euo pipefail`, keep them safe to rerun, and check them with `bash -n`.
 

@@ -1,4 +1,23 @@
 #!/usr/bin/env bash
-# Rebuild an existing jj-waltz install from its main source.
+# Rebuild an existing jj-waltz install from its main source and report a
+# changed source revision through DOTS_CHANGES.
 set -euo pipefail
-exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-build-install.sh" --update-existing
+
+# Print the installed jw source revision, "not installed", or fail when unknown.
+jw_revision() {
+    local jw="${JW_INSTALL_DIR:-${HOME:?HOME must be set}/.local/bin}/jw" target revision
+    if [[ ! -e "$jw" && ! -L "$jw" ]]; then printf 'not installed'; return; fi
+    target="$(realpath "$jw" 2>/dev/null)" || return 1
+    revision="$(cat "${target%/*}/source-commit" 2>/dev/null)" || return 1
+    [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || return 1
+    printf '%s' "$revision"
+}
+
+before="$(jw_revision)" || before=""
+status=0
+bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-build-install.sh" --update-existing || status=$?
+after="$(jw_revision)" || after=""
+if [[ -n "${DOTS_CHANGES:-}" && -n "$before" && -n "$after" && "$before" != "$after" ]]; then
+    printf 'jw\t%s\t%s\n' "$before" "$after" >> "$DOTS_CHANGES"
+fi
+exit "$status"

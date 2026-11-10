@@ -1,8 +1,26 @@
 #!/usr/bin/env bash
-# Rebuild and reinstall a changed Capd fork main (macOS only).
+# Rebuild and reinstall a changed Capd fork main (macOS only) and report a
+# changed source revision through DOTS_CHANGES.
 set -euo pipefail
 if [[ "$(uname -s 2>/dev/null || true)" != Darwin ]]; then
     printf 'Skipped: Capd fork main (macOS only).\n'
     exit 4
 fi
-exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/local/capd-update.sh"
+
+# Print the installed Capd source revision, "not installed", or fail when unknown.
+capd_revision() {
+    local app="${CAPD_APP_PATH:-/Applications/capd.app}" revision
+    if [[ ! -e "$app" ]]; then printf 'not installed'; return; fi
+    revision="$("${CAPD_PLUTIL_BIN:-/usr/bin/plutil}" -extract CapdSourceRevision raw -o - "$app/Contents/Info.plist" 2>/dev/null)" || return 1
+    [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || return 1
+    printf '%s' "$revision"
+}
+
+before="$(capd_revision)" || before=""
+status=0
+bash "${DOTS_ROOT:?run through dots}/setup-scripts/local/capd-update.sh" || status=$?
+after="$(capd_revision)" || after=""
+if [[ -n "${DOTS_CHANGES:-}" && -n "$before" && -n "$after" && "$before" != "$after" ]]; then
+    printf 'Capd\t%s\t%s\n' "$before" "$after" >> "$DOTS_CHANGES"
+fi
+exit "$status"
