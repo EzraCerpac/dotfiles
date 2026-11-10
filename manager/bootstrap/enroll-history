@@ -40,13 +40,14 @@ while (($#)); do
     esac
 done
 
+# Resolve the configuration first: profile validation reads its [vars].
+bootstrap_init
 bootstrap_validate_profile
 if [[ -z "$identity_arg" ]]; then
     bootstrap_error '--identity is required'
     usage >&2
     exit 2
 fi
-bootstrap_init
 
 case "$identity_arg" in
     "~/"*) identity_path="$BOOTSTRAP_HOME/${identity_arg#\~/}"; identity_label="$identity_arg" ;;
