@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# dots hello [NAME...]: a configuration command.
+set -euo pipefail
+printf 'hello %s from %s\n' "${*:-world}" "$DOTS_PROFILE"

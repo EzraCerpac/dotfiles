@@ -1,0 +1,12 @@
+# A small dots configuration for the manager's tests. It declares the
+# settings dots reads, one tool and one dotfile; profiles add to it.
+[vars]
+dots_profiles = "laptop server"
+dots_source_repo = "example/dotfiles"
+dots_state_repo = "example/dotfiles-state"
+
+[tools]
+jq = "latest"
+
+[dotfiles]
+"~/.config/example/settings.toml" = { source = "dotfiles/.config/example/settings.toml", mode = "symlink" }

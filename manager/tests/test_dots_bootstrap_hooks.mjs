@@ -5,9 +5,9 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { complete, hookStatus } from '../manager/bootstrap/complete.mjs';
+import { complete, hookStatus } from '../bootstrap/complete.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const MANAGER = path.resolve(import.meta.dirname, '..');
 
 function fixture() {
   const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dots-bootstrap-hooks-')));
@@ -50,7 +50,7 @@ function bootstrap(f, calls, env = {}, vars) {
   console.log = line => lines.push(String(line));
   try {
     const code = complete({
-      root: f.root, dotsHome: path.join(ROOT, 'manager'), home: f.home, miseBin: '/fixture/mise',
+      root: f.root, dotsHome: MANAGER, home: f.home, miseBin: '/fixture/mise',
       env: { PATH: process.env.PATH, SETUP_PROFILE: 'laptop', SETUP_MACHINE_ID: 'fixture-host', XDG_STATE_HOME: path.join(f.base, 'state'), ...env },
       run: fakeRun(f.root, calls, vars),
     });
@@ -88,7 +88,7 @@ test('bootstrap runs hooks after installer exceptions with readiness facts', () 
     assert.ok(!fs.existsSync(path.join(f.base, 'server')), 'a hook for another profile ran');
     assert.ok(fs.existsSync(path.join(f.base, 'after')));
     assert.deepEqual(fs.readFileSync(out, 'utf8').trim().split('\n'),
-      [f.root, path.join(ROOT, 'manager'), 'laptop', '1', '0', f.root]);
+      [f.root, MANAGER, 'laptop', '1', '0', f.root]);
     assert.ok(!stages.some(stage => stage.startsWith('skipped mode')));
   } finally {
     f.cleanup();

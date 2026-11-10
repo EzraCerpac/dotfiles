@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+MANAGER = Path(__file__).resolve().parents[1]
 
 
 class DotsHomeTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class DotsHomeTests(unittest.TestCase):
         # A manager copied away from this checkout, reached through a relative
         # symlink like ~/.local/bin/dots, and a configuration with no manager.
         self.home = base / "tools/manager"
-        shutil.copytree(ROOT / "manager", self.home, ignore=shutil.ignore_patterns("dots-up"))
+        shutil.copytree(MANAGER, self.home, ignore=shutil.ignore_patterns("dots-up", "tests", "__pycache__"))
         self.config = base / "config"
         self.config.mkdir()
         (self.config / "config.toml").write_text("# minimal configuration\n")

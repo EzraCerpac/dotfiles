@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { syncSource, SourceDeferred } from '../manager/lib/source-repo.mjs';
+import { syncSource, SourceDeferred } from '../lib/source-repo.mjs';
 import { requires } from './lib/prereq.mjs';
 
 const available = requires('git', 'gitleaks', 'jj');
@@ -32,7 +32,7 @@ function fixture(t, useJj = false) {
   fs.writeFileSync(path.join(a, 'config.toml'), '# initial\n');
   fs.writeFileSync(path.join(a, 'text'), 'first\nmiddle\nlast\n');
   fs.writeFileSync(path.join(a, '.gitignore'), '/config.local.toml\n/miserc.toml\n/config.host-*.toml\n/mise.lock\n/mise.nas.lock\n/mise.workstation.lock\n/.setup-state/\n/locks/\n');
-  fs.copyFileSync(new URL('../.gitleaks.toml', import.meta.url), path.join(a, '.gitleaks.toml'));
+  fs.copyFileSync(new URL('../init/gitleaks.toml', import.meta.url), path.join(a, '.gitleaks.toml'));
   git(a, 'add', '.'); git(a, 'commit', '-m', 'Initial'); git(a, 'push', '-u', 'origin', 'main');
   git(dir, 'clone', origin, b);
   if (useJj) for (const root of [a, b]) { run('jj', ['git', 'init', '--colocate', root], dir); }

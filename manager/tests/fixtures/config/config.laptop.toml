@@ -1,0 +1,3 @@
+# The laptop profile, selected with mise -E laptop.
+[tools]
+ripgrep = "latest"

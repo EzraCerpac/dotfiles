@@ -5,8 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-import { ensureRepository, withRepositoryLock } from '../manager/lib/source-repo.mjs';
-import { publish, disclosure } from '../manager/tasks/publish.mjs';
+import { ensureRepository, withRepositoryLock } from '../lib/source-repo.mjs';
+import { publish, disclosure } from '../tasks/publish.mjs';
 import { requires } from './lib/prereq.mjs';
 
 // Every fixture is a real colocated JJ repository.
@@ -69,7 +69,7 @@ function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, s
     if (bin === 'gh' && args[0] === 'pr' && (args[1] === 'create' || args[1] === 'edit')) {
       const bodyPath = args[args.indexOf('--body-file') + 1];
       bodyFiles.push({ path: bodyPath, content: fs.readFileSync(bodyPath, 'utf8') });
-      return { status: 0, stdout: args[1] === 'create' ? 'https://github.com/EzraCerpac/dotfiles/pull/17\n' : '', stderr: '' };
+      return { status: 0, stdout: args[1] === 'create' ? 'https://github.com/example/dotfiles/pull/17\n' : '', stderr: '' };
     }
     return spawnSync(bin, args, options);
   };

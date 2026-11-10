@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Every profile: report one change to the stage.
+set -euo pipefail
+echo "Hello from $DOTS_PROFILE"
+printf 'greeting\t%s\t%s\n' old new >> "$DOTS_CHANGES"

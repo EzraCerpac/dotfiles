@@ -18,11 +18,12 @@ from pathlib import Path
 
 from lib.prereq import requires
 
-ROOT = Path(__file__).resolve().parents[1]
+MANAGER = Path(__file__).resolve().parents[1]
 
-# A fake mise: logs every call, answers [vars] from FAKE_VAR_<name>, runs
-# `exec -- COMMAND` directly, simulates source sync with FAKE_SYNC, and
-# succeeds for every other subcommand without doing anything.
+# A fake mise: logs every call, answers [vars] from FAKE_VAR_<name> or else
+# from the string in the --file it was given, runs `exec -- COMMAND` directly,
+# simulates source sync with FAKE_SYNC, and succeeds for every other
+# subcommand without doing anything.
 FAKE_MISE = r"""#!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FAKE_MISE_LOG"
 while [[ "${1:-}" == -C || "${1:-}" == -E ]]; do shift 2; done
@@ -33,8 +34,13 @@ case "${1:-}" in
             case "$key" in
                 vars.*)
                     variable="FAKE_VAR_${key#vars.}"
-                    [[ -n "${!variable+set}" ]] || exit 1
-                    printf '%s\n' "${!variable}"; exit 0 ;;
+                    if [[ -n "${!variable+set}" ]]; then printf '%s\n' "${!variable}"; exit 0; fi
+                    [[ "${3:-}" == --file && -f "${4:-}" ]] || exit 1
+                    exec python3 -c '
+import sys, tomllib
+value = tomllib.load(open(sys.argv[1], "rb")).get("vars", {}).get(sys.argv[2])
+sys.exit(1) if not isinstance(value, str) else print(value)
+' "$4" "${key#vars.}" ;;
                 *) exit 1 ;;
             esac
         fi
@@ -69,7 +75,7 @@ class Fixture:
     def __init__(self, base: Path, *, profiles: str | None = "laptop server") -> None:
         self.base = base
         self.manager = base / "manager"
-        shutil.copytree(ROOT / "manager", self.manager, ignore=shutil.ignore_patterns("dots-up", "__pycache__"))
+        shutil.copytree(MANAGER, self.manager, ignore=shutil.ignore_patterns("dots-up", "tests", "__pycache__"))
         self.config = base / "config"
         self.config.mkdir()
         (self.config / "config.toml").write_text("# minimal configuration\n")
@@ -475,6 +481,7 @@ class InitTests(ContractTestCase):
             self.assertTrue((fresh / "dots" / directory).is_dir(), directory)
         for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles"):
             self.assertEqual((fresh / "dots" / name).read_text(), (self.f.manager / "init" / name).read_text())
+        self.assertEqual((fresh / ".gitleaks.toml").read_text(), (self.f.manager / "init/gitleaks.toml").read_text())
         self.assertIn("created  dots/README.md", result.stdout)
         # The new configuration works: its profile is valid and its manifest parses.
         listed = self.f.dots("internal", "profiles", DOTS_ROOT=str(fresh), FAKE_VAR_dots_profiles="default")
@@ -501,16 +508,6 @@ class InitTests(ContractTestCase):
         no_vars = write(self.f.base / "plain/config.toml", '[tools]\njq = "1"\n')
         self.init(str(no_vars.parent))
         self.assertTrue(no_vars.read_text().startswith('[tools]\njq = "1"\n\n[vars]\n'))
-
-    def test_owner_readme_is_the_shipped_template(self) -> None:
-        self.assertEqual((ROOT / "dots/README.md").read_text(), (ROOT / "manager/init/README.md").read_text())
-
-
-class RepositorySettingsTests(unittest.TestCase):
-    def test_this_configuration_declares_the_manager_settings(self) -> None:
-        text = (ROOT / "config.toml").read_text()
-        for name in ("dots_profiles", "dots_source_repo", "dots_state_repo"):
-            self.assertRegex(text, rf'(?m)^{name} = "[^"]+"$')
 
 
 if __name__ == "__main__":
