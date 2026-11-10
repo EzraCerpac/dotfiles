@@ -21,7 +21,7 @@ func find(name string) item {
 	panic(name)
 }
 
-var profiles = []string{"laptop", "nas"}
+var profiles = []string{"laptop", "server"}
 
 func TestFormsBuildLiteralArgsAndValidate(t *testing.T) {
 	f := formFor(find("add"), profiles)
@@ -29,13 +29,13 @@ func TestFormsBuildLiteralArgsAndValidate(t *testing.T) {
 		t.Fatal("empty target accepted")
 	}
 	f.fields[0].value = "name with spaces;$(touch nope)"
-	f.fields[1].value = "nas"
+	f.fields[1].value = "server"
 	f.advanced = []string{"another tool"}
 	got, err := f.args()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"add", "name with spaces;$(touch nope)", "--profile", "nas", "another tool"}
+	want := []string{"add", "name with spaces;$(touch nope)", "--profile", "server", "another tool"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%q != %q", got, want)
 	}
@@ -44,9 +44,9 @@ func TestFormsBuildLiteralArgsAndValidate(t *testing.T) {
 	if _, err := f.args(); err == nil {
 		t.Fatal("missing profile accepted")
 	}
-	f.fields[1].value = "nas"
+	f.fields[1].value = "server"
 	got, err = f.args()
-	if err != nil || !reflect.DeepEqual(got, []string{"remote", "host", "--profile", "nas"}) {
+	if err != nil || !reflect.DeepEqual(got, []string{"remote", "host", "--profile", "server"}) {
 		t.Fatalf("%q %v", got, err)
 	}
 	f = formFor(find("bundle-create"), profiles)

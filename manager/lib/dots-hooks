@@ -8,7 +8,7 @@
 # optionally ending in @PROFILE: such a hook applies only to that profile. Its
 # label is the name without the @PROFILE suffix, a leading order number and a
 # file extension, with dashes and underscores as spaces:
-# 30-jw-release.sh@nas -> "jw release". A missing DIR has no hooks. A suffix
+# 30-Backup-disks.sh@server -> "Backup disks". A missing DIR has no hooks. A suffix
 # naming a profile outside KNOWN_PROFILE... fails with status 2 before
 # anything is printed, so a typo never silently disables a hook.
 set -euo pipefail
