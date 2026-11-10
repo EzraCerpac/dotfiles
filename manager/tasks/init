@@ -3,7 +3,8 @@
 #   dots init [DIR]
 # config.toml gets the [vars] settings dots requires when they are absent, and
 # DIR/dots/ gets the hook, command and exception layout with the manager's
-# templates (DOTS_HOME/init). Safe to rerun: existing files are left alone.
+# templates (DOTS_HOME/init), and DIR/.gitleaks.toml the secret-scan rules
+# dots sync uses. Safe to rerun: existing files are left alone.
 set -euo pipefail
 
 templates="${DOTS_HOME:?run through dots}/init"
@@ -23,11 +24,12 @@ make_dir() {
     if [[ -d "$dir/$1" ]]; then report kept "$1/"; else mkdir -p "$dir/$1"; report created "$1/"; fi
 }
 
+# copy_template TARGET [TEMPLATE]: TEMPLATE defaults to TARGET without dots/.
 copy_template() {
     if [[ -e "$dir/$1" || -L "$dir/$1" ]]; then
         report kept "$1"
     else
-        cp "$templates/${1#dots/}" "$dir/$1"
+        cp "$templates/${2:-${1#dots/}}" "$dir/$1"
         report created "$1"
     fi
 }
@@ -81,3 +83,5 @@ done
 for file in dots/README.md dots/exceptions.tsv dots/history-files.tsv dots/retired-dotfiles; do
     copy_template "$file"
 done
+# dots sync scans every snapshot with the configuration's gitleaks rules.
+copy_template .gitleaks.toml gitleaks.toml
