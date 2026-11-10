@@ -30,7 +30,6 @@ on-window-detected = [
   { if = 'test %{app-bundle-id} = com.openai.codex', run = 'move-node-to-workspace 2' },
   { if = 'test %{app-bundle-id} = com.kagi.kagimacOS', run = 'move-node-to-workspace B' },
   { if = 'test %{app-bundle-id} = com.superlogical.rex', run = 'move-node-to-workspace T' },
-  { if = 'test %{app-bundle-id} = com.github.wez.wezterm && test %{window-title} ~= "(?i)^herdr([[:space:]]|$)"', run = 'move-node-to-workspace T' },
   { if = 'test %{app-bundle-id} = com.apple.mail || test %{app-bundle-id} = net.whatsapp.WhatsApp', run = 'move-node-to-workspace E' },
   { if = 'test %{app-bundle-id} = com.apple.Music', run = 'move-node-to-workspace M' },
 ]

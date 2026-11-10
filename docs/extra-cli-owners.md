@@ -25,7 +25,6 @@ owned both `grok` and `agent`. Both recorded executables were later uninstalled.
 
 ## Already accounted for
 
-- `herdr` has a native mise owner in `config.workstation.toml`.
 - `agenda`, `antinote`, and `remctl` are source-mapped wrappers in
   `dotfiles/.local/bin`; their dedicated source-installer tasks are underway.
   Keep those as explicit local-tool owners rather than adding duplicate

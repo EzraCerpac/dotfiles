@@ -3,8 +3,8 @@
 The manifests are authoritative: shared terminal tools, Neovim, and pagers load
 for both roles. Tools track latest releases except an explicitly activated
 workstation JJ source pin and the Kanata and Karabiner versions held for the known input bug.
-Herdr updates defer while its server is running. Older Python interpreters are
-application compatibility dependencies. The inventory
+Older Python interpreters are application compatibility dependencies. The
+inventory
 below records the migration baseline; it is not a list of current version pins.
 
 The shared base, workstation and NAS retain `jj = "latest"` by default.
@@ -356,9 +356,8 @@ applying that profile.
 
 - Homebrew receipts mark 99 formulae as installed on request. The earlier 79
   count did not cover every requested receipt; the table covers all 99.
-- Herdr uses the native mise registry backend, pinned to 0.8.2. The 0.9.0
-  client cannot attach to the preserved 0.8.2 server. Upgrade this pin only
-  when existing terminal sessions can be restarted deliberately.
+- Herdr used the native mise registry backend; it is now archived
+  (`archive/herdr/`) and no longer declared.
 - The audit found five Pi plugin packages without CLI binaries and proposed an
   explicit Pi package-store updater. Pi was later removed from config and the
   Mac, and that updater is no longer part of the current setup.

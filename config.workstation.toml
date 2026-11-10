@@ -9,8 +9,6 @@ GROK_DISABLE_AUTOUPDATER = "1"
 AGY_CLI_DISABLE_AUTO_UPDATE = "true"
 
 [tools]
-# Routine updates defer Herdr while its persistent terminal server is running.
-herdr = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 # Ruby is required to evaluate supported third-party Homebrew recipes.
 ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
@@ -294,14 +292,8 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink" }
 "~/.config/fish/functions/spf.fish" = { source = "dotfiles/.config/fish/functions/spf.fish", mode = "symlink" }
 "~/.config/zsh/spf.zsh" = { source = "dotfiles/.config/zsh/spf.zsh", mode = "symlink" }
-"~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink" }
 "~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink" }
 "~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink" }
 "~/.config/jj/conf.d/signing.toml" = { source = "templates/.config/jj/conf.d/signing.toml.tera", mode = "template" }
 "~/.config/jj/conf.d/merge.toml" = { source = "dotfiles/.config/jj/conf.d/merge.toml", mode = "symlink" }
 "~/.local/bin/jj-merge" = { source = "dotfiles/.local/bin/jj-merge", mode = "symlink" }

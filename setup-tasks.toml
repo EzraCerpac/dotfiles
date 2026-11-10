@@ -75,11 +75,6 @@ description = "Deploy encrypted private configuration"
 run = "bash setup-scripts/setup/secrets"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
-["install:herdr-plugins"]
-description = "Herdr plugins"
-run = "bash setup-scripts/install/herdr-plugins.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
 ["install:jw-build-install"]
 description = "Jw build install"
 run = "bash setup-scripts/install/jw-build-install.sh"

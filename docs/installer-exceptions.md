@@ -8,17 +8,16 @@ setup's own choices.
 ## Update and bootstrap hooks
 
 `dots up` runs [`dots/hooks/update.d`](../dots/hooks/update.d) after installer
-exceptions and before the Mac App Store result: the Herdr live handoff and
-shell configuration (workstation), the jw NAS release (NAS), the Codex ACP
-native executable, jw main source and Capd fork main (workstation; Capd on
-macOS only), then Neovim plugins. Neovim plugins run after the exceptions
+exceptions and before the Mac App Store result: the jw NAS release (NAS), the
+Codex ACP native executable, jw main source and Capd fork main (workstation;
+Capd on macOS only), then Neovim plugins. Neovim plugins run after the exceptions
 because `nas-neovim-source` builds Neovim on the NAS. Hooks that do not apply
 to a profile report themselves as skipped.
 
 Bootstrap runs [`dots/hooks/bootstrap.d`](../dots/hooks/bootstrap.d) after
 installer exceptions and before Atuin: the Codex ACP payload, missing public
-defaults after a restore, the jw NAS release, Neovim, the Fish, Herdr and
-login shell chain, the current-user keyboard, and personal command builds.
+defaults after a restore, the jw NAS release, Neovim, the Fish and login
+shell chain, the current-user keyboard, and personal command builds.
 
 `dots houseatlas check|apply|status` is [a configuration
 command](../dots/commands/houseatlas); it replaced `dots up houseatlas`.
@@ -39,8 +38,7 @@ app's updater. SF Pro keeps its existing `latest` behavior. Updates for Zoom and
 Tailscale defer while those apps are running.
 
 Kanata and Karabiner-Elements remain held for the known input bug
-(`hold=` rows in the manifest); `dots add` refuses them. Herdr is deferred while
-its terminal server is running.
+(`hold=` rows in the manifest); `dots add` refuses them.
 
 ## UV tool exceptions
 

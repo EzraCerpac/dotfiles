@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# One dependent chain: prepare Fish, apply the Herdr shell configuration, then
-# select Fish as the login shell.
+# One dependent chain: prepare Fish, then select it as the login shell.
 set -euo pipefail
 root="${DOTS_ROOT:?run through dots}"
-if ! node "$root/setup-scripts/local/herdr.mjs" "$root"; then
-    printf 'Fish and Herdr need attention; the login shell was not changed. Rerun dots bootstrap after resolving the message above.\n'
-    exit 1
-fi
 status=0
 bash "$root/setup-scripts/local/shell-select.sh" || status=$?
 case "$status" in

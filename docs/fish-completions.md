@@ -5,11 +5,10 @@ Carapace bridge for tools that do not ship a Fish file. `config.fish` passes
 `fish` explicitly to Carapace; omitting that argument makes Carapace reject the
 source request and leaves the bridge empty.
 
-The workstation profile keeps Herdr and Tinymist as small lazy shims. Each
-shim asks the installed binary for its current Fish script when that command's
+The workstation profile keeps Tinymist as a small lazy shim. The shim asks
+the installed binary for its current Fish script when that command's
 completion is first requested, so upgrades do not require checked-in generated
-files. Herdr is verified with `herdr completion fish`; Tinymist is verified
-with `tinymist completion fish`.
+files. Tinymist is verified with `tinymist completion fish`.
 
 Superfile (`spf`) uses ordinary filename completion; no completion generator
 or generated file is tracked for it. See [Superfile](superfile.md).
@@ -39,7 +38,6 @@ where Fish can provide it.
 Validate the integration with:
 
 ```sh
-fish -n ~/.config/fish/config.fish ~/.config/fish/completions/herdr.fish
-fish -i -c 'complete -C "herdr "'
+fish -n ~/.config/fish/config.fish ~/.config/fish/completions/tinymist.fish
 fish -i -c 'complete -C "tinymist "'
 ```

@@ -20,7 +20,7 @@ To check drift on demand, compare each deployed file with its source using `diff
 
 ## Claude settings
 
-`~/.claude/settings.json` on every macOS host renders from `templates/.claude/settings.json.tera` (mode 0600). The NAS profile gets its own host-containment line, and the herdr session hook appears only where its script exists. Claude Code may rewrite the deployed file; carry intended changes back into the template and reapply only that target:
+`~/.claude/settings.json` on every macOS host renders from `templates/.claude/settings.json.tera` (mode 0600). The NAS profile gets its own host-containment line. Claude Code may rewrite the deployed file; carry intended changes back into the template and reapply only that target:
 
 ```sh
 mise -C ~/.config/mise bootstrap dotfiles diff ~/.claude/settings.json

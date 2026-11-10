@@ -1,28 +1,9 @@
 {#- Claude Code user settings for every managed host. Claude may rewrite the
-    deployed file (e.g. /config); edit this source and reapply instead.
-    The herdr session hook is added only where its script exists. -#}
-{%- set herdr_hook = env.HOME ~ "/.claude/hooks/herdr-agent-state.sh" -%}
-{%- set herdr = herdr_hook is file -%}
+    deployed file (e.g. /config); edit this source and reapply instead. -#}
 {
   "permissions": {
     "defaultMode": "auto"
   },
-{%- if herdr %}
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "^(startup|resume|clear|compact|fork)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash '{{ herdr_hook }}' session",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  },
-{%- endif %}
   "enableWorkflows": true,
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
@@ -92,7 +73,7 @@
       "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything named or tagged `prod`/`production`",
       "**Trusted repo — dotfiles**: {{ env.HOME }}/.config/mise (personal mise/chezmoi dotfiles), remote origin https://github.com/EzraCerpac/dotfiles.git. PUBLIC: anything committed or pushed there is world-readable. Sole author; no protected branches. Secret handling is governed by the hard_deny rule",
       "**Trusted repo — thesis**: {{ env.HOME }}/Projects/Thesis/ezra-cerpac (and its sibling worktrees under ~/Projects/Thesis/) — MSc thesis on adaptive solver selection for energy-based nonlinear minimization (Julia package + research web app under code/). Remotes: origin gitlab.ewi.tudelft.nl:scala/student-projects/master-thesis-projects/ezra-cerpac.git and github git@github.com:EzraCerpac/master-thesis.git. Treat both as PRIVATE unpublished academic work (if a remote is ever reported public, pushing there is publishing). Pushing to the GitHub remote is routine; pushing to the GitLab origin needs Ezra to ask for it (soft_deny rule)",
-      "**Personal CLIs (context only; being listed does not exempt any block rule)**: jj/jw (Jujutsu + workspace switcher), wt (git worktree manager for parallel agents), mise, uv, brew, chezmoi and dots (dotfiles apply/setup — overwrite home-folder files), v (alias for nvim), bat, tldr, atuin (shell history), hunk (diff/patch tool), herdr (agent terminal multiplexer), julia, gh. pi, openclaw and ollama are agent/model runners: launching them unattended (full-auto, bypass flags) is still Create Unsafe Agents. Codex is the user's preferred cheap delegate (see allow rules). omlx, vl and codegraph are not identified"
+      "**Personal CLIs (context only; being listed does not exempt any block rule)**: jj/jw (Jujutsu + workspace switcher), wt (git worktree manager for parallel agents), mise, uv, brew, chezmoi and dots (dotfiles apply/setup — overwrite home-folder files), v (alias for nvim), bat, tldr, atuin (shell history), hunk (diff/patch tool), julia, gh. pi, openclaw and ollama are agent/model runners: launching them unattended (full-auto, bypass flags) is still Create Unsafe Agents. Codex is the user's preferred cheap delegate (see allow rules). omlx, vl and codegraph are not identified"
     ]
   }
 }

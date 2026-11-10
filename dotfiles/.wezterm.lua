@@ -10,14 +10,6 @@ local config = (wezterm.config_builder and wezterm.config_builder()) or {}
 -- Appearance
 config.color_scheme = "Catppuccin Mocha"
 config.font_size = 14.0
--- GUI launchers can inherit NO_COLOR from automation processes. Keep that
--- process-local setting from disabling colors in Herdr panes.
-config.default_prog = {
-  "/usr/bin/env",
-  "-u",
-  "NO_COLOR",
-  wezterm.home_dir .. "/.local/bin/herdr",
-}
 config.disable_default_key_bindings = true
 config.enable_tab_bar = false
 config.window_decorations = "RESIZE"
@@ -68,7 +60,7 @@ config.keys = {
   { key = "-", mods = "CMD", action = act.DecreaseFontSize },
   { key = "0", mods = "CMD", action = act.ResetFontSize },
 
-  -- Close the outer terminal window. Herdr owns terminal tabs and panes.
+  -- Close the terminal window.
   { key = "w", mods = "CMD", action = act.CloseCurrentPane({ confirm = false }) },
 
   -- Copy/Paste like macOS
@@ -95,22 +87,5 @@ for fn = 13, 24 do
   table.insert(config.keys, { key = key, mods = "CTRL|ALT|CMD", action = act.Nop })
   table.insert(config.keys, { key = key, mods = "SHIFT|CTRL|ALT|CMD", action = act.Nop })
 end
-
-local function process_basename(path)
-  return path:match("([^/\\]+)$") or path
-end
-
--- Give AeroSpace and wm-focus one stable outer-window marker. Herdr updates its
--- pane title to the active host/workspace, so matching that title directly is
--- not reliable. Raw shells, btop, and Gitlogue have different foreground
--- executables and keep their ordinary titles.
-wezterm.on("format-window-title", function(tab)
-  local pane = tab.active_pane
-  local title = pane.title or ""
-  if process_basename(pane.foreground_process_name or "") == "herdr" then
-    return "Herdr — " .. title
-  end
-  return title
-end)
 
 return config

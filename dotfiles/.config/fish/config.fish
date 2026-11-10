@@ -4,7 +4,6 @@ set -gx XDG_CONFIG_HOME $HOME/.config
 if status is-interactive
     if test "$__CFBundleIdentifier" = com.openai.codex
         or test "$TERM_PROGRAM" = WezTerm
-        or test "$HERDR_ENV" = 1
         or set -q REX_BLOCK
         set -e NO_COLOR
         if test "$TERM" = dumb

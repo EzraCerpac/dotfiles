@@ -174,9 +174,7 @@ The flag has no effect on other platforms or profiles.
 Let it finish and read the result. It synchronizes the shared source, checkpoints
 app-written settings, installs newly declared packages and tools, runs upgrades
 and named installer exceptions, updates editor plugins, then updates mise. Tools track the latest stable release by default.
-Kanata and Karabiner stay on their known working versions. A running Herdr server
-uses its supported live handoff after mise installs the replacement. A failed
-handoff is reported for attention; the updater does not kill terminal sessions.
+Kanata and Karabiner stay on their known working versions.
 Python 3.13 and 3.12 remain available for applications that require them; the
 default Python tracks latest. Setup lockfiles stay local and ignored: they record
 this host’s resolutions without creating source changes after each update. Tool
@@ -375,7 +373,6 @@ The role selection and private history origin belong in ignored local mise confi
 | Editing linked files and templates, cross-platform notes | [Dotfiles](docs/dotfiles.md) |
 | Review defaults and shortcuts (`hunk`, `jjui`, `wto`, `prdiff`, `glf`) | [Review tools](docs/review-tools.md) |
 | Rex sessions, NAS connections and project launcher | [Rex](docs/rex.md) |
-| WezTerm/Herdr rollback workflow | [Herdr](docs/herdr.md) |
 | Corne keyboard and Kanata | [Keyboard](docs/keyboard.md) |
 | CerpacNAS and remote Codex tasks | [NAS guide](docs/cerpacnas.md) |
 | Cloud proxy access to NAS web services and HouseAtlas | [Cloud NAS access](docs/cloud-nas-access.md) |

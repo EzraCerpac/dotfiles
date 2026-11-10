@@ -19,7 +19,7 @@ AeroSpace keeps these workspaces persistent:
 | E | Comms |
 | M | Media and Music |
 
-Codex routes to 2, Orion to B, Rex windows to T, Mail and WhatsApp to E, and Music to M. Legacy Herdr-titled WezTerm routing remains available for rollback. Raycast, Antinote, Weather, Contacts, and matching Orion Preview windows have floating rules. The config does not route other browsers. App and title rules run when AeroSpace detects a window; title changes do not trigger a second routing pass.
+Codex routes to 2, Orion to B, Rex windows to T, Mail and WhatsApp to E, and Music to M. Raycast, Antinote, Weather, Contacts, and matching Orion Preview windows have floating rules. The config does not route other browsers. App and title rules run when AeroSpace detects a window; title changes do not trigger a second routing pass.
 
 At AeroSpace startup and when a new external display is connected, the Hammerspoon workspace helper places Ops (9) and Media (M) on the rightmost external display. It leaves them where they are when there is no external display or the screen-to-monitor mapping is ambiguous, then restores the previously focused workspace. These are connection-time defaults, not forced monitor assignments.
 

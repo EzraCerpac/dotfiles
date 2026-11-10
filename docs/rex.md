@@ -2,8 +2,7 @@
 
 Rex is the daily terminal and multiplexer.
 Its keymap, helpers and server definitions live in this setup source.
-WezTerm and Herdr remain installed with their existing configuration and data
-for rollback.
+WezTerm remains installed with its existing configuration for rollback.
 
 ## Daily use
 

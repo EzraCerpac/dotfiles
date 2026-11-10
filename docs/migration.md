@@ -134,9 +134,7 @@ private rollback copy and its preferences were left untouched. Battery, Warp,
 and Ollama were removed from the manifest and their stale Homebrew registrations
 retired at the user’s request. Settings and model files remain untouched.
 WezTerm transferred and reattached to its original Herdr server; all 12 shell
-processes survived. Herdr is pinned to 0.8.2 because the 0.9.0 client cannot
-attach to that server's private protocol. Change this pin only during an
-intentional terminal-session restart.
+processes survived. Herdr was later archived (`archive/herdr/`).
 
 The Audio and VLM UV exceptions now use mise Python 3.13.15 while preserving
 their original extras and explicit dependencies. All 12 commands passed help

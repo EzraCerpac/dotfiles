@@ -64,3 +64,9 @@
 ~/.local/share/humanize-text/typst_guard_cli.lua
 ~/.config/latexindent/latexindent.yaml
 ~/.config/lazygit/config.yml
+~/.config/fish/completions/herdr.fish
+~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml
+~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml
+~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml
+~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml
+~/.config/herdr/plugins/config/herdr-picker-plus/config.toml
