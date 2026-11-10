@@ -29,7 +29,7 @@ new encrypted checkpoint; it does not re-encrypt older commits.
 Persist the role and machine ID first:
 
 ```sh
-manager/bootstrap/profile \
+dots internal profile \
   --profile workstation \
   --machine-id mac-primary \
   --origin git@github.com:EzraCerpac/dotfiles-state.git
@@ -39,7 +39,7 @@ Enroll exact files with that host's identity. `--recipient` accepts a public
 age recipient for recovery or another machine; it never accepts a private key:
 
 ```sh
-manager/bootstrap/enroll-history \
+dots internal enroll-history \
   --profile workstation \
   --machine-id mac-primary \
   --identity ~/.config/age/keys.txt \
@@ -124,9 +124,10 @@ the Mac and the private NAS key on the NAS.
 
 ## Bootstrap bundle boundary
 
-The workstation may use the historical implicit encrypted bootstrap bundle.
-NAS bootstrap ignores that implicit workstation bundle, so a Mac-only bundle
-cannot block NAS recovery or history enrollment. NAS uses a bundle only when
+Each profile's bundle is `encrypted/bootstrap.PROFILE.json.age`; bootstrap uses
+it implicitly when it exists. Only the workstation has one
+(`encrypted/bootstrap.workstation.json.age`), so a Mac-only bundle cannot block
+NAS recovery or history enrollment. NAS uses a bundle only when
 `SETUP_BOOTSTRAP_BUNDLE`, `SETUP_BUNDLE_IDENTITY`, or the persisted
 `vars.bootstrap_bundle_identity` explicitly selects one. An explicit or
 persisted bundle with a missing or wrong identity remains an error/deferred

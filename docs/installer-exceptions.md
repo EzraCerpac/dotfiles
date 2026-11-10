@@ -1,9 +1,9 @@
 # Installer exceptions and dots hooks in this setup
 
-The generic contract (hook rules, the `dots/exceptions.tsv` format and the
-Homebrew recipe helpers) is documented with the manager in
-[`manager/tasks/README.md`](../manager/tasks/README.md). This page records this
-setup's own choices.
+The generic contract (hook rules and the `dots/exceptions.tsv` format) is in
+[`dots/README.md`](../dots/README.md), the template the manager ships; the
+Homebrew recipe helpers are in [the manager's task notes](../manager/tasks/README.md#homebrew-recipe-helpers).
+This page records this setup's own choices.
 
 ## Update and bootstrap hooks
 
