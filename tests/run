@@ -8,7 +8,8 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
-source "$root/setup-scripts/lib/dots-up-events.sh"
+# The suites test the manager in this checkout, whichever dots started them.
+source "$root/manager/lib/dots-up-events.sh"
 readonly all_suites=(python node)
 
 usage() {
@@ -49,6 +50,7 @@ record() {
 # runner owns the live supervisor connection; never lend its descriptors or nonce
 # to a fixture that may close inherited file descriptors.
 run_fixture() (
+    unset DOTS_HOME DOTS_ROOT
     unset DOTS_UP_EVENT_FD DOTS_UP_ACK_FD DOTS_UP_STREAM_NONCE DOTS_UP_EVENT_JQ
     unset DOTS_UP_RUN_DIR DOTS_UP_RUN_STARTED DOTS_UP_PLAIN DOTS_UP_VERBOSE
     "$@"

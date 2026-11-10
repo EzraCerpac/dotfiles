@@ -166,7 +166,7 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink" }
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
-"~/.local/bin/dots" = { source = "dotfiles/.local/bin/dots", mode = "symlink" }
+"~/.local/bin/dots" = { source = "manager/bin/dots", mode = "symlink" }
 "~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
 "~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }

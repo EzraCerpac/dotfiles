@@ -1,0 +1,412 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# DOTS_HOME is the manager (this executable's parent directory); DOTS_ROOT is
+# the configuration it manages. Resolve DOTS_HOME once from the real path of
+# this file (macOS has no readlink -f) unless a developer overrides it, and pass
+# it down so every child of this run uses the same manager.
+resolve_dots_home() {
+    local source="${BASH_SOURCE[0]}" directory target
+    while [[ -L "$source" ]]; do
+        directory="$(cd -P "$(dirname "$source")" && pwd)"
+        target="$(readlink "$source")"
+        case "$target" in /*) source="$target" ;; *) source="$directory/$target" ;; esac
+    done
+    directory="$(cd -P "$(dirname "$source")" && pwd)"
+    cd -P "$directory/.." && pwd
+}
+if [[ -n "${DOTS_HOME:-}" ]]; then
+    DOTS_HOME="$(cd "$DOTS_HOME" && pwd -P)" || { echo "dots: DOTS_HOME is not a directory: $DOTS_HOME" >&2; exit 2; }
+else
+    DOTS_HOME="$(resolve_dots_home)"
+fi
+export DOTS_HOME
+
+usage() {
+    cat <<'HELP'
+Your machine setup, from any directory.
+
+  dots                            Open the interactive command menu
+  dots [--plain|--verbose] [--no-wait] COMMAND [ARGS...]
+  dots reports [COMMAND]          Browse saved command reports
+
+  dots up [--mas] [--plain|--verbose] [--no-wait] [--last]
+                                   Sync configuration, then update tools and plugins
+  dots up houseatlas ACTION        HouseAtlas check/apply/status (binding unavailable)
+  dots sync [--source-only]        Share dev; --source-only advances reviewed main
+  dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
+  dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
+  dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
+  dots status                     Inspect files, tools and backup health
+  dots plan                       Preview the declared machine setup
+  dots test [SUITE...]            Run this repository's tests (python node)
+  dots bootstrap [ARGS...]        Install/apply the full declared machine setup
+  dots remote HOST --profile ROLE  Bootstrap a machine over existing SSH
+  dots bundle create [ARGS...]     Encrypt private bootstrap inputs
+  dots apply [TARGET...]          Apply dotfiles and templates
+  dots backup                     Publish encrypted settings snapshots
+  dots restore [ARGS...]          Restore private settings
+  dots add [OPTIONS] TOOL...       Install and record tools or native packages
+  dots remove [OPTIONS] TOOL...    Uninstall software and remove its declarations
+  dots uninstall [OPTIONS] TOOL... Alias of remove
+
+Examples:
+  dots add watchexec
+  dots add npm:prettier cargo:hexyl
+  dots add brew:libmagic brew-cask:firefox
+  dots add https://github.com/jaskirat1616/mactap-app
+  dots add --asset 'tool-*-macos-arm64.zip' https://github.com/owner/repo
+  dots add --base watchexec
+  dots add --profile nas ripgrep
+  dots add --path ~/other/config.toml watchexec
+  dots remove mactap
+  dots remove --dry-run brew-cask:firefox
+  dots remove --keep-installed npm:prettier
+
+Add defaults to the selected machine profile; --base targets shared config.
+Up skips Mac App Store updates by default; --mas includes them on macOS workstations.
+Up closes its report when maintenance finishes. --plain prints concise
+progress, --verbose shows full subprocess output, and --last reopens the saved report.
+Bare tool names use mise's preferred backend and latest version.
+brew: names prefer formulas and resolve to casks when no formula exists.
+New requests are recorded after installation; failures ask before recording.
+Ordinary sync shares public source through dev; publish reviews main-based tasks.
+Backup publishes only private settings.
+HELP
+}
+
+frontend_args=()
+while (($#)); do
+    case "$1" in
+        --plain|--verbose|--no-wait) frontend_args+=("$1"); shift ;;
+        *) break ;;
+    esac
+done
+frontend_flags="${frontend_args[*]:-}"
+if [[ " $frontend_flags " == *' --plain '* && " $frontend_flags " == *' --verbose '* ]]; then
+    echo 'dots: --plain and --verbose cannot be combined' >&2
+    exit 2
+fi
+backend_mode=0
+if [[ "${1:-}" == --backend ]]; then backend_mode=1; shift; fi
+case "${1:-}" in help|-h|--help) usage; exit 0 ;; esac
+if [[ $# -eq 0 && ( ! -t 0 || ! -t 1 || "$backend_mode" -eq 1 ) ]]; then usage; exit 0; fi
+# Callbacks for configuration hooks and tasks. They run inside the caller's
+# mise environment, rooted where the caller's hook paths point.
+if [[ "${1:-}" == internal ]]; then
+    shift
+    internal_name="${1:-}"
+    if (($#)); then shift; fi
+    if [[ "$internal_name" == home ]]; then printf '%s\n' "$DOTS_HOME"; exit 0; fi
+    root="${MISE_CONFIG_DIR:-${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}}"
+    [[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
+    root="$(cd "$root" && pwd -P)"
+    export DOTS_ROOT="$root"
+    cd "$root"
+    case "$internal_name" in
+        persist-selected|profile|enroll-history) exec bash "$DOTS_HOME/bootstrap/$internal_name" "$@" ;;
+        complete) exec node "$DOTS_HOME/bootstrap/complete.mjs" "$@" ;;
+        update|status|backup|restore|secrets) exec bash "$DOTS_HOME/tasks/$internal_name" "$@" ;;
+        github-install-app) exec uv run --no-project python "$DOTS_HOME/lib/dots-github.py" install-app "$@" ;;
+        *) echo "dots: unknown internal command '$internal_name'" >&2; exit 2 ;;
+    esac
+fi
+root="${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
+[[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
+root="$(cd "$root" && pwd -P)"
+export DOTS_ROOT="$root"
+# HouseAtlas is a deliberate, separate caller. Do not load mise, synchronize
+# source or update packages while reporting its unqualified binding boundary.
+if [[ "${1:-}" == up || "${1:-}" == update ]] && [[ "${2:-}" == houseatlas ]]; then
+    shift 2
+    case "${1:-}" in
+        -h|--help)
+            [[ $# -eq 1 ]] || { echo 'dots: unsupported HouseAtlas arguments' >&2; exit 2; }
+            printf 'Usage: dots up houseatlas check|apply|status\nHouseAtlas binding is unavailable; no request is sent.\n'
+            exit 0 ;;
+        check|apply|status)
+            [[ $# -eq 1 ]] || { echo 'dots: HouseAtlas accepts one action; no endpoint, path or command options' >&2; exit 2; } ;;
+        *) echo 'dots: unsupported HouseAtlas action; use check, apply or status' >&2; exit 2 ;;
+    esac
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo 'dots: HouseAtlas unavailable: python3 is absent; no request was sent' >&2
+        exit 3
+    fi
+    exec python3 -I "$root/setup-scripts/lib/houseatlas-maintenance.py" "$1"
+fi
+mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
+[[ -x "$mise_bin" ]] || mise_bin="$(command -v mise)"
+# Select the setup before mise loads any configuration. Discard a project's
+# environment selector; the setup's own miserc selects its role and host.
+unset MISE_ENV
+export MISE_CONFIG_DIR="$root"
+run_mise() { "$mise_bin" -C "$root" "$@"; }
+# Run a manager task the way the former `mise run setup:*` tasks did: from the
+# setup root, inside its mise environment, attached to this terminal, and
+# without installing missing tools first (task.run_auto_install = false). The
+# caller's own MISE_EXEC_AUTO_INSTALL is restored for the task itself.
+exec_in_setup() {
+    local restore=(-u MISE_EXEC_AUTO_INSTALL)
+    [[ -z "${MISE_EXEC_AUTO_INSTALL+set}" ]] || restore=("MISE_EXEC_AUTO_INSTALL=$MISE_EXEC_AUTO_INSTALL")
+    cd "$root"
+    export MISE_EXEC_AUTO_INSTALL=0
+    exec "$mise_bin" -C "$root" exec -- /usr/bin/env "${restore[@]}" "$@"
+}
+# Only a renderer that knows DOTS_HOME may front commands; older releases fall
+# back to the plain Bash paths below.
+renderer_supported() {
+    [[ -n "$renderer" && -x "$renderer" ]] && [[ "$("$renderer" --capabilities 2>/dev/null || true)" == dots-shared-cli/2 ]]
+}
+resolve_renderer() {
+    if [[ -n "${DOTS_UP_BIN:-}" ]]; then
+        renderer="$DOTS_UP_BIN"
+        return
+    fi
+    renderer="$(run_mise which dots-up 2>/dev/null || true)"
+    if [[ -z "$renderer" || ! -x "$renderer" ]]; then
+        renderer="$(command -v dots-up 2>/dev/null || true)"
+    fi
+}
+command_name="${1:-menu}"
+if (($#)); then shift; fi
+[[ "$command_name" != uninstall ]] || command_name=remove
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+case "$command_name" in
+    sync) [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; } ;;
+    status|backup|plan) [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; } ;;
+esac
+# Shared flags belong to the frontend, never to the maintenance backend.
+if [[ "$backend_mode" -eq 0 && "$command_name" != up && "$command_name" != update && "$command_name" != plan ]]; then
+    source_only=0
+    [[ "$command_name" != sync || "${1:-}" != --source-only ]] || source_only=1
+    if [[ "$source_only" -eq 0 ]]; then
+        resolve_renderer
+        if renderer_supported; then
+            exec "$renderer" --root "$root" --home "$DOTS_HOME" --command "$command_name" ${frontend_args[@]+"${frontend_args[@]}"} -- "$@"
+        fi
+        case "$command_name" in
+            menu) usage; exit 0 ;;
+            reports) echo 'dots: report browser is unavailable; install the current dots-up renderer' >&2; exit 2 ;;
+        esac
+    fi
+fi
+if [[ "$command_name" == up || "$command_name" == update ]]; then
+    set -- ${frontend_args[@]+"${frontend_args[@]}"} "$@"
+fi
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+case "$command_name" in
+    up|update)
+        if [[ "$backend_mode" -eq 1 ]]; then exec_in_setup bash "$DOTS_HOME/tasks/update" "$@"; fi
+        for argument in "$@"; do
+            case "$argument" in
+                --mas|--plain|--verbose|--no-wait|--last) ;;
+                *) echo "dots: $command_name does not accept $argument" >&2; exit 2 ;;
+            esac
+        done
+        has_plain=0
+        has_verbose=0
+        has_last=0
+        has_mas=0
+        has_no_wait=0
+        for argument in "$@"; do
+            case "$argument" in
+                --plain) has_plain=1 ;;
+                --verbose) has_verbose=1 ;;
+                --last) has_last=1 ;;
+                --mas) has_mas=1 ;;
+                --no-wait) has_no_wait=1 ;;
+            esac
+        done
+        [[ "$has_plain" -eq 0 || "$has_verbose" -eq 0 ]] || { echo 'dots: --plain and --verbose cannot be combined' >&2; exit 2; }
+        [[ "$has_last" -eq 0 || "$has_mas" -eq 0 ]] || { echo 'dots: --last cannot be combined with --mas' >&2; exit 2; }
+        resolve_renderer
+        if renderer_supported; then
+            [[ "$has_last" -eq 1 || "$has_no_wait" -eq 1 ]] || set -- --no-wait "$@"
+            exec "$renderer" --root "$root" --home "$DOTS_HOME" "$@"
+        fi
+        if [[ "$has_last" -eq 1 ]]; then
+            echo 'dots: dashboard renderer is unavailable; no saved report was opened' >&2
+            exit 2
+        fi
+        echo 'dots: dashboard renderer unavailable; using the Bash updater fallback' >&2
+        fallback_args=()
+        for argument in "$@"; do
+            case "$argument" in
+                --no-wait) ;;
+                --mas|--plain|--verbose) fallback_args+=("$argument") ;;
+            esac
+        done
+        fallback_run=""
+        unset DOTS_UP_RUN_DIR
+        if [[ "$has_verbose" -eq 0 ]]; then
+            if [[ "$has_plain" -eq 0 ]]; then
+                fallback_args+=(--plain)
+            fi
+            fallback_state="${XDG_STATE_HOME:-$HOME/.local/state}/dots/up"
+            fallback_run="$fallback_state/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+            if mkdir -p "$fallback_state" && chmod 700 "$fallback_state" \
+                && mkdir -p "$fallback_run/stages" \
+                && chmod 700 "$fallback_run" "$fallback_run/stages" \
+                && : > "$fallback_run/.active" \
+                && chmod 600 "$fallback_run/.active" \
+                && : > "$fallback_run/.fallback" \
+                && chmod 600 "$fallback_run/.fallback"; then
+                export DOTS_UP_RUN_DIR="$fallback_run"
+            else
+                echo "dots: could not create private logs under $fallback_state; continuing without saved stage logs" >&2
+                if [[ -d "$fallback_run" ]]; then rm -rf -- "$fallback_run" 2>/dev/null || true; fi
+                fallback_run=""
+                unset DOTS_UP_RUN_DIR
+            fi
+        fi
+        result=0
+        (exec_in_setup bash "$DOTS_HOME/tasks/update" ${fallback_args[@]+"${fallback_args[@]}"}) || result=$?
+        if [[ -n "$fallback_run" && -f "$fallback_run/.active" ]]; then
+            rm -f -- "$fallback_run/.active" || echo "dots: could not finalize $fallback_run" >&2
+            if [[ "$result" -eq 0 ]]; then
+                rm -rf -- "$fallback_run" || echo "dots: could not remove successful run logs in $fallback_run" >&2
+            else
+                printf 'Logs: %s\n' "$fallback_run"
+                fallback_reports=("$fallback_state"/*)
+                retained=0
+                for ((index=${#fallback_reports[@]} - 1; index >= 0; index--)); do
+                    candidate="${fallback_reports[index]}"
+                    [[ -f "$candidate/.fallback" && ! -e "$candidate/.active" ]] || continue
+                    retained=$((retained + 1))
+                    if [[ "$retained" -gt 10 ]]; then rm -rf -- "$candidate" || echo "dots: could not remove old fallback logs in $candidate" >&2; fi
+                done
+            fi
+        fi
+        exit "$result"
+        ;;
+    sync)
+        [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; }
+        ;;
+    status|backup|plan)
+        [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
+        ;;
+esac
+case "$command_name" in
+    up|update) exec_in_setup bash "$DOTS_HOME/tasks/update" "$@" ;;
+    sync)
+        if [[ "${1:-}" == --source-only ]]; then
+            if [[ -n "${DOTS_EXPECTED_MAIN:-}" ]]; then
+                [[ "$DOTS_EXPECTED_MAIN" =~ ^[a-f0-9]{40}$ ]] || { echo 'dots: DOTS_EXPECTED_MAIN needs a full lowercase commit ID' >&2; exit 2; }
+                set -- "$@" --expected-main "$DOTS_EXPECTED_MAIN"
+            fi
+            export MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1
+            exec "$mise_bin" -C "$root" exec -- /usr/bin/env MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1 node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" "$@"
+        fi
+        exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" "$@"
+        ;;
+    publish) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/tasks/publish.mjs" "$root" "$@" ;;
+    atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$DOTS_HOME/bootstrap/atuin-bundle" "$@" ;;
+    atuin-login)
+        login_args=(enroll --root "$root")
+        while (($#)); do
+            case "$1" in
+                --identity|--identity=*)
+                    if [[ "$1" == --identity=* ]]; then
+                        identity="${1#--identity=}"
+                    else
+                        shift
+                        [[ $# -gt 0 ]] || { echo 'dots: --identity needs a key path' >&2; exit 2; }
+                        identity="$1"
+                    fi
+                    [[ -n "$identity" ]] || { echo 'dots: --identity needs a key path' >&2; exit 2; }
+                    case "$identity" in /*|"~/"*) ;; *) identity="$PWD/$identity" ;; esac
+                    login_args+=(--identity "$identity")
+                    ;;
+                *) login_args+=("$1") ;;
+            esac
+            shift
+        done
+        exec "$mise_bin" -C "$root" exec -- uv run --no-project python "$DOTS_HOME/bootstrap/atuin.py" "${login_args[@]}"
+        ;;
+    plan) exec "$mise_bin" -C "$root" bootstrap plan ;;
+    status|backup|restore) exec_in_setup bash "$DOTS_HOME/tasks/$command_name" "$@" ;;
+    test) exec_in_setup bash "$root/tests/run" "$@" ;;
+    bootstrap) exec bash "$DOTS_HOME/bootstrap/launch" "$mise_bin" "$root" "$@" ;;
+    remote) exec bash "$DOTS_HOME/bootstrap/remote" "$mise_bin" "$root" "$@" ;;
+    bundle) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/bootstrap/bundle.mjs" "$@" ;;
+    apply) exec "$mise_bin" -C "$root" bootstrap dotfiles apply "$@" ;;
+    remove|uninstall)
+        remove_args=()
+        while (($#)); do
+            case "$1" in
+                --path)
+                    [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+                    case "$2" in /*) remove_args+=(--path "$2") ;; *) remove_args+=(--path "$PWD/$2") ;; esac
+                    shift 2 ;;
+                --path=*)
+                    path="${1#--path=}"
+                    [[ -n "$path" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+                    case "$path" in /*) remove_args+=(--path "$path") ;; *) remove_args+=(--path "$PWD/$path") ;; esac
+                    shift ;;
+                *) remove_args+=("$1"); shift ;;
+            esac
+        done
+        cd "$root"
+        exec uv run --script "$DOTS_HOME/lib/dots-remove.py" "$mise_bin" "$root" ${remove_args[@]+"${remove_args[@]}"}
+        ;;
+    add) ;;
+    *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
+esac
+
+target=""
+selector_count=0
+requests=()
+github_count=0
+github_asset=""
+while (($#)); do
+    case "$1" in
+        --base) target="$root/config.toml"; selector_count=$((selector_count + 1)); shift ;;
+        --profile)
+            [[ $# -ge 2 ]] || { echo 'dots: --profile needs workstation or nas' >&2; exit 2; }
+            case "$2" in workstation|nas) ;; *) echo 'dots: profile must be workstation or nas' >&2; exit 2 ;; esac
+            target="$root/config.$2.toml"; selector_count=$((selector_count + 1)); shift 2 ;;
+        --path)
+            [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
+            case "$2" in /*) target="$2" ;; *) target="$PWD/$2" ;; esac
+            selector_count=$((selector_count + 1)); shift 2 ;;
+        --asset)
+            [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --asset needs a release asset name or glob' >&2; exit 2; }
+            [[ -z "$github_asset" ]] || { echo 'dots: --asset may only be specified once' >&2; exit 2; }
+            github_asset="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        -*) echo "dots: unknown add option '$1'" >&2; exit 2 ;;
+        brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
+            echo 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead' >&2; exit 2 ;;
+        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) requests+=("$1"); shift ;;
+        https://github.com/*|http://github.com/*) requests+=("$1"); github_count=$((github_count + 1)); shift ;;
+        *) requests+=("$1"); shift ;;
+    esac
+done
+[[ "$selector_count" -le 1 ]] || { echo 'dots: choose one of --base, --profile or --path' >&2; exit 2; }
+[[ ${#requests[@]} -gt 0 ]] || { echo 'dots: add needs at least one tool or package' >&2; exit 2; }
+if [[ -n "$github_asset" && $github_count -ne 1 ]]; then
+    echo 'dots: --asset requires exactly one GitHub repository URL' >&2; exit 2
+fi
+if [[ -z "$target" ]]; then
+    role="$(run_mise config get --file "$root/config.local.toml" env.SETUP_PROFILE)"
+    case "$role" in
+        workstation|nas) target="$root/config.$role.toml" ;;
+        *) echo 'dots: no supported machine profile; use --base or --profile' >&2; exit 2 ;;
+    esac
+fi
+printf 'Config destination: %s\n' "$target"
+for request in "${requests[@]}"; do
+    case "$request" in
+        https://github.com/*|http://github.com/*)
+            resolve_args=(resolve "$request")
+            [[ -z "$github_asset" ]] || resolve_args+=(--asset "$github_asset")
+            request="$(cd "$root" && uv run --script "$DOTS_HOME/lib/dots-github.py" "${resolve_args[@]}")"
+            [[ -n "$request" ]] || { echo 'dots: GitHub resolver returned no install request' >&2; exit 1; }
+            ;;
+    esac
+    case "$request" in
+        brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*)
+            bash "$DOTS_HOME/lib/dots-package-add.sh" "$mise_bin" "$root" "$target" "$request" ;;
+        *) bash "$DOTS_HOME/lib/dots-tool-add.sh" "$mise_bin" "$root" "$target" "$request" ;;
+    esac
+done

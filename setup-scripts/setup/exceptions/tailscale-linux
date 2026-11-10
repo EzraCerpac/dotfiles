@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$(uname -s)" == Linux ]] || exit 0
-source "$(dirname "$0")/../../lib/dots-up-events.sh"
-source "$(dirname "$0")/../../lib/setup-common.sh"
+source "${DOTS_HOME:-$(dirname "$0")/../../../manager}/lib/dots-up-events.sh"
+source "${DOTS_HOME:-$(dirname "$0")/../../../manager}/lib/setup-common.sh"
 SETUP_CONFIG_ROOT="$(cd "$(dirname "$0")/../../.." && pwd -P)"
 setup_init
 source /etc/os-release

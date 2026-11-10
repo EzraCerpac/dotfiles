@@ -45,23 +45,23 @@ run = "node setup-scripts/local/concierge-nas.mjs rebuild"
 
 ["setup:status"]
 description = "Inspect setup health"
-run = "bash setup-scripts/setup/status"
+run = "bash manager/bin/dots internal status"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:update"]
 description = "Update the machine setup"
 raw = true
-run = "bash setup-scripts/setup/update"
+run = "bash manager/bin/dots internal update"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:backup"]
 description = "Backup the machine setup"
-run = "bash setup-scripts/setup/backup"
+run = "bash manager/bin/dots internal backup"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:restore"]
 description = "Restore the machine setup"
-run = "bash setup-scripts/setup/restore"
+run = "bash manager/bin/dots internal restore"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:test"]
@@ -72,7 +72,7 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 ["setup:secrets"]
 description = "Deploy encrypted private configuration"
-run = "bash setup-scripts/setup/secrets"
+run = "bash manager/bin/dots internal secrets"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["jev:save-key"]
@@ -226,11 +226,11 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 
 ["setup:profile"]
-run = "bash setup-scripts/bootstrap/profile"
+run = "bash manager/bin/dots internal profile"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:enroll-history"]
-run = "bash setup-scripts/bootstrap/enroll-history"
+run = "bash manager/bin/dots internal enroll-history"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:aerospace-local-build"]
@@ -243,7 +243,7 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 [bootstrap]
 description = "Complete private recovery, installation, services, and account enrollment"
-run = "node setup-scripts/bootstrap/complete.mjs"
+run = "bash manager/bin/dots internal complete"
 raw = true
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 

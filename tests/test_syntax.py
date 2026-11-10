@@ -15,7 +15,7 @@ from pathlib import Path
 from lib.prereq import requires
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIRS = ("dotfiles", "setup-scripts", "tests")
+SOURCE_DIRS = ("dotfiles", "manager", "setup-scripts", "tests")
 ZSH_SOURCES = ("dotfiles/.zshrc", "dotfiles/.zshenv", "dotfiles/.zprofile")
 
 

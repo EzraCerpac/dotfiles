@@ -356,7 +356,8 @@ dots apply ~/.ssh/config
 | `setup-tasks.toml` and `setup-scripts/` | Setup tasks, available with `mise -C ~/.config/mise run` without adding them to project task lists |
 | `dotfiles/` | Native symlink sources; editing a linked target edits this source |
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
-| `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
+| `manager/` | The `dots` manager: `bin/dots`, its status, update, backup, restore, and encrypted app-state tasks, bootstrap, and the `dots-up` dashboard |
+| `setup-scripts/setup/` | Installer exceptions and editor maintenance helpers |
 | `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
 | `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
 | `tests/` | Test suites; run them with `dots test` (see [testing](docs/testing.md)) |

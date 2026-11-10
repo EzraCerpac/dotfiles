@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(dirname "$0")/../../lib/quiet-probe.sh"
+source "${DOTS_HOME:-$(dirname "$0")/../../../manager}/lib/quiet-probe.sh"
 
 fail() {
     printf 'typ2docx installer exception: %s\n' "$1" >&2

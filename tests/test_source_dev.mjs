@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { syncSource, SourceDeferred } from '../setup-scripts/lib/source-repo.mjs';
+import { syncSource, SourceDeferred } from '../manager/lib/source-repo.mjs';
 import { requires } from './lib/prereq.mjs';
 
 const available = requires('git', 'gitleaks', 'jj');
