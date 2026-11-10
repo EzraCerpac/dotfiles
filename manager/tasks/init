@@ -3,8 +3,9 @@
 #   dots init [DIR]
 # config.toml gets the [vars] settings dots requires when they are absent, and
 # DIR/dots/ gets the hook, command and exception layout with the manager's
-# templates (DOTS_HOME/init), and DIR/.gitleaks.toml the secret-scan rules
-# dots sync uses. Safe to rerun: existing files are left alone.
+# templates (DOTS_HOME/init), and DIR/.gitleaks.toml and DIR/.gitignore the
+# secret-scan and local-file rules dots sync needs. Safe to rerun: existing
+# files are left alone.
 set -euo pipefail
 
 templates="${DOTS_HOME:?run through dots}/init"
@@ -83,5 +84,7 @@ done
 for file in dots/README.md dots/exceptions.tsv dots/history-files.tsv dots/retired-dotfiles; do
     copy_template "$file"
 done
-# dots sync scans every snapshot with the configuration's gitleaks rules.
+# dots sync scans every snapshot with the configuration's gitleaks rules and
+# refuses to share machine-local files, which .gitignore must exclude.
 copy_template .gitleaks.toml gitleaks.toml
+copy_template .gitignore gitignore

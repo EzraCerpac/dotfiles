@@ -36,7 +36,7 @@ Create a configuration, or add the `dots` settings to an existing one.
 dots init            # ~/.config/mise, or: dots init DIR
 ```
 
-It adds a `[vars]` table with `dots_profiles = "default"` to `config.toml`, a `dots/` directory for hooks, commands and installer exceptions, and a `.gitleaks.toml` for secret scanning.
+It adds a `[vars]` table with `dots_profiles = "default"` to `config.toml`, a `dots/` directory for hooks, commands and installer exceptions, a `.gitleaks.toml` for secret scanning, and a `.gitignore` for the files each machine writes for itself.
 
 Select this machine's profile and a name for it, once per machine:
 
@@ -173,7 +173,8 @@ Everything `dots` reads there:
 | `encrypted/bootstrap.PROFILE.json.age` | That profile's private bootstrap bundle; `dots bootstrap` uses it when present |
 | `encrypted/atuin.json.age` | Atuin enrollment bundle from `dots atuin-bundle` |
 | `tests/run` | The configuration's own tests, for `dots test` |
-| `miserc.toml`, `config.local.toml`, `config.host-ID.toml` | Written on each machine (profile, machine name, history settings); keep them out of Git |
+| `miserc.toml`, `config.local.toml`, `config.host-ID.toml` | Written on each machine (profile, machine name, history settings) |
+| `.gitignore` | Must ignore those files and mise lockfiles; `dots sync` refuses to share them |
 
 [The `dots/` reference](init/README.md) is also what `dots init` copies to `dots/README.md`.
 

@@ -495,6 +495,13 @@ class InitTests(ContractTestCase):
         for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles"):
             self.assertEqual((fresh / "dots" / name).read_text(), (self.f.manager / "init" / name).read_text())
         self.assertEqual((fresh / ".gitleaks.toml").read_text(), (self.f.manager / "init/gitleaks.toml").read_text())
+        self.assertEqual((fresh / ".gitignore").read_text(), (self.f.manager / "init/gitignore").read_text())
+        probe = self.f.base / "probe"
+        subprocess.run(["git", "init", "-q", str(probe)], check=True)
+        shutil.copy(fresh / ".gitignore", probe / ".gitignore")
+        for local in ("miserc.toml", "config.local.toml", "config.host-fx.toml", "mise.lock", "mise.laptop.lock"):
+            ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", local], cwd=probe, check=False)
+            self.assertEqual(ignored.returncode, 0, f"{local} is not ignored")
         self.assertIn("created  dots/README.md", result.stdout)
         # The new configuration works: its profile is valid and its manifest parses.
         listed = self.f.dots("internal", "profiles", DOTS_ROOT=str(fresh), FAKE_VAR_dots_profiles="default")
