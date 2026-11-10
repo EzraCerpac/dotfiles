@@ -10,6 +10,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -179,6 +180,24 @@ class UpdateHookTests(ContractTestCase):
                       [{k: e.get(k) for k in ("kind", "id", "status")} for e in parsed])
         # Every hook gets its own file, removed after the stage.
         self.assertFalse(Path((self.f.base / "path").read_text()).exists())
+
+    @unittest.skipUnless(sys.platform == "darwin", "the Homebrew app stages are macOS only")
+    def test_declared_casks_and_app_store_apps_select_the_homebrew_stages(self) -> None:
+        plain = self.f.update()
+        self.assertIn("== newly declared host packages ==", plain.stdout)
+        self.assertNotIn("Homebrew", plain.stdout)
+        write(self.f.config / "config.laptop.toml", '[bootstrap.packages]\n"mas:123" = { os = "macos/arm64" }\n')
+        apps = self.f.update()
+        self.assertIn("Skipped: Mac App Store updates (use dots up --mas to include them).", apps.stdout)
+        self.assertIn("== new Homebrew casks ==", apps.stdout)
+        self.assertNotIn("== newly declared host packages ==", apps.stdout)
+        write(self.f.config / "config.laptop.toml", '[bootstrap.packages."brew-cask:thing"]\nos = "macos/arm64"\n')
+        casks = self.f.update()
+        self.assertIn("== new Homebrew casks ==", casks.stdout)
+        self.assertNotIn("Mac App Store", casks.stdout)
+        # Another profile's declarations do not count.
+        server = self.f.update(SETUP_PROFILE="server")
+        self.assertIn("== newly declared host packages ==", server.stdout)
 
     def test_unknown_profile_suffix_runs_no_hooks_and_fails(self) -> None:
         marker = self.f.base / "ran"
@@ -374,6 +393,37 @@ class ExceptionManifestTests(ContractTestCase):
         result = self.f.dots("add", "--base", "brew:tap/x/pinned-tool@1")
         self.assertEqual(result.returncode, 2)
         self.assertIn("brew:tap/x/pinned-tool@1 is held by installer exception 'pinned'", result.stderr)
+
+
+@requires("age-keygen")
+class HistoryFilesTests(ContractTestCase):
+    def enroll(self, manifest: str) -> subprocess.CompletedProcess[str]:
+        write(self.f.config / "dots/history-files.tsv", manifest)
+        for name in ("shared", "laptop", "server"):
+            write(self.f.home / ".config" / name, f"{name}\n")
+        key = self.f.base / "keys/key.txt"
+        key.parent.mkdir()
+        subprocess.run(["age-keygen", "-o", str(key)], capture_output=True, check=True)
+        return subprocess.run(
+            ["bash", str(self.f.manager / "bootstrap/enroll-history"), "--profile", "laptop", "--machine-id", "fx",
+             "--identity", str(key)],
+            cwd=self.f.config, env={**self.f.env, "MISE_CONFIG_DIR": str(self.f.config)},
+            capture_output=True, text=True, timeout=60, check=False)
+
+    def test_profile_rows_select_the_tracked_files(self) -> None:
+        result = self.enroll("# comment\nbase\t~/.config/shared\nlaptop\t~/.config/laptop\n"
+                             "server\t~/.config/server\nlaptop\t~/.config/missing\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        variant = (self.f.config / "config.host-fx.toml").read_text()
+        self.assertIn('[dotfiles."~/.config/shared"]', variant)
+        self.assertIn('[dotfiles."~/.config/laptop"]', variant)
+        self.assertNotIn("server", variant)
+        self.assertNotIn("missing", variant)
+
+    def test_unknown_profile_row_stops(self) -> None:
+        result = self.enroll("desktop\t~/.config/laptop\n")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid history file row", result.stderr)
 
 
 @requires("jq")

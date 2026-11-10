@@ -37,7 +37,7 @@ MUST_TRACK = (
     "dotfiles/.ssh/id_ed25519.pub",
     "dotfiles/.config/app/.env.example",
     "setup-scripts/setup/secrets",
-    "encrypted/bootstrap.json.age",
+    "encrypted/bootstrap.workstation.json.age",
 )
 
 

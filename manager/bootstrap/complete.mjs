@@ -89,13 +89,16 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
   const persistedBundleIdentity = readLocal('vars.bootstrap_bundle_identity');
   const explicitBundle = childEnv.SETUP_BOOTSTRAP_BUNDLE || '';
   const explicitBundleIdentity = childEnv.SETUP_BUNDLE_IDENTITY || '';
-  // Workstation keeps the historical implicit bundle. NAS only considers the
-  // bundle when the caller or an earlier explicit enrollment selected it;
-  // otherwise a workstation-only bundle cannot block NAS history recovery.
-  const bundleRequested = role === 'workstation' || Boolean(explicitBundle || persistedBundleIdentity || explicitBundleIdentity);
+  // A profile that has its own bundle, encrypted/bootstrap.<profile>.json.age,
+  // uses it implicitly and receives its private files. Other profiles only
+  // consider a bundle the caller or an earlier explicit enrollment selected,
+  // so another profile's bundle cannot block their history recovery.
+  const profileBundle = path.join(root, `encrypted/bootstrap.${role}.json.age`);
+  const profileHasBundle = fs.existsSync(profileBundle);
+  const bundleRequested = profileHasBundle || Boolean(explicitBundle || persistedBundleIdentity || explicitBundleIdentity);
   const bundleIdentityValue = explicitBundleIdentity || persistedBundleIdentity || (bundleRequested ? recoveryIdentity : '');
   const bundleIdentity = bundleIdentityValue ? expand(bundleIdentityValue) : '';
-  const bundleValue = explicitBundle || (bundleRequested ? path.join(root, 'encrypted/bootstrap.json.age') : '');
+  const bundleValue = explicitBundle || (bundleRequested ? profileBundle : '');
   const bundle = bundleValue ? expand(bundleValue) : '';
   let secrets = {};
   let recipients = [];
@@ -124,11 +127,10 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
     });
   } else if (bundleRequested) {
     record('Private inputs', 'deferred', 'Supply the encrypted bundle and an external age identity with dots bootstrap --bundle FILE --identity FILE');
-    // An explicit or persisted bundle selection is part of this run's
-    // contract. A missing implicit workstation bundle remains optional.
+    // An explicit or persisted bundle selection is part of this run's contract.
     if (childEnv.SETUP_BOOTSTRAP_BUNDLE || childEnv.SETUP_BUNDLE_IDENTITY || persistedBundleIdentity || fs.existsSync(bundle)) privateReady = false;
   } else {
-    record('Private inputs', 'completed', 'No bootstrap bundle requested for this NAS host');
+    record('Private inputs', 'completed', 'No bootstrap bundle requested for this host');
   }
 
   stage('Source repository', () => requireCommand(
@@ -150,7 +152,7 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
       script(manager('tasks/restore'), ['--initialize-history']);
     });
   }
-  if (privateReady && historyReady && role === 'workstation' && Object.keys(secrets).length) {
+  if (privateReady && historyReady && profileHasBundle && Object.keys(secrets).length) {
     privateReady = stage('Private configuration', () => applyPrivateFiles(secrets, { home, miseBin, root }));
   }
   stage('Installer exceptions', () => script(manager('tasks/exceptions')));

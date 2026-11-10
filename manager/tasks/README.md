@@ -19,6 +19,8 @@ them works.
 | `dots/commands/NAME` | Run as `dots NAME [ARGS...]` when `NAME` is not a built-in |
 | `dots/exceptions.tsv`, `dots/exceptions/NAME` | Installer exception manifest and recipes |
 | `dots/retired-dotfiles` | Retired dotfile targets whose dangling links are removed |
+| `dots/history-files.tsv` | `PROFILE<TAB>~/PATH` rows (`base` = every profile): app-written files history enrollment tracks |
+| `encrypted/bootstrap.PROFILE.json.age` | That profile's bootstrap bundle; bootstrap uses it implicitly and applies its private files |
 
 Settings live in `[vars]` of `config.toml`. mise vars are strings, so a list
 is one string of space-separated words.
@@ -108,12 +110,15 @@ packages, installs and upgrades declared mise tools (tools pinned to a
 revision keep it), runs installer exceptions and update hooks, and updates
 standalone mise last.
 
-Mac App Store updates are skipped by default. `dots up --mas` includes them on
-macOS workstations: it prepares the Homebrew `mas` formula first, then runs App
-Store updates alongside the other updates and waits for them before updating
-standalone mise and saving the final checkpoint. The cask stage installs
-missing declared casks, then upgrades only casks without `auto_updates: true`
-and not listed in `dots_self_updating_casks`.
+On macOS, a host whose configuration declares `brew-cask:` or `mas:` packages
+gets separate Homebrew formula and cask stages; other hosts update their
+declared native packages in one pass. Mac App Store updates are skipped by
+default. `dots up --mas` includes them when `mas:` packages are declared: it
+prepares the Homebrew `mas` formula first, then runs App Store updates
+alongside the other updates and waits for them before updating standalone mise
+and saving the final checkpoint. The cask stage installs missing declared
+casks, then upgrades only casks without `auto_updates: true` and not listed in
+`dots_self_updating_casks`.
 
 Later stages continue after an earlier stage fails; failures are collected and
 make the final result nonzero once the pre-update save succeeds. The task does

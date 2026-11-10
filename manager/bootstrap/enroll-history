@@ -14,6 +14,7 @@ Usage: manager/bootstrap/enroll-history --profile ROLE --machine-id ID \
 
 The task writes local profile settings and a host-specific tracking config.
 It does not save a checkpoint, create a history repository, or contact a remote.
+Default files come from the configuration's dots/history-files.tsv.
 Use --refresh to append newly present files without replacing that host config.
 EOF
 }
@@ -101,24 +102,22 @@ for ((i = 0; i < ${#extra_recipients[@]}; i++)); do
     recipients+=("$recipient")
 done
 
+# dots/history-files.tsv lists the app-written files to track for each
+# profile: PROFILE<TAB>~/PATH rows, where PROFILE is base (every profile) or a
+# name from [vars] dots_profiles. Missing files are skipped.
 files=()
-if [[ "$SETUP_PROFILE" == workstation ]]; then
-    files=(
-        '~/.codex/config.toml'
-        '~/.config/aegis/config.json'
-        '~/.config/karabiner/karabiner.json'
-        '~/.config/atuin/config.toml'
-        '~/.config/gitlogue-saver/config.toml'
-        '~/Library/Preferences/com.superlogical.rex.plist'
-        '~/.config/nvim/lazyvim.json'
-        '~/.config/nvim/lazy-lock.json'
-        '~/.config/nvim/spell/en.utf-8.add'
-        '~/.config/fish/fish_variables'
-        '~/.cli-proxy-api/config.yaml'
-        '~/.wakatime.cfg'
-    )
-elif [[ "$SETUP_PROFILE" == nas ]]; then
-    files=('~/.codex/config.toml' '~/.config/fish/fish_variables' '~/.config/atuin/config.toml' '~/.config/nvim/lazyvim.json' '~/.config/nvim/lazy-lock.json' '~/.config/nvim/spell/en.utf-8.add')
+history_manifest="$BOOTSTRAP_CONFIG_DIR/dots/history-files.tsv"
+if [[ -f "$history_manifest" ]]; then
+    while IFS=$'\t' read -r file_profile file_path file_extra || [[ -n "$file_profile$file_path$file_extra" ]]; do
+        [[ -z "$file_profile" || "$file_profile" == \#* ]] && continue
+        if [[ -z "$file_path" || -n "$file_extra" ]] || { [[ "$file_profile" != base ]] && ! setup_is_profile "$file_profile"; }; then
+            bootstrap_error "invalid history file row in $history_manifest"
+            exit 2
+        fi
+        if [[ "$file_profile" == base || "$file_profile" == "$SETUP_PROFILE" ]]; then
+            files+=("$file_path")
+        fi
+    done < "$history_manifest"
 fi
 if ((${#extra_files[@]})); then
     files+=("${extra_files[@]}")

@@ -70,7 +70,7 @@ Examples:
   dots remove --keep-installed npm:prettier
 
 Add defaults to the selected machine profile; --base targets shared config.
-Up skips Mac App Store updates by default; --mas includes them on macOS workstations.
+Up skips Mac App Store updates by default; --mas includes them on macOS when mas: apps are declared.
 Up closes its report when maintenance finishes. --plain prints concise
 progress, --verbose shows full subprocess output, and --last reopens the saved report.
 Bare tool names use mise's preferred backend and latest version.

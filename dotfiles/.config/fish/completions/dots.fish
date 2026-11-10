@@ -1,7 +1,7 @@
 complete -c dots -f
 complete -c dots -n 'not __fish_seen_subcommand_from up update sync publish atuin-bundle atuin-login status reports plan test remote bundle apply bootstrap backup restore add remove uninstall help houseatlas' -a 'up update sync publish atuin-bundle atuin-login status reports plan test remote bundle apply bootstrap backup restore add remove uninstall help houseatlas'
 complete -c dots -n '__fish_seen_subcommand_from test' -a 'python node' -d 'Test suite'
-complete -c dots -n '__fish_seen_subcommand_from up update' -l mas -d 'Include Mac App Store updates on macOS workstations'
+complete -c dots -n '__fish_seen_subcommand_from up update' -l mas -d 'Include Mac App Store updates'
 complete -c dots -n '__fish_seen_subcommand_from up update' -l plain -d 'Use plain output'
 complete -c dots -n '__fish_seen_subcommand_from up update' -l verbose -d 'Show detailed output'
 complete -c dots -n '__fish_seen_subcommand_from up update' -l no-wait -d 'Do not wait at the end'

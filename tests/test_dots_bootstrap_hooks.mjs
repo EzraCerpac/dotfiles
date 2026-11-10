@@ -111,6 +111,25 @@ test('an unknown profile suffix fails the hook stage and runs no hooks', () => {
   }
 });
 
+test('only a profile with its own bundle requests it implicitly', () => {
+  for (const [profile, status, detail] of [
+    ['laptop', 'deferred', /Supply the encrypted bundle/],
+    ['server', 'completed', /No bootstrap bundle requested for this host/],
+  ]) {
+    const f = fixture();
+    try {
+      fs.mkdirSync(path.join(f.root, 'encrypted'));
+      fs.writeFileSync(path.join(f.root, 'encrypted/bootstrap.laptop.json.age'), 'ciphertext\n');
+      const { report } = bootstrap(f, [], { SETUP_PROFILE: profile });
+      const inputs = report.stages.find(stage => stage.stage === 'Private inputs');
+      assert.equal(inputs.status, status, profile);
+      assert.match(inputs.detail, detail);
+    } finally {
+      f.cleanup();
+    }
+  }
+});
+
 test('bootstrap without a dots directory runs only core stages', () => {
   const f = fixture();
   try {

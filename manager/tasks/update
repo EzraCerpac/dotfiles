@@ -13,7 +13,7 @@ for argument in "$@"; do
         --plain) plain_output=1 ;;
         --verbose) verbose_output=1 ;;
         -h|--help)
-            printf 'Usage: dots up [--mas] [--plain] [--verbose]\n\nMac App Store updates are skipped by default.\n--mas includes them on macOS workstations.\n'
+            printf 'Usage: dots up [--mas] [--plain] [--verbose]\n\nMac App Store updates are skipped by default.\n--mas includes them on macOS hosts that declare mas: packages.\n'
             exit 0
             ;;
         *) setup_error "unknown update option: $argument (usage: dots up [--mas])"; exit 2 ;;
@@ -59,6 +59,21 @@ event_group() {
         "installer exception"*) printf 'Managed apps/local builds' ;;
         *) printf 'Final checks' ;;
     esac
+}
+# Whether this host's configuration files declare a package of MANAGER
+# (brew-cask, mas, ...). Package keys contain a colon, so TOML quotes them.
+declares_packages() {
+    local manager file
+    local -a configs=("$SETUP_ROOT/config.toml" "$SETUP_ROOT/config.$SETUP_PROFILE.toml")
+    [[ -z "$SETUP_MACHINE_ID" ]] || configs+=("$SETUP_ROOT/config.host-$SETUP_MACHINE_ID.toml")
+    configs+=("$SETUP_ROOT/config.local.toml")
+    for file in "${configs[@]}"; do
+        [[ -f "$file" ]] || continue
+        for manager in "$@"; do
+            grep -Eq "^[[:space:]]*(\[bootstrap\.packages\.)?[\"']$manager:" "$file" && return 0
+        done
+    done
+    return 1
 }
 snapshot_stage() {
     local group="$1" data declared
@@ -436,8 +451,16 @@ upgrade_homebrew_casks() {
     setup_mise bootstrap packages upgrade --manager brew-cask --yes "${packages[@]}"
 }
 
-if [[ "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
-    if [[ "$include_mas" -eq 1 ]]; then
+# A macOS host that declares casks or App Store apps gets separate formula and
+# cask stages (casks honor self-updating apps) and the opt-in App Store
+# stages; every other host uses the native package manager in one pass.
+homebrew_apps=0 app_store=0
+if [[ "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+    if declares_packages mas; then app_store=1 homebrew_apps=1; fi
+    if declares_packages brew-cask; then homebrew_apps=1; fi
+fi
+if [[ "$homebrew_apps" -eq 1 ]]; then
+    if [[ "$app_store" -eq 1 && "$include_mas" -eq 1 ]]; then
         if run_stage "Mac App Store tool" prepare_app_store_tool; then
             if run_stage "Mac App Store authorization" --terminal-handoff authorize_app_store_packages; then
                 if start_app_store_packages; then
@@ -450,7 +473,7 @@ if [[ "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Da
                 fi
             fi
         fi
-    else
+    elif [[ "$app_store" -eq 1 ]]; then
         printf '\nSkipped: Mac App Store updates (use dots up --mas to include them).\n'
         emit_event "$(event_json --arg summary 'Mac App Store updates intentionally skipped; use --mas to include them.' '{v:1,kind:"notice",severity:"info",summary:$summary}')"
     fi
@@ -525,7 +548,7 @@ else
     failures+=("update hooks")
 fi
 
-if [[ "$include_mas" -eq 1 && "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+if [[ "$include_mas" -eq 1 && "$app_store" -eq 1 ]]; then
     run_stage "Mac App Store result" finish_app_store_packages || true
 fi
 
