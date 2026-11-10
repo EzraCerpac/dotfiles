@@ -14,7 +14,7 @@ func TestDirectCommandsHonorSelectedRootAndHomeOverAmbient(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, ambient := range []string{"unset", "conflicting"} {
-		for _, command := range []string{"plan", "sync"} {
+		for _, command := range []string{"plan"} {
 			t.Run(command+"/"+ambient, func(t *testing.T) {
 				base, err := filepath.EvalSymlinks(t.TempDir())
 				if err != nil {
@@ -57,9 +57,6 @@ func TestDirectCommandsHonorSelectedRootAndHomeOverAmbient(t *testing.T) {
 					}
 				}
 				args := []string{"--root", selected, "--home", home, "--command", command, "--"}
-				if command == "sync" {
-					args = append(args, "--source-only")
-				}
 				if code := run(args); code != 0 {
 					t.Fatalf("direct command exited %d", code)
 				}
@@ -73,9 +70,6 @@ func TestDirectCommandsHonorSelectedRootAndHomeOverAmbient(t *testing.T) {
 				}
 				if command == "plan" && strings.Join(lines[3:], " ") != "bootstrap plan" {
 					t.Fatalf("unexpected plan invocation: %q", output)
-				}
-				if command == "sync" && !strings.Contains(string(output), home+"/lib/source-repo.mjs\nsync\n"+selected+"\n--source-only") {
-					t.Fatalf("unexpected source-only invocation: %q", output)
 				}
 			})
 		}

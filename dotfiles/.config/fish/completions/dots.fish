@@ -23,7 +23,6 @@ complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l bundle -r -d 'Enc
 complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l identity -r -d 'External age identity'
 complete -c dots -n '__fish_seen_subcommand_from bootstrap' -l restore -x -d 'Existing machine identity to restore'
 complete -c dots -s h -l help -d 'Show help'
-complete -c dots -n '__fish_seen_subcommand_from sync' -l source-only -d 'Fetch and advance source without applying'
 complete -c dots -n '__fish_seen_subcommand_from publish' -l all -d 'Publish all unpublished commits'
 complete -c dots -n '__fish_seen_subcommand_from publish' -l bookmark -x -d 'Publish a bookmark'
 complete -c dots -n '__fish_seen_subcommand_from restore' -l initialize-history -d 'Preserve and replace an unconnected history store'

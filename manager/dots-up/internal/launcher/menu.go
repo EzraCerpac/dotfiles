@@ -79,8 +79,6 @@ func formFor(it item, profiles []string) form {
 	switch it.name {
 	case "up":
 		f.fields = []field{choice("Mac App Store", "--mas", "Include App Store updates", "off", "on"), choice("Output", "", "Dashboard is the default", "dashboard", "plain", "verbose"), choice("Close automatically", "--no-wait", "Close when update completes", "off", "on")}
-	case "sync":
-		f.fields = []field{choice("Source only", "--source-only", "Fetch and advance without applying", "off", "on")}
 	case "apply":
 		f.fields = []field{positional("Target", "Optional; empty applies all. Add further targets as argument tokens.", false)}
 	case "add", "remove":

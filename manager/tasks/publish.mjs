@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { ensureRepository, withRepositoryLock, SourceDeferred, sourceRepository, dotsVar } from '../lib/source-repo.mjs';
+import { ensureRepository, withRepositoryLock, sourceRepository, dotsVar } from '../lib/source-repo.mjs';
 
 // When [vars] dots_publish_on_behalf_of names a person, pull request text
 // starts with a note that a model writes on their behalf. Set
@@ -16,6 +16,8 @@ export function disclosure(onBehalfOf, model = process.env.DOTS_PUBLISH_MODEL) {
 }
 
 const DEFAULT_BASE = 'main';
+// Exit 3: publication needs attention (conflicts to resolve), not a failure.
+const deferred = message => Object.assign(new Error(message), { code: 3 });
 const SECRET_SCANNER = 'gitleaks';
 
 // Progress contains only fixed phase labels, never diffs or credentials.
@@ -293,7 +295,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, 
   const pinnedCommit = commitIdFor(run, root, revision);
   const workingCommit = commitIdFor(run, root, '@');
   const baseCommit = commitIdFor(run, root, 'main@origin');
-  if (hasConflicts(run, root, revision)) throw new SourceDeferred('the current stack has conflicts; resolve them and rerun dots publish --all');
+  if (hasConflicts(run, root, revision)) throw deferred('the current stack has conflicts; resolve them and rerun dots publish --all');
   let changes = proposedChanges(run, root, revision);
   if (!changes.some(change => change.diff.trim())) throw new Error(`${revision} has no actual file changes above main@origin`);
   previewChanges(output, revision, changes);
@@ -320,7 +322,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, 
     invoke(run, 'jj', ['--no-pager', 'new', '-m', 'Merge main into unpublished setup stack', revision, 'main@origin'], root);
     revision = '@';
     if (hasConflicts(run, root, revision)) {
-      throw new SourceDeferred('merging main created conflicts in @; resolve them and rerun dots publish --all; nothing was pushed');
+      throw deferred('merging main created conflicts in @; resolve them and rerun dots publish --all; nothing was pushed');
     }
     changes = proposedChanges(run, root, revision);
     previewChanges(output, revision, changes);
@@ -397,6 +399,8 @@ export function publish({
   return lock(root, () => {
     const repository = publishPhase('validate', 'Validate repository', () => ensure(root));
     if (!repository || !repository.gitDir) throw new Error('source repository helper did not return gitDir');
+    // Publication drives JJ stacks; the live checkout is plain Git and syncs dev.
+    if (!fs.existsSync(path.join(repository.root || root, '.jj'))) throw new Error(`${root} is not a JJ workspace; the live checkout is plain Git: push a main-based task branch and open the PR with gh`);
     publishPhase('fetch', 'Fetch main', () => invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], root));
 
     const devResult = run('git', ['rev-parse', '--verify', 'refs/heads/dev'], { cwd: root, encoding: 'utf8' });
@@ -464,7 +468,7 @@ export function main(argv = process.argv.slice(2)) {
     const options = parseArgs([...argv]);
     publish(options);
   } catch (error) {
-    if (error instanceof SourceDeferred || error?.code === 3) {
+    if (error?.code === 3) {
       console.error(`publish: ${error.message}`);
       process.exitCode = 3;
     } else {

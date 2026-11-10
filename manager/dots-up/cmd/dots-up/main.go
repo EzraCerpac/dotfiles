@@ -151,9 +151,8 @@ func execute(opts supervisor.Options) int {
 		}
 		return supervisor.ShowLast(opts)
 	}
-	// Plan and source-only synchronization retain their original direct
-	// routes. Neither starts an update supervisor.
-	if opts.Command == "plan" || (opts.Command == "sync" && len(opts.Args) == 1 && opts.Args[0] == "--source-only") {
+	// Plan retains its original direct route; it starts no update supervisor.
+	if opts.Command == "plan" {
 		return directBackend(opts)
 	}
 	opts.Sensitive = spec.Sensitive

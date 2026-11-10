@@ -103,10 +103,13 @@ def status():
         if data is not None:
             try:
                 if id == "source":
-                    workspace = data["workspace"]
                     revision = data.get("base_revision", "")
                     revision = revision[:12] if isinstance(revision, str) and len(revision) >= 12 and all(c in "0123456789abcdef" for c in revision) else "unavailable"
-                    item("Source", "repository", "unknown" if workspace == "jj" else "attention", f"{'JJ' if workspace == 'jj' else 'Git'} workspace; base {revision}; working state not inspected", "Review source state" if workspace == "jj" else "Initialize JJ when ready")
+                    problem = data.get("problem")
+                    unpushed = data.get("unpushed", 0)
+                    item("Source", "repository", "attention" if problem else "ok",
+                         f"Git on {data.get('branch') or 'detached HEAD'} at {revision}; {unpushed} commits not on origin/dev",
+                         f"{problem}; see docs/sync-migration.md" if problem else ("Run dots sync" if unpushed else ""))
                 elif id == "atuin":
                     for key in ("installation", "login", "last_sync", "ai_readiness"):
                         value = data.get(key, "unavailable")
