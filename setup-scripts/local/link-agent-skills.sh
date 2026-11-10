@@ -32,3 +32,19 @@ for dir in "$shared"/*/; do
     ln -s "$dir" "$dest"
     echo "Linked shared skill $name into ~/.claude/skills"
 done
+
+# Share the managed Codex planning and JJ skills with Claude as well.
+for name in implementation-planning jj-waltz; do
+    source_dir="${HOME}/.codex/skills/$name"
+    dest="$claude/$name"
+    [[ -f "$source_dir/SKILL.md" ]] || continue
+    if [[ -L "$dest" && "$(cd -P -- "$dest" && pwd -P)" == "$(cd -P -- "$source_dir" && pwd -P)" ]]; then
+        continue
+    elif [[ -e "$dest" || -L "$dest" ]]; then
+        echo "Kept existing ~/.claude/skills/$name; not linking the Codex copy"
+        continue
+    fi
+    mkdir -p "$claude"
+    ln -s "$source_dir" "$dest"
+    echo "Linked Codex skill $name into ~/.claude/skills"
+done
