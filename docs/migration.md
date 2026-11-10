@@ -27,7 +27,7 @@ not establish machine cutover.
 | Private machine settings | Native mise history repository `dotfiles-state` | Separate Git history for encrypted, exact-file settings; distinct from the JJ-managed public source. |
 | Protected rollback snapshot | `~/.local/state/mise-migration/latest/` | Local archives of the original checkout and managed live files, with metadata for modes and links. |
 
-The public source and native mise history have different jobs and different histories. Do not put live application state or credentials in the public source repository. `encrypted/` contains ciphertext for the WakaTime and Himalaya configuration files; `setup:secrets` decrypts and installs those files. This is separate from native history enrollment: exact app-written regular files stay at their normal paths and are tracked in encrypted private history. Other application state remains owned by its application.
+The public source and native mise history have different jobs and different histories. Do not put live application state or credentials in the public source repository. `encrypted/` contains ciphertext for the WakaTime configuration file; `setup:secrets` decrypts and installs it. This is separate from native history enrollment: exact app-written regular files stay at their normal paths and are tracked in encrypted private history. Other application state remains owned by its application.
 
 ## Bootstrap and machine role
 
@@ -84,7 +84,7 @@ dots restore
 | Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
 | Replace an unconnected local history store | `dots restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
 
-`setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `manager/bootstrap/enroll-history`.
+`setup:secrets` handles only the WakaTime ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `manager/bootstrap/enroll-history`.
 
 The planned `dots up` dashboard adds `--plain` for plain output,
 `--verbose` for detailed output, `--no-wait` to skip the final wait,

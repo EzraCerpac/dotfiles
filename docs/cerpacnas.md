@@ -28,7 +28,7 @@ The NAS has its own age identity at `~/.config/age/keys.txt`, mode `0600`.
 Snapshots also use the existing recovery public recipient. No Mac private key
 was copied. Back up the NAS identity separately from either repository.
 
-The Mac-only WakaTime/Himalaya bundle is optional on NAS. Supply a bundle
+The Mac-only WakaTime bundle is optional on NAS. Supply a bundle
 explicitly when this host needs private bootstrap inputs.
 
 The protected migration backup is

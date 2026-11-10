@@ -5,8 +5,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+// himalaya_config stays accepted so existing bundles still validate; Himalaya is
+// archived (archive/himalaya/), so its value is no longer written anywhere.
 const names = new Set(['wakatime_config', 'himalaya_config', 'tailscale_auth_key', 'github_token']);
-const files = { wakatime_config: '.wakatime.cfg', himalaya_config: '.config/himalaya/config.toml' };
+const files = { wakatime_config: '.wakatime.cfg' };
 const quote = JSON.stringify;
 const inputEnv = () => {
   const env = { ...process.env };
@@ -76,21 +78,6 @@ export function applyPrivateFiles(secrets, { home, miseBin, root }) {
     for (const name of Object.keys(env)) if (name.startsWith('__MISE_')) delete env[name];
     const ini = secrets.wakatime_config;
     if (ini !== undefined && (!/^\s*\[settings\]\s*$/m.test(ini) || !/^\s*[\w.-]+\s*=.+$/m.test(ini))) throw new Error('WakaTime input is not an INI settings file');
-    if (secrets.himalaya_config !== undefined) {
-      const validation = path.join(temp, 'validate.toml');
-      fs.writeFileSync(validation, secrets.himalaya_config, { mode: 0o600 });
-      // mise is the setup's one TOML reader. Its parse errors quote the input, so stay quiet.
-      // A launcher that cannot start mise exits 126/127 without a spawn error;
-      // probe it first so only a running mise can call the input invalid.
-      const probe = spawnSync(miseBin, ['--version'], { env, stdio: 'ignore' });
-      if (probe.error || probe.status !== 0) {
-        throw new Error(`mise is required to validate the Himalaya input: ${probe.error?.code || probe.error?.message || `exit ${probe.status}`}`);
-      }
-      const result = spawnSync(miseBin, ['-C', temp, 'config', 'get', '--file', validation], { env, stdio: 'ignore' });
-      if (result.error) throw new Error(`mise is required to validate the Himalaya input: ${result.error.code || result.error.message}`);
-      if (result.status !== 0) throw new Error('Himalaya input is not valid TOML');
-      fs.unlinkSync(validation);
-    }
     let config = '[bootstrap.secrets]\n';
     for (const [key] of selected) {
       const variable = `SETUP_${key.toUpperCase()}`;

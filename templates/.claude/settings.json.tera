@@ -41,6 +41,9 @@
     },
     "claude-fable-5-1": {
       "autoCompactWindow": 400000
+    },
+    "claude-fable-5-2": {
+      "autoCompactWindow": 400000
     }
   },
   "tui": "fullscreen",

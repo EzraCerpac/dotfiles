@@ -58,8 +58,7 @@ requirements; a fresh install uses the same interpreter.
 ## Secrets
 
 `setup:secrets` ([`setup-scripts/setup/secrets`](../setup-scripts/setup/secrets))
-installs only `wakatime.cfg.age` and `himalaya-config.toml.age`, for the
-workstation profile. It requires `SETUP_AGE_IDENTITY` or
-`~/.config/age/keys.txt`. It validates content before writing, uses mode
-`0600`, and refuses differing live files unless the exact target is named with
-`--reconcile`.
+installs only `wakatime.cfg.age`, for the workstation profile. It requires
+`SETUP_AGE_IDENTITY` or `~/.config/age/keys.txt`. It validates content before
+writing, uses mode `0600`, and refuses differing live files unless the exact
+target is named with `--reconcile`.

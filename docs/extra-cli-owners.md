@@ -41,9 +41,8 @@ owned both `grok` and `agent`. Both recorded executables were later uninstalled.
   `xonsh`, including the `osmgemma` entry points from the old `mlx-vlm`
   environment) and `neonrp` are no longer declared; they were removed as
   unwanted.
-- `humanize-text` and `humanize-clipboard` point to the source-mapped local
-  `humanize-text` script. The `ai-text-detector` source wrapper has the
-  shebang `uv run --python 3.12 --script`; `config.workstation.toml` now declares
+- The `ai-text-detector` source wrapper has the shebang
+  `uv run --python 3.12 --script`; `config.workstation.toml` now declares
   Python 3.12 after 3.13, keeping 3.13 as the default and exposing the needed
   versioned interpreter.
 

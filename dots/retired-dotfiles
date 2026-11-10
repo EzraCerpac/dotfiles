@@ -52,3 +52,15 @@
 ~/.codex/skills/audio-diarization/SKILL.md
 ~/.codex/skills/audio-diarization/scripts/transcribe_diarize.py
 ~/.codex/skills/perch/SKILL.md
+~/.config/gh-dash/config.yml
+~/.config/goose/.goosehints
+~/.config/goose/recipes/remove-ai-artifacts.yaml
+~/.config/humanize-text/defaults.toml
+~/.local/bin/humanize-clipboard
+~/.local/bin/humanize-text
+~/.local/share/humanize-text/configure.sh
+~/.local/share/humanize-text/main.py
+~/.local/share/humanize-text/main.py.lock
+~/.local/share/humanize-text/typst_guard_cli.lua
+~/.config/latexindent/latexindent.yaml
+~/.config/lazygit/config.yml
