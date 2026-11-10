@@ -133,6 +133,8 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.agents/skills/sol-loop/SKILL.md" = { source = "dotfiles/.agents/skills/sol-loop/SKILL.md", mode = "copy" }
 "~/.agents/skills/sembr/SKILL.md" = { source = "dotfiles/.agents/skills/sembr/SKILL.md", mode = "copy" }
 "~/.agents/skills/takeover/SKILL.md" = { source = "dotfiles/.agents/skills/takeover/SKILL.md", mode = "copy" }
+# The dots manager ships its own skill; it is linked into Claude Code like the others.
+"~/.agents/skills/dots/SKILL.md" = { source = "manager/skills/dots/SKILL.md", mode = "copy" }
 
 # Personal implementation planning skill; individual links preserve neighboring state.
 "~/.codex/skills/implementation-planning/SKILL.md" = { source = "dotfiles/.codex/skills/implementation-planning/SKILL.md", mode = "copy" }
