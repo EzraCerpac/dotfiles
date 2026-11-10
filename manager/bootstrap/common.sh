@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source "$(dirname "${BASH_SOURCE[0]}")/../lib/mise-bin.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/setup-common.sh"
 
 bootstrap_error() {
     printf 'bootstrap: %s\n' "$*" >&2
@@ -30,11 +30,18 @@ bootstrap_init() {
     export MISE_CONFIG_DIR="$BOOTSTRAP_CONFIG_DIR"
 }
 
+# Load [vars] dots_profiles from the configuration being bootstrapped.
+bootstrap_load_profiles() {
+    SETUP_ROOT="$BOOTSTRAP_CONFIG_DIR"
+    setup_dots_profiles
+}
+
 bootstrap_validate_profile() {
-    case "${SETUP_PROFILE:-}" in
-        workstation|nas) ;;
-        *) bootstrap_error 'profile must be workstation or nas'; return 2 ;;
-    esac
+    bootstrap_load_profiles || return $?
+    if ! setup_is_profile "${SETUP_PROFILE:-}"; then
+        bootstrap_error "profile must be one of: ${SETUP_DOTS_PROFILES// /, }"
+        return 2
+    fi
 
     if [[ -z "${SETUP_MACHINE_ID:-}" || ! "$SETUP_MACHINE_ID" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
         bootstrap_error 'machine id must contain lowercase letters, digits, and hyphens'
@@ -162,13 +169,12 @@ bootstrap_set_miserc_env() {
     local path="$BOOTSTRAP_CONFIG_DIR/miserc.toml"
     local -a selectors=() preserved=()
     values="$(bootstrap_miserc_env_values)" || return $?
+    bootstrap_load_profiles || return $?
     selectors=("$profile" "host-$machine_id")
     while IFS= read -r selector; do
         [[ -n "$selector" ]] || continue
-        case "$selector" in
-            # delftblue is retired but still recognized, so an old selector is replaced.
-            workstation|nas|delftblue) continue ;;
-        esac
+        # A profile selector is replaced by the new profile.
+        if setup_is_profile "$selector"; then continue; fi
         if [[ "$selector" =~ ^host-[a-z0-9][a-z0-9-]*$ ]]; then
             ((host_count += 1))
             if [[ "$host_count" -gt 1 ]]; then

@@ -29,20 +29,18 @@ bootstrap_init
 
 miserc_path="$BOOTSTRAP_CONFIG_DIR/miserc.toml"
 miserc_env_values="$(bootstrap_miserc_env_values)" || exit $?
+bootstrap_load_profiles || exit $?
 persisted_role=""
 persisted_machine_id=""
 while IFS= read -r selector; do
     [[ -n "$selector" ]] || continue
-    case "$selector" in
-        # delftblue is retired; recognizing it lets validation reject it clearly.
-        workstation|nas|delftblue)
-            if [[ -n "$persisted_role" && "$persisted_role" != "$selector" ]]; then
-                bootstrap_error 'miserc has multiple setup roles; resolve it before bootstrap'
-                exit 2
-            fi
-            persisted_role="$selector"
-            ;;
-    esac
+    if setup_is_profile "$selector"; then
+        if [[ -n "$persisted_role" && "$persisted_role" != "$selector" ]]; then
+            bootstrap_error 'miserc has multiple setup roles; resolve it before bootstrap'
+            exit 2
+        fi
+        persisted_role="$selector"
+    fi
     if [[ "$selector" =~ ^host-([a-z0-9][a-z0-9-]*)$ ]]; then
         if [[ -n "$persisted_machine_id" && "$persisted_machine_id" != "${BASH_REMATCH[1]}" ]]; then
             bootstrap_error 'miserc has multiple host identities; resolve them before bootstrap'
@@ -76,7 +74,7 @@ if [[ -n "$persisted_role" ]]; then
 fi
 
 if [[ -z "$SETUP_PROFILE" ]]; then
-    for candidate in workstation nas delftblue; do
+    for candidate in $SETUP_DOTS_PROFILES; do
         if [[ ",${MISE_ENV:-}," == *",$candidate,"* ]]; then
             SETUP_PROFILE="$candidate"
             break

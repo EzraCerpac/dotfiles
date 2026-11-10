@@ -22,6 +22,13 @@ else
 fi
 export DOTS_HOME
 
+# Built-in commands always win over configuration commands of the same name.
+builtin_commands=" menu reports up update sync publish atuin-bundle atuin-login status plan test bootstrap remote bundle apply backup restore add remove uninstall help internal "
+
+config_root() {
+    printf '%s\n' "${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
+}
+
 usage() {
     cat <<'HELP'
 Your machine setup, from any directory.
@@ -32,7 +39,6 @@ Your machine setup, from any directory.
 
   dots up [--mas] [--plain|--verbose] [--no-wait] [--last]
                                    Sync configuration, then update tools and plugins
-  dots up houseatlas ACTION        HouseAtlas check/apply/status (binding unavailable)
   dots sync [--source-only]        Share dev; --source-only advances reviewed main
   dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
@@ -57,7 +63,7 @@ Examples:
   dots add https://github.com/jaskirat1616/mactap-app
   dots add --asset 'tool-*-macos-arm64.zip' https://github.com/owner/repo
   dots add --base watchexec
-  dots add --profile nas ripgrep
+  dots add --profile PROFILE ripgrep
   dots add --path ~/other/config.toml watchexec
   dots remove mactap
   dots remove --dry-run brew-cask:firefox
@@ -73,6 +79,19 @@ New requests are recorded after installation; failures ask before recording.
 Ordinary sync shares public source through dev; publish reviews main-based tasks.
 Backup publishes only private settings.
 HELP
+    local commands_dir name listed=0
+    commands_dir="$(config_root)/dots/commands"
+    [[ -d "$commands_dir" ]] || return 0
+    for name in "$commands_dir"/*; do
+        name="${name##*/}"
+        [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && -f "$commands_dir/$name" && -x "$commands_dir/$name" ]] || continue
+        [[ "$builtin_commands" != *" $name "* ]] || continue
+        if [[ "$listed" -eq 0 ]]; then
+            printf '\nConfiguration commands (%s):\n' "$commands_dir"
+            listed=1
+        fi
+        printf '  dots %s [ARGS...]\n' "$name"
+    done
 }
 
 frontend_args=()
@@ -98,7 +117,7 @@ if [[ "${1:-}" == internal ]]; then
     internal_name="${1:-}"
     if (($#)); then shift; fi
     if [[ "$internal_name" == home ]]; then printf '%s\n' "$DOTS_HOME"; exit 0; fi
-    root="${MISE_CONFIG_DIR:-${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}}"
+    root="${MISE_CONFIG_DIR:-$(config_root)}"
     [[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
     root="$(cd "$root" && pwd -P)"
     export DOTS_ROOT="$root"
@@ -106,33 +125,47 @@ if [[ "${1:-}" == internal ]]; then
     case "$internal_name" in
         persist-selected|profile|enroll-history) exec bash "$DOTS_HOME/bootstrap/$internal_name" "$@" ;;
         complete) exec node "$DOTS_HOME/bootstrap/complete.mjs" "$@" ;;
-        update|status|backup|restore|secrets) exec bash "$DOTS_HOME/tasks/$internal_name" "$@" ;;
+        update|status|backup|restore|exceptions) exec bash "$DOTS_HOME/tasks/$internal_name" "$@" ;;
         github-install-app) exec uv run --no-project python "$DOTS_HOME/lib/dots-github.py" install-app "$@" ;;
         *) echo "dots: unknown internal command '$internal_name'" >&2; exit 2 ;;
     esac
 fi
-root="${DOTS_ROOT:-${XDG_CONFIG_HOME:-$HOME/.config}/mise}"
+root="$(config_root)"
 [[ -f "$root/config.toml" ]] || { echo "dots: setup not found at $root" >&2; exit 2; }
 root="$(cd "$root" && pwd -P)"
 export DOTS_ROOT="$root"
-# HouseAtlas is a deliberate, separate caller. Do not load mise, synchronize
-# source or update packages while reporting its unqualified binding boundary.
-if [[ "${1:-}" == up || "${1:-}" == update ]] && [[ "${2:-}" == houseatlas ]]; then
-    shift 2
-    case "${1:-}" in
-        -h|--help)
-            [[ $# -eq 1 ]] || { echo 'dots: unsupported HouseAtlas arguments' >&2; exit 2; }
-            printf 'Usage: dots up houseatlas check|apply|status\nHouseAtlas binding is unavailable; no request is sent.\n'
-            exit 0 ;;
-        check|apply|status)
-            [[ $# -eq 1 ]] || { echo 'dots: HouseAtlas accepts one action; no endpoint, path or command options' >&2; exit 2; } ;;
-        *) echo 'dots: unsupported HouseAtlas action; use check, apply or status' >&2; exit 2 ;;
-    esac
-    if ! command -v python3 >/dev/null 2>&1; then
-        echo 'dots: HouseAtlas unavailable: python3 is absent; no request was sent' >&2
-        exit 3
+# A name that is not a built-in falls through to the configuration command
+# DOTS_ROOT/dots/commands/NAME, which receives the remaining arguments
+# literally, in the caller's directory. It runs before mise loads the setup:
+# no source sync, tool installs or package updates.
+if [[ "$backend_mode" -eq 0 && $# -gt 0 && "$builtin_commands" != *" $1 "* ]]; then
+    if [[ ! "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+        echo "dots: invalid command name '$1'; use dots help" >&2
+        exit 2
     fi
-    exec python3 -I "$root/setup-scripts/lib/houseatlas-maintenance.py" "$1"
+    command_path="$root/dots/commands/$1"
+    if [[ ! -f "$command_path" || ! -x "$command_path" ]]; then
+        echo "dots: unknown command '$1'; use dots help" >&2
+        exit 2
+    fi
+    if ((${#frontend_args[@]})); then
+        echo "dots: ${frontend_args[0]} applies only to built-in commands" >&2
+        exit 2
+    fi
+    shift
+    if [[ -z "${DOTS_PROFILE:-}" ]]; then
+        DOTS_PROFILE="${SETUP_PROFILE:-}"
+        if [[ -z "$DOTS_PROFILE" && -f "$root/config.local.toml" ]]; then
+            # Read one local value only; the setup's environment is not loaded.
+            profile_mise="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
+            [[ -x "$profile_mise" ]] || profile_mise="$(command -v mise 2>/dev/null || true)"
+            if [[ -n "$profile_mise" ]]; then
+                DOTS_PROFILE="$(MISE_AUTO_UPDATE=0 MISE_AUTO_INSTALL=0 "$profile_mise" config get --file "$root/config.local.toml" env.SETUP_PROFILE 2>/dev/null || true)"
+            fi
+        fi
+    fi
+    export DOTS_PROFILE
+    exec "$command_path" "$@"
 fi
 mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
 [[ -x "$mise_bin" ]] || mise_bin="$(command -v mise)"
@@ -353,6 +386,11 @@ case "$command_name" in
     *) echo "dots: unknown command '$command_name'; use dots help" >&2; exit 2 ;;
 esac
 
+# add shares the manager's settings, profile and installer exception readers.
+source "$DOTS_HOME/lib/setup-common.sh"
+SETUP_ROOT="$root"
+SETUP_MISE_BIN="$mise_bin"
+SETUP_EXCEPTION_MANIFEST="$root/dots/exceptions.tsv"
 target=""
 selector_count=0
 requests=()
@@ -362,8 +400,9 @@ while (($#)); do
     case "$1" in
         --base) target="$root/config.toml"; selector_count=$((selector_count + 1)); shift ;;
         --profile)
-            [[ $# -ge 2 ]] || { echo 'dots: --profile needs workstation or nas' >&2; exit 2; }
-            case "$2" in workstation|nas) ;; *) echo 'dots: profile must be workstation or nas' >&2; exit 2 ;; esac
+            [[ $# -ge 2 ]] || { echo 'dots: --profile needs a profile name' >&2; exit 2; }
+            setup_dots_profiles || exit 2
+            setup_is_profile "$2" || { echo "dots: profile must be one of: ${SETUP_DOTS_PROFILES// /, }" >&2; exit 2; }
             target="$root/config.$2.toml"; selector_count=$((selector_count + 1)); shift 2 ;;
         --path)
             [[ $# -ge 2 && -n "$2" ]] || { echo 'dots: --path needs a filename' >&2; exit 2; }
@@ -375,8 +414,6 @@ while (($#)); do
             github_asset="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
         -*) echo "dots: unknown add option '$1'" >&2; exit 2 ;;
-        brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
-            echo 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead' >&2; exit 2 ;;
         brew:*|brew-cask:*|apt:*|dnf:*|pacman:*|apk:*|mas:*) requests+=("$1"); shift ;;
         https://github.com/*|http://github.com/*) requests+=("$1"); github_count=$((github_count + 1)); shift ;;
         *) requests+=("$1"); shift ;;
@@ -389,11 +426,20 @@ if [[ -n "$github_asset" && $github_count -ne 1 ]]; then
 fi
 if [[ -z "$target" ]]; then
     role="$(run_mise config get --file "$root/config.local.toml" env.SETUP_PROFILE)"
-    case "$role" in
-        workstation|nas) target="$root/config.$role.toml" ;;
-        *) echo 'dots: no supported machine profile; use --base or --profile' >&2; exit 2 ;;
-    esac
+    setup_dots_profiles || exit 2
+    setup_is_profile "$role" || { echo 'dots: no supported machine profile; use --base or --profile' >&2; exit 2; }
+    target="$root/config.$role.toml"
 fi
+# A package an installer exception holds (hold=PACKAGE) belongs to its recipe;
+# refuse it before anything is installed.
+for request in "${requests[@]}"; do
+    case "$request" in *:*) ;; *) continue ;; esac
+    setup_exception_holder "$request" || exit 2
+    if [[ -n "$SETUP_HOLDER" ]]; then
+        echo "dots: $request is held by installer exception '$SETUP_HOLDER'; change its recipe instead" >&2
+        exit 2
+    fi
+done
 printf 'Config destination: %s\n' "$target"
 for request in "${requests[@]}"; do
     case "$request" in

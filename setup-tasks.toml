@@ -72,7 +72,7 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 ["setup:secrets"]
 description = "Deploy encrypted private configuration"
-run = "bash manager/bin/dots internal secrets"
+run = "bash setup-scripts/setup/secrets"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["install:herdr-plugins"]
@@ -211,7 +211,7 @@ run = "bash setup-scripts/local/aerospace-local-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:install-exceptions"]
-run = "bash setup-scripts/local/install-exceptions.sh"
+run = "bash manager/bin/dots internal exceptions"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 [bootstrap]

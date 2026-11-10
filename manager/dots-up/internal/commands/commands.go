@@ -24,7 +24,6 @@ var specs = []Spec{
 	{"test", "Run tests", "Development", "Run repository test suites", "dashboard", false, false},
 	{"publish", "Publish source", "Development", "Review changes and open or update a PR", "dashboard", false, true},
 	{"plan", "Native setup plan", "Advanced", "Print the existing native mise plan", "concise", false, false},
-	{"houseatlas", "HouseAtlas maintenance", "Advanced", "Unavailable binding; sends no request", "concise", false, true},
 }
 
 func Canonical(name string) string {

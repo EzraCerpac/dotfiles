@@ -9,7 +9,7 @@ from pathlib import Path
 
 from lib.prereq import mise_binary, requires
 
-LIBRARY = Path(__file__).resolve().parents[1] / "manager/lib/toml.sh"
+LIBRARY = Path(__file__).resolve().parents[1] / "setup-scripts/lib/toml.sh"
 SECRET = "fixture-secret-value"
 
 

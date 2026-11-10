@@ -14,7 +14,7 @@ while (($#)); do
             cat <<'EOF'
 Restore this host's encrypted settings from the private history repository.
 
-Usage: setup:restore [--initialize-history]
+Usage: dots restore [--initialize-history]
 
 The flag is required only when replacing an existing, unconnected local history
 store. That store is moved to a protected sibling backup before the new one is
@@ -36,13 +36,17 @@ if [[ -z "$SETUP_MACHINE_ID" ]]; then
 fi
 history_branch="$(setup_history_branch)" || exit $?
 
+# The private settings repository is [vars] dots_state_repo (GitHub OWNER/NAME).
+setup_dots_var dots_state_repo || exit $?
+state_repo="$SETUP_VAR_dots_state_repo"
+[[ "$state_repo" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ ]] || { setup_error "dots_state_repo must be OWNER/NAME, not $state_repo"; exit 2; }
 case "$SETUP_HISTORY_ORIGIN" in
-    git@github.com:EzraCerpac/dotfiles-state|git@github.com:EzraCerpac/dotfiles-state.git|\
-    ssh://git@github.com/EzraCerpac/dotfiles-state|ssh://git@github.com/EzraCerpac/dotfiles-state.git|\
-    https://github.com/EzraCerpac/dotfiles-state|https://github.com/EzraCerpac/dotfiles-state.git)
+    "git@github.com:$state_repo"|"git@github.com:$state_repo.git"|\
+    "ssh://git@github.com/$state_repo"|"ssh://git@github.com/$state_repo.git"|\
+    "https://github.com/$state_repo"|"https://github.com/$state_repo.git")
         ;;
     *)
-        setup_error 'history origin must be the private EzraCerpac/dotfiles-state repository'
+        setup_error "history origin must be the private $state_repo repository"
         setup_error 'restore will not adopt or fetch private history into the public source repository'
         exit 2
         ;;

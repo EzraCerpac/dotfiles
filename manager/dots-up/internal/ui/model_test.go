@@ -340,7 +340,7 @@ func TestOverviewPrioritizesAttentionAndVerifiedChanges(t *testing.T) {
 	m = send(m, Event{V: 1, Kind: "stage_start", ID: "tools", Group: "Tools", Label: "CLI tools"})
 	m = send(m, Event{V: 1, Kind: "change", Stage: "tools", Item: "ripgrep", Before: "14.1", After: "15.0"})
 	m = send(m, Event{V: 1, Kind: "stage_end", ID: "tools", Status: "ok", Summary: "completed"})
-	m = send(m, Event{V: 1, Kind: "stage_start", ID: "plugins", Group: "Editor plugins", Label: "Editor plugins"})
+	m = send(m, Event{V: 1, Kind: "stage_start", ID: "plugins", Group: "Hooks", Label: "Editor plugins"})
 	m = send(m, Event{V: 1, Kind: "stage_end", ID: "plugins", Status: "failed", Summary: "Plugin update failed", Action: "Run dots up again after fixing the plugin source"})
 	m = send(m, Event{V: 1, Kind: "notice", Severity: "attention", Summary: "Source sync deferred; local changes preserved"})
 	m = send(m, Event{V: 1, Kind: "stage_start", ID: "final", Group: "Final checks", Label: "Settings checkpoint"})

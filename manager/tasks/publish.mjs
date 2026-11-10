@@ -5,9 +5,8 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { ensureRepository, withRepositoryLock, SourceDeferred } from '../lib/source-repo.mjs';
+import { ensureRepository, withRepositoryLock, SourceDeferred, sourceRepository } from '../lib/source-repo.mjs';
 
-export const EXPECTED_REPOSITORY = 'EzraCerpac/dotfiles';
 // Set DOTS_PUBLISH_MODEL only to an identifier verified from the task's metadata.
 export const DISCLOSURE = `> [!NOTE]\n> **${process.env.DOTS_PUBLISH_MODEL?.trim() || 'model unverified'}** is writing on behalf of Ezra.`;
 
@@ -230,9 +229,9 @@ function descriptionPromptDefault(question, { input = process.stdin, output = pr
   return readTerminalLine(input);
 }
 
-function findPullRequest(run, root, bookmark) {
+function findPullRequest(run, root, bookmark, repo) {
   const result = invoke(run, 'gh', [
-    'pr', 'list', '--repo', EXPECTED_REPOSITORY, '--head', bookmark, '--state', 'all', '--json', 'number,url,state',
+    'pr', 'list', '--repo', repo, '--head', bookmark, '--state', 'all', '--json', 'number,url,state',
   ], root);
   let entries;
   try { entries = JSON.parse(result.stdout); } catch { throw new Error('could not parse the existing pull request lookup'); }
@@ -241,7 +240,7 @@ function findPullRequest(run, root, bookmark) {
   return entries[0] || null;
 }
 
-function publishPullRequest(run, root, bookmark, title, body, existing) {
+function publishPullRequest(run, root, bookmark, title, body, existing, repo) {
   const bodyDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-publish-'));
   const bodyFile = path.join(bodyDirectory, 'pull-request.md');
   try {
@@ -251,12 +250,12 @@ function publishPullRequest(run, root, bookmark, title, body, existing) {
         throw new Error(`refusing to edit ${String(existing.state || 'closed').toLowerCase()} pull request ${existing.number} for ${bookmark}; choose a new bookmark`);
       }
       const result = invoke(run, 'gh', [
-        'pr', 'edit', String(existing.number), '--repo', EXPECTED_REPOSITORY, '--title', title, '--body-file', bodyFile,
+        'pr', 'edit', String(existing.number), '--repo', repo, '--title', title, '--body-file', bodyFile,
       ], root);
       return { url: existing.url, existing: true, result };
     }
     const result = invoke(run, 'gh', [
-      'pr', 'create', '--repo', EXPECTED_REPOSITORY, '--head', bookmark, '--base', DEFAULT_BASE,
+      'pr', 'create', '--repo', repo, '--head', bookmark, '--base', DEFAULT_BASE,
       '--title', title, '--body-file', bodyFile,
     ], root);
     const url = result.stdout.trim().split(/\s+/).find(value => /^https?:\/\//.test(value));
@@ -271,20 +270,20 @@ function defaultBookmark(run, root, now, revision) {
   return `wip/dotfiles-${timestamp(now)}-${shortChangeId(run, root, revision)}`;
 }
 
-function existingAllPullRequest(run, root, revision) {
+function existingAllPullRequest(run, root, revision, repo) {
   const names = [...new Set(jjOutput(run, root, [
     'bookmark', 'list', '-r', `::${revision}`, '--color=never', '-T', 'name ++ "\\n"',
   ]).split('\n').map(line => line.trim()).filter(name => /^wip\/dotfiles-all-/.test(name)))];
   const open = [];
   for (const name of names) {
-    const request = findPullRequest(run, root, name);
+    const request = findPullRequest(run, root, name, repo);
     if (String(request?.state || '').toUpperCase() === 'OPEN') open.push({ name, request });
   }
   if (open.length > 1) throw new Error('multiple open aggregate pull requests are ancestors of this stack; use --bookmark to choose one');
   return open[0] || null;
 }
 
-function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
+function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo }) {
   let revision = allRevision(run, root);
   const pinnedCommit = commitIdFor(run, root, revision);
   const workingCommit = commitIdFor(run, root, '@');
@@ -329,12 +328,12 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
   outputText(output, `Final pull request diff against main@origin:\n${finalDiff}`);
 
   const { title, body } = allPullRequest(changes);
-  const prior = existingAllPullRequest(run, root, revision);
+  const prior = existingAllPullRequest(run, root, revision, repo);
   const finalCommit = commitIdFor(run, root, revision);
   const finalWorkingCommit = commitIdFor(run, root, '@');
   outputText(output, `Proposed pull request title: ${title}\nProposed pull request description:\n${body}\n`);
   publishPhase('scan', 'Scan commits', () => scanForSecrets(run, root, output, baseCommit, finalCommit));
-  if (!publishConfirmation(confirm, `Publish the current stack to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
+  if (!publishConfirmation(confirm, `Publish the current stack to ${repo}?`)) throw new Error('publication cancelled; nothing was pushed');
 
   // The preview and approval cover this exact source and base, including any merge.
   if (commitIdFor(run, root, revision) !== finalCommit || commitIdFor(run, root, '@') !== finalWorkingCommit ||
@@ -346,7 +345,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt }) {
   if (prior) invoke(run, 'jj', ['--no-pager', 'bookmark', 'move', chosenBookmark, '--to', revision], root);
   else invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], root);
   publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root));
-  const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, prior?.request));
+  const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, prior?.request, repo));
   if (revision === '@') invoke(run, 'jj', ['--no-pager', 'new'], root);
   outputText(output, `Published ${chosenBookmark}: ${pullRequest.url}\n`);
   return { bookmark: chosenBookmark, url: pullRequest.url, existing: pullRequest.existing, title };
@@ -380,8 +379,11 @@ export function publish({
   descriptionPrompt = (question) => descriptionPromptDefault(question, { input: process.stdin, output }),
   ensure = ensureRepository,
   lock = withRepositoryLock,
+  repository,
 } = {}) {
   if (!root) throw new Error('A source repository root is required');
+  // The GitHub OWNER/NAME pull requests go to; [vars] dots_source_repo by default.
+  const repo = repository || sourceRepository(root);
   if (all && bookmark) throw new Error('--all and --bookmark cannot be used together');
   if (bookmark) verifyPrivateBookmark(bookmark);
 
@@ -399,7 +401,7 @@ export function publish({
       }
     }
 
-    if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt });
+    if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt, repo });
 
     const explicit = Boolean(bookmark);
     const revision = explicit ? bookmark : requireSingleDefaultChange(run, root);
@@ -425,13 +427,13 @@ export function publish({
     const body = makeBody(description);
     let existing;
     if (explicit) {
-      existing = findPullRequest(run, root, bookmark);
+      existing = findPullRequest(run, root, bookmark, repo);
       if (existing && String(existing.state || '').toUpperCase() !== 'OPEN') {
         throw new Error(`refusing to edit ${String(existing.state || 'closed').toLowerCase()} pull request ${existing.number} for ${bookmark}; choose a new bookmark`);
       }
     }
     publishPhase('scan', 'Scan commits', () => scanForSecrets(run, root, output, commitIdFor(run, root, 'main@origin'), pinnedCommit));
-    if (!publishConfirmation(confirm, `Publish ${revision} to ${EXPECTED_REPOSITORY}?`)) throw new Error('publication cancelled; nothing was pushed');
+    if (!publishConfirmation(confirm, `Publish ${revision} to ${repo}?`)) throw new Error('publication cancelled; nothing was pushed');
 
     if (commitIdFor(run, root, revision) !== pinnedCommit || (!explicit && commitIdFor(run, root, '@') !== workingCommit)) {
       throw new Error('the source revision changed while the preview was open; review the new diff and try again');
@@ -443,7 +445,7 @@ export function publish({
       invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], root);
     }
     publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root));
-    const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, existing));
+    const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, existing, repo));
     if (!explicit) invoke(run, 'jj', ['--no-pager', 'new'], root);
     outputText(output, `Published ${chosenBookmark}: ${pullRequest.url}\n`);
     return { bookmark: chosenBookmark, url: pullRequest.url, existing: pullRequest.existing, description, title };

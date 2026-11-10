@@ -50,6 +50,15 @@ def state(value):
     if value in ("error", "failed"): return "failed"
     return "unknown"
 
+def dots_profiles():
+    """The profile names in [vars] dots_profiles of the configuration's config.toml."""
+    config = os.path.join(root, "config.toml")
+    result = subprocess.run([mise, "-C", root, "config", "get", "--file", config, "vars.dots_profiles"],
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False)
+    if result.returncode != 0:
+        raise ValueError(f"missing setting: add dots_profiles to [vars] in {config}")
+    return result.stdout.split()
+
 def run_json(label, argv):
     try:
         result = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
@@ -70,8 +79,13 @@ def run_json(label, argv):
 
 def status():
     profile = os.environ.get("SETUP_PROFILE", "")
-    if profile not in ("workstation", "nas"):
-        print("setup: SETUP_PROFILE must be workstation or nas", file=sys.stderr)
+    try:
+        profiles = dots_profiles()
+    except ValueError as error:
+        print(f"setup: {error}", file=sys.stderr)
+        return 2
+    if profile not in profiles:
+        print("setup: SETUP_PROFILE must be one of [vars] dots_profiles: " + ", ".join(profiles), file=sys.stderr)
         return 2
     selector = profile + (",host-" + os.environ["SETUP_MACHINE_ID"] if os.environ.get("SETUP_MACHINE_ID") else "")
     base = [mise, "-C", root, "-E", selector]
@@ -165,18 +179,18 @@ def status():
     stage_start("exceptions", "Inspection", "Installer exceptions")
     code = 0
     try:
-        manifest = os.path.join(root, "setup-scripts/setup/exceptions.tsv")
+        manifest = os.path.join(root, "dots/exceptions.tsv")
         if os.path.exists(manifest):
             for line in open(manifest, encoding="utf-8"):
                 if not line.strip() or line.startswith("#"): continue
                 fields = line.rstrip("\n").split("\t")
-                if len(fields) != 2 or fields[0] not in ("base", "workstation", "nas"):
+                if len(fields) not in (2, 3) or (fields[0] != "base" and fields[0] not in profiles):
                     raise ValueError("invalid installer exception row")
-                role, name = fields
+                role, name = fields[:2]
                 if role not in ("base", profile): continue
                 if not name or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for c in name) or not name[0].isalnum():
                     raise ValueError("invalid installer exception name")
-                executable = os.access(os.path.join(root, "setup-scripts/setup/exceptions", name), os.X_OK)
+                executable = os.access(os.path.join(root, "dots/exceptions", name), os.X_OK)
                 item("Exceptions", name, "ok" if executable else "missing", "ready" if executable else "missing executable")
                 if not executable: code = 2
     except (OSError, ValueError) as error:

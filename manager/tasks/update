@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MISE description="Checkpoint settings and update declared packages, tools, exceptions, editor plugins, and mise"
+# MISE description="Checkpoint settings and update declared packages, tools, exceptions, configuration hooks, and mise"
 set -euo pipefail
 
 source "$(dirname "$0")/../lib/setup-common.sh"
@@ -13,10 +13,10 @@ for argument in "$@"; do
         --plain) plain_output=1 ;;
         --verbose) verbose_output=1 ;;
         -h|--help)
-            printf 'Usage: setup:update [--mas] [--plain] [--verbose]\n\nMac App Store updates are skipped by default.\n--mas includes them on macOS workstations.\n'
+            printf 'Usage: dots up [--mas] [--plain] [--verbose]\n\nMac App Store updates are skipped by default.\n--mas includes them on macOS workstations.\n'
             exit 0
             ;;
-        *) setup_error "unknown update option: $argument (usage: setup:update [--mas])"; exit 2 ;;
+        *) setup_error "unknown update option: $argument (usage: dots up [--mas])"; exit 2 ;;
     esac
 done
 setup_init || exit $?
@@ -55,14 +55,13 @@ event_group() {
     case "$1" in
         "Sync configuration"|*settings*checkpoint*) printf 'Source & settings' ;;
         "new Homebrew formulae"|"Homebrew formulae"|"new Homebrew casks"|"Homebrew casks"|"Mac App Store tool"|"Mac App Store authorization"|"Mac App Store result"|"newly declared host packages"|"declared host packages") printf 'Packages' ;;
-        "newly declared mise tools"|"declared mise tools"|"Herdr shell configuration"|"standalone mise") printf 'Tools' ;;
-        "Neovim plugins") printf 'Editor plugins' ;;
-        "Codex ACP native executable"|"jw main source"|"jw NAS release"|"Capd fork main"|"installer exception"*) printf 'Managed apps/local builds' ;;
+        "newly declared mise tools"|"declared mise tools"|"standalone mise") printf 'Tools' ;;
+        "installer exception"*) printf 'Managed apps/local builds' ;;
         *) printf 'Final checks' ;;
     esac
 }
 snapshot_stage() {
-    local group="$1" data_home="${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}" app_name="${NVIM_APPNAME:-nvim}" lazy_root data declared
+    local group="$1" data declared
     case "$group" in
         Tools)
             data="$(setup_mise ls --json 2>/dev/null)" || return 1
@@ -100,19 +99,6 @@ PY
                         | {item:$row[0],value:$row[1]}]
                     | sort_by(.item)
                 ' 2>/dev/null
-            else
-                printf '[]'
-            fi
-            ;;
-        'Editor plugins')
-            lazy_root="$data_home/$app_name/lazy"
-            if [[ -d "$lazy_root" ]]; then
-                for plugin in "$lazy_root"/*; do
-                    [[ -d "$plugin" ]] || continue
-                    revision="$(git -C "$plugin" rev-parse --verify HEAD 2>/dev/null || true)"
-                    [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || continue
-                    printf '%s\t%s\n' "${plugin##*/}" "$revision"
-                done | setup_mise exec -- jq -Rn '[inputs | split("\t") | select(length == 2) | {item:.[0],value:.[1]}] | sort_by(.item)' 2>/dev/null
             else
                 printf '[]'
             fi
@@ -209,14 +195,19 @@ if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
 fi
 
 failures=()
+deferred=()
+# run_stage LABEL [--terminal-handoff] [--hook] COMMAND...
+# A --hook stage follows the hook contract: exit 3 is deferred (needs
+# attention), 4 is skipped, and any other nonzero status is a failure.
 run_stage() {
     local label="$1"
     shift
-    local terminal=hidden
+    local terminal=hidden hook=0
     if [[ "${1:-}" == --terminal-handoff ]]; then terminal=handoff; shift; fi
+    if [[ "${1:-}" == --hook ]]; then hook=1; shift; fi
     local event_id="${label//[^a-zA-Z0-9]/-}"
-    local group
-    group="$(event_group "$label")"
+    local group=Hooks
+    [[ "$hook" -eq 1 ]] || group="$(event_group "$label")"
     local before_snapshot='[]' after_snapshot='[]' before_valid=0 after_valid=0
     local stage_log="" handoff_failed=0
     if dots_up_event_sink_enabled; then
@@ -263,6 +254,17 @@ run_stage() {
         if dots_up_event_sink_enabled; then
             emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "$summary" '{v:1,kind:"stage_end",id:$id,label:$label,status:"ok",exit_code:0,summary:$summary}')"
         fi
+    elif [[ "$hook" -eq 1 && ( "$result" -eq 3 || "$result" -eq 4 ) ]]; then
+        local status=skipped summary=skipped
+        if [[ "$result" -eq 3 ]]; then
+            status=attention summary="deferred; needs attention"
+            deferred+=("$label")
+        fi
+        printf 'Result: %s\n' "$summary"
+        if dots_up_event_sink_enabled; then
+            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg status "$status" --arg summary "$summary" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:$status,exit_code:$code,summary:$summary}')"
+        fi
+        return 0
     else
         printf 'Result: failed (exit %s)\n' "$result"
         if [[ -n "$stage_log" ]]; then
@@ -376,15 +378,18 @@ upgrade_other_homebrew_formulae() {
 }
 
 upgrade_homebrew_casks() {
-    local status_json selected package
+    local status_json selected package self_updating
     local -a packages
 
     status_json="$(setup_mise bootstrap packages status --json)" || return $?
-    # CodexBar uses Sparkle, but its cask omits auto_updates metadata.
-    selected="$(printf '%s' "$status_json" | setup_mise exec -- jq -r '
-        (."brew-cask".packages | if type == "array" then . else error("missing brew-cask status") end)[]
+    # Casks whose apps update themselves without auto_updates metadata are
+    # listed in the optional [vars] dots_self_updating_casks.
+    self_updating="$(setup_dots_list dots_self_updating_casks optional)" || return $?
+    selected="$(printf '%s' "$status_json" | setup_mise exec -- jq -r --arg skip "$self_updating" '
+        ($skip | split("\n") | map(select(length > 0))) as $skip
+        | (."brew-cask".packages | if type == "array" then . else error("missing brew-cask status") end)[]
         | select(.state == "installed" and .auto_updates != true)
-        | select(.package != "codexbar")
+        | select(.package as $package | $skip | index($package) | not)
         | (.package | if type == "string" and length > 0 then "brew-cask:\(.)" else error("missing cask token") end)
     ')" || return $?
     if [[ -z "$selected" ]]; then
@@ -433,69 +438,57 @@ else
         run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes || true
     fi
 fi
+# Upgrade declared tools without pruning; tools pinned to a revision keep it.
+upgrade_declared_tools() {
+    local tool_state pinned_tools tool retained=""
+    local -a upgrade_args=(upgrade --no-prune)
+    tool_state="$(setup_mise ls --current --json)" || return $?
+    pinned_tools="$(printf '%s' "$tool_state" | setup_mise exec -- jq -r '
+        to_entries[]
+        | select(.value | length > 0)
+        | select(all(.value[]; (.requested_version // "" | startswith("rev:"))))
+        | .key
+    ')" || return $?
+    if [[ -n "$pinned_tools" ]]; then
+        while IFS= read -r tool; do
+            upgrade_args+=(--exclude "$tool")
+            retained="${retained}${retained:+, }${tool}"
+        done <<< "$pinned_tools"
+        printf 'Retaining configured revision pins: %s\n' "$retained"
+    fi
+    setup_mise "${upgrade_args[@]}"
+}
+
+# Hooks learn whether the tools stages succeeded.
+export DOTS_TOOLS_OK=0 DOTS_TOOLS_UPGRADED=0
 if run_stage "newly declared mise tools" setup_mise install; then
-    run_stage "declared mise tools" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/upgrade-herdr" || true
-    if [[ "$SETUP_PROFILE" == workstation ]]; then
-        run_stage "Herdr shell configuration" setup_mise exec -- node "$DOTS_HOME/bootstrap/herdr.mjs" "$SETUP_ROOT" || true
-    else
-        printf '\nSkipped: Herdr shell configuration (NAS profile does not own Herdr).\n'
-    fi
-fi
-if [[ "$SETUP_PROFILE" == nas ]]; then
-    run_stage "jw NAS release" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-nas-release.sh" --if-missing || true
-fi
-if [[ "$SETUP_PROFILE" == workstation ]]; then
-    run_stage "Codex ACP native executable" setup_mise exec -- "$SETUP_ROOT/setup-scripts/setup/fix-codex-acp-mode" || true
-    run_stage "jw main source" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/install/jw-build-install.sh" --update-existing || true
-    if [[ "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
-        run_stage "Capd fork main" setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/local/capd-update.sh" || true
-    fi
+    DOTS_TOOLS_OK=1
+    if run_stage "declared mise tools" upgrade_declared_tools; then DOTS_TOOLS_UPGRADED=1; fi
 fi
 
 run_exception() {
-    local name="$1"
-    local script_path="$2"
-    case "$name" in
-        zoom|tailscale-app|antinote|omnidisksweeper)
-            run_stage "installer exception: $name" setup_mise exec -- "$script_path" --install-only || true
-            ;;
-        *) run_stage "installer exception: $name" setup_mise exec -- "$script_path" || true ;;
-    esac
+    local name="$1" script_path="$2" flags="$3"
+    if setup_exception_has_flag "$flags" install-only; then
+        run_stage "installer exception: $name" setup_mise exec -- "$script_path" --install-only || true
+    else
+        run_stage "installer exception: $name" setup_mise exec -- "$script_path" || true
+    fi
 }
 
 if ! setup_each_exception run_exception; then
     failures+=("installer exception manifest")
 fi
 
-update_editor_plugins() {
-    local data_home="${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}"
-    local app_name="${NVIM_APPNAME:-nvim}"
-    local lazy_root="$data_home/$app_name/lazy/lazy.nvim"
-    local guard_script
-
-    setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/nvim-initialize" || return $?
-
-    guard_script="$(mktemp "${TMPDIR:-/tmp}/mise-lazy-guard.XXXXXX.lua")" || return 1
-    cat > "$guard_script" <<'LUA'
-local lazy_path = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if vim.fn.isdirectory(lazy_path) == 0 then
-  error("Lazy.nvim is missing; refusing to bootstrap it during setup:update")
-end
-vim.opt.rtp:prepend(lazy_path)
-require("lazy.core.config").defaults.install.missing = false
-LUA
-    chmod 600 "$guard_script"
-    SETUP_LAZY_UPDATE_SCRIPT="$SETUP_ROOT/setup-scripts/setup/lazy-update.lua" \
-        SETUP_LAZY_GUARD_SCRIPT="$guard_script" \
-        setup_mise exec -- nvim --headless \
-            --cmd 'lua dofile(vim.env.SETUP_LAZY_GUARD_SCRIPT)' \
-            -c 'lua dofile(vim.env.SETUP_LAZY_UPDATE_SCRIPT)' -c qa
-    local result=$?
-    rm -f "$guard_script"
-    return "$result"
-}
-
-run_stage "Neovim plugins" update_editor_plugins || true
+# Configuration hooks (dots/hooks/update.d) run after installer exceptions, in
+# name order, each as its own stage with this run's stdin; a failed hook does
+# not stop later ones.
+hooks=()
+while IFS= read -r hook_path; do
+    [[ -z "$hook_path" ]] || hooks+=("$hook_path")
+done < <(setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d")
+for hook_path in ${hooks[@]+"${hooks[@]}"}; do
+    run_stage "$(setup_hook_label "$hook_path")" --hook setup_mise exec -- "$hook_path" || true
+done
 
 if [[ "$include_mas" -eq 1 && "$SETUP_PROFILE" == workstation && "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
     run_stage "Mac App Store result" finish_app_store_packages || true
@@ -512,6 +505,12 @@ fi
 if [[ "${#failures[@]}" -eq 0 ]]; then
     if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
         printf '\nUpdate report: completed; source sync deferred; see the source sync log for details.\n'
+        exit 0
+    fi
+    if [[ "${#deferred[@]}" -gt 0 ]]; then
+        printf '\nUpdate report: completed; needs attention: '
+        printf '%s; ' "${deferred[@]}"
+        printf '\n'
         exit 0
     fi
     printf '\nUpdate report: completed; no updater failures.\n'

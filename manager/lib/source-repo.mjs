@@ -10,7 +10,44 @@ export class SourceDeferred extends Error { constructor(message) { super(message
 const lockfiles = ['mise.lock', 'mise.nas.lock', 'mise.workstation.lock'];
 const isLocalConfig = name => name === 'config.local.toml' || name === 'miserc.toml' || /^config\.host-[a-z0-9-]+\.toml$/.test(name);
 const isLocalConfigPath = name => isLocalConfig(name.split('/')[0].toLowerCase());
-const origins = new Set(['https://github.com/EzraCerpac/dotfiles', 'https://github.com/EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles.git', 'git@github.com:EzraCerpac/dotfiles', 'ssh://git@github.com/EzraCerpac/dotfiles.git']);
+const dotsVars = new Map();
+
+// Read one [vars] dots_* setting from ROOT/config.toml through mise, once per
+// process. A missing required setting fails with a message naming it.
+export function dotsVar(root, name, { miseBin, optional = false, run = spawnSync } = {}) {
+  const file = path.join(root, 'config.toml');
+  if (!dotsVars.has(file + '\0' + name)) {
+    const result = run(miseBin || resolveMiseBin(), ['-C', root, 'config', 'get', '--file', file, `vars.${name}`],
+      { cwd: root, encoding: 'utf8', env: { ...process.env, MISE_AUTO_INSTALL: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    dotsVars.set(file + '\0' + name, !result.error && result.status === 0 ? String(result.stdout).trim() : undefined);
+  }
+  const value = dotsVars.get(file + '\0' + name);
+  if (value === undefined && !optional) throw new Error(`missing setting: add ${name} to [vars] in ${file}`);
+  return value ?? '';
+}
+
+// A list setting is one string of space-separated words (mise [vars] values
+// must be strings): dots_profiles = "workstation nas".
+export const dotsList = value => String(value).split(/\s+/).filter(Boolean);
+
+// The GitHub OWNER/NAME of the configuration repository ([vars] dots_source_repo).
+export function sourceRepository(root, options = {}) {
+  const repository = dotsVar(root, 'dots_source_repo', options);
+  if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(repository)) throw new Error(`dots_source_repo must be OWNER/NAME, not ${repository}`);
+  return repository;
+}
+
+export const githubOrigins = repository => new Set([`https://github.com/${repository}`, `https://github.com/${repository}.git`,
+  `git@github.com:${repository}.git`, `git@github.com:${repository}`, `ssh://git@github.com/${repository}.git`]);
+
+function requireOrigin(root, remote, expectedRemote, prefix = 'Refusing source operations: origin') {
+  if (expectedRemote) {
+    if (remote !== expectedRemote) throw new Error(`${prefix} is not ${expectedRemote}`);
+    return;
+  }
+  const repository = sourceRepository(root);
+  if (!githubOrigins(repository).has(remote)) throw new Error(`${prefix} is not ${repository}`);
+}
 const command = (bin, args, root, options = {}) => {
   const { trimOutput = true, ...spawnOptions } = options;
   const result = spawnSync(bin, args, { cwd: root, encoding: 'utf8', timeout: 30000, ...spawnOptions });
@@ -39,7 +76,7 @@ function metadata(root) {
 export function ensureRepository(root, { expectedRemote } = {}) {
   const info = metadata(root);
   const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
-  if (expectedRemote ? remote !== expectedRemote : !origins.has(remote)) throw new Error('Refusing source operations: origin is not EzraCerpac/dotfiles');
+  requireOrigin(info.root, remote, expectedRemote);
   for (const marker of ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG']) {
     if (fs.existsSync(path.join(info.gitDir, marker))) throw new SourceDeferred(`Finish the Git operation (${marker}) before syncing configuration`);
   }
@@ -366,7 +403,7 @@ export function syncSource(root, options = {}) {
   return withRepositoryLock(root, () => {
     const info = metadata(root);
     const remote = command('git', ['config', '--get', 'remote.origin.url'], root);
-    if (options.expectedRemote ? remote !== options.expectedRemote : !origins.has(remote)) throw new Error('Refusing source operations: origin is not EzraCerpac/dotfiles');
+    requireOrigin(root, remote, options.expectedRemote);
     for (const marker of ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG']) {
       if (fs.existsSync(path.join(info.gitDir, marker))) throw new SourceDeferred(`Finish the Git operation (${marker}) before syncing configuration`);
     }
@@ -390,7 +427,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
     if (action === 'status') {
       const info = metadata(root);
       const remote = command('git', [`--git-dir=${info.gitDir}`, 'config', '--get', 'remote.origin.url'], root);
-      if (!origins.has(remote)) throw new Error('Origin is not EzraCerpac/dotfiles');
+      requireOrigin(info.root, remote, undefined, 'Origin');
       if (json) {
         // Ignore the working copy: status inspection must not snapshot or mutate it.
         const revision = info.hasJj

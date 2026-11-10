@@ -148,8 +148,8 @@ are inferences from the signed app identity. A later handoff still needs an
 item-specific check of app state, permissions, update behavior, and uninstall
 effects.
 
-The registered `vendor-apps` exception in `setup:update` reads the named entries
-in [`setup-scripts/setup/vendor-apps.tsv`](../setup-scripts/setup/vendor-apps.tsv). `Pinned`
+The registered `vendor-apps` exception in `dots up` reads the named entries
+in [`dots/exceptions/vendor-apps.tsv`](../dots/exceptions/vendor-apps.tsv). `Pinned`
 records a local/project owner; it does not say the app is current, tested, or
 healthy. `Managed` records an updater run by the matching workstation setup
 profile. `Deferred` records an app or vendor update path that remains manual.

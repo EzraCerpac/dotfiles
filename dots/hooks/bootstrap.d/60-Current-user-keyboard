@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Approve and activate the current-user Kanata service on macOS.
+set -euo pipefail
+if [[ "$(uname -s 2>/dev/null || true)" != Darwin ]]; then
+    printf 'Skipped: current-user keyboard (macOS only).\n'
+    exit 4
+fi
+if [[ ! -t 0 ]]; then
+    printf 'Run kbd activate in your Mac terminal to approve and activate the current-user Kanata service.\n'
+    exit 3
+fi
+exec bash "${DOTS_ROOT:?run through dots}/dotfiles/.local/bin/kbd" activate

@@ -36,7 +36,7 @@ MUST_TRACK = (
     "dotfiles/.config/fish/config.fish",
     "dotfiles/.ssh/id_ed25519.pub",
     "dotfiles/.config/app/.env.example",
-    "manager/tasks/secrets",
+    "setup-scripts/setup/secrets",
     "encrypted/bootstrap.json.age",
 )
 

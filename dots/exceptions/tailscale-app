@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "${DOTS_HOME:-$(dirname "$0")/../../manager}/lib/brew-exception.sh"
+update_brew_cask_exception --auto-updates --admin tailscale-app Tailscale "${1:-}"

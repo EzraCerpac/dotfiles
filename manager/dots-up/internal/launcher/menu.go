@@ -31,7 +31,7 @@ var groups = []group{
 	{"Settings", []item{{"backup", "Backup", "Publish encrypted settings snapshots", nil}, {"restore", "Restore", "Restore private settings", nil}, {"atuin-login", "Atuin login", "Finish Atuin enrollment", nil}, {"atuin-bundle", "Atuin bundle", "Prepare an encrypted Atuin bundle", nil}}},
 	{"Setup", []item{{"bootstrap", "Bootstrap", "Install the full declared setup", nil}, {"remote", "Remote bootstrap", "Bootstrap a machine over SSH", nil}, {"bundle-create", "Create bundle", "Encrypt private bootstrap inputs", []string{"bundle", "create"}}, {"bundle-check", "Check bundle", "Validate an encrypted bundle", []string{"bundle", "check"}}}},
 	{"Development", []item{{"test", "Test", "Run repository test suites", nil}, {"publish", "Publish", "Review source and open or update a PR", nil}}},
-	{"Advanced", []item{{"plan", "Plan", "Preview the declared setup", nil}, {"houseatlas-check", "HouseAtlas check", "Binding unavailable; no request is sent", []string{"up", "houseatlas", "check"}}, {"houseatlas-apply", "HouseAtlas apply", "Binding unavailable; no request is sent", []string{"up", "houseatlas", "apply"}}, {"houseatlas-status", "HouseAtlas status", "Binding unavailable; no request is sent", []string{"up", "houseatlas", "status"}}}},
+	{"Advanced", []item{{"plan", "Plan", "Preview the declared setup", nil}}},
 }
 
 type field struct {

@@ -81,6 +81,7 @@ function publisher(fixture, { prs = [], lookupFailure = false, pushStatus = 0, s
     confirm,
     descriptionPrompt: descriptionPrompt || (() => ''),
     ensure: root => ensureRepository(root, { expectedRemote: fixture.origin }),
+    repository: 'example/dotfiles',
     lock: withRepositoryLock,
     now: () => new Date('2026-09-20T12:34:56.000Z'),
   };

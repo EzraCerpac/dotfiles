@@ -145,9 +145,9 @@ func execute(opts supervisor.Options) int {
 		}
 		return supervisor.ShowLast(opts)
 	}
-	// Plan, source-only synchronization and the unavailable HouseAtlas binding retain
-	// their original direct routes. None starts an update supervisor.
-	if opts.Command == "plan" || (opts.Command == "sync" && len(opts.Args) == 1 && opts.Args[0] == "--source-only") || (opts.Command == "up" && len(opts.Args) > 0 && opts.Args[0] == "houseatlas") {
+	// Plan and source-only synchronization retain their original direct
+	// routes. Neither starts an update supervisor.
+	if opts.Command == "plan" || (opts.Command == "sync" && len(opts.Args) == 1 && opts.Args[0] == "--source-only") {
 		return directBackend(opts)
 	}
 	opts.Sensitive = spec.Sensitive

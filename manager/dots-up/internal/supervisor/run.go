@@ -830,15 +830,6 @@ func updaterCommand(opts Options) (*exec.Cmd, error) {
 		cmd.Args = append(cmd.Args, opts.Args...)
 		return cmd, nil
 	}
-	if opts.Home == "" {
-		return nil, errors.New("the dots manager directory is unknown; pass --home or set DOTS_HOME")
-	}
-	if opts.Command == "" || opts.Command == "up" {
-		// dots runs its updater task in the setup's mise environment.
-		cmd := exec.Command("bash", filepath.Join(opts.Home, "bin", "dots"), "--backend", "up")
-		cmd.Args = append(cmd.Args, opts.Args...)
-		return cmd, nil
-	}
 	mise := os.Getenv("DOTS_MISE_BIN")
 	if mise == "" {
 		candidate := filepath.Join(os.Getenv("HOME"), ".local", "bin", "mise")
@@ -851,6 +842,24 @@ func updaterCommand(opts Options) (*exec.Cmd, error) {
 				return nil, errors.New("mise executable was not found")
 			}
 		}
+	}
+	if opts.Command == "" || opts.Command == "up" {
+		if opts.Home == "" {
+			// Transitional: a dots script from before DOTS_HOME runs `dots up`
+			// through this renderer with only --root and no capability check.
+			// Use the invocation that script expects; remove once every host
+			// runs a dots that passes --home.
+			cmd := exec.Command(mise, "-C", opts.Root, "run", "setup:update")
+			cmd.Args = append(cmd.Args, opts.Args...)
+			return cmd, nil
+		}
+		// dots runs its updater task in the setup's mise environment.
+		cmd := exec.Command("bash", filepath.Join(opts.Home, "bin", "dots"), "--backend", "up")
+		cmd.Args = append(cmd.Args, opts.Args...)
+		return cmd, nil
+	}
+	if opts.Home == "" {
+		return nil, errors.New("the dots manager directory is unknown; pass --home or set DOTS_HOME")
 	}
 	args := []string{filepath.Join(opts.Home, "lib", "dots-command-backend"), mise, opts.Root, opts.Command}
 	args = append(args, opts.Args...)

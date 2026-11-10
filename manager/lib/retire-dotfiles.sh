@@ -4,16 +4,17 @@
 # usage: retire-dotfiles.sh SETUP_ROOT
 #
 # mise leaves a symlink in place when its declaration disappears, and such a
-# dangling link can break its reader (Neovim imports every lua/plugins/ file).
-# Each target in tasks/retired-dotfiles is removed only while it
-# is still a symlink into this checkout whose source no longer exists. Anything
-# else is left alone: a regular file, a live link, or a link somewhere else.
+# dangling link can break its reader (an editor that loads every file in a
+# directory, for example). Each target listed in SETUP_ROOT/dots/retired-dotfiles
+# is removed only while it is still a symlink into this checkout whose source
+# no longer exists. Anything else is left alone: a regular file, a live link,
+# or a link somewhere else.
 set -euo pipefail
 
 logical_root="${1:?usage: retire-dotfiles.sh SETUP_ROOT}"
 logical_root="${logical_root%/}"
 physical_root="$(cd "$logical_root" && pwd -P)"
-list="$(cd "$(dirname "${BASH_SOURCE[0]}")/../tasks" && pwd -P)/retired-dotfiles"
+list="$physical_root/dots/retired-dotfiles"
 [[ -f "$list" ]] || exit 0
 
 # Resolve PATH through its nearest existing ancestor, so a link spelled via a

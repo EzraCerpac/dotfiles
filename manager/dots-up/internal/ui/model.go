@@ -777,7 +777,7 @@ func statusGlyph(s string) string {
 }
 
 var groupOrder = []string{
-	"Source & settings", "Packages", "Tools", "Managed apps/local builds", "Editor plugins", "Final checks",
+	"Source & settings", "Packages", "Tools", "Managed apps/local builds", "Hooks", "Final checks",
 }
 
 func (m Model) View() tea.View {

@@ -1,0 +1,32 @@
+# Installer exceptions: one recipe per app that native mise cannot own.
+# Tab-separated columns: profile, name, and optional flags.
+#   profile  base (every profile) or one name from [vars] dots_profiles
+#   name     the executable recipe dots/exceptions/<name>
+#   flags    comma-separated, optional:
+#              install-only    dots up only installs it when missing (the app updates itself)
+#              hold=PACKAGE    the recipe pins PACKAGE (e.g. brew:kanata); dots add refuses it
+workstation	brooklyn
+workstation	mactex-no-gui
+workstation	aerospace-local
+workstation	typ2docx
+workstation	mlx-vlm
+workstation	vendor-apps
+workstation	zoom	install-only
+workstation	karabiner-elements	hold=brew-cask:karabiner-elements
+workstation	tailscale-app	install-only
+workstation	tailscale-linux
+workstation	font-sf-pro
+workstation	mlx-audio
+workstation	memo
+workstation	qmk
+workstation	keyboard-toolchains
+workstation	tapped-tools
+workstation	peekaboo
+workstation	antinote	install-only
+workstation	omnidisksweeper	install-only
+base	hunk
+base	rex
+base	intel-brew-basics
+workstation	kanata	hold=brew:kanata
+nas	nas-neovim-source
+nas	nas-modern-git

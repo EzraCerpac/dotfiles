@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Install the pinned jj-waltz release on NAS hosts when it is missing.
+set -euo pipefail
+if [[ "${DOTS_PROFILE:-}" != nas ]]; then
+    printf 'Skipped: jw NAS release (NAS profile only).\n'
+    exit 4
+fi
+exec bash "${DOTS_ROOT:?run through dots}/setup-scripts/install/jw-nas-release.sh" --if-missing

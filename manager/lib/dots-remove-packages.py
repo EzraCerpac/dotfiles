@@ -207,10 +207,7 @@ def brew_plan(manager, name):
 def plan_remove(manager, name):
     """Read-only preflight. Return commands, installed status and display summary."""
     validate_name(manager, name)
-    token = name.rsplit("/", 1)[-1]
-    if (manager == "brew" and token.split("@")[0] == "kanata") or (manager == "brew-cask" and token.split("@")[0] == "karabiner-elements"):
-        raise ValueError("Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead")
-
+    # Packages held by installer exceptions are refused before planning (dots-remove.py).
     commands = []
     if manager.startswith("brew"):
         commands = brew_plan(manager, name)

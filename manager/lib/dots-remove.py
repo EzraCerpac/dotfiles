@@ -81,6 +81,16 @@ def state_directory():
     return Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "dots/github-apps"
 
 
+def dots_profiles(mise, root):
+    """The profile names in [vars] dots_profiles of ROOT/config.toml."""
+    config = root / "config.toml"
+    result = subprocess.run([mise, "-C", str(root), "config", "get", "--file", str(config), "vars.dots_profiles"],
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=False)
+    if result.returncode != 0:
+        raise SystemExit(f"dots: missing setting: add dots_profiles to [vars] in {config}")
+    return result.stdout.split()
+
+
 def active_configs(mise, root):
     result = subprocess.run([mise, "-C", str(root), "config", "ls", "--json"], check=True, capture_output=True, text=True)
     files = json.loads(result.stdout)
@@ -178,11 +188,31 @@ def resolve(targets, declarations, records):
     return selected
 
 
+# Packages held by installer exceptions: hold=PACKAGE flags in dots/exceptions.tsv.
+HELD = {}
+
+
+def read_holds(root):
+    """Map each held manager:name to the installer exception that holds it."""
+    holds = {}
+    manifest = root / "dots" / "exceptions.tsv"
+    if manifest.exists():
+        for line in manifest.read_text(encoding="utf-8").splitlines():
+            fields = line.split("\t")
+            if not line.strip() or line.startswith("#") or len(fields) < 3:
+                continue
+            for flag in fields[2].split(","):
+                if flag.startswith("hold="):
+                    holds[flag[len("hold="):]] = fields[1]
+    return holds
+
+
 def check_held(identity):
     manager, _, tail = identity.partition(":")
-    name = tail.rsplit("/", 1)[-1].split("@", 1)[0]
-    if (manager, name) in {("brew", "kanata"), ("brew-cask", "karabiner-elements")}:
-        raise ValueError("Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead")
+    name = tail.rsplit("/", 1)[-1]
+    for key in (f"{manager}:{name}", f"{manager}:{name.split('@', 1)[0]}"):
+        if key in HELD:
+            raise ValueError(f"{identity} is held by installer exception {HELD[key]}; change its recipe instead")
 
 
 def validate_app(identity, marker, owner, applications=Path("/Applications")):
@@ -346,13 +376,18 @@ def main(argv=None):
     parser.add_argument("root", type=Path)
     selectors = parser.add_mutually_exclusive_group()
     selectors.add_argument("--base", action="store_true")
-    selectors.add_argument("--profile", choices=("workstation", "nas"))
+    selectors.add_argument("--profile")
     selectors.add_argument("--path", type=Path)
     parser.add_argument("--keep-installed", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("targets", nargs="+")
     args = parser.parse_intermixed_args(argv)
     root = args.root.resolve()
+    HELD.update(read_holds(root))
+    if args.profile is not None:
+        profiles = dots_profiles(args.mise, root)
+        if args.profile not in profiles:
+            parser.error(f"argument --profile: invalid choice: {args.profile!r} (choose from {', '.join(map(repr, profiles))})")
     paths = active_configs(args.mise, root)
     if args.path:
         selected_paths = [args.path.expanduser().resolve()]

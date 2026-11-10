@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Build personal commands on workstations: jj-waltz when missing, and the
+# Antinote bridge on macOS.
+set -euo pipefail
+root="${DOTS_ROOT:?run through dots}"
+if [[ "${DOTS_PROFILE:-}" != workstation ]]; then
+    printf 'Skipped: personal command builds (workstation profile only).\n'
+    exit 4
+fi
+[[ -e "$HOME/.local/bin/jw" ]] || bash "$root/setup-scripts/install/jw-build-install.sh"
+if [[ "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+    bash "$root/setup-scripts/local/antinote-bridge-build.sh"
+fi

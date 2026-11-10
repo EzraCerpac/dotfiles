@@ -25,6 +25,10 @@ lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 source "$lib_dir/dots-add-common.sh"
 source "$lib_dir/dots-up-events.sh"
 source "$lib_dir/dots-command-events.sh"
+source "$lib_dir/setup-common.sh"
+SETUP_ROOT="$setup_root"
+SETUP_MISE_BIN="$mise_bin"
+SETUP_EXCEPTION_MANIFEST="$setup_root/dots/exceptions.tsv"
 
 emit_package() {
     local json
@@ -59,15 +63,24 @@ toml_quote() {
 # A package table is copied into a temporary one-package config for the
 # installer.  This retains adopt/os/version and other native options while
 # ensuring `apply` cannot install all of the target profile's packages.
+shell_quote() {
+    local quote="'" escaped="'\\''"
+    printf "'%s'" "${1//$quote/$escaped}"
+}
+credential_command="$(MISE_AUTO_INSTALL=0 "$mise_bin" -C "$setup_root" settings get github.credential_command 2>/dev/null || true)"
+
 write_isolated_config() {
     local file="$1" key="$2" declaration="$3" taps="$4"
     {
         # The isolated config cannot see the setup's global settings.  Keep
-        # GitHub auth available for third-party Homebrew taps without copying
-        # a token into the temporary file.
-        printf '[settings.github]\ncredential_command = '
-        toml_quote "sh \"$setup_root/setup-scripts/lib/github-credential.sh\""
-        printf '\n\n'
+        # GitHub auth available for third-party Homebrew taps by reusing the
+        # setup's own credential command, run as if from the setup, without
+        # copying a token into the temporary file.
+        if [[ -n "$credential_command" ]]; then
+            printf '[settings.github]\ncredential_command = '
+            toml_quote "env MISE_CONFIG_DIR=$(shell_quote "$setup_root") sh -c $(shell_quote "$credential_command")"
+            printf '\n\n'
+        fi
         if [[ -n "$taps" ]]; then
             printf '[bootstrap.brew.taps]\n%s\n\n' "$taps"
         fi
@@ -294,14 +307,14 @@ formula_absent() {
     fi
 }
 
+# A package an installer exception holds (hold=PACKAGE in dots/exceptions.tsv)
+# belongs to that exception's recipe.
 check_held_package() {
-    local key="$1" manager="${1%%:*}" token="${1##*/}"
-    token="${token#*:}"
-    case "$manager:$token" in
-        brew:kanata|brew:kanata@*|brew-cask:karabiner-elements|brew-cask:karabiner-elements@*)
-            printf 'dots: Kanata and Karabiner are held installer exceptions; change their reviewed hold recipe instead\n' >&2
-            return 2 ;;
-    esac
+    setup_exception_holder "$1" || return 2
+    if [[ -n "$SETUP_HOLDER" ]]; then
+        printf 'dots: %s is held by installer exception %s; change its recipe instead\n' "$1" "$SETUP_HOLDER" >&2
+        return 2
+    fi
 }
 
 # Resolve every package first. A duplicate discovered after cask routing must

@@ -23,6 +23,15 @@ includes = [
 ]
 
 [vars]
+# dots settings. mise vars are strings, so lists are space-separated words.
+# Profiles this setup selects with -E; each has a config.<profile>.toml.
+dots_profiles = "workstation nas"
+# GitHub OWNER/NAME of this configuration and of its private settings history.
+dots_source_repo = "EzraCerpac/dotfiles"
+dots_state_repo = "EzraCerpac/dotfiles-state"
+# Casks that update themselves although Homebrew lacks auto_updates for them;
+# dots up still installs them when missing.
+dots_self_updating_casks = "codexbar"
 name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
 nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"

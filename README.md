@@ -188,9 +188,10 @@ This does not publish dotfile source, update project dependencies,
 upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
 
-HouseAtlas maintenance is a separate, deliberate caller:
-`dots up houseatlas check`, `dots up houseatlas apply`, or
-`dots up houseatlas status` (`dots update` is also accepted). These currently
+HouseAtlas maintenance is a separate, deliberate caller, the configuration
+command [`dots/commands/houseatlas`](dots/commands/houseatlas):
+`dots houseatlas check`, `dots houseatlas apply`, or
+`dots houseatlas status`. These currently
 return **unavailable**, exit 3, and send no request. They do not read stdin,
 load mise, synchronize source, install a runtime or run package updates.
 Unsupported actions/options exit 2. Ordinary `dots up` never invokes HouseAtlas.

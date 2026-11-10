@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-source "${DOTS_HOME:-$(dirname "$0")/../../../manager}/lib/brew-exception.sh"
-update_brew_formula_exception qmk/qmk/qmk "${1:-}"
