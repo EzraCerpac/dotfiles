@@ -36,3 +36,12 @@ dots_up_emit_item() {
         '{v:1,kind:"item_upsert",id:$id,group:$group,label:$label,status:$status,summary:$summary,action:"",before:"",after:""}')"
     dots_up_emit_event "$json"
 }
+
+# Call only after the caller has verified an actual installation or change.
+dots_up_emit_change() {
+    local item="$1" action="$2" before="${3:-}" after="${4:-}" json
+    [[ -n "${DOTS_UP_STAGE_ID:-}" ]] || return 0
+    json="$(dots_up_event_json --arg stage "$DOTS_UP_STAGE_ID" --arg item "$item" --arg action "$action" --arg before "$before" --arg after "$after" \
+        '{v:1,kind:"change",stage:$stage,item:$item,action:$action,before:$before,after:$after}')"
+    dots_up_emit_event "$json"
+}

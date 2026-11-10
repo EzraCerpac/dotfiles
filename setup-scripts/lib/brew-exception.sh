@@ -23,10 +23,29 @@ find_real_brew() {
     return 1
 }
 
+# Read only the named package's installed version. Failure is unknown.
+brew_exception_version() {
+    local brew_bin="$1" kind="$2" token="$3" line
+    line="$("$brew_bin" list --versions "--$kind" "$token" 2>/dev/null)" || return 1
+    [[ "$line" == *' '* ]] || return 1
+    printf '%s' "${line#* }"
+}
+
+brew_exception_record() {
+    local brew_bin="$1" kind="$2" token="$3" action="$4" before="${5:-}" after
+    "$brew_bin" list "--$kind" "$token" >/dev/null 2>&1 || return 0
+    after="$(brew_exception_version "$brew_bin" "$kind" "$token")" || after=""
+    if [[ "$action" == installed ]]; then
+        dots_up_emit_change "brew-$kind:$token" installed 'not installed' "$after"
+    elif [[ -n "$before" && -n "$after" && "$before" != "$after" ]]; then
+        dots_up_emit_change "brew-$kind:$token" updated "$before" "$after"
+    fi
+}
+
 # Only named unsupported casks may call this updater.
 update_brew_cask_exception() {
     local token="$1" running_process="${2:-}" mode="${3:-}"
-    local brew_bin auto_updates=0 requires_admin=0 outdated outdated_status=0
+    local brew_bin auto_updates=0 requires_admin=0 outdated outdated_status=0 before=""
     if [[ "$(uname -s)" != Darwin ]]; then
         printf 'Deferred: %s is macOS-only.\n' "$token"
         return 0
@@ -51,8 +70,9 @@ update_brew_cask_exception() {
             brew_exception_defer_for_admin "$token"
             return 0
         fi
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" install --cask "$token"
-        return $?
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" install --cask "$token" || return $?
+        brew_exception_record "$brew_bin" cask "$token" installed
+        return 0
     fi
     if [[ "$mode" == --install-only ]]; then
         printf 'Already installed: %s\n' "$token"
@@ -83,18 +103,20 @@ update_brew_cask_exception() {
         brew_exception_defer_for_admin "$token"
         return 0
     fi
+    before="$(brew_exception_version "$brew_bin" cask "$token")" || before=""
     if [[ "$auto_updates" -eq 1 ]]; then
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask --greedy "$token"
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask --greedy "$token" || return $?
     else
-        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask "$token"
+        HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 "$brew_bin" upgrade --cask "$token" || return $?
     fi
+    brew_exception_record "$brew_bin" cask "$token" updated "$before"
 }
 
 # Only named unsupported formulas may call this updater. Keep the command
 # scoped to one formula; never use a global Homebrew upgrade here.
 update_brew_formula_exception() {
     local token="$1" mode="${2:-}"
-    local brew_bin outdated outdated_status=0
+    local brew_bin outdated outdated_status=0 before=""
     if [[ "$(uname -s)" != Darwin ]]; then
         printf 'Deferred: %s is macOS-only.\n' "$token"
         return 0
@@ -111,8 +133,9 @@ update_brew_formula_exception() {
 
     if ! "$brew_bin" list --formula "$token" >/dev/null 2>&1; then
         HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-            "$brew_bin" install --formula "$token"
-        return $?
+            "$brew_bin" install --formula "$token" || return $?
+        brew_exception_record "$brew_bin" formula "$token" installed
+        return 0
     fi
     if [[ "$mode" == --install-only ]]; then
         printf 'Already installed: %s\n' "$token"
@@ -128,8 +151,10 @@ update_brew_formula_exception() {
         printf 'Unchanged: %s\n' "$token"
         return 0
     fi
+    before="$(brew_exception_version "$brew_bin" formula "$token")" || before=""
     HOMEBREW_NO_AUTOREMOVE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 \
-        "$brew_bin" upgrade --formula "$token"
+        "$brew_bin" upgrade --formula "$token" || return $?
+    brew_exception_record "$brew_bin" formula "$token" updated "$before"
 }
 
 # Kanata and Karabiner are held at the versions known to work with the current

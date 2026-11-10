@@ -62,13 +62,39 @@ event_group() {
     esac
 }
 snapshot_stage() {
-    local group="$1" data_home="${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}" app_name="${NVIM_APPNAME:-nvim}" lazy_root data declared
+    local group="$1" label="$2" data_home="${XDG_DATA_HOME:-${HOME:?HOME must be set}/.local/share}" app_name="${NVIM_APPNAME:-nvim}" lazy_root data declared
+    case "$label" in
+        'jw main source')
+            local jw="${JW_INSTALL_DIR:-${HOME:?HOME must be set}/.local/bin}/jw" target revision
+            if [[ ! -e "$jw" && ! -L "$jw" ]]; then printf '[]'; return; fi
+            target="$(realpath "$jw" 2>/dev/null)" || return 1
+            revision="$(cat "${target%/*}/source-commit" 2>/dev/null)" || return 1
+            [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || return 1
+            setup_mise exec -- jq -cn --arg value "$revision" '[{item:"jw",value:$value}]'
+            return
+            ;;
+        'Capd fork main')
+            local app="${CAPD_APP_PATH:-/Applications/capd.app}" revision
+            if [[ ! -e "$app" ]]; then printf '[]'; return; fi
+            revision="$("${CAPD_PLUTIL_BIN:-/usr/bin/plutil}" -extract CapdSourceRevision raw -o - "$app/Contents/Info.plist" 2>/dev/null)" || return 1
+            [[ "$revision" =~ ^[a-f0-9]{40}$ ]] || return 1
+            setup_mise exec -- jq -cn --arg value "$revision" '[{item:"Capd",value:$value}]'
+            return
+            ;;
+        'standalone mise')
+            local version
+            version="$("$(resolve_mise_bin)" --version 2>/dev/null)" || return 1
+            [[ -n "$version" ]] || return 1
+            setup_mise exec -- jq -cn --arg value "$version" '[{item:"mise",value:$value}]'
+            return
+            ;;
+    esac
     case "$group" in
         Tools)
             data="$(setup_mise ls --json 2>/dev/null)" || return 1
             printf '%s' "$data" | setup_mise exec -- jq -ce '
                 [to_entries[] as $tool | $tool.value[]?
-                    | select(.active == true and (.version | type == "string"))
+                    | select(.active == true and .installed == true and (.version | type == "string"))
                     | {item:$tool.key,value:.version}]
                 | sort_by(.item)
             ' 2>/dev/null
@@ -128,7 +154,7 @@ emit_snapshot_changes() {
         ($after | map({key:.item,value:.value}) | from_entries) as $a |
         ((($b | keys) + ($a | keys)) | unique[]) as $item |
         select(($b[$item] // null) != ($a[$item] // null)) |
-        {v:1,kind:"change",stage:$stage,item:$item,before:($b[$item] // "not installed"),after:($a[$item] // "not installed")}
+        {v:1,kind:"change",stage:$stage,item:$item,action:(if ($b | has($item) | not) then "installed" elif ($a | has($item) | not) then "removed" else "updated" end),before:($b[$item] // "not installed"),after:($a[$item] // "not installed")}
     ' 2>/dev/null || true)"
     [[ -n "$changes" ]] || return 0
     while IFS= read -r event; do [[ -n "$event" ]] && emit_event "$event"; done <<< "$changes"
@@ -215,6 +241,8 @@ run_stage() {
     local terminal=hidden
     if [[ "${1:-}" == --terminal-handoff ]]; then terminal=handoff; shift; fi
     local event_id="${label//[^a-zA-Z0-9]/-}"
+    local DOTS_UP_STAGE_ID="$event_id"
+    export DOTS_UP_STAGE_ID
     local group
     group="$(event_group "$label")"
     local before_snapshot='[]' after_snapshot='[]' before_valid=0 after_valid=0
@@ -233,7 +261,7 @@ run_stage() {
         fi
     fi
     if dots_up_event_sink_enabled; then
-        before_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
+        before_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
     fi
     if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
         stage_log="$DOTS_UP_RUN_DIR/stages/$event_id.log"
@@ -252,7 +280,7 @@ run_stage() {
         "$@" || result=$?
     fi
     if dots_up_event_sink_enabled; then
-        after_snapshot="$(snapshot_stage "$group" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
+        after_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
         if [[ "$before_valid" -eq 1 && "$after_valid" -eq 1 ]]; then
             emit_snapshot_changes "$event_id" "$before_snapshot" "$after_snapshot"
         fi

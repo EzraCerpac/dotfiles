@@ -2,6 +2,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/../../lib/quiet-probe.sh"
+source "$(dirname "$0")/../../lib/dots-up-events.sh"
 
 fail() {
     printf 'mlx-vlm installer exception: %s\n' "$1" >&2
@@ -107,7 +108,14 @@ PY
     done
 }
 
+installed_version() {
+    "${tool_root}/bin/python" -c 'import importlib.metadata, sys; print(importlib.metadata.version(sys.argv[1]))' "mlx-vlm" 2>/dev/null
+}
+was_installed=0
+before_version=""
 if [[ -f "$receipt" ]]; then
+    was_installed=1
+    before_version="$(installed_version)" || before_version=""
     validate_installed_tool || fail 'existing mlx-vlm tool failed validation; leaving its environment untouched'
     if [[ "$action" == install-only ]]; then
         printf 'Already installed and verified mlx-vlm: %s\n' "$tool_root"
@@ -130,3 +138,10 @@ fi
 
 validate_installed_tool --require-mise-python || fail 'installed mlx-vlm tool failed validation'
 printf 'Installed and verified mlx-vlm: %s\n' "$tool_root"
+
+after_version="$(installed_version)" || after_version=""
+if [[ "$was_installed" -eq 0 ]]; then
+    dots_up_emit_change mlx-vlm installed 'not installed' "$after_version"
+elif [[ -n "$before_version" && -n "$after_version" && "$before_version" != "$after_version" ]]; then
+    dots_up_emit_change mlx-vlm updated "$before_version" "$after_version"
+fi

@@ -338,16 +338,23 @@ func ShowLast(opts Options) int {
 }
 
 func printReportHighlights(w io.Writer, report Report) {
+	up := report.Command == "" || report.Command == "up"
+	if up {
+		fmt.Fprintln(w, ui.OutcomeReport(report.Events))
+	}
 	for _, e := range report.Events {
 		switch e.Kind {
 		case "item_upsert":
+			if up {
+				continue
+			}
 			if report.Command == "status" && (e.Status == "ok" || e.Status == "skipped") {
 				continue
 			}
 			fmt.Fprintf(w, "  %s  %s — %s\n", e.Label, e.Status, e.Summary)
 		case "change":
-			if e.Before != "" && e.After != "" {
-				fmt.Fprintf(w, "  %s  %s → %s\n", e.Item, e.Before, e.After)
+			if !up {
+				fmt.Fprintln(w, "  "+ui.ChangeLine(e.Action, e.Item, e.Before, e.After))
 			}
 		case "notice":
 			if e.Severity == "attention" || e.Severity == "error" {
