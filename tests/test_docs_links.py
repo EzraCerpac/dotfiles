@@ -1,4 +1,4 @@
-"""Relative links in the README and docs point at files that exist."""
+"""Relative links in the README, AGENTS.md and docs point at files that exist."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ LINK = re.compile(r"\]\(([^)\s]+)\)")
 class DocumentationLinkTests(unittest.TestCase):
     def test_relative_links_resolve(self) -> None:
         broken = []
-        for document in [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]:
+        for document in [ROOT / "README.md", ROOT / "AGENTS.md", *sorted((ROOT / "docs").rglob("*.md"))]:
             for target in LINK.findall(document.read_text()):
                 if re.match(r"[a-z]+:", target) or target.startswith("#"):
                     continue
