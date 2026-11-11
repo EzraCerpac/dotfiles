@@ -17,7 +17,8 @@ Settings live in `[vars]` of `config.toml`: `dots_profiles` (required, the
 profiles you select with `mise -E`, as space-separated words),
 `dots_source_repo` and `dots_state_repo` (GitHub `OWNER/NAME` of this
 configuration and of its private settings history), and the optional
-`dots_self_updating_casks` and `dots_publish_on_behalf_of`.
+`dots_self_updating_casks`, `dots_publish_on_behalf_of` and
+`dots_atuin_username`.
 
 ## Hooks
 

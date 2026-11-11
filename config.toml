@@ -35,6 +35,8 @@ dots_self_updating_casks = "codexbar"
 # dots publish starts pull request text with a note that a model writes on
 # this person's behalf.
 dots_publish_on_behalf_of = "Ezra"
+# The only Atuin account enrollment accepts.
+dots_atuin_username = "EzraCerpac"
 name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
 nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"

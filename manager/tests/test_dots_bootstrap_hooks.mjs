@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { complete, hookStatus } from '../bootstrap/complete.mjs';
+import { miseBinary, requires } from './lib/prereq.mjs';
 
 const MANAGER = path.resolve(import.meta.dirname, '..');
 
@@ -44,13 +45,13 @@ function fakeRun(root, calls, vars = { dots_profiles: 'laptop server' }) {
   };
 }
 
-function bootstrap(f, calls, env = {}, vars) {
+function bootstrap(f, calls, env = {}, vars, miseBin = '/fixture/mise') {
   const log = console.log;
   const lines = [];
   console.log = line => lines.push(String(line));
   try {
     const code = complete({
-      root: f.root, dotsHome: MANAGER, home: f.home, miseBin: '/fixture/mise',
+      root: f.root, dotsHome: MANAGER, home: f.home, miseBin,
       env: { PATH: process.env.PATH, SETUP_PROFILE: 'laptop', SETUP_MACHINE_ID: 'fixture-host', XDG_STATE_HOME: path.join(f.base, 'state'), ...env },
       run: fakeRun(f.root, calls, vars),
     });
@@ -127,6 +128,24 @@ test('only a profile with its own bundle requests it implicitly', () => {
     } finally {
       f.cleanup();
     }
+  }
+});
+
+test('an explicit bundle supplies private files without a profile bundle', requires('mise'), () => {
+  const f = fixture();
+  try {
+    const wakatime = '[settings]\napi_key = fixture\n';
+    const age = path.join(f.base, 'age');
+    fs.writeFileSync(age, `#!/bin/sh\nprintf '%s' ${JSON.stringify(JSON.stringify({ version: 1, secrets: { wakatime_config: wakatime } }))}\n`, { mode: 0o755 });
+    for (const name of ['bundle.age', 'identity']) fs.writeFileSync(path.join(f.base, name), 'fixture\n');
+    fs.writeFileSync(path.join(f.root, 'config.local.toml'), '');
+    const { report } = bootstrap(f, [], {
+      SETUP_BOOTSTRAP_BUNDLE: path.join(f.base, 'bundle.age'), SETUP_BUNDLE_IDENTITY: path.join(f.base, 'identity'), SETUP_AGE_BIN: age,
+    }, undefined, miseBinary());
+    assert.equal(report.stages.find(stage => stage.stage === 'Private configuration')?.status, 'completed');
+    assert.equal(fs.readFileSync(path.join(f.home, '.wakatime.cfg'), 'utf8'), wakatime);
+  } finally {
+    f.cleanup();
   }
 });
 

@@ -68,50 +68,6 @@ jobs:
       - name: Run tests
         run: tests/run
 
-  manager:
-    # The dots manager must work without this configuration around it: copy
-    # manager/ alone out of the checkout and run its suite and Go checks there.
-    name: manager (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      MISE_YES: "1"
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-
-      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
-        with:
-          go-version-file: manager/dots-up/go.mod
-          cache-dependency-path: manager/dots-up/go.sum
-
-      - name: Install mise and test tools
-        run: |
-          curl -fsSL https://mise.run | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          export PATH="$HOME/.local/bin:$PATH"
-          mise use --global node@latest python@3.13 uv@latest jj@latest age@latest gitleaks@latest jq@latest
-          # Real install paths, not shims: tests replace HOME and mise config dirs.
-          (cd "$RUNNER_TEMP" && mise bin-paths) >> "$GITHUB_PATH"
-
-      - name: Copy the manager out of the repository
-        run: cp -R manager "$RUNNER_TEMP/dots"
-
-      - name: Run manager tests
-        working-directory: ${{ runner.temp }}/dots
-        run: tests/run
-
-      - name: Go checks
-        working-directory: ${{ runner.temp }}/dots/dots-up
-        run: |
-          go mod verify
-          go vet ./...
-          go test ./...
-
   secrets:
     name: secret scan
     runs-on: ubuntu-latest

@@ -23,7 +23,6 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-ACCOUNT = "EzraCerpac"
 EXIT_USAGE = 2
 EXIT_DEFERRED = 3
 EXIT_ACCOUNT = 20
@@ -32,6 +31,7 @@ EXIT_NETWORK = 22
 COMMAND_TIMEOUT = 30
 LOGIN_TIMEOUT = 60
 RECIPIENT = re.compile(r"^age1[0-9a-z]{20,}$")
+USERNAME = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 SAFE_STATUS = re.compile(r"^[A-Za-z0-9:+., _/()\-]{1,100}$")
 LOGGED_OUT_STATUS = "You are not logged in to a sync server - cannot show sync status"
 
@@ -75,6 +75,34 @@ def clean_env(*, ensure_session: bool = False) -> dict[str, str]:
     return env
 
 
+def configured_account(root: Path | None) -> str | None:
+    """[vars] dots_atuin_username of the configuration at ROOT, else DOTS_ROOT.
+
+    When it is unset, enrollment accepts the account already logged in, else
+    the one the bundle names."""
+    root = root or (Path(os.environ["DOTS_ROOT"]) if os.environ.get("DOTS_ROOT") else None)
+    if root is None:
+        return None
+    root = root.expanduser()
+    mise = (os.environ.get("DOTS_MISE_BIN") or os.environ.get("SETUP_MISE_BIN") or shutil.which("mise")
+            or str(Path("~/.local/bin/mise").expanduser()))
+    try:
+        result = subprocess.run(
+            [mise, "-C", str(root), "config", "get", "--file", str(root / "config.toml"), "vars.dots_atuin_username"],
+            env={**os.environ, "MISE_AUTO_INSTALL": "0"},
+            text=True,
+            capture_output=True,
+            timeout=COMMAND_TIMEOUT,
+            check=False,
+        )
+    except OSError:
+        raise AtuinError("mise is needed to read [vars] dots_atuin_username")
+    account = result.stdout.strip() if result.returncode == 0 else ""
+    if account and not USERNAME.fullmatch(account):
+        raise AtuinError("[vars] dots_atuin_username is not a valid Atuin username")
+    return account or None
+
+
 def run_atuin(
     *args: str, timeout: int = COMMAND_TIMEOUT, ensure_session: bool = False
 ) -> subprocess.CompletedProcess[str]:
@@ -96,13 +124,15 @@ def validate_secret(value: object, name: str) -> str:
     return value
 
 
-def validate_bundle(value: object) -> dict[str, str]:
+def validate_bundle(value: object, account: str | None) -> dict[str, str]:
     if not isinstance(value, dict) or set(value) != {"version", "username", "password", "history_key"}:
         raise AtuinError("decrypted Atuin bundle has an unexpected shape")
-    if value["version"] != 1 or value["username"] != ACCOUNT:
+    if value["version"] != 1 or not isinstance(value["username"], str) or not USERNAME.fullmatch(value["username"]):
+        raise AtuinError("decrypted Atuin bundle has an unexpected shape")
+    if account and value["username"] != account:
         raise AtuinError("encrypted Atuin bundle is for a different account")
     return {
-        "username": ACCOUNT,
+        "username": value["username"],
         "password": validate_secret(value["password"], "password"),
         "history_key": validate_secret(value["history_key"], "history key"),
     }
@@ -180,10 +210,13 @@ def atomic_encrypt(document: dict[str, object], output: Path, recipients: list[s
 def bundle_command(output: Path, recipients: list[str]) -> None:
     if output.expanduser().exists() or output.expanduser().is_symlink():
         raise AtuinError("output already exists; review it before replacing the bundle")
+    account = configured_account(None) or remote_state()[0]
+    if not account:
+        raise AtuinError("log in to Atuin or set [vars] dots_atuin_username before bundling")
     password = read_password()
     history_key = current_key()
     atomic_encrypt(
-        {"version": 1, "username": ACCOUNT, "password": password, "history_key": history_key},
+        {"version": 1, "username": account, "password": password, "history_key": history_key},
         output,
         recipients,
     )
@@ -203,7 +236,7 @@ def regular_file(path: Path, label: str) -> Path:
     return path
 
 
-def decrypt_bundle(path: Path, identity: Path) -> dict[str, str]:
+def decrypt_bundle(path: Path, identity: Path, account: str | None) -> dict[str, str]:
     bundle = regular_file(path, "Atuin bundle")
     key_file = regular_file(identity, "age identity")
     if bundle.stat().st_size > 65_536:
@@ -225,7 +258,7 @@ def decrypt_bundle(path: Path, identity: Path) -> dict[str, str]:
         value = json.loads(result.stdout)
     except (UnicodeDecodeError, json.JSONDecodeError):
         raise AtuinError("decrypted Atuin bundle is not valid JSON")
-    return validate_bundle(value)
+    return validate_bundle(value, account)
 
 
 def remote_state() -> tuple[str | None, str | None, str]:
@@ -263,7 +296,7 @@ def hub_authenticated() -> bool:
     return False
 
 
-def native_login(history_key: str, password: str, *, browser: bool = False,
+def native_login(account: str, history_key: str, password: str, *, browser: bool = False,
                  resume_command: str = "dots atuin-login") -> None:
     cli = executable("atuin")
     interactive = sys.stdin.isatty() and sys.stderr.isatty()
@@ -272,7 +305,7 @@ def native_login(history_key: str, password: str, *, browser: bool = False,
     pid, master = pty.fork()
     if pid == 0:
         try:
-            args = [cli, "login"] if browser else [cli, "login", "--username", ACCOUNT]
+            args = [cli, "login"] if browser else [cli, "login", "--username", account]
             os.execve(cli, args, clean_env())
         except BaseException:
             os._exit(127)
@@ -376,7 +409,7 @@ def native_login(history_key: str, password: str, *, browser: bool = False,
                             and not any(secret and secret in candidate for secret in (history_key, password))):
                         links.append(candidate)
                 if links and not browser_shown:
-                    print(f"Sign in as {ACCOUNT} to finish Atuin authorization:\n{links[-1]}", file=sys.stderr, flush=True)
+                    print(f"Sign in as {account} to finish Atuin authorization:\n{links[-1]}", file=sys.stderr, flush=True)
                     browser_shown = True
                     deadline = time.monotonic() + 300
             elif any(marker in lower for marker in ("totp", "two-factor", "two factor", "2fa", "open your browser", "open this url", "visit http")):
@@ -438,20 +471,21 @@ def enroll(root: Path, identity: Path | None, *, browser: bool = False) -> None:
     root = root.expanduser()
     bundle_path = root / "encrypted/atuin.json.age"
     identity_path = identity or Path("~/.config/age/keys.txt")
+    account = configured_account(root)
     username, _, login_state = remote_state()
     if login_state == "error":
         raise AtuinError("Atuin could not safely inspect the current login; rerun enrollment", EXIT_DEFERRED)
-    if username and username != ACCOUNT:
+    if username and account and username != account:
         raise AtuinError(f"Atuin is already logged in as {username}; refusing to replace that account", EXIT_ACCOUNT)
 
     configure()
 
-    if username == ACCOUNT and (not browser or hub_authenticated()):
+    if username and (not browser or hub_authenticated()):
         try:
             current_key()
         except AtuinError:
             raise AtuinError("Atuin reports the expected account but its local history key is unavailable", EXIT_AUTH)
-        print(f"Atuin is already logged in as {ACCOUNT}; preserving the current session and history.")
+        print(f"Atuin is already logged in as {username}; preserving the current session and history.")
     else:
         expanded_bundle = bundle_path.expanduser()
         expanded_identity = identity_path.expanduser()
@@ -459,16 +493,18 @@ def enroll(root: Path, identity: Path | None, *, browser: bool = False) -> None:
             raise AtuinError("settings are configured; login deferred because the Atuin bundle is missing", EXIT_DEFERRED)
         if not expanded_identity.exists() and not expanded_identity.is_symlink():
             raise AtuinError("settings are configured; login deferred because the age identity is missing", EXIT_DEFERRED)
-        secrets = decrypt_bundle(bundle_path, identity_path)
+        # A login already present must not be replaced by another account.
+        secrets = decrypt_bundle(bundle_path, identity_path, account or username)
+        account = secrets["username"]
         resume_command = "dots atuin-login"
         if identity:
             resume_command += f" --identity {shlex.quote(str(identity.expanduser()))}"
-        native_login(secrets["history_key"], secrets["password"], browser=browser,
+        native_login(account, secrets["history_key"], secrets["password"], browser=browser,
                      resume_command=resume_command)
         verified_username, _, verified_state = remote_state()
-        if verified_state != "ready" or verified_username != ACCOUNT:
+        if verified_state != "ready" or verified_username != account:
             raise AtuinError("Atuin login did not produce the expected account", EXIT_AUTH)
-        print(f"Atuin login completed for {ACCOUNT}.")
+        print(f"Atuin login completed for {account}.")
 
     sync = run_atuin("sync", timeout=LOGIN_TIMEOUT, ensure_session=True)
     if sync.returncode != 0:
@@ -486,12 +522,13 @@ def status(as_json: bool = False) -> None:
         if not SAFE_STATUS.fullmatch(version_text):
             version_text = "installed"
         username, last_sync, login_state = remote_state()
+        account = configured_account(None)
         if login_state == "error":
             login = "unavailable"
         elif login_state == "logged_out":
             login = "not logged in"
-        elif username == ACCOUNT:
-            login = f"ready ({ACCOUNT})"
+        elif username and account in (None, username):
+            login = f"ready ({username})"
         elif username:
             login = "different account"
         else:
