@@ -94,45 +94,15 @@ or `dots apply ~/.ssh/config` to render one locally edited template.
 
 ### Sync, dev and main
 
-`dev` is the shared branch every machine syncs; `main` changes only through reviewed PRs.
-The live checkout is plain Git with `HEAD` on `dev`.
-Git refs and the files on disk are the only sync state: unpushed work is exactly `origin/dev..dev`.
-
-One `dots sync` run:
-
-1. Commits every tracked or unignored public file onto `dev` as "Save local setup (HOST)".
-   Private selectors, local lockfiles and app state are never included.
-2. Scans that snapshot with gitleaks; a flagged file stays on disk, unshared.
-   A flagged commit already on `dev` blocks the push; without gitleaks nothing is shared or pushed.
-3. Fetches `dev` and `main`, or continues offline.
-4. Merges local work with `origin/dev`, then `origin/main`, without touching live files.
-   On a conflicting hunk the published side wins: `main` over `dev`, `dev` over local.
-   The losing version stays in history; sync prints `git show COMMIT:path` for it.
-5. Validates the merged configuration with local overlays; an invalid result is neither pushed nor applied.
-6. Pushes without force, retrying up to three times when `origin/dev` moved.
-7. Updates the live files, refusing to overwrite a file edited meanwhile, then applies dotfiles.
-
-Every outcome is one `dots sync:` block that exits 0, with attention lines such as `CONFLICT`, `NOT SHARED`, `OFFLINE`, `INVALID` or `LATE EDIT`.
-`dots up` continues its other stages whatever the sync outcome and repeats those lines in its summary.
-Only a missing or foreign repository, or a checkout in the wrong shape, stops sync.
-Sync needs Git 2.40 or newer.
+`~/.config/mise` on every machine is a plain Git checkout with `HEAD` on `dev`;
+`dots sync` and `dots up` share edits through `dev` and merge reviewed `main` into it.
+[The sync guide](manager/docs/sync.md) explains a run, each line it prints and what to do about it.
+These machines need Git 2.43 or newer for sync.
 
 Pushing a commit straight to `origin/dev` from a task worktree is fine; the next sync merges it.
-Moving `dev` with plumbing in another worktree is also merged, not reverted.
-A checkout still on JJ or the old sync state is converted once by hand: see [sync migration](docs/sync-migration.md).
-The live checkout does not support JJ: when Git `HEAD` follows `dev` and another worktree moves `dev`,
-JJ re-parents its working copy onto the new commit without changing files and records the difference as a revert,
-which sync could not tell apart from a real local edit.
-
-PR extraction is manual.
-Create a focused task branch from `origin/main`,
-copy or cherry-pick only the desired change from `dev`,
-and review the resulting diff against `main`.
-Do not move shared `dev` or merge it wholesale into `main`.
-`dots publish` publishes reviewed main-based JJ stacks and needs a JJ workspace at the setup root;
-in the plain-Git live checkout, push a task branch and open the PR with `gh`.
-Publication scans outgoing commits and asks for review confirmation.
-No command force-pushes, rebases a task, or writes conflict markers into live files.
+Reviewed changes go to `main` through a pull request from a task branch or JJ workspace, never from the live checkout.
+`dots publish` runs in the JJ workspace you are standing in.
+A machine still on JJ or the old sync state is converted once by hand: see [sync migration](docs/sync-migration.md).
 
 ## Update this computer
 

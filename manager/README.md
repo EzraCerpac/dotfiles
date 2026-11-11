@@ -9,7 +9,7 @@ This directory, the manager, holds no personal settings and can live anywhere.
 ## Requirements
 
 - mise with `mise bootstrap` and native dotfile history; the tests need 2026.9.7 or newer.
-- Bash, Git, Node.js, [uv](https://docs.astral.sh/uv/) and jq.
+- Bash, Git 2.43 or newer, Node.js, [uv](https://docs.astral.sh/uv/) and jq.
 - [gitleaks](https://github.com/gitleaks/gitleaks) for `dots sync` and `dots publish`, and [age](https://age-encryption.org) for encrypted bundles and settings history.
 - [JJ](https://jj-vcs.github.io/jj/) only for `dots publish`, which runs in a colocated JJ workspace of the configuration repository, not in the live checkout.
 
@@ -218,7 +218,7 @@ The configuration repository has two shared branches.
 `dev` is what every machine runs: `dots sync`, and `dots up` before its updates, commit local edits to public files onto `dev`, scan them with gitleaks, merge the other machines' work and reviewed `main`, push without force and apply the result.
 `main` changes only through reviewed pull requests, so a merged PR reaches each machine with its next `dots up`.
 Machine-local files and secrets never enter the repository.
-The synchronizer's rules, recovery and conflict handling are documented in the configuration repository's README, in the section on sharing changes; see `lib/source-repo.mjs` and `lib/source-dev.mjs` for the code.
+[The sync guide](docs/sync.md) explains a run, every line of its output and what to do about it, and the requirements, including Git 2.43 or newer.
 
 ## Agent skill
 
@@ -236,6 +236,7 @@ ln -s "$(dots internal home)/skills/dots" ~/.claude/skills/dots
 | Path | Contents |
 | --- | --- |
 | `bin/dots` | The command-line entry point |
+| `docs/` | [The sync guide](docs/sync.md) |
 | `lib/`, `tasks/`, `bootstrap/` | The commands' implementation; [`tasks/README.md`](tasks/README.md) details `dots up` and `dots restore` |
 | `init/` | Templates for `dots init` |
 | `dots-up/` | The Go renderer for menus, progress and reports |

@@ -257,10 +257,10 @@ export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = co
     print(`dots sync: stopped · ${error.message}`);
     return 1;
   }
-  // Sync merges with `git merge-tree --write-tree -X theirs` (Git 2.40 or newer).
+  // Sync merges with `git merge-tree --write-tree -X theirs` (Git 2.43 or newer).
   if (spawnSync('git', ['merge-tree', '--write-tree', '-X', 'theirs', 'HEAD', 'HEAD'], { cwd: info.root }).status !== 0) {
     const version = spawnSync('git', ['--version'], { encoding: 'utf8' }).stdout?.trim();
-    print(`dots sync: skipped · ${version || 'git'} cannot merge-tree -X; install Git 2.40 or newer`);
+    print(`dots sync: skipped · ${version || 'git'} cannot merge-tree -X; install Git 2.43 or newer`);
     return 0;
   }
   const marker = IN_PROGRESS.find(name => fs.existsSync(path.join(info.gitDir, name)));
