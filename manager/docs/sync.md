@@ -84,7 +84,7 @@ A run can also end with a single line instead:
 | `dots sync: failed · ERROR` | An unexpected error. Read it, fix the cause and sync again. |
 
 Every run exits 0; the printed outcome, not the exit status, says how it ended.
-`dots up` reports `stopped`, `skipped` and `failed` lines as needing attention and continues with its other stages whatever the sync outcome.
+`dots sync` and `dots up` report `stopped`, `skipped` and `failed` lines and upper-case lines as needing attention; `dots up` continues with its other stages whatever the sync outcome.
 
 ## Requirements
 

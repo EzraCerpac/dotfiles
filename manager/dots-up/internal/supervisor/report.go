@@ -303,6 +303,8 @@ func summary(report Report, dir string) string {
 			result = "dots " + report.Command + " cancelled locally"
 		} else if report.ExitCode != 0 {
 			result = fmt.Sprintf("dots %s failed (exit %d)", report.Command, report.ExitCode)
+		} else if failures > 0 || attention > 0 {
+			result = "dots " + report.Command + " needs attention"
 		} else {
 			result = "dots " + report.Command + " completed"
 		}
