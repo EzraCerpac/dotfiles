@@ -37,12 +37,12 @@ export function sourceRepository(root, options = {}) {
 export const githubOrigins = repository => new Set([`https://github.com/${repository}`, `https://github.com/${repository}.git`,
   `git@github.com:${repository}.git`, `git@github.com:${repository}`, `ssh://git@github.com/${repository}.git`]);
 
-function requireOrigin(root, remote, expectedRemote, prefix = 'Refusing source operations: origin') {
+function requireOrigin(root, remote, expectedRemote, prefix = 'Refusing source operations: origin', repository) {
   if (expectedRemote) {
     if (remote !== expectedRemote) throw new Error(`${prefix} is not ${expectedRemote}`);
     return;
   }
-  const repository = sourceRepository(root);
+  repository ||= sourceRepository(root);
   if (!githubOrigins(repository).has(remote)) throw new Error(`${prefix} is not ${repository}`);
 }
 const command = (bin, args, root, options = {}) => {
@@ -65,11 +65,12 @@ function metadata(root) {
 }
 
 // Repository and origin checks shared by sync, status and publish.
-export function ensureRepository(root, { expectedRemote } = {}) {
+// REPOSITORY (OWNER/NAME) checks another checkout against this configuration's.
+export function ensureRepository(root, { expectedRemote, repository } = {}) {
   const info = metadata(root);
   const remote = spawnSync('git', ['config', '--get', 'remote.origin.url'], { cwd: info.root, encoding: 'utf8' });
   if (remote.status !== 0) throw fatal('this checkout has no origin remote');
-  try { requireOrigin(info.root, remote.stdout.trim(), expectedRemote); }
+  try { requireOrigin(info.root, remote.stdout.trim(), expectedRemote, undefined, repository); }
   catch (error) { throw fatal(error.message); }
   return info;
 }

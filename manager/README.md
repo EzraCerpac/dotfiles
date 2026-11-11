@@ -11,7 +11,7 @@ This directory, the manager, holds no personal settings and can live anywhere.
 - mise with `mise bootstrap` and native dotfile history; the tests need 2026.9.7 or newer.
 - Bash, Git, Node.js, [uv](https://docs.astral.sh/uv/) and jq.
 - [gitleaks](https://github.com/gitleaks/gitleaks) for `dots sync` and `dots publish`, and [age](https://age-encryption.org) for encrypted bundles and settings history.
-- [JJ](https://jj-vcs.github.io/jj/) only for `dots publish`.
+- [JJ](https://jj-vcs.github.io/jj/) only for `dots publish`, which runs in a colocated JJ workspace of the configuration repository, not in the live checkout.
 
 You can declare all of these as tools in the configuration itself, so `dots up` keeps them current.
 
@@ -94,7 +94,7 @@ Everyday:
 | `dots apply [TARGET...]` | Apply dotfiles and render templates |
 | `dots add [--base \| --profile P \| --path FILE] TOOL...` | Install tools or packages and record them in the configuration |
 | `dots remove [--dry-run] [--keep-installed] TOOL...` | Uninstall software and delete its declaration (`dots uninstall` is the same) |
-| `dots publish [--all \| --bookmark NAME]` | Scan, push and open or update a pull request for a main-based JJ stack |
+| `dots publish [--all \| --bookmark NAME]` | From a JJ workspace of the configuration repository, scan, push and open or update a pull request for a main-based stack |
 | `dots test [SUITE...]` | Run the configuration's `tests/run` |
 
 New machines and private settings:

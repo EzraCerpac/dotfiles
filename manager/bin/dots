@@ -53,7 +53,7 @@ Your machine setup, from any directory.
   dots up [--mas] [--plain|--verbose] [--no-wait] [--last]
                                    Sync configuration, then update tools and plugins
   dots sync                       Save, merge and share configuration through dev
-  dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
+  dots publish [--all | --bookmark NAME]   Open/update a PR from the JJ workspace you are in
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
   dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
   dots status                     Inspect files, tools and backup health
@@ -334,7 +334,7 @@ esac
 case "$command_name" in
     up|update) exec_in_setup bash "$DOTS_HOME/tasks/update" "$@" ;;
     sync) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" ;;
-    publish) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/tasks/publish.mjs" "$root" "$@" ;;
+    publish) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/tasks/publish.mjs" "$root" "$PWD" "$@" ;;
     atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$DOTS_HOME/bootstrap/atuin-bundle" "$@" ;;
     atuin-login)
         login_args=(enroll --root "$root")
