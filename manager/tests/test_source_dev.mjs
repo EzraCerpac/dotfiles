@@ -199,6 +199,26 @@ git -C '${f.b}' push -q origin HEAD:dev
   assert.equal(read(f.a, 'raced'), 'raced\n'); assert.equal(read(f.a, 'local'), 'local\n');
 });
 
+test('a push retry merges main again over a racing dev change to the same hunk', available, t => {
+  const f = fixture(t);
+  const c = path.join(f.dir, 'c'); git(f.dir, 'clone', '-q', f.origin, c);
+  f.write(c, 'text', 'reviewed\ntwo\nthree\nfour\nfive\nsix\nseven\n'); git(c, 'commit', '-qam', 'Reviewed'); git(c, 'push', '-q', 'origin', 'main');
+  const hook = path.join(f.a, '.git/hooks/pre-push');
+  fs.writeFileSync(hook, `#!/bin/sh
+set -eu
+rm "$0"
+printf 'raced\\ntwo\\nthree\\nfour\\nfive\\nsix\\nseven\\n' > '${f.b}/text'
+git -C '${f.b}' commit -qam Race
+git -C '${f.b}' push -q origin HEAD:dev
+`);
+  fs.chmodSync(hook, 0o755);
+  f.write(f.a, 'local', 'local\n');
+  const { text } = f.sync(f.a);
+  assert.match(text, /· pushed/);
+  assert.equal(git(f.origin, 'show', 'dev:text').split('\n')[0], 'reviewed');
+  assert.equal(read(f.a, 'text').split('\n')[0], 'reviewed'); f.clean(f.a);
+});
+
 test('a flagged new file stays local while other edits are shared', available, t => {
   const f = fixture(t);
   f.write(f.a, 'token', 'safe line\nkey = FAKE_SECRET\n');

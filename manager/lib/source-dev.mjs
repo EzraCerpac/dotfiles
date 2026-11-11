@@ -182,8 +182,11 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     }
 
     // 6-8. Merge local with dev, then main; validate; push without force.
+    // Every attempt starts again from local, so main still wins over a racing dev.
     let merged, pushed = false, valid = true, devNew = 0, mainNew = 0, rejected = false;
+    const notices = lines.length;
     for (let attempt = 0; attempt <= 3; attempt++) {
+      lines.length = notices; // only the last attempt's conflicts are reported
       const remoteDev = rev('refs/remotes/origin/dev'), remoteMain = rev('refs/remotes/origin/main');
       devNew = remoteDev ? count([remoteDev, `^${local}`]) : 0;
       merged = merge(local, remoteDev, 'shared dev');
@@ -206,7 +209,6 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
         break;
       }
       rejected = attempt === 3;
-      local = merged;
       if (!(online = fetch())) break;
     }
     if (rejected) lines.push('NOT PUSHED: origin/dev kept moving; retried next run');
