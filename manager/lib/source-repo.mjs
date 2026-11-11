@@ -92,24 +92,35 @@ export function withRepositoryLock(root, callback) {
   const { commonDir } = metadata(root);
   const directory = path.join(commonDir, 'dots-source.lock');
   const owner = path.join(directory, 'owner.json');
-  const take = () => fs.mkdirSync(directory, { mode: 0o700 });
+  const mine = JSON.stringify({ pid: process.pid, host: os.hostname(), started: new Date().toISOString() });
+  const read = file => { try { return fs.readFileSync(file, 'utf8'); } catch { return ''; } };
+  const take = () => {
+    fs.mkdirSync(directory, { mode: 0o700 });
+    try { fs.writeFileSync(owner, mine, { mode: 0o600 }); } catch (error) { fs.rmSync(directory, { recursive: true, force: true }); throw error; }
+  };
   try { take(); }
   catch (error) {
     if (error.code !== 'EEXIST') throw error;
+    const seen = read(owner);
     let holder = {};
-    try { holder = JSON.parse(fs.readFileSync(owner, 'utf8')); } catch { /* being written or empty */ }
+    try { holder = JSON.parse(seen); } catch { /* being written or empty */ }
     let alive = true;
     if (holder.host === os.hostname() && Number.isInteger(holder.pid)) {
       try { process.kill(holder.pid, 0); } catch (probe) { alive = probe.code !== 'ESRCH'; }
     }
-    if (alive) throw Object.assign(new Error(`another source operation is running (pid ${holder.pid ?? 'unknown'}); lock ${directory}`), { locked: true });
-    fs.rmSync(directory, { recursive: true, force: true });
-    take();
+    const busy = () => Object.assign(new Error(`another source operation is running (pid ${holder.pid ?? 'unknown'}); lock ${directory}`), { locked: true });
+    if (alive) throw busy();
+    // Move the dead lock aside first: if another run reclaimed it meanwhile, the
+    // moved lock is that run's, so put it back and skip.
+    const stale = `${directory}.stale-${process.pid}-${Date.now()}`;
+    try { fs.renameSync(directory, stale); } catch { throw busy(); }
+    if (read(path.join(stale, 'owner.json')) !== seen) { try { fs.renameSync(stale, directory); } catch { /* a newer lock exists */ } throw busy(); }
+    fs.rmSync(stale, { recursive: true, force: true });
+    try { take(); } catch (retry) { throw retry.code === 'EEXIST' ? busy() : retry; }
   }
-  try {
-    fs.writeFileSync(owner, JSON.stringify({ pid: process.pid, host: os.hostname(), started: new Date().toISOString() }), { mode: 0o600 });
-    return callback();
-  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  try { return callback(); }
+  // Release only this run's own lock.
+  finally { if (read(owner) === mine) fs.rmSync(directory, { recursive: true, force: true }); }
 }
 
 function miseEnvironment(root) {

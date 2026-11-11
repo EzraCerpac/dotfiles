@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { syncSource } from '../lib/source-repo.mjs';
+import { syncSource, withRepositoryLock } from '../lib/source-repo.mjs';
 import { requires } from './lib/prereq.mjs';
 
 const available = requires('git');
@@ -475,4 +475,30 @@ test('a concurrent run is skipped and a dead run\'s lock is reclaimed', availabl
   fs.writeFileSync(path.join(lock, 'owner.json'), JSON.stringify({ pid: Number(dead), host: os.hostname() }));
   assert.match(f.sync(f.a).text, /shared 1 file/);
   assert(!fs.existsSync(lock));
+});
+
+test('a stale lock is reclaimed by one process only and each run releases only its own lock', available, t => {
+  const f = fixture(t);
+  const lock = path.join(f.a, '.git/dots-source.lock'), owner = path.join(lock, 'owner.json');
+  const dead = Number(spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout);
+  fs.mkdirSync(lock);
+  fs.writeFileSync(owner, JSON.stringify({ pid: dead, host: os.hostname() }));
+  // Another run reclaims the stale lock right after this one read its dead owner.
+  const live = JSON.stringify({ pid: process.pid, host: os.hostname(), started: 'other run' });
+  const readFile = fs.readFileSync;
+  let raced = false;
+  fs.readFileSync = (file, ...rest) => {
+    const text = readFile(file, ...rest);
+    if (!raced && file === owner) { raced = true; fs.rmSync(lock, { recursive: true }); fs.mkdirSync(lock); fs.writeFileSync(owner, live); }
+    return text;
+  };
+  let ran = false, error;
+  try { withRepositoryLock(f.a, () => { ran = true; }); } catch (caught) { error = caught; } finally { fs.readFileSync = readFile; }
+  assert(!ran, 'both runs held the lock');
+  assert(error?.locked, String(error));
+  assert.equal(fs.readFileSync(owner, 'utf8'), live, 'the other run keeps its lock');
+  // A run whose lock was taken over leaves the new holder's lock alone.
+  fs.rmSync(lock, { recursive: true });
+  withRepositoryLock(f.a, () => fs.writeFileSync(owner, live));
+  assert.equal(fs.readFileSync(owner, 'utf8'), live);
 });
