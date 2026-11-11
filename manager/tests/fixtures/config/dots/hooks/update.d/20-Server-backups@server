@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Only the server profile lists and runs this hook.
+set -euo pipefail
+echo 'Skipped: nothing to back up in a fixture'
+exit 4

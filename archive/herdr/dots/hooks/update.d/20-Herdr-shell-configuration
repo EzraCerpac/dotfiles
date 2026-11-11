@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Prepare Fish, then apply and reload the Herdr shell configuration.
+set -euo pipefail
+if [[ "${DOTS_PROFILE:-}" != workstation ]]; then
+    printf '\nSkipped: Herdr shell configuration (NAS profile does not own Herdr).\n'
+    exit 4
+fi
+if [[ "${DOTS_TOOLS_OK:-0}" != 1 ]]; then
+    printf 'Skipped: Herdr shell configuration (declared mise tools did not install).\n'
+    exit 4
+fi
+exec node "${DOTS_ROOT:?run through dots}/setup-scripts/local/herdr.mjs" "$DOTS_ROOT"

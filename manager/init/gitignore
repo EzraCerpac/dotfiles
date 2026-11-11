@@ -1,0 +1,8 @@
+# Machine-local files dots and mise write; dots sync refuses to share them.
+/miserc.toml
+/config.local.toml
+/config.host-*.toml
+/mise.lock
+/mise.*.lock
+/locks/
+/.setup-state/

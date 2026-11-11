@@ -27,7 +27,7 @@ not establish machine cutover.
 | Private machine settings | Native mise history repository `dotfiles-state` | Separate Git history for encrypted, exact-file settings; distinct from the JJ-managed public source. |
 | Protected rollback snapshot | `~/.local/state/mise-migration/latest/` | Local archives of the original checkout and managed live files, with metadata for modes and links. |
 
-The public source and native mise history have different jobs and different histories. Do not put live application state or credentials in the public source repository. `encrypted/` contains ciphertext for the WakaTime and Himalaya configuration files; `setup:secrets` decrypts and installs those files. This is separate from native history enrollment: exact app-written regular files stay at their normal paths and are tracked in encrypted private history. Other application state remains owned by its application.
+The public source and native mise history have different jobs and different histories. Do not put live application state or credentials in the public source repository. `encrypted/` contains ciphertext for the WakaTime configuration file; `setup:secrets` decrypts and installs it. This is separate from native history enrollment: exact app-written regular files stay at their normal paths and are tracked in encrypted private history. Other application state remains owned by its application.
 
 ## Bootstrap and machine role
 
@@ -57,9 +57,9 @@ Keep remaining app transfers staged and individually reviewed. Do not run
 `--adopt` over the existing setup, run a broad bootstrap, or transfer casks as
 part of a source replacement.
 
-The final setup root is `~/.config/mise`. Use `setup-scripts/bootstrap/profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
+The final setup root is `~/.config/mise`. Use `dots internal profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
 
-`setup-scripts/bootstrap/enroll-history` prepares encrypted exact-file tracking locally. It does not create a checkpoint or contact the private remote; review the selected paths and recipients before the first save.
+`dots internal enroll-history` prepares encrypted exact-file tracking locally. It does not create a checkpoint or contact the private remote; review the selected paths and recipients before the first save.
 
 ## Intended daily workflows
 
@@ -84,7 +84,7 @@ dots restore
 | Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
 | Replace an unconnected local history store | `dots restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
 
-`setup:secrets` handles only the WakaTime and Himalaya ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `setup-scripts/bootstrap/enroll-history`.
+`setup:secrets` handles only the WakaTime ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `dots internal enroll-history`.
 
 The planned `dots up` dashboard adds `--plain` for plain output,
 `--verbose` for detailed output, `--no-wait` to skip the final wait,
@@ -134,9 +134,7 @@ private rollback copy and its preferences were left untouched. Battery, Warp,
 and Ollama were removed from the manifest and their stale Homebrew registrations
 retired at the user’s request. Settings and model files remain untouched.
 WezTerm transferred and reattached to its original Herdr server; all 12 shell
-processes survived. Herdr is pinned to 0.8.2 because the 0.9.0 client cannot
-attach to that server's private protocol. Change this pin only during an
-intentional terminal-session restart.
+processes survived. Herdr was later archived (`archive/herdr/`).
 
 The Audio and VLM UV exceptions now use mise Python 3.13.15 while preserving
 their original extras and explicit dependencies. All 12 commands passed help

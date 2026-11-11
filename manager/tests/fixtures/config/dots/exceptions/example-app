@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Installs exactly one app; dots up passes --install-only for install-only rows.
+set -euo pipefail
+echo "example-app recipe $*"

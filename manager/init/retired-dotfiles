@@ -1,0 +1,4 @@
+# Targets whose [dotfiles] declarations were removed, one ~/PATH per line.
+# The manager's lib/retire-dotfiles.sh deletes each only while it is a symlink
+# into this checkout whose source no longer exists; call it from a mise
+# post-dotfiles hook. Rendered templates are regular files and never deleted.

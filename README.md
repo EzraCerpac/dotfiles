@@ -4,7 +4,8 @@ Your shell, Neovim, pagers, and everyday CLI tools travel with you. The
 workstation profile adds language runtimes, specialist tools, and desktop
 applications. `dots` is
 the short interface to the setup; ordinary `mise` commands still work inside
-individual projects.
+individual projects. The `dots` manager lives in [`manager/`](manager/README.md),
+which documents every command; this README covers how this setup uses it.
 
 Run `dots` in an interactive terminal to browse commands and review their options.
 Choose Run to execute a command;
@@ -174,9 +175,7 @@ The flag has no effect on other platforms or profiles.
 Let it finish and read the result. It synchronizes the shared source, checkpoints
 app-written settings, installs newly declared packages and tools, runs upgrades
 and named installer exceptions, updates editor plugins, then updates mise. Tools track the latest stable release by default.
-Kanata and Karabiner stay on their known working versions. A running Herdr server
-uses its supported live handoff after mise installs the replacement. A failed
-handoff is reported for attention; the updater does not kill terminal sessions.
+Kanata and Karabiner stay on their known working versions.
 Python 3.13 and 3.12 remain available for applications that require them; the
 default Python tracks latest. Setup lockfiles stay local and ignored: they record
 this host’s resolutions without creating source changes after each update. Tool
@@ -188,9 +187,10 @@ This does not publish dotfile source, update project dependencies,
 upgrade the operating system, restart unrelated services, or prune software. For a look
 without changes, use `dots status`.
 
-HouseAtlas maintenance is a separate, deliberate caller:
-`dots up houseatlas check`, `dots up houseatlas apply`, or
-`dots up houseatlas status` (`dots update` is also accepted). These currently
+HouseAtlas maintenance is a separate, deliberate caller, the configuration
+command [`dots/commands/houseatlas`](dots/commands/houseatlas):
+`dots houseatlas check`, `dots houseatlas apply`, or
+`dots houseatlas status`. These currently
 return **unavailable**, exit 3, and send no request. They do not read stdin,
 load mise, synchronize source, install a runtime or run package updates.
 Unsupported actions/options exit 2. Ordinary `dots up` never invokes HouseAtlas.
@@ -224,102 +224,26 @@ dots add watchexec
 
 Mise selects its preferred backend, installs the latest version, and records it
 in the active profile: `config.workstation.toml` on your main computer, or
-`config.nas.toml` on a NAS. Review the changed manifest and lockfiles in JJ and
-publish them when you want other machines with that role to receive the tool.
+`config.nas.toml` on a NAS. Review the changed manifest and share it with
+`dots sync` when you want other machines with that role to receive the tool.
 
 If the tool belongs in the everyday toolkit on **every** machine, say
-`dots add --base watchexec`. That targets the shared `config.toml` instead.
+`dots add --base watchexec`; that targets the shared `config.toml`.
 `dots add --profile nas ripgrep` targets the NAS additions without changing this
-machine's role. For an explicit file, use
-`dots add --path ~/other/config.toml watchexec`.
+machine's role. The workstation already includes Rust for `cargo:` tools. For a
+project dependency, add it to that project instead.
 
-For a global npm command such as Prettier, use `dots add npm:prettier`.
-Mise owns the installation and tracks the latest release. If it is a
-project dependency, add it to that project's package.json instead.
-
-For a Cargo CLI, use `dots add cargo:hexyl`. The `cargo:` prefix selects its
-source; mise still owns installation and updates. Source builds may take longer
-and need a Rust toolchain. The workstation already includes Rust.
-
-For a native Mac library, use `dots add brew:libmagic`; a Mac app looks like
-`dots add brew-cask:firefox`. A `brew:` request prefers a formula and automatically
-selects a cask when the formula is confirmed absent. Network and recipe errors
-stop the attempt. `brew-cask:` explicitly selects a cask.
-New Homebrew declarations are restricted to macOS
-automatically, so they do not become Linux requirements. Existing declarations
-keep their options. Unsupported recipes still need a named installer exception;
-`dots` reports a backend failure for recipes it cannot install.
-
-For a project that publishes GitHub releases, pass its HTTPS repository URL:
-`dots add https://github.com/jaskirat1616/mactap-app`. A prebuilt command-line
-release uses mise's GitHub backend. A macOS app shipped as a ZIP or tar archive
-is recorded with a local install hook, so mise upgrades also replace the app in
-`/Applications`; no Homebrew cask is needed. The hook will not overwrite an app
-that `dots` did not install. DMG and pkg installers are rejected with an
-explanation. If `dots` cannot choose one download, name it with
-`--asset 'tool-*-macos-arm64.zip'`, which takes a name or glob and requires
-exactly one URL. Only the latest stable release assets are used and no script
-from the repository runs, so a source-only repository cannot be installed.
-
-New requests are recorded after successful installation. On failure, `dots add`
-shows the requested declaration and asks whether to record it for a later retry;
-the default is No. Noninteractive runs never record failed requests. Existing
-declarations remain in place. With multiple requests, earlier successful installs
-stay recorded and the command stops at the first failure.
-Tool installs stage only the requested static declaration. If that declaration
-contains a mise template, use mise directly from its trusted configuration;
-unrelated target templates and hooks are not evaluated by `dots add`.
-
-All these commands select `~/.config/mise` before loading configuration. They
-work from your thesis checkout or any other directory. An explicit `--path` is
-the only way to redirect the write to an arbitrary file. `dots help` explains
-the available actions; ordinary project-local `mise use` is unchanged.
+These commands select `~/.config/mise` before loading configuration, so they
+work from your thesis checkout or any other directory. Backends, GitHub release
+apps and what happens on failure are described in
+[adding software](manager/README.md#adding-software).
 
 ## Remove a tool
 
-When you no longer want something, run:
-
-```sh
-dots remove watchexec
-```
-
-`dots uninstall` does the same thing. The command uninstalls the software and
-deletes its declaration. Settings and app data stay where they are. By default
-it searches every active setup config, including your local and host files.
-`--base`, `--profile workstation|nas`, and `--path FILE` narrow the search the
-same way they do for `dots add`. If another active config still declares the
-tool, only the selected declaration is removed and the software stays
-installed.
-
-You can name the target by its exact declaration, such as `brew-cask:firefox`
-or `npm:prettier`, or by a GitHub repository URL. Backend identifiers retain
-their exact spelling; short names and GitHub repository names ignore case.
-A short name works when it matches exactly one declaration. If a bare
-`[tools]` key such as `jq` clashes with another manager's package, `mise:jq`
-selects the mise declaration explicitly. `dots remove mactap`
-also finds a GitHub app that `dots` installed. If a name matches more than
-one declaration, the command lists them and stops.
-
-Each kind of tool is removed by its own installer:
-
-- **mise tools:** `mise unuse` edits the named file. After removal,
-  `mise prune --yes --tools TOOL` removes unused versions of that tool. Mise
-  keeps versions that tracked project configs and tool stubs still use.
-- **Native packages** (Homebrew, apt, dnf, pacman, apk, mas): one targeted
-  uninstall. Dependents and transaction previews are checked first. Nothing is
-  pruned globally, and the command never uses zap, purge, or force.
-- **GitHub apps** installed by `dots add`: the app moves to the Trash, then mise
-  removes its unused release installation. Its ownership record is deleted
-  after removal succeeds. A failure restores the staged app.
-
-Kanata and Karabiner are held and cannot be removed this way. When the command
-can't confirm that a removal is safe, it stops. If a step fails, the command
-restores the target's declarations and its staged app. It does not reinstall
-native packages that were already uninstalled.
-
-`--dry-run` shows the plan without changing anything. `--keep-installed` deletes
-only the declaration and leaves the software installed. A GitHub app's
-ownership record is kept, so a later `dots remove` can still uninstall it.
+When you no longer want something, run `dots remove watchexec`. It uninstalls
+the software and deletes its declaration from whichever setup config has it;
+`--dry-run` shows the plan first. Kanata and Karabiner are held and cannot be
+removed this way. See [removing software](manager/README.md#removing-software).
 
 ## Choose what belongs on a machine
 
@@ -353,14 +277,16 @@ dots apply ~/.ssh/config
 | Path | Purpose |
 | --- | --- |
 | `config.toml` and `config.<role>.toml` | Global mise settings, tools, bootstrap declarations, and machine profiles |
+| `dots/` | How this setup plugs into `dots`: update and bootstrap hooks, the `houseatlas` command, installer exceptions and their recipes, history files, retired dotfiles ([reference](dots/README.md)) |
 | `setup-tasks.toml` and `setup-scripts/` | Setup tasks, available with `mise -C ~/.config/mise run` without adding them to project task lists |
 | `dotfiles/` | Native symlink sources; editing a linked target edits this source |
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |
-| `setup-scripts/setup/` | Status, update, backup, restore, and encrypted app-state tasks |
+| `manager/` | The `dots` manager, kept free of anything personal: see [its README](manager/README.md) |
+| `setup-scripts/setup/` | Editor maintenance helpers and the WakaTime secret installer |
 | `setup-scripts/install/` and `setup-scripts/local/` | Explicit install and machine lifecycle tasks |
-| `encrypted/` | Age-encrypted private inputs; private settings history is stored separately |
-| `tests/` | Test suites; run them with `dots test` (see [testing](docs/testing.md)) |
-| `archive/` | Configuration kept for reference but never deployed; see its README to restore an entry |
+| `encrypted/` | Age-encrypted private inputs: the workstation bootstrap bundle `bootstrap.workstation.json.age`, the Atuin bundle and WakaTime; private settings history is stored separately |
+| `tests/` | This configuration's tests; run them with `dots test` (see [testing](docs/testing.md)) |
+| `archive/` | Configuration kept for reference but never deployed, such as Herdr; see its README to restore an entry |
 
 The role selection and private history origin belong in ignored local mise configuration, not in the public source repository.
 
@@ -373,7 +299,6 @@ The role selection and private history origin belong in ignored local mise confi
 | Editing linked files and templates, cross-platform notes | [Dotfiles](docs/dotfiles.md) |
 | Review defaults and shortcuts (`hunk`, `jjui`, `wto`, `prdiff`, `glf`) | [Review tools](docs/review-tools.md) |
 | Rex sessions, NAS connections and project launcher | [Rex](docs/rex.md) |
-| WezTerm/Herdr rollback workflow | [Herdr](docs/herdr.md) |
 | Corne keyboard and Kanata | [Keyboard](docs/keyboard.md) |
 | CerpacNAS and remote Codex tasks | [NAS guide](docs/cerpacnas.md) |
 | Cloud proxy access to NAS web services and HouseAtlas | [Cloud NAS access](docs/cloud-nas-access.md) |
@@ -382,3 +307,5 @@ The role selection and private history origin belong in ignored local mise confi
 | Secret scanning, signing, leaked-credential rotation | [Security](docs/security.md) |
 | Window managers | [Runbook](docs/window-manager-runbook.md) |
 | Settings history internals | [History](docs/history.md) |
+| The `dots` manager and its commands | [manager/README.md](manager/README.md) |
+| How this setup got here (chezmoi hook map, validation logs) | [Setup history](docs/history/README.md) |

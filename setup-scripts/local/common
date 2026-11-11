@@ -4,8 +4,8 @@
 # and preserve the selected mise environment in nested tool invocations.
 common_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 setup_root="$(cd -- "${common_dir}/../.." && pwd -P)"
-# shellcheck source=../lib/setup-common.sh
-source "${setup_root}/setup-scripts/lib/setup-common.sh"
+# shellcheck source=../../manager/lib/setup-common.sh
+source "${DOTS_HOME:-${setup_root}/manager}/lib/setup-common.sh"
 SETUP_ROOT=""
 setup_init || return $?
 

@@ -22,7 +22,6 @@ only configure its settings link and start its service.
 | `setup-scripts/install/jw-build-install.sh` | Workstation jj-waltz build hook | Builds verified `EzraCerpac/jj-waltz` main with Cargo's lockfile in disposable source/build directories and atomically activates a versioned `jw`. `dots up` passes `--update-existing` so it skips hosts without `jw`. |
 | `setup-scripts/install/jw-nas-release.sh` | NAS jj-waltz release branch | Downloads the pinned static x86-64 Linux release, checks its SHA-256 and version, then installs it. |
 | `setup-scripts/install/nas-modern-git.sh` | NAS modern Git hook | Checks and installs the pinned micromamba binary, creates or updates the user-space `git>=2.41` environment, and links `~/.local/bin/git` only when that path is free or already owned by this environment. |
-| `setup-scripts/install/herdr-plugins.sh` | Pinned Herdr plugin hook | Installs the four pinned plugins when their current commit differs. Requires Herdr and `jq`. |
 | `setup-scripts/local/antinote-bridge-build.sh` | Antinote bridge build hook | Builds the source in `dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift` and atomically installs its binary. The source fingerprint is kept under `~/.local/state/mise/`. |
 | `setup-scripts/local/shell-select.sh` | Login-shell hook | Resolves a validated Fish executable, then asks native mise to add it to `/etc/shells` and update the account. Workstation and NAS profiles use the same path; a noninteractive run without passwordless administrator access reports a resumable deferral. |
 | `setup-scripts/local/touchid-sudo.sh` | Touch ID hook | Adds `pam_tid.so` to `/etc/pam.d/sudo_local` with `sudo`; it is a no-op when already enabled. |
@@ -68,9 +67,8 @@ verified main. The NAS release installer and the selected `jj` pin retain
 their existing lifecycle.
 
 `setup:update` does not build local Aegis or Rift. It does not restart CLIProxyAPI,
-change the login shell, change sudo PAM settings, update Herdr plugins, or
-provision keyboard hardware. Those are explicit tasks or separate lifecycle
-operations.
+change the login shell, change sudo PAM settings, or provision keyboard
+hardware. Those are explicit tasks or separate lifecycle operations.
 
 The current desktop uses AeroSpace and Aegis. Rift stays inactive by default;
 its activation path can replace the active manager and load its LaunchAgent. The
@@ -197,31 +195,6 @@ Mise runs this hook after dotfile apply, including during `mise bootstrap`, and
 before later defaults and tools steps. The task is repeatable and does not
 restart apps or services.
 
-## Legacy hook map
-
-The source checkout currently contains 17 numbered `run_once`, `run_onchange`,
-and `run_after` scripts. Their replacement responsibilities are:
-
-| Legacy hook | Mise replacement |
-| --- | --- |
-| `run_after_03-reconcile-tools.sh.tmpl` | `[tools]`, `[bootstrap.packages]`, and one named installer exception for each remaining unsupported app. Do not reintroduce broad reconciliation or pruning. |
-| `run_after_10-enable-touchid-for-sudo.sh.tmpl` | Explicit `local:touchid-sudo`. |
-| `run_after_25-configure-gitlogue-screensaver.sh.tmpl` | Native current-host `com.apple.screensaver.idleTime = 0`. Do not restart Hammerspoon as part of dotfile application. |
-| `run_after_26-sync-jj-waltz-skill.sh.tmpl` | An explicit task that calls the deployed `codex-sync-jj-waltz` helper. Do not sync it during bootstrap or routine updates. |
-| `run_after_27-install-herdr-plugins.sh.tmpl` | Explicit `install:herdr-plugins`, pinned to the four current commits; install the Herdr binary through its own package owner. |
-| `run_after_30-setup-cliproxyapi.sh.tmpl` | Native CLIProxyAPI package declaration, then separate `local:cliproxy-configure` and `local:cliproxy-service` tasks. |
-| `run_after_setup-shell.sh.tmpl` | Explicit `local:shell-select`; supported workstation and NAS profiles select Fish through native `bootstrap.user` settings. |
-| `run_once_01-setup-directories.sh.tmpl` | Profile-specific directory setup plus the rendered Git configuration. |
-| `run_once_02-install-package-managers.sh.tmpl` | Standalone mise installation is a bootstrap prerequisite. Homebrew remains the native package manager; ChezMoi is retired. |
-| `run_once_03-install-tools.sh.tmpl` | `[tools]`, `[bootstrap.packages]`, and named installer exceptions. |
-| `run_once_04-setup-macos.sh.tmpl` | Native macOS defaults for the existing Dock, Mission Control, screenshot, keyboard, and Show Desktop values. The hot-key declaration patches only `AppleSymbolicHotKeys[36].enabled`, preserving its parameters and sibling entries. Do not restart Dock, SystemUIServer, or `cfprefsd` automatically. |
-| `run_once_07-remove-legacy-kbd-commands.sh.tmpl` | One-time migration cleanup for the listed obsolete keyboard commands, outside bootstrap and routine updates. |
-| `run_onchange_03-install-packages.sh.tmpl` | Native `[bootstrap.packages]` declarations with platform restrictions. |
-| `run_onchange_05-configure-mission-control.sh.tmpl` | Native Mission Control default for top-edge window drag; no Dock restart. |
-| `run_onchange_05-install-nas-git.sh.tmpl` | Explicit `install:nas-modern-git`, preserving the pinned micromamba user-space recipe. |
-| `run_onchange_06-build-jj-waltz.sh.tmpl` | Locked isolated main build for existing workstation `jw` during `dots up`; checksum-pinned explicit release install on NAS. |
-| `run_onchange_07-build-antinote-bridge.sh.tmpl` | Explicit `local:antinote-bridge-build`; output and marker stay outside the source checkout. |
-
 Directory setup and native macOS defaults must preserve their observed values.
 The keyboard cleanup and jj-waltz skill sync remain one-time or explicit
 operations; neither belongs in `setup:update`.
@@ -232,3 +205,5 @@ to the current host, and the Show Desktop hot-key change patches only its
 `enabled` field. This preserves the existing screensaver module, hot-key
 parameters, and other shortcuts without a separate script or preference-daemon
 restart.
+
+The chezmoi hooks these tasks replaced are mapped in [the legacy hook map](history/chezmoi-hook-map.md).

@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
-# Run the setup repository's test suites: tests/run [python|node ...]
+# Run this configuration's test suites: tests/run [python|node ...]
 #
-# A suite is skipped (exit status 77) when its runtime is missing. The run is isolated from the caller's Git and JJ
+# These test the configuration (declarations, docs, scripts). The dots manager
+# has its own suite: manager/tests/run. A suite is skipped (exit status 77)
+# when its runtime is missing. The run is isolated from the caller's Git and JJ
 # configuration so personal settings (signing, pagers, default branches) cannot
 # change fixture behavior.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
-source "$root/setup-scripts/lib/dots-up-events.sh"
+# Report suites to the dots up dashboard when the manager is at hand (dots test
+# exports DOTS_HOME); a direct run without it prints only the plain summary.
+events="${DOTS_HOME:-$root/manager}/lib/dots-up-events.sh"
+if [[ -f "$events" ]]; then
+    source "$events"
+else
+    dots_up_emit_item() { :; }
+fi
 readonly all_suites=(python node)
 
 usage() {
@@ -49,6 +58,7 @@ record() {
 # runner owns the live supervisor connection; never lend its descriptors or nonce
 # to a fixture that may close inherited file descriptors.
 run_fixture() (
+    unset DOTS_HOME DOTS_ROOT
     unset DOTS_UP_EVENT_FD DOTS_UP_ACK_FD DOTS_UP_STREAM_NONCE DOTS_UP_EVENT_JQ
     unset DOTS_UP_RUN_DIR DOTS_UP_RUN_STARTED DOTS_UP_PLAIN DOTS_UP_VERBOSE
     "$@"
@@ -62,11 +72,17 @@ run_python() {
 
 run_node() {
     local status=0
+    local files=("$root"/tests/*.mjs)
+    if [[ ! -e "${files[0]}" ]]; then
+        echo 'no Node test files'
+        record node 0
+        return
+    fi
     if ! command -v node >/dev/null 2>&1; then
         record node 77
         return
     fi
-    run_fixture node --test "$root"/tests/*.mjs || status=$?
+    run_fixture node --test "${files[@]}" || status=$?
     record node "$status"
 }
 

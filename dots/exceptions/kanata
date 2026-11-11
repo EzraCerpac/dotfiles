@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "${DOTS_HOME:-$(dirname "$0")/../../manager}/lib/brew-exception.sh"
+hold_brew_formula_exception kanata 1.12.0 'keyboard compatibility hold'

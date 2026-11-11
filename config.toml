@@ -23,6 +23,20 @@ includes = [
 ]
 
 [vars]
+# dots settings. mise vars are strings, so lists are space-separated words.
+# Profiles this setup selects with -E; each has a config.<profile>.toml.
+dots_profiles = "workstation nas"
+# GitHub OWNER/NAME of this configuration and of its private settings history.
+dots_source_repo = "EzraCerpac/dotfiles"
+dots_state_repo = "EzraCerpac/dotfiles-state"
+# Casks that update themselves although Homebrew lacks auto_updates for them;
+# dots up still installs them when missing.
+dots_self_updating_casks = "codexbar"
+# dots publish starts pull request text with a note that a model writes on
+# this person's behalf.
+dots_publish_on_behalf_of = "Ezra"
+# The only Atuin account enrollment accepts.
+dots_atuin_username = "EzraCerpac"
 name = "Ezra Cerpac"
 email = "47384389+EzraCerpac@users.noreply.github.com"
 nas_jj_waltz_sha256 = "d175a4922264c32378f538ed7b6382028df68ecd2eaec564e4db75e2361ae2f8"
@@ -121,6 +135,8 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.agents/skills/sol-loop/SKILL.md" = { source = "dotfiles/.agents/skills/sol-loop/SKILL.md", mode = "copy" }
 "~/.agents/skills/sembr/SKILL.md" = { source = "dotfiles/.agents/skills/sembr/SKILL.md", mode = "copy" }
 "~/.agents/skills/takeover/SKILL.md" = { source = "dotfiles/.agents/skills/takeover/SKILL.md", mode = "copy" }
+# The dots manager ships its own skill; it is linked into Claude Code like the others.
+"~/.agents/skills/dots/SKILL.md" = { source = "manager/skills/dots/SKILL.md", mode = "copy" }
 
 # Personal implementation planning skill; individual links preserve neighboring state.
 "~/.codex/skills/implementation-planning/SKILL.md" = { source = "dotfiles/.codex/skills/implementation-planning/SKILL.md", mode = "copy" }
@@ -166,7 +182,7 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink" }
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
-"~/.local/bin/dots" = { source = "dotfiles/.local/bin/dots", mode = "symlink" }
+"~/.local/bin/dots" = { source = "manager/bin/dots", mode = "symlink" }
 "~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
 "~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }

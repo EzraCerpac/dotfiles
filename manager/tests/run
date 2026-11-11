@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Run the dots manager's test suites: tests/run [python|node|shell ...]
+#
+# The suites need only this manager directory: every test builds its own
+# configuration in a temporary directory or copies tests/fixtures. A suite is
+# skipped (exit status 77) when its runtime is missing. The run is isolated
+# from the caller's Git and JJ configuration so personal settings (signing,
+# pagers, default branches) cannot change fixture behavior.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+readonly root
+# The suites test the manager this runner belongs to, whichever dots started them.
+source "$root/lib/dots-up-events.sh"
+readonly all_suites=(python node shell)
+
+usage() {
+    printf 'usage: tests/run [%s ...]\n' "$(IFS='|'; printf '%s' "${all_suites[*]}")"
+}
+
+suites=()
+for argument in "$@"; do
+    case "$argument" in
+        -h|--help) usage; exit 0 ;;
+        python|node|shell) suites+=("$argument") ;;
+        *) usage >&2; exit 2 ;;
+    esac
+done
+[[ ${#suites[@]} -gt 0 ]] || suites=("${all_suites[@]}")
+
+isolation="$(mktemp -d "${TMPDIR:-/tmp}/dots-tests.XXXXXX")"
+trap 'rm -rf "$isolation"' EXIT
+printf '[user]\n\tname = Dots Tests\n\temail = dots-tests@example.invalid\n' >"$isolation/gitconfig"
+printf '[user]\nname = "Dots Tests"\nemail = "dots-tests@example.invalid"\n' >"$isolation/jj.toml"
+export GIT_CONFIG_GLOBAL="$isolation/gitconfig" GIT_CONFIG_NOSYSTEM=1 JJ_CONFIG="$isolation/jj.toml"
+unset MISE_ENV
+
+passed=()
+failed=()
+skipped=()
+
+record() {
+    local name="$1" status="$2"
+    case "$status" in
+        0) passed+=("$name") ;;
+        77) skipped+=("$name") ;;
+        *) failed+=("$name") ;;
+    esac
+}
+
+# Suite fixtures create their own subprocesses and dashboard protocols. Only this
+# runner owns the live supervisor connection; never lend its descriptors or nonce
+# to a fixture that may close inherited file descriptors.
+run_fixture() (
+    unset DOTS_HOME DOTS_ROOT
+    unset DOTS_UP_EVENT_FD DOTS_UP_ACK_FD DOTS_UP_STREAM_NONCE DOTS_UP_EVENT_JQ
+    unset DOTS_UP_RUN_DIR DOTS_UP_RUN_STARTED DOTS_UP_PLAIN DOTS_UP_VERBOSE
+    "$@"
+)
+
+run_python() {
+    local status=0
+    run_fixture python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
+    record python "$status"
+}
+
+run_node() {
+    local status=0
+    if ! command -v node >/dev/null 2>&1; then
+        record node 77
+        return
+    fi
+    run_fixture node --test "$root"/tests/*.mjs || status=$?
+    record node "$status"
+}
+
+# Each tests/*.sh is one fixture script; exit 77 skips it.
+run_shell() {
+    local script status
+    for script in "$root"/tests/*.sh; do
+        [[ -e "$script" ]] || continue
+        status=0
+        run_fixture bash "$script" || status=$?
+        record "shell:${script##*/}" "$status"
+    done
+}
+
+for suite in "${suites[@]}"; do
+    printf '\n### %s\n' "$suite"
+    dots_up_emit_item "suite:$suite" "Test suites" "$suite" unknown "running"
+    failures_before=${#failed[@]}
+    skips_before=${#skipped[@]}
+    "run_$suite"
+    if (( ${#failed[@]} > failures_before )); then
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" failed "failed"
+    elif (( ${#skipped[@]} > skips_before )); then
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" attention "completed with skips"
+    else
+        dots_up_emit_item "suite:$suite" "Test suites" "$suite" ok "completed"
+    fi
+done
+
+printf '\n### summary\n'
+printf 'passed:  %d\n' "${#passed[@]}"
+if [[ ${#skipped[@]} -gt 0 ]]; then printf 'skipped: %s\n' "${skipped[*]}"; fi
+if [[ ${#failed[@]} -gt 0 ]]; then
+    printf 'FAILED:  %s\n' "${failed[*]}"
+    exit 1
+fi

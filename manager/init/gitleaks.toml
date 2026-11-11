@@ -1,0 +1,4 @@
+# Secret scanning for dots sync and dots publish: gitleaks' default rules.
+# Add [[rules]] or allowlists here for false positives in this configuration.
+[extend]
+useDefault = true

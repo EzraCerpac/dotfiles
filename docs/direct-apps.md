@@ -55,7 +55,7 @@ path needs no `--greedy` flag or config override
 | Glaze 0.8.0 | Raycast-signed direct app | `brew-cask:raycast-glaze` | Vendor updater may run; this is the `glaze.app` product, not the similarly named University of Chicago cask |
 | Helium 0.16.6.1 | Vendor direct, inferred | `brew-cask:helium-browser` | Vendor updater may run; selected by the `helium.computer` cask, not the unrelated `helium` token |
 | MEGAsync 6.2.0 | Mega-signed direct app | `brew-cask:megasync` | Vendor updater may run; keep sync/account state with MEGA |
-| Mathpix Snipping Tool 3.4.16 | Vendor direct, inferred | `brew-cask:mathpix-snipping-tool` | Vendor updater may run |
+| Mathpix Snipping Tool 3.4.16 | Vendor direct, inferred | None; archived and no longer declared | Left installed; not managed by setup |
 | OmniDiskSweeper 1.15.1 (38.0.0) | Vendor direct, inferred | `brew-cask:omnidisksweeper` | Vendor updater may run |
 | Orion 1.1.2 (151) | Vendor direct, inferred | `brew-cask:orion` | Vendor updater may run; preserve browser profile |
 | Plex 1.115.0 | Vendor direct, inferred | `brew-cask:plex` | Vendor updater may run; Plex libraries remain Plex-owned |
@@ -98,7 +98,7 @@ synced files were retained.
 | eduVPN 4.1.3 (2456) | App Store receipt | App Store |
 | Folder Preview 3.1 (132) | App Store receipt | App Store; `folder-preview-pro` targets a separate `Folder Preview Pro.app` |
 | geteduroam 2.5 (178) | App Store receipt | App Store |
-| Goodnotes 7.1.18 (3892200.147026606) | App Store receipt | App Store |
+| Goodnotes 7.1.18 (3892200.147026606) | App Store receipt | App Store; archived, no longer declared as `mas:1444383602` |
 | Home Assistant 2026.9.0 (2026.2874) | App Store receipt | App Store; a same-name cask exists, but it is not the current owner |
 | Logic Pro 11.1.1 (6157) | App Store receipt | App Store |
 | NordVPN 10.10.1 (375) | App Store receipt | App Store; the direct cask alias is not the current owner |
@@ -148,8 +148,8 @@ are inferences from the signed app identity. A later handoff still needs an
 item-specific check of app state, permissions, update behavior, and uninstall
 effects.
 
-The registered `vendor-apps` exception in `setup:update` reads the named entries
-in [`setup-scripts/setup/vendor-apps.tsv`](../setup-scripts/setup/vendor-apps.tsv). `Pinned`
+The registered `vendor-apps` exception in `dots up` reads the named entries
+in [`dots/exceptions/vendor-apps.tsv`](../dots/exceptions/vendor-apps.tsv). `Pinned`
 records a local/project owner; it does not say the app is current, tested, or
 healthy. `Managed` records an updater run by the matching workstation setup
 profile. `Deferred` records an app or vendor update path that remains manual.

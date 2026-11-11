@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/common"
 # mise keeps links whose declarations were removed. Every dotfiles apply runs
 # this hook from the incoming source, including the apply at the end of a sync
 # still executed by the previous source's code, so retirement lives here.
-bash "${SETUP_ROOT}/setup-scripts/lib/retire-dotfiles.sh" "$SETUP_ROOT"
+bash "$DOTS_HOME/lib/retire-dotfiles.sh" "$SETUP_ROOT"
 
 # Expose skills installed for all agents (~/.agents/skills) to Claude Code.
 bash "${SCRIPT_DIR}/link-agent-skills.sh"

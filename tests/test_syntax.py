@@ -1,7 +1,7 @@
-"""Parse every deployed or executed shell source without running it.
+"""Parse every deployed or executed shell source of this configuration without running it.
 
-Rendered Tera templates are excluded; their output is exercised by the
-template tests. Each interpreter is optional so the suite still runs on hosts
+The manager has its own syntax test (manager/tests). Rendered Tera templates
+are excluded; their output is exercised by the template tests. Each interpreter is optional so the suite still runs on hosts
 that lack Fish or zsh.
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 from lib.prereq import requires
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_DIRS = ("dotfiles", "setup-scripts", "tests")
+SOURCE_DIRS = ("dotfiles", "dots", "setup-scripts", "tests")
 ZSH_SOURCES = ("dotfiles/.zshrc", "dotfiles/.zshenv", "dotfiles/.zprofile")
 
 

@@ -20,7 +20,7 @@ To check drift on demand, compare each deployed file with its source using `diff
 
 ## Claude settings
 
-`~/.claude/settings.json` on every macOS host renders from `templates/.claude/settings.json.tera` (mode 0600). The NAS profile gets its own host-containment line, and the herdr session hook appears only where its script exists. Claude Code may rewrite the deployed file; carry intended changes back into the template and reapply only that target:
+`~/.claude/settings.json` on every macOS host renders from `templates/.claude/settings.json.tera` (mode 0600). The NAS profile gets its own host-containment line. Claude Code may rewrite the deployed file; carry intended changes back into the template and reapply only that target:
 
 ```sh
 mise -C ~/.config/mise bootstrap dotfiles diff ~/.claude/settings.json
@@ -30,3 +30,5 @@ mise -C ~/.config/mise bootstrap dotfiles apply ~/.claude/settings.json
 ## Shared skills
 
 Installers such as `rex skill setup` and `npx skills` write to `~/.agents/skills`, which Codex reads but Claude Code does not. Every dotfiles apply runs `setup-scripts/local/link-agent-skills.sh`, which links each shared skill directory into `~/.claude/skills/<name>`. A skill Claude already has under that name is kept, and links to removed shared skills are pruned. Run the script directly to link a newly installed skill without a full apply.
+
+The `dots` skill comes from the manager, `manager/skills/dots/SKILL.md`; `config.toml` copies it to `~/.agents/skills/dots/SKILL.md` like the skills under `dotfiles/.agents/skills`, and the same script links it for Claude.

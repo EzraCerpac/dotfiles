@@ -11,7 +11,16 @@ tree, so `git mv archive/<tool>/dotfiles/... dotfiles/...` puts files back.
 | --- | --- |
 | `nvim/unused/` | Neovim plugin specs outside the imported `lua/plugins/` tree |
 | `rift/` | Rift LaunchAgent template; Rift is the rollback window manager |
-| `ghostty/` | Ghostty terminal config; WezTerm is the terminal |
-| `zellij/` | Zellij config and themes; Herdr organizes sessions, tmux stays for remote hosts |
+| `ghostty/` | Ghostty terminal config; Rex is the daily terminal |
+| `zellij/` | Zellij config and themes; Rex organizes sessions, tmux stays for remote hosts |
 | `xonsh/` | xonsh startup files; Fish is the login shell, zsh and bash remain for other callers |
-| `gitui/` | gitui themes; jjui, lazygit, Hunk and delta cover review |
+| `gitui/` | gitui themes; jjui, Hunk and delta cover review |
+| `gh-dash/` | gh-dash (gh extension) dashboard config; no longer used |
+| `himalaya/` | Himalaya's age-encrypted config (still encrypted); `brew:himalaya` declaration removed; no longer used |
+| none (Mathpix) | `brew-cask:mathpix-snipping-tool` declaration removed, no files to keep; no longer used, app left installed |
+| none (Goodnotes) | `mas:1444383602` declaration removed, no files to keep; no longer used, app left installed |
+| `goose/` | goose hints and recipe; no longer used |
+| `humanize-text/` | humanize-text and humanize-clipboard script, wizard, defaults and docs; no longer used |
+| `latexindent/` | latexindent config; no longer used |
+| `lazygit/` | lazygit tool and config; jjui, Hunk and delta cover review |
+| `herdr/` | Herdr tool, config, plugin installer, update hooks, Fish completion and docs; no longer used, Rex is the daily terminal and multiplexer. Restoring also needs the per-host template registration and `--prepare-only` step that this commit removed from `setup-scripts/local/shell-select.sh` |

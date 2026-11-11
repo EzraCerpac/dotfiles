@@ -1,0 +1,4 @@
+# App-written files tracked in encrypted settings history, per profile.
+# Tab-separated columns: profile, path.
+#   profile  base (every profile) or one name from [vars] dots_profiles
+#   path     a file under HOME, written ~/PATH; missing files are skipped

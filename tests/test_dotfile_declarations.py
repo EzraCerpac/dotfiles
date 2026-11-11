@@ -19,8 +19,6 @@ MANAGED_TREES = ("dotfiles", "templates", "seeds")
 
 # Sources used by something other than a [dotfiles] declaration.
 INDIRECT = {
-    "dotfiles/.config/herdr/config.toml": "read by templates/.config/herdr/config.tera",
-    "templates/.config/herdr/config.tera": "declared per host by setup-scripts/local/shell-select.sh",
     "seeds/.codex/config.toml": "seeded once by setup-scripts/local/seed-configs.sh",
     "seeds/.config/aegis/config.json": "seeded once by setup-scripts/local/seed-configs.sh",
     "seeds/.config/karabiner/karabiner.json": "seeded once by setup-scripts/local/seed-configs.sh",

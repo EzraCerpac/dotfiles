@@ -9,8 +9,6 @@ GROK_DISABLE_AUTOUPDATER = "1"
 AGY_CLI_DISABLE_AUTO_UPDATE = "true"
 
 [tools]
-# Routine updates defer Herdr while its persistent terminal server is running.
-herdr = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 # Ruby is required to evaluate supported third-party Homebrew recipes.
 ruby = { version = "latest", os = ["macos/arm64"] }
 # The workstation baseline is macOS arm64 plus glibc Linux x64/arm64.
@@ -42,7 +40,6 @@ gum = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "git-lfs" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 glow = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 jjui = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
-lazygit = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "npm:@opencode/cli" = { version = "latest", allow_builds = ["@opencode/cli"], os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "github:jgm/pandoc" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 rclone = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
@@ -65,7 +62,6 @@ yt-dlp = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] 
 "npm:@zed-industries/codex-acp" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 "npm:agent-browser" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 # Requested upstream package; its repository and registry metadata were checked.
-"npm:@lakeday/perch" = { version = "latest", allow_low_downloads = true, os = ["macos/arm64", "linux/x64", "linux/arm64"] }
 
 # No pipx tools are declared; the former UV CLIs were removed as unwanted.
 "github:PyO3/maturin" = { version = "latest", os = ["macos/arm64", "linux/x64", "linux/arm64"], filter_bins = "maturin" }
@@ -90,7 +86,6 @@ claude-code = "latest"
 # Antinote adoption waits for explicit installer licence consent; see vendor-apps.tsv.
 "brew-cask:cotypist" = { os = "macos/arm64", adopt = true }
 "brew-cask:google-chrome" = { os = "macos/arm64", adopt = true }
-"brew-cask:mathpix-snipping-tool" = { os = "macos/arm64", adopt = true }
 # OmniDiskSweeper adoption waits for explicit installer licence consent.
 "brew-cask:plex" = { os = "macos/arm64", adopt = true }
 "brew-cask:qlmarkdown" = { os = "macos/arm64", adopt = true }
@@ -106,7 +101,6 @@ claude-code = "latest"
 "mas:1317704208" = { os = "macos/arm64" } # eduVPN
 "mas:6698876601" = { os = "macos/arm64" } # Folder Preview
 "mas:1504076137" = { os = "macos/arm64" } # geteduroam
-"mas:1444383602" = { os = "macos/arm64" } # Goodnotes
 "mas:1099568401" = { os = "macos/arm64" } # Home Assistant
 # Logic Pro is installed but mas does not recognize its receipt.
 "mas:905953485" = { os = "macos/arm64" } # NordVPN
@@ -133,7 +127,6 @@ claude-code = "latest"
 "brew:gnupg" = { os = "macos/arm64" }
 "brew:graphviz" = { os = "macos/arm64" }
 "brew:harper" = { os = "macos/arm64" }
-"brew:himalaya" = { os = "macos/arm64" }
 "brew:htop" = { os = "macos/arm64" }
 "brew:librsvg" = { os = "macos/arm64" }
 "brew:llvm" = { os = "macos/arm64" }
@@ -230,8 +223,6 @@ os = "macos/arm64"
 # No ref: bootstrap clones missing sources and leaves existing revisions alone.
 [bootstrap.repos]
 "~/Projects/jj-waltz" = { url = "https://github.com/EzraCerpac/jj-waltz.git" }
-"~/Projects/Tools/sift" = { url = "https://github.com/tylergibbs1/sift.git" }
-"~/Projects/Tools/unclutter" = { url = "https://github.com/kitze/unclutter.git" }
 
 [bootstrap.brew.taps]
 "acsandmann/tap" = "https://github.com/acsandmann/homebrew-tap"
@@ -280,7 +271,7 @@ value = true
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/bootstrap/persist-selected" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
+pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/manager/bin/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
 post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
@@ -295,25 +286,14 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.codex/rules/macos.rules" = { source = "dotfiles/.codex/rules/macos.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/portless.rules" = { source = "dotfiles/.codex/rules/portless.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/perch" = { source = "dotfiles/.local/bin/perch", mode = "symlink" }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/fish/functions/omlx-launch.fish" = { source = "dotfiles/.config/fish/functions/omlx-launch.fish", mode = "symlink" }
 "~/.config/fish/functions/spf.fish" = { source = "dotfiles/.config/fish/functions/spf.fish", mode = "symlink" }
 "~/.config/zsh/spf.zsh" = { source = "dotfiles/.config/zsh/spf.zsh", mode = "symlink" }
-"~/.config/fish/completions/herdr.fish" = { source = "dotfiles/.config/fish/completions/herdr.fish", mode = "symlink" }
 "~/.config/fish/completions/tinymist.fish" = { source = "dotfiles/.config/fish/completions/tinymist.fish", mode = "symlink" }
-"~/.config/gh-dash/config.yml" = { source = "dotfiles/.config/gh-dash/config.yml", mode = "symlink" }
 "~/.config/gitlogue/config.toml" = { source = "dotfiles/.config/gitlogue/config.toml", mode = "symlink" }
-"~/.config/goose/.goosehints" = { source = "dotfiles/.config/goose/.goosehints", mode = "symlink" }
-"~/.config/goose/recipes/remove-ai-artifacts.yaml" = { source = "dotfiles/.config/goose/recipes/remove-ai-artifacts.yaml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/ezra-cerpac.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/projects/remote-shells.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-check.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml" = { source = "dotfiles/.config/herdr/plugins/config/cloudmanic.herdr-plus/quick-actions/ezra-cerpac-open-app.toml", mode = "symlink" }
-"~/.config/herdr/plugins/config/herdr-picker-plus/config.toml" = { source = "dotfiles/.config/herdr/plugins/config/herdr-picker-plus/config.toml", mode = "symlink" }
-"~/.config/humanize-text/defaults.toml" = { source = "dotfiles/.config/humanize-text/defaults.toml", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/jj/conf.d/signing.toml" = { source = "templates/.config/jj/conf.d/signing.toml.tera", mode = "template" }
 "~/.config/jj/conf.d/merge.toml" = { source = "dotfiles/.config/jj/conf.d/merge.toml", mode = "symlink" }
 "~/.local/bin/jj-merge" = { source = "dotfiles/.local/bin/jj-merge", mode = "symlink" }
@@ -323,8 +303,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/config.h", mode = "symlink" }
 "~/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/keymap.c", mode = "symlink" }
 "~/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk" = { source = "dotfiles/.config/keyboard/corne-qmk/keymaps/ezra_corne/rules.mk", mode = "symlink" }
-"~/.config/latexindent/latexindent.yaml" = { source = "dotfiles/.config/latexindent/latexindent.yaml", mode = "symlink" }
-"~/.config/lazygit/config.yml" = { source = "dotfiles/.config/lazygit/config.yml", mode = "symlink" }
 "~/.config/marksman/config.toml" = { source = "dotfiles/.config/marksman/config.toml", mode = "symlink" }
 "~/.config/opencode/AGENTS.md" = { source = "dotfiles/.config/opencode/AGENTS.md", mode = "symlink" }
 "~/.config/opencode/opencode.json" = { source = "dotfiles/.config/opencode/opencode.json", mode = "symlink" }
@@ -376,16 +354,10 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.local/bin/toggle-btop" = { source = "dotfiles/.local/bin/toggle-btop", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/wm-focus" = { source = "dotfiles/.local/bin/wm-focus", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/bin/worktree-opencode" = { source = "dotfiles/.local/bin/worktree-opencode", mode = "symlink" }
-"~/.local/bin/humanize-clipboard" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/bin/humanize-text" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/grammarly-bridge/app.js" = { source = "dotfiles/.local/share/grammarly-bridge/app.js", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/grammarly-bridge/index.html" = { source = "dotfiles/.local/share/grammarly-bridge/index.html", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/grammarly-bridge/server.ts" = { source = "dotfiles/.local/share/grammarly-bridge/server.ts", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/grammarly-bridge/style.css" = { source = "dotfiles/.local/share/grammarly-bridge/style.css", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/share/humanize-text/configure.sh" = { source = "dotfiles/.local/share/humanize-text/configure.sh", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/share/humanize-text/main.py" = { source = "dotfiles/.local/share/humanize-text/main.py", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/share/humanize-text/main.py.lock" = { source = "dotfiles/.local/share/humanize-text/main.py.lock", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.local/share/humanize-text/typst_guard_cli.lua" = { source = "dotfiles/.local/share/humanize-text/typst_guard_cli.lua", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.local/share/personal-concierge/antinote-bridge/main.swift" = { source = "dotfiles/.local/share/personal-concierge/antinote-bridge/main.swift", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.markdownlint-cli2.yaml" = { source = "dotfiles/.markdownlint-cli2.yaml", mode = "symlink" }
 "~/.wezterm.lua" = { source = "dotfiles/.wezterm.lua", mode = "symlink", variants = [{ os = "macos" }] }

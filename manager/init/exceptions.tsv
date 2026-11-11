@@ -1,0 +1,7 @@
+# Installer exceptions: one recipe per app that native mise cannot own.
+# Tab-separated columns: profile, name, and optional flags.
+#   profile  base (every profile) or one name from [vars] dots_profiles
+#   name     the executable recipe dots/exceptions/<name>
+#   flags    comma-separated, optional:
+#              install-only    dots up only installs it when missing (the app updates itself)
+#              hold=PACKAGE    the recipe pins PACKAGE (e.g. brew:some-formula); dots add refuses it

@@ -17,8 +17,8 @@ if [[ "$(uname -s)" != Darwin ]]; then
     exit 1
 fi
 
-# shellcheck source=../lib/brew-exception.sh
-source "${SETUP_ROOT}/setup-scripts/lib/brew-exception.sh"
+# shellcheck source=../../manager/lib/brew-exception.sh
+source "${DOTS_HOME:-${SETUP_ROOT}/manager}/lib/brew-exception.sh"
 
 readonly installer_commit="8949852f785a3bacaba2a979d0790337950b0a4a"
 readonly installer_sha256="25548e1da7930c1563dbbe2cb05834a4131c4da09234540b6fdac812fda3c287"

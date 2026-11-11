@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# One dependent chain: prepare Fish, then select it as the login shell.
+set -euo pipefail
+root="${DOTS_ROOT:?run through dots}"
+status=0
+bash "$root/setup-scripts/local/shell-select.sh" || status=$?
+case "$status" in
+    0) printf 'Fish is selected through native mise bootstrap.user settings.\n' ;;
+    3) printf 'Login shell setup needs administrator approval; rerun dots bootstrap after approving it.\n'; exit 3 ;;
+    *) printf 'setup-scripts/local/shell-select.sh needs attention; rerun after resolving its message.\n'; exit 1 ;;
+esac

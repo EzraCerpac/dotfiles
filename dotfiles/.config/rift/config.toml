@@ -123,7 +123,6 @@ app_rules = [
   { app_id = "com.apple.mail", workspace = 12 },
   { app_id = "net.whatsapp.WhatsApp", workspace = 12 },
   { app_id = "com.apple.Music", workspace = 13 },
-  { app_id = "com.github.wez.wezterm", title_regex = "(?i)^herdr([[:space:]]|$)", workspace = 11 },
   { app_id = "com.apple.weather", floating = true },
   { app_id = "com.apple.AddressBook", floating = true },
 ]
@@ -133,7 +132,7 @@ Meh = "Meta + Ctrl + Alt"
 Hyper = "Meta + Ctrl + Alt + Shift"
 
 [keys]
-# Meh focus: Neovim and Herdr get first chance; Rift is the fallback.
+# Meh focus: Neovim gets first chance; Rift is the fallback.
 "Meh + H" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus left"] }
 "Meh + J" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus down"] }
 "Meh + K" = { exec = ["/bin/sh", "-lc", "~/.local/bin/wm-focus up"] }

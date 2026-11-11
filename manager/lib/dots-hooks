@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# List the configuration hooks in DIR that apply to PROFILE, in name order:
+#   dots-hooks DIR PROFILE KNOWN_PROFILE...
+# prints one "LABEL<TAB>PATH" line per hook. The updater and bootstrap both use
+# this, so the hook naming contract lives here only.
+#
+# A hook is a regular executable file named [A-Za-z0-9][A-Za-z0-9._-]*,
+# optionally ending in @PROFILE: such a hook applies only to that profile. Its
+# label is the name without the @PROFILE suffix, a leading order number and a
+# file extension, with dashes and underscores as spaces:
+# 30-Backup-disks.sh@server -> "Backup disks". A missing DIR has no hooks. A suffix
+# naming a profile outside KNOWN_PROFILE... fails with status 2 before
+# anything is printed, so a typo never silently disables a hook.
+set -euo pipefail
+
+directory="${1:?usage: dots-hooks DIR PROFILE KNOWN_PROFILE...}"
+profile="${2:?usage: dots-hooks DIR PROFILE KNOWN_PROFILE...}"
+shift 2
+known=" $* "
+
+[[ -d "$directory" ]] || exit 0
+lines=()
+for path in "$directory"/*; do
+    name="${path##*/}"
+    [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*(@[A-Za-z0-9._-]+)?$ ]] || continue
+    [[ -f "$path" && -x "$path" ]] || continue
+    label="$name"
+    if [[ "$name" == *@* ]]; then
+        label="${name%%@*}"
+        only="${name#*@}"
+        if [[ "$known" != *" $only "* ]]; then
+            printf 'dots: hook %s names unknown profile "%s"; use one of: %s\n' "$path" "$only" "${*}" >&2
+            exit 2
+        fi
+        [[ "$only" == "$profile" ]] || continue
+    fi
+    if [[ "$label" =~ ^[0-9]+[-_](.+)$ ]]; then label="${BASH_REMATCH[1]}"; fi
+    if [[ "$label" =~ ^(.+)\.[A-Za-z0-9]+$ ]]; then label="${BASH_REMATCH[1]}"; fi
+    lines+=("${label//[-_]/ }"$'\t'"$path")
+done
+# The glob is already in name order for the C locale; sort makes it explicit.
+((${#lines[@]})) || exit 0
+printf '%s\n' "${lines[@]}" | LC_ALL=C sort -t $'\t' -k2,2

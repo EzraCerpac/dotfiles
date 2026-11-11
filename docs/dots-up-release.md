@@ -1,6 +1,6 @@
 # dots-up releases
 
-The dashboard release workflow builds the Go module in `setup-scripts/dots-up`
+The dashboard release workflow builds the Go module in `manager/dots-up`
 from a `dots-up-vX.Y.Z` tag and publishes four executables:
 
 - `dots-up-darwin-arm64`

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# dots houseatlas check|apply|status: a deliberate, separate HouseAtlas caller.
+# It never loads mise, synchronizes source or updates packages while reporting
+# its unqualified binding boundary.
+set -euo pipefail
+case "${1:-}" in
+    -h|--help)
+        [[ $# -eq 1 ]] || { echo 'dots: unsupported HouseAtlas arguments' >&2; exit 2; }
+        printf 'Usage: dots houseatlas check|apply|status\nHouseAtlas binding is unavailable; no request is sent.\n'
+        exit 0 ;;
+    check|apply|status)
+        [[ $# -eq 1 ]] || { echo 'dots: HouseAtlas accepts one action; no endpoint, path or command options' >&2; exit 2; } ;;
+    *) echo 'dots: unsupported HouseAtlas action; use check, apply or status' >&2; exit 2 ;;
+esac
+if ! command -v python3 >/dev/null 2>&1; then
+    echo 'dots: HouseAtlas unavailable: python3 is absent; no request was sent' >&2
+    exit 3
+fi
+exec python3 -I "${DOTS_ROOT:-$(cd "$(dirname "$0")/../.." && pwd -P)}/setup-scripts/lib/houseatlas-maintenance.py" "$1"

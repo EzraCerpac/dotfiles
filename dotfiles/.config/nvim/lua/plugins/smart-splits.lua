@@ -71,7 +71,7 @@ return {
       vim.keymap.set(all_modes, "<A-Down>", smart_splits.move_cursor_down, { remap = true })
       vim.keymap.set(all_modes, "<A-Up>", smart_splits.move_cursor_up, { remap = true })
       vim.keymap.set(all_modes, "<A-Right>", smart_splits.move_cursor_right, { remap = true })
-      -- vim-herdr-navigation forwards Herdr navigation as Ctrl+h/j/k/l.
+      -- Ctrl+h/j/k/l move between splits as well.
       vim.keymap.set(all_modes, "<C-h>", smart_splits.move_cursor_left, { remap = true })
       vim.keymap.set(all_modes, "<C-j>", smart_splits.move_cursor_down, { remap = true })
       vim.keymap.set(all_modes, "<C-k>", smart_splits.move_cursor_up, { remap = true })

@@ -5,11 +5,10 @@ Carapace bridge for tools that do not ship a Fish file. `config.fish` passes
 `fish` explicitly to Carapace; omitting that argument makes Carapace reject the
 source request and leaves the bridge empty.
 
-The workstation profile keeps Herdr and Tinymist as small lazy shims. Each
-shim asks the installed binary for its current Fish script when that command's
+The workstation profile keeps Tinymist as a small lazy shim. The shim asks
+the installed binary for its current Fish script when that command's
 completion is first requested, so upgrades do not require checked-in generated
-files. Herdr is verified with `herdr completion fish`; Tinymist is verified
-with `tinymist completion fish`.
+files. Tinymist is verified with `tinymist completion fish`.
 
 Superfile (`spf`) uses ordinary filename completion; no completion generator
 or generated file is tracked for it. See [Superfile](superfile.md).
@@ -18,10 +17,10 @@ The audit of the installed development tools found these working providers:
 
 - Carapace covers the common managed tools, including `age`, `atuin`, `bat`,
   `cargo`, `deno`, `eza`, `fd`, `fzf`, `gh`, `git`, `gitleaks`, `glow`,
-  `lazygit`, `rclone`, `typst`, `wt`, `yt-dlp`, and `zoxide`.
+  `rclone`, `typst`, `wt`, `yt-dlp`, and `zoxide`.
 - Existing Fish or shell initialization covers `atuin`, `fzf`, `jw`, `mole`,
   `openclaw`, `tv`, `wt`, and `zoxide`. Native/vendor files were also observed
-  for `mise`, `jj`, `gh`, `gitleaks`, `glow`, `lazygit`, and `git-lfs`.
+  for `mise`, `jj`, `gh`, `gitleaks`, `glow`, and `git-lfs`.
 - Native Fish generators were checked for `rclone`, `typst`, `starship`, and
   `deno`; Carapace already provides their interactive command completions, so
   no duplicate generated files are tracked.
@@ -39,7 +38,6 @@ where Fish can provide it.
 Validate the integration with:
 
 ```sh
-fish -n ~/.config/fish/config.fish ~/.config/fish/completions/herdr.fish
-fish -i -c 'complete -C "herdr "'
+fish -n ~/.config/fish/config.fish ~/.config/fish/completions/tinymist.fish
 fish -i -c 'complete -C "tinymist "'
 ```

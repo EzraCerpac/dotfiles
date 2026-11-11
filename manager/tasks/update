@@ -1,0 +1,602 @@
+#!/usr/bin/env bash
+# MISE description="Checkpoint settings and update declared packages, tools, exceptions, configuration hooks, and mise"
+set -euo pipefail
+
+source "$(dirname "$0")/../lib/setup-common.sh"
+source "$(dirname "$0")/../lib/dots-up-events.sh"
+include_mas=0
+plain_output="${DOTS_UP_PLAIN:-0}"
+verbose_output="${DOTS_UP_VERBOSE:-0}"
+for argument in "$@"; do
+    case "$argument" in
+        --mas) include_mas=1 ;;
+        --plain) plain_output=1 ;;
+        --verbose) verbose_output=1 ;;
+        -h|--help)
+            printf 'Usage: dots up [--mas] [--plain] [--verbose]\n\nMac App Store updates are skipped by default.\n--mas includes them on macOS hosts that declare mas: packages.\n'
+            exit 0
+            ;;
+        *) setup_error "unknown update option: $argument (usage: dots up [--mas])"; exit 2 ;;
+    esac
+done
+setup_init || exit $?
+if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_DIR:-}" ]]; then
+    state_root="${XDG_STATE_HOME:-${HOME:?HOME must be set}/.local/state}/dots/up"
+    mkdir -p "$state_root" || exit 1
+    chmod 700 "$state_root" || exit 1
+    DOTS_UP_RUN_DIR="$state_root/$(date -u +%Y%m%dT%H%M%SZ)-$$"
+    mkdir -p "$DOTS_UP_RUN_DIR/stages" || exit 1
+    chmod 700 "$DOTS_UP_RUN_DIR" "$DOTS_UP_RUN_DIR/stages" || exit 1
+    : > "$DOTS_UP_RUN_DIR/.active"
+    chmod 600 "$DOTS_UP_RUN_DIR/.active"
+    export DOTS_UP_RUN_DIR
+fi
+if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_EVENT_JQ:-}" ]]; then
+    DOTS_UP_EVENT_JQ="$(setup_mise which jq 2>/dev/null || true)"
+    export DOTS_UP_EVENT_JQ
+fi
+
+emit_event() {
+    dots_up_emit_event "$1"
+}
+event_json() {
+    dots_up_event_json "$@"
+}
+start_event_stage() {
+    local id="$1" group="$2" label="$3" terminal="${4:-hidden}"
+    emit_event "$(event_json --arg id "$id" --arg group "$group" --arg label "$label" --arg terminal "$terminal" '{v:1,kind:"stage_start",id:$id,group:$group,label:$label,terminal:$terminal}')"
+    if [[ "$terminal" == handoff && -n "${DOTS_UP_ACK_FD:-}" ]]; then
+        local acknowledgement
+        IFS= read -r -u "$DOTS_UP_ACK_FD" acknowledgement || return 1
+        [[ "$acknowledgement" == "go:$id" ]] || return 1
+    fi
+}
+event_group() {
+    case "$1" in
+        "Sync configuration"|*settings*checkpoint*) printf 'Source & settings' ;;
+        "new Homebrew formulae"|"Homebrew formulae"|"new Homebrew casks"|"Homebrew casks"|"Mac App Store tool"|"Mac App Store authorization"|"Mac App Store result"|"newly declared host packages"|"declared host packages") printf 'Packages' ;;
+        "newly declared mise tools"|"declared mise tools"|"standalone mise") printf 'Tools' ;;
+        "installer exception"*) printf 'Managed apps/local builds' ;;
+        *) printf 'Final checks' ;;
+    esac
+}
+# Whether this host's configuration files declare a package of MANAGER
+# (brew-cask, mas, ...). Package keys contain a colon, so TOML quotes them.
+declares_packages() {
+    local manager file
+    local -a configs=("$SETUP_ROOT/config.toml" "$SETUP_ROOT/config.$SETUP_PROFILE.toml")
+    [[ -z "$SETUP_MACHINE_ID" ]] || configs+=("$SETUP_ROOT/config.host-$SETUP_MACHINE_ID.toml")
+    configs+=("$SETUP_ROOT/config.local.toml")
+    for file in "${configs[@]}"; do
+        [[ -f "$file" ]] || continue
+        for manager in "$@"; do
+            grep -Eq "^[[:space:]]*(\[bootstrap\.packages\.)?[\"']$manager:" "$file" && return 0
+        done
+    done
+    return 1
+}
+snapshot_stage() {
+    local group="$1" label="$2" data declared
+    if [[ "$label" == 'standalone mise' ]]; then
+        local version
+        version="$("$(resolve_mise_bin)" --version 2>/dev/null)" || return 1
+        [[ -n "$version" ]] || return 1
+        setup_mise exec -- jq -cn --arg value "$version" '[{item:"mise",value:$value}]'
+        return
+    fi
+    case "$group" in
+        Tools)
+            data="$(setup_mise ls --json 2>/dev/null)" || return 1
+            printf '%s' "$data" | setup_mise exec -- jq -ce '
+                [to_entries[] as $tool | $tool.value[]?
+                    | select(.active == true and .installed == true and (.version | type == "string"))
+                    | {item:$tool.key,value:.version}]
+                | sort_by(.item)
+            ' 2>/dev/null
+            ;;
+        Packages)
+            if command -v brew >/dev/null 2>&1; then
+                local -a configs=("$SETUP_ROOT/config.toml" "$SETUP_ROOT/config.$SETUP_PROFILE.toml")
+                [[ -n "$SETUP_MACHINE_ID" ]] && configs+=("$SETUP_ROOT/config.host-$SETUP_MACHINE_ID.toml")
+                [[ -f "$SETUP_ROOT/config.local.toml" ]] && configs+=("$SETUP_ROOT/config.local.toml")
+                declared="$(setup_mise exec -- python3 - "${configs[@]}" 2>/dev/null <<'PY'
+import json, sys, tomllib
+keys = set()
+for path in sys.argv[1:]:
+    try:
+        with open(path, "rb") as source:
+            packages = tomllib.load(source).get("bootstrap", {}).get("packages", {})
+        keys.update(key for key in packages if key.startswith(("brew:", "brew-cask:")))
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+print(json.dumps(sorted(keys), separators=(",", ":")))
+PY
+                )" || return 1
+                local formulas casks installed
+                formulas="$(brew list --versions --formula 2>/dev/null | awk '{print "brew:" $1 "\t" substr($0, index($0, $2))}')" || return 1
+                casks="$(brew list --versions --cask 2>/dev/null | awk '{print "brew-cask:" $1 "\t" substr($0, index($0, $2))}')" || return 1
+                installed="${formulas}${formulas:+$'\n'}${casks}"
+                printf '%s\n' "$installed" | setup_mise exec -- jq -Rn --argjson declared "$declared" '
+                    [inputs | split("\t") as $row | select(($row | length) == 2 and ($declared | index($row[0])))
+                        | {item:$row[0],value:$row[1]}]
+                    | sort_by(.item)
+                ' 2>/dev/null
+            else
+                printf '[]'
+            fi
+            ;;
+        *) printf '[]' ;;
+    esac
+}
+emit_snapshot_changes() {
+    local stage="$1" before="$2" after="$3" changes
+    dots_up_event_sink_enabled || return 0
+    changes="$(setup_mise exec -- jq -cn --arg stage "$stage" --argjson before "${before:-[]}" --argjson after "${after:-[]}" '
+        ($before | map({key:.item,value:.value}) | from_entries) as $b |
+        ($after | map({key:.item,value:.value}) | from_entries) as $a |
+        ((($b | keys) + ($a | keys)) | unique[]) as $item |
+        select(($b[$item] // null) != ($a[$item] // null)) |
+        {v:1,kind:"change",stage:$stage,item:$item,action:(if ($b | has($item) | not) then "installed" elif ($a | has($item) | not) then "removed" else "updated" end),before:($b[$item] // "not installed"),after:($a[$item] // "not installed")}
+    ' 2>/dev/null || true)"
+    [[ -n "$changes" ]] || return 0
+    while IFS= read -r event; do [[ -n "$event" ]] && emit_event "$event"; done <<< "$changes"
+}
+# Hooks and installer exception recipes may append "ITEM<TAB>BEFORE<TAB>AFTER"
+# lines to $DOTS_CHANGES; each becomes a change in its stage report, like the
+# package and tool changes above. An empty or "not installed" side marks an
+# installation or removal; the same value on both sides marks a rebuild.
+change_action() {
+    local before="$1" after="$2" before_missing=0 after_missing=0
+    [[ -n "$before" && "$before" != 'not installed' ]] || before_missing=1
+    [[ -n "$after" && "$after" != 'not installed' ]] || after_missing=1
+    if [[ "$before_missing" -eq 1 && "$after_missing" -eq 0 ]]; then printf installed
+    elif [[ "$before_missing" -eq 0 && "$after_missing" -eq 1 ]]; then printf removed
+    elif [[ "$before_missing" -eq 0 && "$before" != "$after" ]]; then printf updated
+    else printf changed
+    fi
+}
+emit_reported_changes() {
+    local stage="$1" file="$2" line item rest before after ignored=0
+    [[ -s "$file" ]] || return 0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -n "$line" ]] || continue
+        item="${line%%$'\t'*}"
+        rest="${line#*$'\t'}"
+        before="${rest%%$'\t'*}"
+        after="${rest#*$'\t'}"
+        if [[ "$line" != *$'\t'*$'\t'* || "$after" == *$'\t'* || -z "$item" ]]; then
+            ignored=$((ignored + 1))
+            continue
+        fi
+        emit_event "$(event_json --arg stage "$stage" --arg item "$item" --arg action "$(change_action "$before" "$after")" --arg before "$before" --arg after "$after" '{v:1,kind:"change",stage:$stage,item:$item,action:$action,before:$before,after:$after}')"
+    done < "$file"
+    if [[ "$ignored" -gt 0 ]]; then
+        printf 'Note: ignored %s malformed DOTS_CHANGES line(s); expected ITEM<TAB>BEFORE<TAB>AFTER.\n' "$ignored"
+        dots_up_emit_notice info "Ignored $ignored malformed change line(s) from this stage" "Write ITEM<TAB>BEFORE<TAB>AFTER lines to DOTS_CHANGES" "$stage"
+    fi
+}
+
+if dots_up_event_sink_enabled && [[ -z "${DOTS_UP_RUN_STARTED:-}" ]]; then
+    export DOTS_UP_RUN_STARTED=1
+    emit_event "$(event_json --arg profile "$SETUP_PROFILE" --arg host "$(hostname -s 2>/dev/null || uname -n)" '{v:1,kind:"run_start",profile:$profile,host:$host}')"
+fi
+
+# Validate the selected config without installing tools. A failed check can also
+# indicate a trust or other loading error, so preserve mise's diagnostic.
+validate_update_config() {
+    local diagnostic
+    if diagnostic="$(setup_mise config ls 2>&1)"; then
+        return 0
+    fi
+    setup_error 'cannot load update configuration; dependent updates stopped. Review the diagnostic and rerun dots up.'
+    printf '%s\n' "$diagnostic" >&2
+    emit_event "$(event_json --arg summary 'Cannot load update configuration; dependent updates stopped' --arg action 'Review the configuration diagnostic and rerun dots up' '{v:1,kind:"notice",severity:"error",summary:$summary,action:$action}')"
+    return 1
+}
+
+abort_invalid_config() {
+    # The optional App Store installer may already be running independently.
+    # Wait for it and emit its outcome before returning control to the caller.
+    if [[ -n "${app_store_pid:-}" ]]; then
+        finish_app_store_packages || true
+    fi
+    exit 1
+}
+
+validate_update_config || abort_invalid_config
+
+# Reload after sync so maintenance runs from the newly adopted source.
+if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
+    sync_result=0
+    sync_log=""
+    if [[ "$plain_output" -eq 1 ]]; then printf 'Working: Sync configuration\n'; fi
+    if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" && ( ! -t 0 || ! -t 1 ) ]]; then
+        sync_log="$DOTS_UP_RUN_DIR/stages/source-sync.log"
+        if ! { : > "$sync_log" && chmod 600 "$sync_log"; }; then
+            printf 'Warning: could not create the source sync log; showing its output directly.\n' >&2
+            sync_log=""
+        fi
+    fi
+    if dots_up_event_sink_enabled; then
+        start_event_stage source-sync 'Source & settings' 'Sync configuration' hidden
+    fi
+    if [[ -n "$sync_log" ]]; then
+        setup_mise exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$SETUP_ROOT" > "$sync_log" 2>&1 || sync_result=$?
+    else
+        setup_mise exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$SETUP_ROOT" || sync_result=$?
+    fi
+    case "$sync_result" in
+        0|3) ;;
+        *)
+            setup_error 'source synchronization failed; dependent updates stopped'
+            if [[ -n "$sync_log" ]]; then
+                printf 'Recent output:\n' >&2
+                tail -n 30 "$sync_log" >&2 || true
+                printf 'Full log: %s\n' "$sync_log" >&2
+            fi
+            emit_event "$(event_json --arg id source-sync --arg summary 'Source sync failed; updates stopped' --argjson code "$sync_result" '{v:1,kind:"stage_end",id:$id,status:"failed",exit_code:$code,summary:$summary}')"
+            exit "$sync_result"
+            ;;
+    esac
+    if [[ "$sync_result" -eq 3 ]]; then
+        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: source sync deferred; see the source sync log for details.\n'; fi
+        emit_event "$(event_json --arg summary 'Source sync deferred; see the source sync log for details' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
+        emit_event "$(event_json --arg id source-sync --arg summary 'Source sync deferred' '{v:1,kind:"stage_end",id:$id,status:"attention",exit_code:0,summary:$summary}')"
+    else
+        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: completed\n'; fi
+        emit_event "$(event_json --arg id source-sync --arg summary 'Source synchronized' '{v:1,kind:"stage_end",id:$id,status:"ok",exit_code:0,summary:$summary}')"
+    fi
+    export DOTS_SOURCE_SYNC_DONE=1 DOTS_SOURCE_SYNC_RESULT="$sync_result"
+    exec "$(resolve_mise_bin)" -C "$SETUP_ROOT" -E "$SETUP_ENVIRONMENTS" exec -- bash "$DOTS_HOME/tasks/update" "$@"
+fi
+
+failures=()
+deferred=()
+# run_stage LABEL [--terminal-handoff] [--hook | --changes] COMMAND...
+# A --hook stage follows the hook contract: exit 3 is deferred (needs
+# attention), 4 is skipped, and any other nonzero status is a failure.
+# --hook and --changes stages get a DOTS_CHANGES file for their change reports.
+run_stage() {
+    local label="$1"
+    shift
+    local terminal=hidden hook=0 reports_changes=0
+    if [[ "${1:-}" == --terminal-handoff ]]; then terminal=handoff; shift; fi
+    if [[ "${1:-}" == --hook ]]; then hook=1 reports_changes=1; shift
+    elif [[ "${1:-}" == --changes ]]; then reports_changes=1; shift; fi
+    local event_id="${label//[^a-zA-Z0-9]/-}"
+    local group=Hooks
+    [[ "$hook" -eq 1 ]] || group="$(event_group "$label")"
+    local before_snapshot='[]' after_snapshot='[]' before_valid=0 after_valid=0
+    local stage_log="" handoff_failed=0
+    if dots_up_event_sink_enabled; then
+        emit_event "$(event_json --arg id "$event_id" --arg group "$group" --arg label "$label" --arg terminal "$terminal" '{v:1,kind:"stage_start",id:$id,group:$group,label:$label,terminal:$terminal}')"
+        if [[ "$terminal" == handoff && -n "${DOTS_UP_ACK_FD:-}" ]]; then
+            local acknowledgement
+            if ! IFS= read -r -u "$DOTS_UP_ACK_FD" acknowledgement; then
+                setup_error "terminal handoff did not complete for $label"
+                handoff_failed=1
+            elif [[ "$acknowledgement" != "go:$event_id" ]]; then
+                setup_error "invalid terminal handoff for $label"
+                handoff_failed=1
+            fi
+        fi
+    fi
+    if dots_up_event_sink_enabled; then
+        before_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$before_snapshot" == \[*\] ]] && before_valid=1 || true
+    fi
+    if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
+        stage_log="$DOTS_UP_RUN_DIR/stages/$event_id.log"
+        if ! { : > "$stage_log" && chmod 600 "$stage_log"; }; then
+            printf 'Warning: could not create the %s log; showing its output directly.\n' "$label" >&2
+            stage_log=""
+        fi
+    fi
+    if [[ "$plain_output" -eq 1 ]]; then printf 'Working: %s\n' "$label"; else printf '\n== %s ==\n' "$label"; fi
+    local result=0 changes_file=""
+    if [[ "$reports_changes" -eq 1 ]]; then
+        if changes_file="$(mktemp "${TMPDIR:-/tmp}/dots-changes.XXXXXX")"; then
+            export DOTS_CHANGES="$changes_file"
+        else
+            changes_file=""
+        fi
+    fi
+    if [[ "$handoff_failed" -eq 1 ]]; then
+        result=1
+    elif [[ -n "$stage_log" && ( "$terminal" != handoff || ! -t 0 || ! -t 1 ) ]]; then
+        "$@" > "$stage_log" 2>&1 || result=$?
+    else
+        "$@" || result=$?
+    fi
+    if [[ -n "$changes_file" ]]; then
+        unset DOTS_CHANGES
+        emit_reported_changes "$event_id" "$changes_file"
+        rm -f -- "$changes_file"
+    fi
+    if dots_up_event_sink_enabled; then
+        after_snapshot="$(snapshot_stage "$group" "$label" 2>/dev/null)" && [[ "$after_snapshot" == \[*\] ]] && after_valid=1 || true
+        if [[ "$before_valid" -eq 1 && "$after_valid" -eq 1 ]]; then
+            emit_snapshot_changes "$event_id" "$before_snapshot" "$after_snapshot"
+        fi
+    fi
+    if [[ "$result" -eq 0 ]]; then
+        local summary="completed"
+        printf 'Result: completed\n'
+        if dots_up_event_sink_enabled; then
+            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "$summary" '{v:1,kind:"stage_end",id:$id,label:$label,status:"ok",exit_code:0,summary:$summary}')"
+        fi
+    elif [[ "$hook" -eq 1 && ( "$result" -eq 3 || "$result" -eq 4 ) ]]; then
+        local status=skipped summary=skipped
+        if [[ "$result" -eq 3 ]]; then
+            status=attention summary="deferred; needs attention"
+            deferred+=("$label")
+        fi
+        printf 'Result: %s\n' "$summary"
+        if dots_up_event_sink_enabled; then
+            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg status "$status" --arg summary "$summary" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:$status,exit_code:$code,summary:$summary}')"
+        fi
+        return 0
+    else
+        printf 'Result: failed (exit %s)\n' "$result"
+        if [[ -n "$stage_log" ]]; then
+            printf 'Recent output:\n' >&2
+            tail -n 30 "$stage_log" >&2 || true
+            printf 'Full log: %s\n' "$stage_log" >&2
+        fi
+        failures+=("$label")
+        if dots_up_event_sink_enabled; then
+            emit_event "$(event_json --arg id "$event_id" --arg label "$label" --arg summary "failed (exit $result)" --argjson code "$result" '{v:1,kind:"stage_end",id:$id,label:$label,status:"failed",exit_code:$code,summary:$summary}')"
+        fi
+        validate_update_config || abort_invalid_config
+        return "$result"
+    fi
+    return 0
+}
+
+if ! run_stage 'Pre-update settings checkpoint' setup_mise bootstrap dotfiles save; then
+    setup_error "pre-update settings checkpoint failed; no updates were started"
+    exit 1
+fi
+
+app_store_pid=""
+app_store_log=""
+app_store_authorized=0
+prepare_app_store_tool() {
+    setup_mise bootstrap packages apply --manager brew --yes brew:mas || return $?
+    setup_mise bootstrap packages upgrade --manager brew --yes brew:mas
+}
+
+authorize_app_store_packages() {
+    if sudo -n true >/dev/null 2>&1; then
+        app_store_authorized=1
+        return 0
+    fi
+    if [[ -t 0 && -t 1 ]]; then
+        if sudo -v; then
+            app_store_authorized=1
+            return 0
+        fi
+        emit_event "$(event_json --arg summary 'Mac App Store updates deferred; administrator authorization was not granted.' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
+        printf 'Deferred: Mac App Store updates need administrator authorization.\n'
+        return 0
+    fi
+    emit_event "$(event_json --arg summary 'Mac App Store updates deferred; administrator authorization needs an interactive terminal.' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
+    printf 'Deferred: App Store updates need administrator authorization; run dots up --mas in an interactive terminal.\n'
+    return 0
+}
+
+start_app_store_packages() {
+    [[ "$app_store_authorized" -eq 1 ]] || return 0
+    if [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
+        app_store_log="$DOTS_UP_RUN_DIR/app-store.log"
+        : > "$app_store_log"
+        chmod 600 "$app_store_log"
+    else
+        app_store_log="$(mktemp "${TMPDIR:-/tmp}/dots-mas-update.XXXXXX")" || return $?
+        chmod 600 "$app_store_log"
+    fi
+    emit_event "$(event_json --arg id mac-app-store --arg group Packages --arg label 'Mac App Store updates' --arg status running --arg log_path "$app_store_log" '{v:1,kind:"app_store_start",id:$id,group:$group,label:$label,status:$status,log_path:$log_path}')"
+    (
+        setup_mise bootstrap packages apply --manager mas --yes &&
+            setup_mise bootstrap packages upgrade --manager mas --yes
+    ) > "$app_store_log" 2>&1 &
+    app_store_pid=$!
+    printf 'Mac App Store updates started alongside Homebrew casks.\n'
+}
+
+finish_app_store_packages() {
+    [[ -n "$app_store_pid" ]] || return 0
+    printf 'Waiting for Mac App Store updates...\n'
+    local result=0
+    wait "$app_store_pid" || result=$?
+    local status=ok summary=completed
+    if [[ "$result" -ne 0 ]]; then
+        status=failed
+        summary="failed (exit $result)"
+    fi
+    emit_event "$(event_json --arg id mac-app-store --arg status "$status" --arg summary "$summary" --argjson code "$result" --arg log_path "$app_store_log" '{v:1,kind:"app_store_end",id:$id,status:$status,exit_code:$code,summary:$summary,log_path:$log_path}')"
+    if [[ "$verbose_output" -eq 1 ]]; then cat "$app_store_log"; fi
+    app_store_pid=""
+    return "$result"
+}
+
+brew_formula_packages=()
+apply_other_homebrew_formulae() {
+    local status_json selected package
+    status_json="$(setup_mise bootstrap packages status --json)" || return $?
+    selected="$(printf '%s' "$status_json" | setup_mise exec -- jq -r '
+        (.brew.packages | if type == "array" then . else error("missing brew status") end)[]
+        | select(.package != "mas")
+        | (.package | if type == "string" and length > 0 then "brew:\(.)" else error("missing formula name") end)
+    ')" || return $?
+    brew_formula_packages=()
+    if [[ -z "$selected" ]]; then
+        printf 'No other Homebrew formulae are declared.\n'
+        return 0
+    fi
+    while IFS= read -r package; do
+        brew_formula_packages+=("$package")
+    done <<< "$selected"
+    setup_mise bootstrap packages apply --manager brew --yes "${brew_formula_packages[@]}"
+}
+
+upgrade_other_homebrew_formulae() {
+    if [[ ${#brew_formula_packages[@]} -eq 0 ]]; then
+        printf 'No other Homebrew formulae need a routine upgrade.\n'
+        return 0
+    fi
+    setup_mise bootstrap packages upgrade --manager brew --yes "${brew_formula_packages[@]}"
+}
+
+upgrade_homebrew_casks() {
+    local status_json selected package self_updating
+    local -a packages
+
+    status_json="$(setup_mise bootstrap packages status --json)" || return $?
+    # Casks whose apps update themselves without auto_updates metadata are
+    # listed in the optional [vars] dots_self_updating_casks.
+    self_updating="$(setup_dots_list dots_self_updating_casks optional)" || return $?
+    selected="$(printf '%s' "$status_json" | setup_mise exec -- jq -r --arg skip "$self_updating" '
+        ($skip | split("\n") | map(select(length > 0))) as $skip
+        | (."brew-cask".packages | if type == "array" then . else error("missing brew-cask status") end)[]
+        | select(.state == "installed" and .auto_updates != true)
+        | select(.package as $package | $skip | index($package) | not)
+        | (.package | if type == "string" and length > 0 then "brew-cask:\(.)" else error("missing cask token") end)
+    ')" || return $?
+    if [[ -z "$selected" ]]; then
+        printf 'No ordinary Homebrew casks need a routine upgrade.\n'
+        return 0
+    fi
+    while IFS= read -r package; do
+        packages+=("$package")
+    done <<< "$selected"
+    setup_mise bootstrap packages upgrade --manager brew-cask --yes "${packages[@]}"
+}
+
+# A macOS host that declares casks or App Store apps gets separate formula and
+# cask stages (casks honor self-updating apps) and the opt-in App Store
+# stages; every other host uses the native package manager in one pass.
+homebrew_apps=0 app_store=0
+if [[ "$(uname -s 2>/dev/null || true)" == Darwin ]]; then
+    if declares_packages mas; then app_store=1 homebrew_apps=1; fi
+    if declares_packages brew-cask; then homebrew_apps=1; fi
+fi
+if [[ "$homebrew_apps" -eq 1 ]]; then
+    if [[ "$app_store" -eq 1 && "$include_mas" -eq 1 ]]; then
+        if run_stage "Mac App Store tool" prepare_app_store_tool; then
+            if run_stage "Mac App Store authorization" --terminal-handoff authorize_app_store_packages; then
+                if start_app_store_packages; then
+                    :
+                else
+                    stage_result=$?
+                    emit_event "$(event_json --arg id mac-app-store --arg status failed --arg summary "could not start (exit $stage_result)" --argjson code "$stage_result" '{v:1,kind:"app_store_end",id:$id,status:$status,summary:$summary,exit_code:$code}')"
+                    printf 'Mac App Store updates could not start (exit %s).\n' "$stage_result"
+                    failures+=("Mac App Store packages")
+                fi
+            fi
+        fi
+    elif [[ "$app_store" -eq 1 ]]; then
+        printf '\nSkipped: Mac App Store updates (use dots up --mas to include them).\n'
+        emit_event "$(event_json --arg summary 'Mac App Store updates intentionally skipped; use --mas to include them.' '{v:1,kind:"notice",severity:"info",summary:$summary}')"
+    fi
+    if run_stage "new Homebrew formulae" apply_other_homebrew_formulae; then
+        run_stage "Homebrew formulae" upgrade_other_homebrew_formulae || true
+    fi
+    if run_stage "new Homebrew casks" --terminal-handoff setup_mise bootstrap packages apply --manager brew-cask --yes; then
+        run_stage "Homebrew casks" --terminal-handoff upgrade_homebrew_casks || true
+    fi
+else
+    if [[ "$(uname -s 2>/dev/null || true)" != Darwin ]]; then
+        # Native Linux package managers may ask sudo for changes. Give them
+        # direct terminal access while they run so the dashboard cannot hide
+        # an authorization prompt.
+        if run_stage "newly declared host packages" --terminal-handoff setup_mise bootstrap packages apply --yes; then
+            run_stage "declared host packages" --terminal-handoff setup_mise bootstrap packages upgrade --yes || true
+        fi
+    elif run_stage "newly declared host packages" setup_mise bootstrap packages apply --yes; then
+        run_stage "declared host packages" setup_mise bootstrap packages upgrade --yes || true
+    fi
+fi
+# Upgrade declared tools without pruning; tools pinned to a revision keep it.
+upgrade_declared_tools() {
+    local tool_state pinned_tools tool retained=""
+    local -a upgrade_args=(upgrade --no-prune)
+    tool_state="$(setup_mise ls --current --json)" || return $?
+    pinned_tools="$(printf '%s' "$tool_state" | setup_mise exec -- jq -r '
+        to_entries[]
+        | select(.value | length > 0)
+        | select(all(.value[]; (.requested_version // "" | startswith("rev:"))))
+        | .key
+    ')" || return $?
+    if [[ -n "$pinned_tools" ]]; then
+        while IFS= read -r tool; do
+            upgrade_args+=(--exclude "$tool")
+            retained="${retained}${retained:+, }${tool}"
+        done <<< "$pinned_tools"
+        printf 'Retaining configured revision pins: %s\n' "$retained"
+    fi
+    setup_mise "${upgrade_args[@]}"
+}
+
+# Hooks learn whether the tools stages succeeded.
+export DOTS_TOOLS_OK=0 DOTS_TOOLS_UPGRADED=0
+if run_stage "newly declared mise tools" setup_mise install; then
+    DOTS_TOOLS_OK=1
+    if run_stage "declared mise tools" upgrade_declared_tools; then DOTS_TOOLS_UPGRADED=1; fi
+fi
+
+run_exception() {
+    local name="$1" script_path="$2" flags="$3"
+    if setup_exception_has_flag "$flags" install-only; then
+        run_stage "installer exception: $name" --changes setup_mise exec -- "$script_path" --install-only || true
+    else
+        run_stage "installer exception: $name" --changes setup_mise exec -- "$script_path" || true
+    fi
+}
+
+if ! setup_each_exception run_exception; then
+    failures+=("installer exception manifest")
+fi
+
+# Configuration hooks (dots/hooks/update.d) run after installer exceptions, in
+# name order, each as its own stage with this run's stdin; a failed hook does
+# not stop later ones. An invalid hook name runs none of them.
+if hook_list="$(setup_list_hooks "$SETUP_ROOT/dots/hooks/update.d")"; then
+    # Read the list on descriptor 9 so each hook keeps this run's stdin.
+    while IFS=$'\t' read -r -u 9 hook_label hook_path; do
+        [[ -z "$hook_path" ]] || run_stage "$hook_label" --hook setup_mise exec -- "$hook_path" 9<&- || true
+    done 9<<< "$hook_list"
+else
+    failures+=("update hooks")
+fi
+
+if [[ "$include_mas" -eq 1 && "$app_store" -eq 1 ]]; then
+    run_stage "Mac App Store result" finish_app_store_packages || true
+fi
+
+# Standalone mise updates last. A Homebrew-owned installation will report that
+# self-update is disabled; the migration will switch ownership before relying on it.
+run_stage "standalone mise" setup_mise self-update --yes || true
+
+if ! run_stage 'Post-update settings checkpoint' setup_mise bootstrap dotfiles save; then
+    setup_error "post-update settings checkpoint failed"
+fi
+
+if [[ "${#failures[@]}" -eq 0 ]]; then
+    if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
+        printf '\nUpdate report: completed; source sync deferred; see the source sync log for details.\n'
+        exit 0
+    fi
+    if [[ "${#deferred[@]}" -gt 0 ]]; then
+        printf '\nUpdate report: completed; needs attention: '
+        printf '%s; ' "${deferred[@]}"
+        printf '\n'
+        exit 0
+    fi
+    printf '\nUpdate report: completed; no updater failures.\n'
+    exit 0
+fi
+
+printf '\nUpdate report: failures: '
+printf '%s; ' "${failures[@]}"
+printf '\n'
+exit 1

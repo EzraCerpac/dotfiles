@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "${DOTS_HOME:-$(dirname "$0")/../../manager}/lib/brew-exception.sh"
+hold_brew_cask_exception \
+    karabiner-elements \
+    16.0.0 \
+    "${KARABINER_APP_PATH:-/Applications/Karabiner-Elements.app}" \
+    'keyboard compatibility hold'
