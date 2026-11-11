@@ -311,7 +311,30 @@ test('another worktree cannot quietly move dev under the live files', available,
   assert.equal(read(f.a, 'moved'), 'dev moved\n'); f.clean(f.a);
 });
 
-test('a checkout in the wrong shape stops with one message pointing at the migration doc', available, t => {
+test('files follow dev when it moved outside sync and nothing changed locally', available, t => {
+  const f = fixture(t);
+  const wt = path.join(f.dir, 'task');
+  git(f.a, 'worktree', 'add', '-q', '--detach', wt, 'dev');
+  f.write(wt, 'moved', 'dev moved\n'); git(wt, 'add', '.'); git(wt, 'commit', '-qm', 'Move dev');
+  git(wt, 'update-ref', 'refs/heads/dev', git(wt, 'rev-parse', 'HEAD'));
+  const { text } = f.sync(f.a);
+  assert.match(text, /dev moved outside sync/);
+  assert.equal(read(f.a, 'moved'), 'dev moved\n'); f.clean(f.a);
+});
+
+test('an index staged to match an older commit loses no file content', available, t => {
+  const f = fixture(t);
+  f.write(f.a, 'text', 'changed\n'); f.sync(f.a);
+  git(f.a, 'checkout', 'HEAD~1', '--', 'text'); // hand-staged revert: index tree equals HEAD~1's
+  f.write(f.a, 'other', 'unstaged edit\n');
+  const { text } = f.sync(f.a);
+  // The staged revert reads as a stale base: it is reported and undone, but every file on disk is shared.
+  assert.match(text, /the index was staged to match [0-9a-f]{12}; local files were merged onto dev, not reverted/);
+  assert.equal(git(f.origin, 'show', 'dev:other'), 'unstaged edit');
+  assert.equal(read(f.a, 'text'), 'changed\n'); f.clean(f.a);
+});
+
+test('a checkout in the wrong shape stops with one message pointing at the sync guide', available, t => {
   const f = fixture(t);
   const before = f.remote();
   const expect = (problem, prepare, undo) => {
@@ -319,7 +342,7 @@ test('a checkout in the wrong shape stops with one message pointing at the migra
     const { code, text } = f.sync(f.a);
     assert.equal(code, 1);
     assert.equal(text.split('\n').length, 1);
-    assert.match(text, new RegExp(`^dots sync: stopped · ${problem}\\. .*docs/sync-migration\\.md$`));
+    assert.match(text, new RegExp(`^dots sync: stopped · ${problem}\\. .*/docs/sync\\.md$`));
     undo();
   };
   expect('HEAD is detached, not on dev', () => git(f.a, 'switch', '-q', '--detach'), () => git(f.a, 'switch', '-q', 'dev'));

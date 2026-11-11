@@ -51,7 +51,8 @@ const command = (bin, args, root, options = {}) => {
   if (result.error || result.status !== 0) throw new Error(`${bin} failed: ${result.error?.message || String(result.stderr || '').trim() || `exit ${result.status}`}`);
   return trimOutput ? result.stdout?.trim() || '' : result.stdout || '';
 };
-export const MIGRATION_DOC = 'docs/sync-migration.md';
+// The sync guide explains the checkout shape and how to convert an older one.
+export const SYNC_DOC = fileURLToPath(new URL('../docs/sync.md', import.meta.url));
 const fatal = message => Object.assign(new Error(message), { fatal: true });
 
 function metadata(root) {
@@ -74,7 +75,7 @@ export function ensureRepository(root, { expectedRemote } = {}) {
 }
 
 // The one shape sync works on: plain Git with HEAD on dev and no legacy state.
-// Converting an older checkout is a one-time manual step (MIGRATION_DOC).
+// Converting an older checkout is a one-time manual step (SYNC_DOC).
 export function shapeProblem({ root, gitDir }) {
   if (fs.existsSync(path.join(root, '.jj'))) return 'a JJ workspace (.jj) is present';
   if (fs.existsSync(path.join(gitDir, 'dots-dev.json'))) return 'legacy sync state (.git/dots-dev.json) is present';
@@ -195,7 +196,7 @@ export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, l
     // An isolated Git index checks only public incoming rules. No private files,
     // global excludes, or repository-local excludes are copied into the preview.
     command('git', ['init', '--quiet', '--template=', preview], root);
-    const names = [...new Set(['config.local.toml', 'miserc.toml', 'config.host-source-only.toml', ...local])];
+    const names = [...new Set(['config.local.toml', 'miserc.toml', 'config.host-probe.toml', ...local])];
     const result = spawnSync('git', ['-c', `core.excludesFile=${os.devNull}`, 'check-ignore', '--no-index', '-z', '--stdin'], {
       cwd: preview, encoding: 'utf8', input: names.join('\0') + '\0',
     });
@@ -250,7 +251,7 @@ export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = co
   try {
     info = ensureRepository(root, { expectedRemote });
     const problem = shapeProblem(info);
-    if (problem) throw fatal(`${problem}. Sync needs a plain Git checkout on dev; convert this machine once by hand: see ${MIGRATION_DOC}`);
+    if (problem) throw fatal(`${problem}. Sync needs a plain Git checkout on dev; convert this machine once by hand: see ${SYNC_DOC}`);
   } catch (error) {
     print(`dots sync: stopped · ${error.message}`);
     return 1;
@@ -280,13 +281,13 @@ export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = co
 }
 
 // Bootstrap: put a fresh, clean clone (on main) onto dev. Anything else is left
-// alone; an older checkout is converted by hand (MIGRATION_DOC).
+// alone; an older checkout is converted by hand (SYNC_DOC).
 export function initSource(root) {
   const info = ensureRepository(root);
   const problem = shapeProblem(info);
   if (!problem) return;
   const git = (...args) => spawnSync('git', args, { cwd: info.root, encoding: 'utf8' });
-  if (problem !== 'HEAD is on main, not dev' || git('status', '--porcelain').stdout.trim()) throw new Error(`${problem}; see ${MIGRATION_DOC}`);
+  if (problem !== 'HEAD is on main, not dev' || git('status', '--porcelain').stdout.trim()) throw new Error(`${problem}; see ${SYNC_DOC}`);
   const remote = git('rev-parse', '--verify', '-q', 'refs/remotes/origin/dev').status === 0;
   const result = git('switch', '--quiet', ...(remote ? ['-c', 'dev', 'refs/remotes/origin/dev'] : ['-c', 'dev']));
   if (result.status !== 0) throw new Error(`could not switch to dev: ${result.stderr.trim()}`);
@@ -317,7 +318,7 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
       if (options.length) console.log(JSON.stringify(status));
       else {
         console.log(`Source: Git checkout${status.branch ? ` on ${status.branch}` : ' (detached)'} at ${status.base_revision.slice(0, 12)}; ${status.unpushed} commits not on origin/dev as of the last fetch`);
-        if (status.problem) console.log(`Attention: ${status.problem}; see ${MIGRATION_DOC}`);
+        if (status.problem) console.log(`Attention: ${status.problem}; see ${SYNC_DOC}`);
       }
     } catch (error) {
       console.error(`Source status failed: ${error.message}`);

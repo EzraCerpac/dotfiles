@@ -98,7 +98,8 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
         const match = (tryGit(args).stdout || '').split('\n').find(line => line.endsWith(` ${indexTree}`));
         if (match) { base = match.split(' ')[0]; break; }
       }
-      if (base !== dev) lines.push(`dev moved outside sync (now ${short(dev)}); local files are based on ${short(base)} and were merged, not reverted`);
+      // A hand-staged index equal to an older commit looks the same; files on disk are still all captured.
+      if (base !== dev) lines.push(`dev moved outside sync (now ${short(dev)}), or the index was staged to match ${short(base)}; local files were merged onto dev, not reverted`);
     }
 
     // 3-4. Snapshot every tracked or unignored file onto the base, leaving out
@@ -214,7 +215,7 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     // 9. Advance the live files from the snapshot to the merged commit. The
     // two-tree checkout refuses to overwrite a file edited meanwhile.
     let applied = false;
-    if (valid && merged !== dev) {
+    if (valid && (merged !== dev || merged !== snapshot)) {
       const checkout = index;
       git(['read-tree', snapshot], withIndex(checkout));
       tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));

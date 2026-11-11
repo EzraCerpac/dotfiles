@@ -109,7 +109,7 @@ def status():
                     unpushed = data.get("unpushed", 0)
                     item("Source", "repository", "attention" if problem else "ok",
                          f"Git on {data.get('branch') or 'detached HEAD'} at {revision}; {unpushed} commits not on origin/dev",
-                         f"{problem}; see docs/sync-migration.md" if problem else ("Run dots sync" if unpushed else ""))
+                         f"{problem}; see {home}/docs/sync.md" if problem else ("Run dots sync" if unpushed else ""))
                 elif id == "atuin":
                     for key in ("installation", "login", "last_sync", "ai_readiness"):
                         value = data.get(key, "unavailable")
