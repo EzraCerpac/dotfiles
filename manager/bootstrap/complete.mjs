@@ -90,12 +90,12 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
   const explicitBundle = childEnv.SETUP_BOOTSTRAP_BUNDLE || '';
   const explicitBundleIdentity = childEnv.SETUP_BUNDLE_IDENTITY || '';
   // A profile that has its own bundle, encrypted/bootstrap.<profile>.json.age,
-  // uses it implicitly and receives its private files. Other profiles only
-  // consider a bundle the caller or an earlier explicit enrollment selected,
-  // so another profile's bundle cannot block their history recovery.
+  // uses it implicitly. Other profiles only consider a bundle the caller or an
+  // earlier explicit enrollment selected, so another profile's bundle cannot
+  // block their history recovery. Whichever bundle unlocks supplies the
+  // private files.
   const profileBundle = path.join(root, `encrypted/bootstrap.${role}.json.age`);
-  const profileHasBundle = fs.existsSync(profileBundle);
-  const bundleRequested = profileHasBundle || Boolean(explicitBundle || persistedBundleIdentity || explicitBundleIdentity);
+  const bundleRequested = fs.existsSync(profileBundle) || Boolean(explicitBundle || persistedBundleIdentity || explicitBundleIdentity);
   const bundleIdentityValue = explicitBundleIdentity || persistedBundleIdentity || (bundleRequested ? recoveryIdentity : '');
   const bundleIdentity = bundleIdentityValue ? expand(bundleIdentityValue) : '';
   const bundleValue = explicitBundle || (bundleRequested ? profileBundle : '');
@@ -152,7 +152,7 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
       script(manager('tasks/restore'), ['--initialize-history']);
     });
   }
-  if (privateReady && historyReady && profileHasBundle && Object.keys(secrets).length) {
+  if (privateReady && historyReady && Object.keys(secrets).length) {
     privateReady = stage('Private configuration', () => applyPrivateFiles(secrets, { home, miseBin, root }));
   }
   stage('Installer exceptions', () => script(manager('tasks/exceptions')));
