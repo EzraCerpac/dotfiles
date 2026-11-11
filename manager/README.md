@@ -193,6 +193,8 @@ dots_source_repo = "OWNER/dotfiles"          # sync, publish, dots remote
 dots_state_repo = "OWNER/dotfiles-state"     # backup, restore, bootstrap
 dots_self_updating_casks = "some-cask"       # casks dots up only installs when missing
 dots_publish_on_behalf_of = "Your Name"      # dots publish adds a note that a model (DOTS_PUBLISH_MODEL) wrote the PR text
+dots_atuin_username = "you"                  # the only Atuin account enrollment accepts; unset, it keeps the
+                                             # account already logged in, else logs in as the one the bundle names
 ```
 
 ### Bootstrap

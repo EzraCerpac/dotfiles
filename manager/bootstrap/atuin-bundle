@@ -221,11 +221,11 @@ say "Input is hidden and goes straight to the Python helper over stdin."
 note "Output: $OUTPUT"
 for recipient in "${RECIPIENTS[@]}"; do note "Authorized recipient: $recipient"; done
 [[ ! -e "$OUTPUT" && ! -L "$OUTPUT" ]] || { warn "The output already exists; review it instead of overwriting it."; exit 2; }
-ask_secret ATUIN_PASSWORD "Atuin password for EzraCerpac:"
+ask_secret ATUIN_PASSWORD "Atuin password:"
 [[ -n "$ATUIN_PASSWORD" ]] || { warn "The password cannot be empty."; exit 2; }
 BUNDLE_ARGS=()
 for recipient in "${RECIPIENTS[@]}"; do BUNDLE_ARGS+=(--recipient "$recipient"); done
-printf '%s' "$ATUIN_PASSWORD" | uv run --no-project python "$SCRIPT_DIR/atuin.py" bundle \
+printf '%s' "$ATUIN_PASSWORD" | DOTS_ROOT="$ROOT_DIR" uv run --no-project python "$SCRIPT_DIR/atuin.py" bundle \
   --output "$OUTPUT" "${BUNDLE_ARGS[@]}"
 ATUIN_PASSWORD=''
 note "Created $OUTPUT"
