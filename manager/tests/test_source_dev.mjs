@@ -311,6 +311,23 @@ test('a locked Git index leaves the files and dev alone', available, t => {
   assert.equal(read(f.a, 'remote'), 'from b\n'); f.clean(f.a);
 });
 
+test('a failed index install releases the index lock and leaves dev alone', available, t => {
+  const f = fixture(t); const before = f.dev(f.a);
+  f.write(f.a, 'text', 'edited\n');
+  const copy = fs.copyFileSync;
+  fs.copyFileSync = (from, to, ...rest) => {
+    if (String(to).endsWith('.install')) throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+    return copy(from, to, ...rest);
+  };
+  let result;
+  try { result = f.sync(f.a); } finally { fs.copyFileSync = copy; }
+  assert.equal(result.code, 0);
+  assert.match(result.text, /^dots sync: failed · ENOSPC/);
+  assert(!fs.existsSync(path.join(f.a, '.git/index.lock')), 'the index lock is released');
+  assert.equal(f.dev(f.a), before);
+  assert.equal(git(f.a, 'status', '--porcelain'), 'M text');
+});
+
 test('a commit pushed to origin/dev from another worktree is merged, not reverted', available, t => {
   const f = fixture(t);
   const wt = path.join(f.dir, 'task');

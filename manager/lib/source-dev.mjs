@@ -153,7 +153,11 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       fs.renameSync(copy, indexLock);
       fs.renameSync(indexLock, path.join(gitDir, 'index'));
     };
-    const installIndex = () => lockIndex() && (commitIndex(), true);
+    const installIndex = () => {
+      if (!lockIndex()) return false;
+      let held = true;
+      try { commitIndex(); held = false; return true; } finally { if (held) fs.rmSync(indexLock, { force: true }); }
+    };
     const moveDev = (to, from) => tryGit(['update-ref', '-m', 'dots sync', 'refs/heads/dev', to, from]).status === 0;
     if (base === dev && snapshot !== base && installIndex() && moveDev(snapshot, dev)) dev = snapshot;
     // Commits another worktree put on dev are dev material and win over local files.
