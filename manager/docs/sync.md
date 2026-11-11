@@ -45,7 +45,7 @@ dots sync: shared 2 files · pulled dev +1, main +0 · pushed 3f2a9c1
 
 | Part | Values |
 | --- | --- |
-| Local work | `shared N files` (pushed), `saved N files locally` (committed, not pushed), `no local changes` |
+| Local work | `shared N files` (pushed), `saved N files locally` (committed, not pushed), `kept N files on disk` (not committed; the files are untouched), `no local changes` |
 | Incoming | `pulled dev +N, main +M` (applied), `fetched dev +N, main +M (not applied)`, `offline` |
 | Push | `pushed COMMIT`, `nothing to push`, `not pushed` |
 

@@ -262,8 +262,12 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       if (apply.error || apply.status !== 0) lines.push(`APPLY FAILED: mise bootstrap dotfiles apply (exit ${apply.status ?? 'error'})`);
     }
 
+    const files = `${shared} file${shared === 1 ? '' : 's'}`;
     const parts = [
-      shared ? `${pushed ? 'shared' : 'saved'} ${shared} file${shared === 1 ? '' : 's'}${pushed ? '' : ' locally'}` : 'no local changes',
+      !shared ? 'no local changes'
+        : pushed ? `shared ${files}`
+        : tryGit(['merge-base', '--is-ancestor', snapshot, 'refs/heads/dev']).status === 0 ? `saved ${files} locally`
+        : `kept ${files} on disk`,
       !online ? 'offline' : `${applied ? 'pulled' : 'fetched'} dev +${devNew}, main +${mainNew}${applied ? '' : ' (not applied)'}`,
       pushed ? `pushed ${merged.slice(0, 7)}` : (online && valid && pushable && merged === rev('refs/remotes/origin/dev') ? 'nothing to push' : 'not pushed'),
     ];
