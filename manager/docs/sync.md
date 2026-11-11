@@ -71,17 +71,18 @@ Lower-case lines are information.
 | `changed on disk: STAT` | Files the run updated. |
 | `dev moved outside sync (now COMMIT), or the index was staged to match COMMIT; ...` | The Git index matched an older commit, so local files were treated as based on it and merged onto `dev`. Nothing on disk is lost, but a revert staged by hand is undone; commit such a revert instead. |
 
-A run can also end without a block:
+A run can also end with a single line instead:
 
-| Line | Exit | Meaning and what to do |
-| --- | --- | --- |
-| `dots sync: stopped · PROBLEM. Sync needs a plain Git checkout on dev; ...` | 1 | The checkout is missing, has a foreign `origin`, or has the wrong shape (see [checkout shape](#checkout-shape)). |
-| `dots sync: skipped · a Git operation is in progress (NAME); ...` | 0 | Finish or abort the merge, rebase, cherry-pick, revert or bisect, then sync again. |
-| `dots sync: skipped · another source operation is running ...` | 0 | Another sync or publish holds the lock. A lock left by a dead process on this host is reclaimed on the next run. |
-| `dots sync: skipped · GIT cannot merge-tree -X; install Git 2.43 or newer` | 0 | See [requirements](#requirements). |
-| `dots sync: failed · ERROR` | 1 | An unexpected error. Read it, fix the cause and sync again. |
+| Line | Meaning and what to do |
+| --- | --- |
+| `dots sync: stopped · PROBLEM. Sync needs a plain Git checkout on dev; ...` | The checkout is missing, has a foreign `origin`, or has the wrong shape (see [checkout shape](#checkout-shape)). |
+| `dots sync: skipped · a Git operation is in progress (NAME); ...` | Finish or abort the merge, rebase, cherry-pick, revert or bisect, then sync again. |
+| `dots sync: skipped · another source operation is running ...` | Another sync or publish holds the lock. A lock left by a dead process on this host is reclaimed on the next run. |
+| `dots sync: skipped · GIT cannot merge-tree -X; install Git 2.43 or newer` | See [requirements](#requirements). |
+| `dots sync: failed · ERROR` | An unexpected error. Read it, fix the cause and sync again. |
 
-`dots up` continues with its other stages whatever the sync outcome.
+Every run exits 0; the printed outcome, not the exit status, says how it ended.
+`dots up` reports `stopped`, `skipped` and `failed` lines as needing attention and continues with its other stages whatever the sync outcome.
 
 ## Requirements
 

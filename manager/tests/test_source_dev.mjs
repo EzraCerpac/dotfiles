@@ -376,7 +376,7 @@ test('a checkout in the wrong shape stops with one message pointing at the sync 
   const expect = (problem, prepare, undo) => {
     prepare();
     const { code, text } = f.sync(f.a);
-    assert.equal(code, 1);
+    assert.equal(code, 0);
     assert.equal(text.split('\n').length, 1);
     assert.match(text, new RegExp(`^dots sync: stopped · ${problem}\\. .*/docs/sync\\.md$`));
     undo();
@@ -386,7 +386,20 @@ test('a checkout in the wrong shape stops with one message pointing at the sync 
   expect('a JJ workspace \\(\\.jj\\) is present', () => fs.mkdirSync(path.join(f.a, '.jj')), () => fs.rmdirSync(path.join(f.a, '.jj')));
   expect('legacy sync state \\(\\.git/dots-dev\\.json\\) is present', () => f.write(f.a, '.git/dots-dev.json', '{}'), () => fs.rmSync(path.join(f.a, '.git/dots-dev.json')));
   assert.equal(f.remote(), before);
-  assert.equal(syncSource(f.a, { expectedRemote: '/elsewhere', print: () => {} }), 1);
+  const foreign = [];
+  assert.equal(syncSource(f.a, { expectedRemote: '/elsewhere', print: text => foreign.push(text) }), 0);
+  assert.deepEqual(foreign, ['dots sync: stopped · Refusing source operations: origin is not /elsewhere']);
+});
+
+test('an unexpected error prints one failed line and exits 0', available, t => {
+  const f = fixture(t); const before = f.dev(f.a);
+  fs.writeFileSync(process.env.GIT_CONFIG_GLOBAL, '[user]\nuseConfigOnly = true\n');
+  for (const key of ['EMAIL', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL']) delete process.env[key];
+  f.write(f.a, 'text', 'needs a commit\n');
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.match(text, /^dots sync: failed · git [^\n]* failed: Author identity unknown$/);
+  assert.equal(f.dev(f.a), before); assert.equal(read(f.a, 'text'), 'needs a commit\n');
 });
 
 test('a concurrent run is skipped and a dead run\'s lock is reclaimed', available, t => {

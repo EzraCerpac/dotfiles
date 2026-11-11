@@ -245,8 +245,8 @@ function sourceChanged(before, after) {
 
 const IN_PROGRESS = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply', 'BISECT_LOG'];
 
-// Run one sync and print one block. Only a missing or foreign repository and a
-// checkout in the wrong shape are fatal (exit 1); every other outcome exits 0.
+// Run one sync and print one block, whose header says how it ended. It always
+// exits 0: callers read the outcome, not the status.
 export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = console.log } = {}) {
   let info;
   try {
@@ -255,7 +255,7 @@ export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = co
     if (problem) throw fatal(`${problem}. Sync needs a plain Git checkout on dev; convert this machine once by hand: see ${SYNC_DOC}`);
   } catch (error) {
     print(`dots sync: stopped · ${error.message}`);
-    return 1;
+    return 0;
   }
   // Sync merges with `git merge-tree --write-tree -X theirs` (Git 2.43 or newer).
   if (spawnSync('git', ['merge-tree', '--write-tree', '-X', 'theirs', 'HEAD', 'HEAD'], { cwd: info.root }).status !== 0) {
@@ -273,7 +273,7 @@ export function syncSource(root, { expectedRemote, miseBin, gitleaks, print = co
     result = withRepositoryLock(info.root, () => syncDev(info.root, { gitDir: info.gitDir, miseBin: miseBin || resolveMiseBin(), gitleaks }));
   } catch (error) {
     print(error.locked ? `dots sync: skipped · ${error.message}` : `dots sync: failed · ${error.message}`);
-    return error.locked ? 0 : 1;
+    return 0;
   }
   print([result.header, ...result.lines.map(line => `  ${line}`)].join('\n'));
   // After the block, so a framed event never prefixes the header line.

@@ -272,7 +272,8 @@ class UpdateHookTests(ContractTestCase):
 
     def test_update_continues_after_any_sync_outcome_and_repeats_attention(self) -> None:
         for name, script, attention in (
-            ("stopped", "echo 'dots sync: stopped · HEAD is detached, not on dev. See docs'; exit 1", "dots sync: stopped · HEAD is detached"),
+            ("stopped", "echo 'dots sync: stopped · HEAD is detached, not on dev. See docs'", "dots sync: stopped · HEAD is detached"),
+            ("failed", "echo 'dots sync: failed · git -c failed: Author identity unknown'", "dots sync: failed · git -c failed"),
             ("partial", "printf 'dots sync: saved 1 file locally · offline · not pushed\\n  OFFLINE: 1 commits unpushed, retried next run\\n  changed on disk: 1 file changed\\n'",
              "  OFFLINE: 1 commits unpushed, retried next run"),
         ):
