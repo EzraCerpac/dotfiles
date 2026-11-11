@@ -153,13 +153,23 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       fs.renameSync(copy, indexLock);
       fs.renameSync(indexLock, path.join(gitDir, 'index'));
     };
-    const installIndex = () => {
-      if (!lockIndex()) return false;
-      let held = true;
-      try { commitIndex(); held = false; return true; } finally { if (held) fs.rmSync(indexLock, { force: true }); }
-    };
     const moveDev = (to, from) => tryGit(['update-ref', '-m', 'dots sync', 'refs/heads/dev', to, from]).status === 0;
-    if (base === dev && snapshot !== base && installIndex() && moveDev(snapshot, dev)) dev = snapshot;
+    // Record the snapshot under the index lock: dev moves first, and the index
+    // is installed only once dev points at the snapshot.
+    const record = () => {
+      if (!lockIndex()) return 'the Git index is locked (.git/index.lock)';
+      let held = true;
+      try {
+        if (!moveDev(snapshot, dev)) return 'dev is locked or moved (refs/heads/dev)';
+        try { commitIndex(); held = false; } catch (error) { moveDev(dev, snapshot); throw error; }
+        return null;
+      } finally { if (held) fs.rmSync(indexLock, { force: true }); }
+    };
+    if (base === dev && snapshot !== base) {
+      const failure = record();
+      if (!failure) dev = snapshot;
+      else { lines.push(`NOT SAVED: ${failure}; local edits kept on disk, rerun`); snapshot = base; shared = 0; }
+    }
     // Commits another worktree put on dev are dev material and win over local files.
     let local = base === dev ? snapshot : merge(snapshot, dev, 'local dev');
 

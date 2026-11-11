@@ -328,6 +328,21 @@ test('a failed index install releases the index lock and leaves dev alone', avai
   assert.equal(git(f.a, 'status', '--porcelain'), 'M text');
 });
 
+test('local edits are not reported saved when dev or the index cannot be recorded', available, t => {
+  const f = fixture(t); const before = f.dev(f.a);
+  f.write(f.a, 'config.toml', 'INVALID\n');
+  for (const name of ['refs/heads/dev.lock', 'index.lock']) {
+    const lock = path.join(f.a, '.git', name);
+    fs.writeFileSync(lock, '');
+    const { code, text } = f.sync(f.a);
+    fs.rmSync(lock);
+    assert.equal(code, 0);
+    assert.match(text, /^dots sync: no local changes · [^\n]*\n {2}NOT SAVED: [^\n]*; local edits kept on disk, rerun$/);
+    assert.equal(f.dev(f.a), before, name);
+    assert.equal(git(f.a, 'status', '--porcelain'), 'M config.toml', `${name}: the original index stays`);
+  }
+});
+
 test('a commit pushed to origin/dev from another worktree is merged, not reverted', available, t => {
   const f = fixture(t);
   const wt = path.join(f.dir, 'task');

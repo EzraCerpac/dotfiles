@@ -58,6 +58,7 @@ Lower-case lines are information.
 | `CONFLICT kept published: PATH  (yours: git show COMMIT:PATH)` | Both sides changed the same hunk; the published version is on disk. If yours mattered, recover it with the printed command, edit the file and sync again. `(yours: deleted in COMMIT)` means you had deleted it. |
 | `NOT SHARED (gitleaks RULE): PATH:LINE` | gitleaks flagged a new edit. The file stays on disk and out of `dev`. Remove the secret, or add a reviewed allowlist entry to `.gitleaks.toml` or `.gitleaksignore` for a false positive. |
 | `NOT SHARED: REASON; local edits kept on disk, nothing pushed` | The scan could not run (for example gitleaks is not installed). Install or fix gitleaks and sync again. |
+| `NOT SAVED: REASON; local edits kept on disk, rerun` | Another Git command held the index or `dev`, so the run left both alone and did not record local edits; incoming work may still be pulled. Run sync again once that command finishes; remove a lock left by a crashed Git command by hand. |
 | `NOT PUSHED (gitleaks RULE): commit COMMIT PATH:LINE; remove it from local history` | An unpushed commit on `dev` contains a finding, so nothing is pushed. Rewrite that commit out of `origin/dev..dev` by hand (it was never published), then sync again. |
 | `NOT PUSHED: REASON` | The scan of unpushed commits could not run. Fix gitleaks and sync again. |
 | `NOT PUSHED: origin/dev kept moving; retried next run` | Three pushes in a row lost a race. Nothing to do; the next run retries. |
