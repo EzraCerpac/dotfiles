@@ -143,17 +143,17 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
         snapshot = tree(tentative) === snapshotTree() ? tentative : commitTree(snapshotTree(), [base], `Save local setup (${host})`);
       }
     }
-    const installIndex = () => {
-      // Git's own lock protocol: never clobber an index another command holds.
-      const lock = path.join(gitDir, 'index.lock');
-      try { fs.closeSync(fs.openSync(lock, 'wx', 0o644)); } catch { return false; }
+    // Git's own lock protocol: never clobber an index another command holds.
+    const indexLock = path.join(gitDir, 'index.lock');
+    const lockIndex = () => { try { fs.closeSync(fs.openSync(indexLock, 'wx', 0o644)); return true; } catch { return false; } };
+    const commitIndex = () => {
       const copy = `${index}.install`;
       fs.copyFileSync(index, copy);
       fs.utimesSync(copy, fs.statSync(index).atime, fs.statSync(index).mtime);
-      fs.renameSync(copy, lock);
-      fs.renameSync(lock, path.join(gitDir, 'index'));
-      return true;
+      fs.renameSync(copy, indexLock);
+      fs.renameSync(indexLock, path.join(gitDir, 'index'));
     };
+    const installIndex = () => lockIndex() && (commitIndex(), true);
     const moveDev = (to, from) => tryGit(['update-ref', '-m', 'dots sync', 'refs/heads/dev', to, from]).status === 0;
     if (base === dev && snapshot !== base && installIndex() && moveDev(snapshot, dev)) dev = snapshot;
     // Commits another worktree put on dev are dev material and win over local files.
@@ -215,24 +215,32 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     if (!online) lines.push(`OFFLINE: ${count(['refs/heads/dev', ...published()])} commits unpushed, retried next run`);
 
     // 9. Advance the live files from the snapshot to the merged commit. The
-    // two-tree checkout refuses to overwrite a file edited meanwhile.
+    // two-tree checkout refuses to overwrite a file edited meanwhile. Files
+    // and dev move only while this run holds the real index lock, so the
+    // index it installs always matches them.
     let applied = false;
     if (valid && (merged !== dev || merged !== snapshot)) {
-      const checkout = index;
-      git(['read-tree', snapshot], withIndex(checkout));
-      tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));
-      if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
-        installIndex();
-        if (moveDev(merged, dev)) { dev = merged; applied = true; }
-        else lines.push('NOT RECORDED: dev moved during sync; files updated, rerun');
-        const stat = tryGit(['diff', '--shortstat', snapshot, merged]).stdout?.trim();
-        if (stat) lines.push(`changed on disk: ${stat}`);
-      } else {
-        const incoming = nul(git(['diff', '--name-only', '-z', snapshot, merged]));
-        const dirty = new Set(nul(tryGit(['diff-files', '--name-only', '-z'], withIndex(checkout)).stdout || ''));
-        const tracked = new Set(nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', snapshot])));
-        const blocked = incoming.filter(name => dirty.has(name) || (!tracked.has(name) && fs.existsSync(path.join(root, name))));
-        for (const name of blocked.length ? blocked : ['(unknown path)']) lines.push(`LATE EDIT: ${name} not updated; rerun`);
+      if (!lockIndex()) lines.push('NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun');
+      else {
+        let held = true;
+        try {
+          const checkout = index;
+          git(['read-tree', snapshot], withIndex(checkout));
+          tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));
+          if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
+            commitIndex(); held = false;
+            if (moveDev(merged, dev)) { dev = merged; applied = true; }
+            else lines.push('NOT RECORDED: dev moved during sync; files updated, rerun');
+            const stat = tryGit(['diff', '--shortstat', snapshot, merged]).stdout?.trim();
+            if (stat) lines.push(`changed on disk: ${stat}`);
+          } else {
+            const incoming = nul(git(['diff', '--name-only', '-z', snapshot, merged]));
+            const dirty = new Set(nul(tryGit(['diff-files', '--name-only', '-z'], withIndex(checkout)).stdout || ''));
+            const tracked = new Set(nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', snapshot])));
+            const blocked = incoming.filter(name => dirty.has(name) || (!tracked.has(name) && fs.existsSync(path.join(root, name))));
+            for (const name of blocked.length ? blocked : ['(unknown path)']) lines.push(`LATE EDIT: ${name} not updated; rerun`);
+          }
+        } finally { if (held) fs.rmSync(indexLock, { force: true }); }
       }
     } else if (valid) applied = true;
     if (applied) {

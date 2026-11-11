@@ -295,6 +295,22 @@ test('a file edited during advancement is not overwritten', available, t => {
   assert.equal(read(f.a, 'text'), 'incoming remote edit\n'); f.clean(f.a);
 });
 
+test('a locked Git index leaves the files and dev alone', available, t => {
+  const f = fixture(t); const before = f.dev(f.a);
+  f.write(f.b, 'remote', 'from b\n'); f.sync(f.b);
+  const lock = path.join(f.a, '.git/index.lock');
+  fs.writeFileSync(lock, '');
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.match(text, /^dots sync: no local changes · fetched dev \+1, main \+0 \(not applied\) · nothing to push\n {2}NOT APPLIED: the Git index is locked \(\.git\/index\.lock\); files not updated, rerun$/);
+  assert(fs.existsSync(lock), 'the lock held by someone else stays');
+  assert(!fs.existsSync(path.join(f.a, 'remote')));
+  assert.equal(f.dev(f.a), before);
+  fs.rmSync(lock); f.clean(f.a);
+  f.sync(f.a);
+  assert.equal(read(f.a, 'remote'), 'from b\n'); f.clean(f.a);
+});
+
 test('a commit pushed to origin/dev from another worktree is merged, not reverted', available, t => {
   const f = fixture(t);
   const wt = path.join(f.dir, 'task');

@@ -64,6 +64,7 @@ Lower-case lines are information.
 | `OFFLINE: N commits unpushed, retried next run` | `origin` was unreachable. Local work is committed and applied; the next run pushes it. |
 | `INVALID merged config: ERROR; nothing pushed or applied` | The merged configuration fails mise's checks with this machine's local files. Fix the error (locally or upstream) and sync again; local work is already committed on `dev`. |
 | `LATE EDIT: PATH not updated; rerun` | A file changed while the run was updating files, so the run left it alone. Run sync again. |
+| `NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun` | Another Git command held the index, so the run left the files and `dev` alone; anything it pushed arrives on the next run. Run sync again once that command finishes; remove a lock left by a crashed Git command by hand. |
 | `NOT RECORDED: dev moved during sync; files updated, rerun` | Another process moved `dev` during the run. Run sync again. |
 | `SAVE FAILED: mise bootstrap dotfiles save (exit N); copied dotfiles not captured` | Copied dotfiles were not saved back. Run `mise bootstrap dotfiles save` to see why. |
 | `APPLY FAILED: mise bootstrap dotfiles apply (exit N)` | The configuration advanced but dotfiles were not applied. Run `dots apply` to see why. |
