@@ -55,7 +55,9 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
   const merge = (ours, theirs, label) => {
     if (!theirs || ours === theirs || isAncestor(theirs, ours)) return ours;
     if (isAncestor(ours, theirs)) return theirs;
-    const conflicts = nul(tryGit(['merge-tree', '--write-tree', '-z', '--name-only', ours, theirs]).stdout || '').slice(1);
+    // A file/directory conflict moves the file aside to PATH~COMMIT; resolve it at PATH.
+    const original = name => name.replace(new RegExp(`~(?:${ours}|${theirs})(?:_\\d+)?$`), '');
+    const conflicts = nul(tryGit(['merge-tree', '--write-tree', '-z', '--name-only', ours, theirs]).stdout || '').slice(1).map(original);
     const resolved = tryGit(['merge-tree', '--write-tree', '-z', '--name-only', '-X', 'theirs', ours, theirs]);
     if (resolved.status > 1 || resolved.error) throw new Error(`cannot merge ${label}: ${firstLine(resolved.stderr)}`);
     const [mergedTree, ...remaining] = resolved.stdout.split('\0\0')[0].split('\0').filter(Boolean);
@@ -63,19 +65,23 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     if (resolved.status === 1) {
       const index = path.join(scratch, 'merge-index');
       git(['read-tree', mergedTree], withIndex(index));
-      const published = new Map(nul(git(['ls-tree', '-r', '-z', '--full-tree', theirs, '--', ...remaining])).map(entry => {
+      // Everything at or under each conflicted path becomes the published version.
+      const paths = [...new Set(remaining.map(original))];
+      const drop = [...remaining, ...nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', mergedTree, '--', ...paths]))];
+      const published = nul(git(['ls-tree', '-r', '-z', '--full-tree', theirs, '--', ...paths])).map(entry => {
         const [meta, name] = entry.split('\t');
-        return [name, meta.split(' ')];
-      }));
-      const input = remaining.map(name => `0 ${ZERO}\t${name}\0`).join('')
-        + [...published].map(([name, [mode, , oid]]) => `${mode} ${oid}\t${name}\0`).join('');
+        const [mode, , oid] = meta.split(' ');
+        return `${mode} ${oid}\t${name}\0`;
+      });
+      const input = drop.map(name => `0 ${ZERO}\t${name}\0`).join('') + published.join('');
       git(['update-index', '-z', '--index-info'], { ...withIndex(index), input });
       result = git(['write-tree'], withIndex(index));
     }
-    const ourFiles = new Set(nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', ours])));
+    const has = (commit, name) => tryGit(['cat-file', '-e', `${commit}:${name}`]).status === 0;
     for (const name of new Set(conflicts)) {
-      if (tryGit(['cat-file', '-e', `${theirs}:${name}`]).status !== 0 && !ourFiles.has(name)) continue; // merge artifact
-      lines.push(`CONFLICT kept published: ${name}  (yours: ${ourFiles.has(name) ? `git show ${short(ours)}:${name}` : `deleted in ${short(ours)}`})`);
+      const yours = has(ours, name);
+      if (!yours && !has(theirs, name)) continue; // merge artifact
+      lines.push(`CONFLICT kept published: ${name}  (yours: ${yours ? `git show ${short(ours)}:${name}` : `deleted in ${short(ours)}`})`);
     }
     return commitTree(result, [ours, theirs], `Merge ${label} (${host})`);
   };

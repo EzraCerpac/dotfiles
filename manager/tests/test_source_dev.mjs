@@ -156,6 +156,21 @@ test('a binary conflict takes the published file whole', available, t => {
   assert.match(text, /CONFLICT kept published: blob\.bin/);
 });
 
+test('a file/directory conflict keeps the published side at its own path', available, t => {
+  for (const [published, local] of [['collision', 'collision/child'], ['collision/child', 'collision']]) {
+    const f = fixture(t);
+    f.write(f.b, published, 'published\n'); f.sync(f.b);
+    f.write(f.a, local, 'local\n');
+    const { text } = f.sync(f.a);
+    assert.equal(git(f.origin, 'ls-tree', '-r', '--name-only', 'dev', '--', 'collision'), published);
+    assert.equal(read(f.a, published), 'published\n');
+    const match = text.match(/CONFLICT kept published: collision {2}\(yours: git show ([0-9a-f]{12}):collision\)/);
+    assert(match, text);
+    assert.equal(git(f.a, 'show', `${match[1]}:${local}`), 'local');
+    f.clean(f.a);
+  }
+});
+
 test('reviewed main merges into dev', available, t => {
   const f = fixture(t);
   const c = path.join(f.dir, 'c'); git(f.dir, 'clone', '-q', f.origin, c);
