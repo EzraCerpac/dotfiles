@@ -267,6 +267,18 @@ test('a flagged existing commit blocks the push', available, t => {
   assert.equal(f.remote(), before);
 });
 
+test('an unpushed commit that ever tracked a private file blocks the push', available, t => {
+  const f = fixture(t); const before = f.remote();
+  f.write(f.a, 'config.host-private.toml', '[env]\nPRIVATE="yes"\n');
+  git(f.a, 'add', '-f', 'config.host-private.toml'); git(f.a, 'commit', '-qm', 'Oops');
+  const oops = git(f.a, 'rev-parse', 'HEAD');
+  git(f.a, 'rm', '-q', '--cached', 'config.host-private.toml'); git(f.a, 'commit', '-qm', 'Untrack');
+  const { text } = f.sync(f.a);
+  assert.match(text, /· not pushed\n {2}NOT PUSHED: commit ([0-9a-f]{12}) changes private setup file config\.host-private\.toml; remove it from local history$/);
+  assert.equal(text.match(/commit ([0-9a-f]{12})/)[1], oops.slice(0, 12));
+  assert.equal(f.remote(), before);
+});
+
 test('the real gitleaks reports a token by file and line only', requires('git', 'gitleaks'), t => {
   const f = fixture(t);
   fs.copyFileSync(new URL('../init/gitleaks.toml', import.meta.url), path.join(f.a, '.gitleaks.toml'));

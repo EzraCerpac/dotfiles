@@ -60,6 +60,7 @@ Lower-case lines are information.
 | `NOT SHARED: REASON; local edits kept on disk, nothing pushed` | The scan could not run (for example gitleaks is not installed). Install or fix gitleaks and sync again. |
 | `NOT SAVED: REASON; local edits kept on disk, rerun` | Another Git command held the index or `dev`, so the run left both alone and did not record local edits; incoming work may still be pulled. Run sync again once that command finishes; remove a lock left by a crashed Git command by hand. |
 | `NOT PUSHED (gitleaks RULE): commit COMMIT PATH:LINE; remove it from local history` | An unpushed commit on `dev` contains a finding, so nothing is pushed. Rewrite that commit out of `origin/dev..dev` by hand (it was never published), then sync again. |
+| `NOT PUSHED: commit COMMIT changes private setup file PATH; remove it from local history` | An unpushed commit on `dev` tracked a machine-local file, even if a later commit removed it, so nothing is pushed. Rewrite that commit out of `origin/dev..dev` by hand, then sync again. |
 | `NOT PUSHED: REASON` | The scan of unpushed commits could not run. Fix gitleaks and sync again. |
 | `NOT PUSHED: origin/dev kept moving; retried next run` | Three pushes in a row lost a race. Nothing to do; the next run retries. |
 | `OFFLINE: N commits unpushed, retried next run` | `origin` was unreachable. Local work is committed and applied; the next run pushes it. |

@@ -193,7 +193,13 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     // A flagged existing commit blocks the push; local work still merges and applies.
     const published = () => ['refs/remotes/origin/dev', 'refs/remotes/origin/main'].filter(rev).map(ref => `^${ref}`);
     if (pushable && online && count([local, ...published()]) > 0) {
-      const result = scan([local, ...published()]);
+      // Every unpublished commit, not only the merged tip, must leave private files alone.
+      let commit, leaked;
+      for (const token of nul(git(['log', '--format=%x01%H', '--name-only', '-z', local, ...published()]))) {
+        if (token.startsWith('\x01')) commit = token.slice(1);
+        else if (privatePath(token.replace(/^\n/, ''))) leaked = [commit, token.replace(/^\n/, '')]; // oldest wins
+      }
+      const result = leaked ? { error: `commit ${short(leaked[0])} changes private setup file ${leaked[1]}; remove it from local history` } : scan([local, ...published()]);
       if (result.error) { pushable = false; lines.push(`NOT PUSHED: ${result.error}`); }
       else if (result.findings.length) {
         pushable = false;
