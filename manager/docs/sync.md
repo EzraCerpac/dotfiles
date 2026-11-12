@@ -78,6 +78,7 @@ A run can also end with a single line instead:
 | Line | Meaning and what to do |
 | --- | --- |
 | `dots sync: stopped · PROBLEM. Sync needs a plain Git checkout on dev; ...` | The checkout is missing, has a foreign `origin`, or has the wrong shape (see [checkout shape](#checkout-shape)). |
+| `dots sync: stopped · missing setting: add dots_source_repo to [vars] in FILE` | `config.toml` does not name the repository, so sync cannot check `origin`. Add `dots_source_repo = "OWNER/NAME"` under `[vars]` and sync again. |
 | `dots sync: skipped · a Git operation is in progress (NAME); ...` | Finish or abort the merge, rebase, cherry-pick, revert or bisect, then sync again. |
 | `dots sync: skipped · another source operation is running ...` | Another sync or publish holds the lock. A lock left by a dead process on this host is reclaimed on the next run. |
 | `dots sync: skipped · GIT cannot merge-tree -X; install Git 2.43 or newer` | See [requirements](#requirements). |

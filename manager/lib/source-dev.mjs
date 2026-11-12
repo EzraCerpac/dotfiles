@@ -220,7 +220,8 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       merged = merge(merged, remoteMain, 'reviewed main');
       try {
         if (nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', merged])).some(privatePath)) throw new Error('it tracks private setup files');
-        const privateNames = fs.readdirSync(root).filter(privatePath);
+        // A directory is probed as NAME/ so directory-only rules (/locks/) match it.
+        const privateNames = fs.readdirSync(root, { withFileTypes: true }).map(e => e.name + (e.isDirectory() ? '/' : '')).filter(privatePath);
         validateIncomingIgnores(root, gitDir, merged, new Set(nul(git(['ls-tree', '-z', '--name-only', '--full-tree', merged]))), privateNames);
         validateIncoming(root, gitDir, merged, miseBin);
       } catch (error) {

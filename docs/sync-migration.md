@@ -8,8 +8,13 @@ Steps 1 to 6 change no tracked file in the checkout, only Git refs, the Git inde
 the sync in step 7 then updates files as usual.
 
 Run the blocks in order and read each check before continuing.
-Every block starts from scratch, so each can be its own `ssh HOST '...'` command.
-Make sure no other agent is editing `~/.config/mise` meanwhile, and that the stateless sync is merged into `main` (step 7 runs it from `origin/main`).
+The blocks are POSIX `sh`, and login shells may be fish or zsh, so run each under `sh`:
+start `sh` and paste the block, or feed it on standard input (`ssh HOST sh < block.sh`).
+Avoid `sh -c '...'`, since several blocks contain single quotes.
+Every block starts from scratch, so each can be its own command.
+Make sure no other agent is editing `~/.config/mise` meanwhile,
+that the stateless sync is merged into `main` (step 7 runs it from `origin/main`),
+and that shared `dev` already contains that reviewed `main`.
 
 ## 0. Check the tools
 
@@ -41,6 +46,7 @@ echo "$B"; cat "$B/HEAD" "$B/dev" "$B/refs"
 ```
 
 Check: it prints the backup directory, `HEAD`, `dev` (if any) and any `refs/dots/queue` or `refs/dots/capture`.
+Later blocks use the newest backup and print its path first; if an earlier attempt left one, make sure it is the one printed here.
 
 ## 2. Find the commit the files are based on
 
@@ -48,7 +54,7 @@ The old sync recorded it in `.git/dots-dev.json`: `capture` is its last snapshot
 JJ may have moved `HEAD` since without changing files, so prefer those to `HEAD`.
 
 ```sh
-cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1)
+cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1); echo "$B"
 base=
 for key in capture applied; do
   [ -n "$base" ] || base=$(sed -n "s/.*\"$key\":\"\([0-9a-f]\{40\}\)\".*/\1/p" .git/dots-dev.json 2>/dev/null)
@@ -67,7 +73,7 @@ compare `git diff --stat` against `applied` and `HEAD` (from `$B/HEAD`), and wri
 The base and any queued or captured commits must be on `origin/dev`, so that sync can find the base in history.
 
 ```sh
-cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1)
+cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1); echo "$B"
 git fetch -q origin dev main
 for id in $(cut -d' ' -f1 "$B/refs") $(cat "$B/dev") $(cat "$B/base"); do
   git merge-base --is-ancestor "$id" origin/dev && echo "published $id" || echo "NOT published $id"
@@ -101,7 +107,7 @@ On `STOPPED`, stop and ask.
 Moving `.jj` aside keeps its full history for recovery.
 
 ```sh
-cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1)
+cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1); echo "$B"
 [ ! -d .jj ] || mv .jj "$B/jj"
 [ ! -f .git/dots-dev.json ] || mv .git/dots-dev.json "$B/"
 while read -r id ref; do git update-ref -d "$ref" "$id"; done < "$B/refs"
@@ -113,7 +119,7 @@ Check: the last line prints nothing.
 ## 5. Put HEAD on dev without touching files
 
 ```sh
-cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1)
+cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1); echo "$B"
 git update-ref refs/heads/dev origin/dev
 git symbolic-ref HEAD refs/heads/dev
 git branch -q --set-upstream-to=origin/dev dev
@@ -130,7 +136,7 @@ Check: the branch line reads `## dev...origin/dev`, and `git diff --stat` lists 
 Herdr is archived, so its template no longer exists, and a `[dotfiles.herdr]` block left in the ignored `config.local.toml` would make sync reject the merged configuration.
 
 ```sh
-cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1)
+cd ~/.config/mise || exit 1; B=$(ls -d .git/dots-legacy-* | tail -n 1); echo "$B"
 f=config.local.toml
 if [ -f "$f" ] && grep -q '^\[dotfiles\.herdr\][[:space:]]*$' "$f"; then
   awk '/^\[dotfiles\.herdr\][[:space:]]*$/ { skip = 1; next } skip && /^[[:space:]]*\[/ { skip = 0 } !skip' "$f" > "$f.new" &&
@@ -144,18 +150,21 @@ Check: `no herdr entry`, and the `diff` shows only the removed block.
 
 ## 7. Sync once with the new manager
 
-The manager in the checkout is still the old one until this sync updates the files, so run the new code from a scratch worktree of `origin/main`:
+The manager in the checkout is still the old one until this sync updates the files, so run the new code from a scratch worktree of `origin/main`.
+The old `config.toml` on disk has no `dots_source_repo` yet, so pass the expected `origin` directly:
 
 ```sh
 cd ~/.config/mise || exit 1
 git fetch -q origin main
 wt=$(mktemp -d)/main; git worktree add -q --detach "$wt" origin/main
-mise exec -- node "$wt/manager/lib/source-repo.mjs" sync "$PWD"
+W=$wt O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
+  'const { syncSource } = await import(process.env.W + "/manager/lib/source-repo.mjs"); syncSource(process.cwd(), { expectedRemote: process.env.O })'
 git worktree remove --force "$wt"; rmdir "$(dirname "$wt")"
 git status --short --branch | head -n 3
 ```
 
 Check: one `dots sync:` block that ends in `pushed …` or `nothing to push`.
+A `dots sync: stopped` line or an `INVALID merged config` line means nothing was pushed or applied: stop and run [Undo](#undo).
 Its `dev moved outside sync …` line is expected: it means the base from step 2 was used.
 Any `CONFLICT` lines name versions that lost to the published side; recover them with the printed `git show` command if they mattered.
 `git status` is clean apart from files reported `NOT SHARED`.
@@ -177,9 +186,14 @@ if [ -s "$B/dev" ]; then git update-ref refs/heads/dev "$(cat "$B/dev")"; else g
 git config --remove-section branch.dev 2>/dev/null
 while read -r key value; do git config "$key" "$value"; done < "$B/dev-config"
 cp -p "$B/index" .git/index
+[ "$(git rev-parse HEAD)" = "$(cat "$B/HEAD")" ] && echo "HEAD restored"
+[ "$(git rev-parse --verify -q refs/heads/dev)" = "$(cat "$B/dev")" ] && echo "dev restored"
+git for-each-ref --format='%(objectname) %(refname)' refs/dots | diff "$B/refs" - && echo "refs restored"
 git status --short --branch | head -n 3
 ```
 
-Check: `git status` shows the same detached `HEAD` and edits as before step 1, and `jj st` shows the same working copy.
+Check: it prints `HEAD restored`, `dev restored` and `refs restored`, and `git status` shows the same detached `HEAD` and edits as before step 1.
+Do not check with `jj st`: running jj rewrites Git refs as a side effect.
+The backup directory and `refs/dots-legacy/<stamp>/*` stay; delete them once you no longer need them.
 Commits pushed in step 3 stay on `origin/dev`; the old sync merges them like any other machine's work.
 After step 7 the files have advanced to the merged `dev`: undo the refs as above only if you also want the old sync back, and expect it to see the new files as local edits.
