@@ -61,7 +61,7 @@ Linux distributions currently need the vendor client installed first. Normal
 updates do not start services.
 
 The final bootstrap step handles private recovery, installer exceptions, local
-builds, JJ initialization, Atuin enrollment, history enrollment, and Tailscale. It prints completed, deferred, and failed
+builds, the source checkout on `dev`, Atuin enrollment, history enrollment, and Tailscale. It prints completed, deferred, and failed
 steps. Resolve the reported prerequisite and rerun `dots bootstrap`; it keeps
 existing configuration and connected Tailscale identities. It never selects an
 exit node or advertises routes. Without an enrollment key, Tailscale uses its
@@ -86,79 +86,23 @@ persistent history across sessions. To switch an already open shell to local
 recall, run `set -g fish_history ''`; existing saved history is retained.
 
 Run `dots sync` or `dots up` to share ordinary public source edits through `dev`.
-Managed live checkouts follow `dev`;
-native task worktrees stay separate and are never initialized or published by sync.
-`main` remains the reviewed branch.
-The settings watcher and encrypted private settings history stay separate.
-
-Sync captures public files, scans them before creating snapshot ancestry,
-merges away from the live tree, validates the host configuration with local overlays,
-and pushes without force.
-Compatible text edits merge.
-Conflicting text uses the genuine file save time attached to its content,
-with a stable machine identifier breaking ties.
-Receiving, merging and reviewing files do not count as saves.
-The first import has unknown save times;
-conflicts with unknown or implausible timestamps stay pending.
-Ambiguous delete-versus-edit keeps edited content;
-type conflicts stay pending.
-Merge parents retain alternatives, and sync prints commit IDs for recovery:
-`git show COMMIT:path/to/file`.
-
-Network or authentication failure leaves a durable local queue and reports
-“Saved locally” or “Push pending”.
-The next `dots up` retries while useful maintenance continues after deferral.
-Secret findings queue publication without putting flagged files in snapshot ancestry.
-Private selectors, ignored local lockfiles and app state stay local.
-
-For a one-time migration of an inspected older live checkout,
-set `DOTS_ADOPT_DEV_PARENT` to its full current source-parent commit ID
-(`jj log --ignore-working-copy -r @- --no-graph -T commit_id`, or Git `HEAD`).
-This opt-in applies only before the first managed adoption;
-it preserves existing edits and records their observed mtimes as unverified history.
-Unset it after adoption.
-Historical save-time collisions remain pending.
-
-PR extraction is manual.
-Create a focused task branch from `origin/main`,
-copy or cherry-pick only the desired change from `dev`,
-and review the resulting diff against `main`.
-Do not move shared `dev` or merge it wholesale into `main`.
-Use `dots publish --bookmark wip/your-task` for a reviewed main-based JJ stack.
-`dots publish --all` remains available for private main-based stacks;
-it refuses shared dev ancestry.
-Publication scans outgoing commits and asks for review confirmation.
-
 On the other machine, run `dots up` to fetch shared `dev`, apply ordinary dotfiles,
 and update tools.
 Open a new shell to load changed shell configuration.
 Use `dots sync` for configuration without software upgrades,
 or `dots apply ~/.ssh/config` to render one locally edited template.
 
-Use `dots sync --source-only` to fetch and advance only the reviewed shared source.
-It keeps the repository, ancestry, local-edit and concurrent-change guards, and
-checks the incoming public source and minimum mise version through an isolated
-stored-value TOML read of the public incoming config. It does not copy or
-save private settings, render/apply dotfiles, run bootstrap hooks, or upgrade tools.
-It uses the existing selected mise environment to run the synchronizer, with
-automatic installs, updates and hooks disabled for that invocation.
-Existing symlinks immediately reflect changes to their source files, so source
-advancement can still change configuration read by applications. Private selector
-files and ignored local lockfiles stay in place; legacy tracked-lock migration
-requires ordinary `dots sync`. Incoming ignore rules must protect local selectors
-and lockfiles. If settings change during advancement, the previous source revision
-is restored when the new child is still empty; concurrent public edits are retained
-for manual reconciliation. Run ordinary `dots sync` when deployment is wanted.
-For an exact reviewed revision, set `DOTS_EXPECTED_MAIN` to its full commit ID when
-running source-only sync. The wrapper captures that value before mise selects its
-environment; a changed remote main then defers before advancement.
+### Sync, dev and main
 
-Unrelated task history and concurrent edits are preserved.
-When safe adoption is deferred, `dots up` reports “source sync deferred”
-and continues maintenance using the current configuration.
-The sync backend returns status 3 for deferral;
-the updater completes successfully if its remaining stages succeed.
-No command force-pushes, rebases a task, or writes conflict markers into live files.
+`~/.config/mise` on every machine is a plain Git checkout with `HEAD` on `dev`;
+`dots sync` and `dots up` share edits through `dev` and merge reviewed `main` into it.
+[The sync guide](manager/docs/sync.md) explains a run, each line it prints and what to do about it.
+These machines need Git 2.43 or newer for sync.
+
+Pushing a commit straight to `origin/dev` from a task worktree is fine; the next sync merges it.
+Reviewed changes go to `main` through a pull request from a task branch or JJ workspace, never from the live checkout.
+`dots publish` runs in the JJ workspace you are standing in.
+A machine still on JJ or the old sync state is converted once by hand: see [sync migration](docs/sync-migration.md).
 
 ## Update this computer
 

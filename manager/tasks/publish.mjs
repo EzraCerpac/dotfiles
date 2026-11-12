@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { ensureRepository, withRepositoryLock, SourceDeferred, sourceRepository, dotsVar } from '../lib/source-repo.mjs';
+import { ensureRepository, withRepositoryLock, sourceRepository, dotsVar } from '../lib/source-repo.mjs';
 
 // When [vars] dots_publish_on_behalf_of names a person, pull request text
 // starts with a note that a model writes on their behalf. Set
@@ -16,6 +16,8 @@ export function disclosure(onBehalfOf, model = process.env.DOTS_PUBLISH_MODEL) {
 }
 
 const DEFAULT_BASE = 'main';
+// Exit 3: publication needs attention (conflicts to resolve), not a failure.
+const deferred = message => Object.assign(new Error(message), { code: 3 });
 const SECRET_SCANNER = 'gitleaks';
 
 // Progress contains only fixed phase labels, never diffs or credentials.
@@ -293,7 +295,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, 
   const pinnedCommit = commitIdFor(run, root, revision);
   const workingCommit = commitIdFor(run, root, '@');
   const baseCommit = commitIdFor(run, root, 'main@origin');
-  if (hasConflicts(run, root, revision)) throw new SourceDeferred('the current stack has conflicts; resolve them and rerun dots publish --all');
+  if (hasConflicts(run, root, revision)) throw deferred('the current stack has conflicts; resolve them and rerun dots publish --all');
   let changes = proposedChanges(run, root, revision);
   if (!changes.some(change => change.diff.trim())) throw new Error(`${revision} has no actual file changes above main@origin`);
   previewChanges(output, revision, changes);
@@ -320,7 +322,7 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, 
     invoke(run, 'jj', ['--no-pager', 'new', '-m', 'Merge main into unpublished setup stack', revision, 'main@origin'], root);
     revision = '@';
     if (hasConflicts(run, root, revision)) {
-      throw new SourceDeferred('merging main created conflicts in @; resolve them and rerun dots publish --all; nothing was pushed');
+      throw deferred('merging main created conflicts in @; resolve them and rerun dots publish --all; nothing was pushed');
     }
     changes = proposedChanges(run, root, revision);
     previewChanges(output, revision, changes);
@@ -357,8 +359,9 @@ function publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, 
 }
 
 function parseArgs(args) {
-  if (!args.length) throw new Error('Usage: publish.mjs ROOT [--all | --bookmark NAME]');
+  if (args.length < 2) throw new Error('Usage: publish.mjs ROOT WORKSPACE [--all | --bookmark NAME]');
   const root = path.resolve(args.shift());
+  const workspace = path.resolve(args.shift());
   let bookmark;
   let all = false;
   while (args.length) {
@@ -367,14 +370,15 @@ function parseArgs(args) {
       if (bookmark) throw new Error('--bookmark may only be supplied once');
       bookmark = args.shift();
     } else if (flag === '--all' && !all) all = true;
-    else throw new Error('Usage: publish.mjs ROOT [--all | --bookmark NAME]');
+    else throw new Error('Usage: publish.mjs ROOT WORKSPACE [--all | --bookmark NAME]');
   }
   if (all && bookmark) throw new Error('--all and --bookmark cannot be used together');
-  return { root, bookmark, all };
+  return { root, workspace, bookmark, all };
 }
 
 export function publish({
   root,
+  workspace = root,
   bookmark,
   all = false,
   run = spawnSync,
@@ -382,7 +386,7 @@ export function publish({
   output = process.stdout,
   confirm = (question) => confirmDefault(question, { input: process.stdin, output }),
   descriptionPrompt = (question) => descriptionPromptDefault(question, { input: process.stdin, output }),
-  ensure = ensureRepository,
+  ensure,
   lock = withRepositoryLock,
   repository,
   onBehalfOf,
@@ -394,30 +398,43 @@ export function publish({
   if (all && bookmark) throw new Error('--all and --bookmark cannot be used together');
   if (bookmark) verifyPrivateBookmark(bookmark);
 
-  return lock(root, () => {
-    const repository = publishPhase('validate', 'Validate repository', () => ensure(root));
-    if (!repository || !repository.gitDir) throw new Error('source repository helper did not return gitDir');
-    publishPhase('fetch', 'Fetch main', () => invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], root));
+  // Publication drives the JJ workspace the caller stands in, never the
+  // plain-Git live checkout, and only for this configuration's repository.
+  const top = run('git', ['rev-parse', '--show-toplevel'], { cwd: workspace, encoding: 'utf8' });
+  const checkout = publishPhase('validate', 'Validate repository', () => {
+    try {
+      const info = (ensure || (candidate => ensureRepository(candidate, { repository: repo })))(top.status === 0 ? top.stdout.trim() : workspace);
+      if (!info || !info.gitDir) throw new Error('source repository helper did not return gitDir');
+      if (!fs.existsSync(path.join(info.root, '.jj'))) throw new Error('no .jj');
+      return info;
+    } catch (error) {
+      throw new Error(`${workspace} is not a JJ workspace of ${repo} (${String(error.message).split('\n')[0]}); reviewed changes go to main through a pull request from a task branch or JJ workspace`);
+    }
+  });
+  const dir = checkout.root;
 
-    const devResult = run('git', ['rev-parse', '--verify', 'refs/heads/dev'], { cwd: root, encoding: 'utf8' });
+  return lock(dir, () => {
+    publishPhase('fetch', 'Fetch main', () => invoke(run, 'jj', ['--no-pager', 'git', 'fetch', '--remote', 'origin', '--branch', 'main'], dir));
+
+    const devResult = run('git', ['rev-parse', '--verify', 'refs/heads/dev'], { cwd: dir, encoding: 'utf8' });
     if (devResult.status === 0) {
       const target = bookmark || '@';
       const dev = devResult.stdout.trim();
-      if (revisionList(run, root, `${dev} & ancestors(${target}) ~ ancestors(main@origin)`).length) {
+      if (revisionList(run, dir, `${dev} & ancestors(${target}) ~ ancestors(main@origin)`).length) {
         throw new Error('Extract a focused change onto a main-based task branch before publishing; shared dev cannot be an aggregate PR');
       }
     }
 
-    if (all) return publishAll({ root, run, now, output, confirm, descriptionPrompt, repo, note });
+    if (all) return publishAll({ root: dir, run, now, output, confirm, descriptionPrompt, repo, note });
 
     const explicit = Boolean(bookmark);
-    const revision = explicit ? bookmark : requireSingleDefaultChange(run, root);
-    if (explicit) verifyBookmark(run, root, bookmark);
-    const pinnedCommit = commitIdFor(run, root, revision);
-    const workingCommit = commitIdFor(run, root, '@');
-    let description = descriptionFor(run, root, revision);
+    const revision = explicit ? bookmark : requireSingleDefaultChange(run, dir);
+    if (explicit) verifyBookmark(run, dir, bookmark);
+    const pinnedCommit = commitIdFor(run, dir, revision);
+    const workingCommit = commitIdFor(run, dir, '@');
+    let description = descriptionFor(run, dir, revision);
     if (!description && explicit) throw new Error(`the ${revision} change has no description; describe it before publishing`);
-    const changes = proposedChanges(run, root, revision);
+    const changes = proposedChanges(run, dir, revision);
     if (!changes.length) throw new Error(`${revision} has no unpublished commits above main@origin`);
     if (!changes.some(change => change.diff.trim())) {
       throw new Error(`${revision} has no actual file changes above main@origin`);
@@ -434,26 +451,26 @@ export function publish({
     const body = makeBody(description, note);
     let existing;
     if (explicit) {
-      existing = findPullRequest(run, root, bookmark, repo);
+      existing = findPullRequest(run, dir, bookmark, repo);
       if (existing && String(existing.state || '').toUpperCase() !== 'OPEN') {
         throw new Error(`refusing to edit ${String(existing.state || 'closed').toLowerCase()} pull request ${existing.number} for ${bookmark}; choose a new bookmark`);
       }
     }
-    publishPhase('scan', 'Scan commits', () => scanForSecrets(run, root, output, commitIdFor(run, root, 'main@origin'), pinnedCommit));
+    publishPhase('scan', 'Scan commits', () => scanForSecrets(run, dir, output, commitIdFor(run, dir, 'main@origin'), pinnedCommit));
     if (!publishConfirmation(confirm, `Publish ${revision} to ${repo}?`)) throw new Error('publication cancelled; nothing was pushed');
 
-    if (commitIdFor(run, root, revision) !== pinnedCommit || (!explicit && commitIdFor(run, root, '@') !== workingCommit)) {
+    if (commitIdFor(run, dir, revision) !== pinnedCommit || (!explicit && commitIdFor(run, dir, '@') !== workingCommit)) {
       throw new Error('the source revision changed while the preview was open; review the new diff and try again');
     }
-    if (!explicit && !hadDescription) invoke(run, 'jj', ['--no-pager', 'describe', '-m', description], root);
+    if (!explicit && !hadDescription) invoke(run, 'jj', ['--no-pager', 'describe', '-m', description], dir);
     let chosenBookmark = bookmark;
     if (!explicit) {
-      chosenBookmark = defaultBookmark(run, root, now, revision);
-      invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], root);
+      chosenBookmark = defaultBookmark(run, dir, now, revision);
+      invoke(run, 'jj', ['--no-pager', 'bookmark', 'create', chosenBookmark, '-r', revision], dir);
     }
-    publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], root));
-    const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, root, chosenBookmark, title, body, existing, repo));
-    if (!explicit) invoke(run, 'jj', ['--no-pager', 'new'], root);
+    publishPhase('push', 'Push source', () => invoke(run, 'jj', ['--no-pager', 'git', 'push', '--bookmark', chosenBookmark], dir));
+    const pullRequest = publishPhase('pull-request', 'Create or update pull request', () => publishPullRequest(run, dir, chosenBookmark, title, body, existing, repo));
+    if (!explicit) invoke(run, 'jj', ['--no-pager', 'new'], dir);
     outputText(output, `Published ${chosenBookmark}: ${pullRequest.url}\n`);
     return { bookmark: chosenBookmark, url: pullRequest.url, existing: pullRequest.existing, description, title };
   });
@@ -464,7 +481,7 @@ export function main(argv = process.argv.slice(2)) {
     const options = parseArgs([...argv]);
     publish(options);
   } catch (error) {
-    if (error instanceof SourceDeferred || error?.code === 3) {
+    if (error?.code === 3) {
       console.error(`publish: ${error.message}`);
       process.exitCode = 3;
     } else {

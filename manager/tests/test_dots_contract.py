@@ -270,6 +270,47 @@ class UpdateHookTests(ContractTestCase):
         reexecs = [call for call in calls if call.endswith(f"exec -- bash {self.f.manager}/tasks/update")]
         self.assertEqual(len(reexecs), 1, calls)
 
+    def test_update_continues_after_any_sync_outcome_and_repeats_attention(self) -> None:
+        for name, script, attention in (
+            ("stopped", "echo 'dots sync: stopped · HEAD is detached, not on dev. See docs'", "dots sync: stopped · HEAD is detached"),
+            ("failed", "echo 'dots sync: failed · git -c failed: Author identity unknown'", "dots sync: failed · git -c failed"),
+            ("partial", "printf 'dots sync: saved 1 file locally · offline · not pushed\\n  OFFLINE: 1 commits unpushed, retried next run\\n  changed on disk: 1 file changed\\n'",
+             "  OFFLINE: 1 commits unpushed, retried next run"),
+        ):
+            with self.subTest(name):
+                result = self.f.update(DOTS_SOURCE_SYNC_DONE="0", FAKE_SYNC=script)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                summary = result.stdout.split("Source sync needs attention:\n", 1)[1]
+                self.assertTrue(summary.startswith(attention), summary)
+                self.assertNotIn("changed on disk", summary)
+                self.assertIn("Update report: completed; needs attention: source sync;", result.stdout)
+
+
+class CommandBackendTests(ContractTestCase):
+    def test_standalone_sync_reports_its_outcome_and_attention_lines(self) -> None:
+        import json
+        events = self.f.base / "events"
+        for name, script, status, attention in (
+            ("ok", "echo 'dots sync: no local changes · pulled dev +0, main +0 · nothing to push'", "ok", []),
+            ("stopped", "echo 'dots sync: stopped · HEAD is detached, not on dev. See docs'", "attention",
+             ["dots sync: stopped · HEAD is detached, not on dev. See docs"]),
+            ("partial", "printf 'dots sync: saved 1 file locally · offline · not pushed\\n  OFFLINE: 1 commits unpushed, retried next run\\n  changed on disk: 1 file changed\\n'",
+             "attention", ["OFFLINE: 1 commits unpushed, retried next run"]),
+        ):
+            with self.subTest(name):
+                result = subprocess.run(["bash", "-c", 'exec 3>"$0"; exec "$@"', str(events), sys.executable,
+                                         str(self.f.manager / "lib/dots-command-backend.py"), str(self.f.mise), str(self.f.config), "sync"],
+                                        cwd=self.f.config, env={**self.f.env, "DOTS_UP_EVENT_FD": "3", "FAKE_SYNC": script},
+                                        capture_output=True, text=True, timeout=60, check=False)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                header = result.stdout.splitlines()[0]
+                self.assertTrue(header.startswith("dots sync: "), result.stdout)
+                parsed = [json.loads(line) for line in events.read_text().splitlines()]
+                self.assertEqual([e["summary"] for e in parsed if e["kind"] == "notice"], attention)
+                end = next(e for e in parsed if e["kind"] == "stage_end")
+                self.assertEqual((end["status"], end["exit_code"], end["summary"]), (status, 0, header))
+                self.assertEqual([(e["status"], e["exit_code"]) for e in parsed if e["kind"] == "run_end"], [(status, 0)])
+
 
 class ProfileTests(ContractTestCase):
     def test_internal_profile_selects_a_profile_of_the_configuration(self) -> None:
@@ -340,7 +381,7 @@ class CommandTests(ContractTestCase):
         self.command("sync", f"touch {marker}\n")
         result = self.f.dots("sync", "extra")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("dots: sync accepts only --source-only", result.stderr)
+        self.assertIn("dots: sync takes no arguments", result.stderr)
         self.assertFalse(marker.exists())
 
     def test_names_with_a_slash_or_leading_dash_are_rejected(self) -> None:

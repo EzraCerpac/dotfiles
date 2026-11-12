@@ -19,7 +19,7 @@ function command(root, bin, args) {
 }
 
 function setupRepository({ stack = 1, description = 'Sync public setup', bookmark = '' } = {}) {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-publish-jj-'));
+  const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'dots-publish-jj-')));
   const origin = path.join(directory, 'origin.git');
   const root = path.join(directory, 'source');
   fs.mkdirSync(root);
@@ -155,6 +155,38 @@ test('default publication refuses a private stack above main@origin', needsJj, (
     assert(!hasCall(state.calls, 'jj', 'git', 'push'));
     assert(!hasCall(state.calls, 'gh', 'create'));
     assert(!hasCall(state.calls, 'gh', 'edit'));
+  } finally { cleanup(fixture); }
+});
+
+test('publication uses the JJ workspace the caller is in, not the configuration root', needsJj, () => {
+  const fixture = setupRepository();
+  try {
+    const live = path.join(fixture.directory, 'live');
+    command(fixture.directory, 'git', ['clone', '-q', fixture.origin, live]);
+    fs.mkdirSync(path.join(fixture.root, 'sub'));
+    const state = publisher(fixture);
+    publish({ ...state.options, root: live, workspace: path.join(fixture.root, 'sub') });
+    assert(hasCall(state.calls, 'gitleaks', 'git', fixture.root));
+    assert(hasCall(state.calls, 'jj', 'git', 'push'));
+    assert.match(state.output.text, /Published wip\/dotfiles-/);
+  } finally { cleanup(fixture); }
+});
+
+test('publication outside a JJ workspace of the configuration stops with one line', needsJj, () => {
+  const fixture = setupRepository();
+  try {
+    const live = path.join(fixture.directory, 'live');
+    command(fixture.directory, 'git', ['clone', '-q', fixture.origin, live]);
+    const foreign = path.join(fixture.directory, 'foreign');
+    command(fixture.directory, 'git', ['clone', '-q', fixture.origin, foreign]);
+    command(foreign, 'git', ['remote', 'set-url', 'origin', path.join(fixture.directory, 'other.git')]);
+    fs.mkdirSync(path.join(foreign, '.jj'));
+    const tail = '; reviewed changes go to main through a pull request from a task branch or JJ workspace';
+    for (const [workspace, reason] of [[live, 'no .jj'], [foreign, `Refusing source operations: origin is not ${fixture.origin}`], [fixture.directory, `${fixture.directory} is not a Git repository`]]) {
+      const state = publisher(fixture);
+      assert.throws(() => publish({ ...state.options, workspace }), error => error.message === `${workspace} is not a JJ workspace of example/dotfiles (${reason})${tail}`);
+      assert(!hasCall(state.calls, 'jj'));
+    }
   } finally { cleanup(fixture); }
 });
 

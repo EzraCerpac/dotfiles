@@ -2,6 +2,7 @@
 """Structured status and progress bridge for the dots dashboard."""
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -35,9 +36,25 @@ def stage_start(id, group, label, handoff=False):
         if line.decode().strip() != f"go:{id}":
             raise RuntimeError("invalid terminal handoff")
 
-def stage_end(id, label, code):
-    state = "ok" if code == 0 else "attention" if code == 3 else "failed"
-    emit("stage_end", id=id, label=label, status=state, exit_code=code, summary="completed" if code == 0 else f"exit {code}")
+def stage_end(id, label, code, state=None, summary=None):
+    state = state or ("ok" if code == 0 else "attention" if code == 3 else "failed")
+    emit("stage_end", id=id, label=label, status=state, exit_code=code, summary=summary or ("completed" if code == 0 else f"exit {code}"))
+    return state
+
+# Sync always exits 0 and prints one block; the rule tasks/update applies to it:
+# a header that did not complete or an upper-case line needs attention.
+SYNC_ATTENTION = re.compile(r"^dots sync: (stopped|skipped|failed)|^  [A-Z][A-Z ]+[ :(]")
+
+def sync(argv, env, pass_fds):
+    result = subprocess.run(argv, env=env, pass_fds=pass_fds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    sys.stdout.buffer.write(result.stdout)
+    sys.stdout.flush()
+    lines = result.stdout.decode(errors="replace").splitlines()
+    attention = [line.strip() for line in lines if SYNC_ATTENTION.match(line)]
+    for line in attention:
+        emit("notice", severity="attention", summary=line)
+    header = next((line for line in lines if line.startswith("dots sync: ")), None)
+    return result.returncode, stage_end("sync", "sync", result.returncode, "attention" if attention and result.returncode == 0 else None, header)
 
 def item(group, key, state, summary, action=""):
     emit("item_upsert", id=f"{group.lower()}:{key}", group=group, label=str(key), status=state, summary=str(summary), action=action, before="", after="")
@@ -103,10 +120,13 @@ def status():
         if data is not None:
             try:
                 if id == "source":
-                    workspace = data["workspace"]
                     revision = data.get("base_revision", "")
                     revision = revision[:12] if isinstance(revision, str) and len(revision) >= 12 and all(c in "0123456789abcdef" for c in revision) else "unavailable"
-                    item("Source", "repository", "unknown" if workspace == "jj" else "attention", f"{'JJ' if workspace == 'jj' else 'Git'} workspace; base {revision}; working state not inspected", "Review source state" if workspace == "jj" else "Initialize JJ when ready")
+                    problem = data.get("problem")
+                    unpushed = data.get("unpushed", 0)
+                    item("Source", "repository", "attention" if problem else "ok",
+                         f"Git on {data.get('branch') or 'detached HEAD'} at {revision}; {unpushed} commits not on origin/dev",
+                         f"{problem}; see {home}/docs/sync.md" if problem else ("Run dots sync" if unpushed else ""))
                 elif id == "atuin":
                     for key in ("installation", "login", "last_sync", "ai_readiness"):
                         value = data.get(key, "unavailable")
@@ -205,6 +225,7 @@ def main():
     if command == "status" and not arguments and not os.environ.get("DOTS_STATUS_IN_ENV"):
         os.execvpe(mise, [mise, "-C", root, "exec", "--", "python3", __file__, mise, root, command], {**os.environ, "DOTS_HOME": home, "DOTS_STATUS_IN_ENV": "1", "MISE_CONFIG_DIR": root, "MISE_AUTO_INSTALL": "0", "MISE_EXEC_AUTO_INSTALL": "0", "MISE_AUTO_UPDATE": "0", "MISE_NO_HOOKS": "1"})
     emit("run_start", command=command, profile=os.environ.get("SETUP_PROFILE", ""), host=socket.gethostname().split(".")[0])
+    state = None
     try:
         if command == "status" and not arguments:
             code = status()
@@ -212,12 +233,16 @@ def main():
             stage_start(command, "Command", command, handoff=command not in ("sync", "backup", "test", "add", "remove"))
             event_fd = os.environ.get("DOTS_UP_EVENT_FD")
             pass_fds = tuple(int(os.environ[key]) for key in ("DOTS_UP_EVENT_FD", "DOTS_UP_ACK_FD") if os.environ.get(key, "").isdecimal())
-            code = subprocess.call([home + "/bin/dots", "--backend", command, *arguments], env={**os.environ, "DOTS_ROOT": root, "DOTS_HOME": home, "DOTS_MISE_BIN": mise}, pass_fds=pass_fds)
-            stage_end(command, command, code)
+            argv, env = [home + "/bin/dots", "--backend", command, *arguments], {**os.environ, "DOTS_ROOT": root, "DOTS_HOME": home, "DOTS_MISE_BIN": mise}
+            if command == "sync":
+                code, state = sync(argv, env, pass_fds)
+            else:
+                code = subprocess.call(argv, env=env, pass_fds=pass_fds)
+                stage_end(command, command, code)
     except (OSError, RuntimeError) as error:
         print(f"dots: {error}", file=sys.stderr)
-        code = 1
-    emit("run_end", status="ok" if code == 0 else "attention" if code == 3 else "failed", exit_code=code)
+        code, state = 1, None
+    emit("run_end", status=state or ("ok" if code == 0 else "attention" if code == 3 else "failed"), exit_code=code)
     return code
 
 if __name__ == "__main__":

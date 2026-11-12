@@ -90,7 +90,8 @@ Make new hooks and recipes executable (`chmod +x`), start them with `set -euo pi
 - Never commit secrets, keys, tokens or app state.
   `miserc.toml`, `config.local.toml` and `config.host-*.toml` are machine-local and stay ignored; never write `[tools]`, `[dotfiles]` or packages into them.
 - Small changes (a config line, a hook, instruction text) go into the live checkout; the user then runs `dots up` or `dots sync` to share them through `dev`.
-- Larger or risky changes go on a task branch from `origin/main` with a pull request into `main`; a merged PR reaches every machine on its next `dots up`.
+  `$(dots internal home)/docs/sync.md` ([sync guide](../../docs/sync.md)) explains each line `dots sync` prints and what to do about it.
+- Larger or risky changes go on a task branch or JJ workspace from `origin/main` with a pull request into `main`, never from the live checkout; a merged PR reaches every machine on its next `dots up`.
 - Never force-push, rewrite `dev` or `main`, or merge `dev` wholesale into `main`.
 - Do not run machine-changing commands unless asked; say which command the user should run instead.
 - If the configuration has tests, run them: `dots test`, or `tests/run` in the configuration.

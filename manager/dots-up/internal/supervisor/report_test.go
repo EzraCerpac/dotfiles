@@ -104,3 +104,14 @@ func TestSummaryCountsAttentionStageResults(t *testing.T) {
 		t.Fatalf("summary omitted the attention result: %s", got)
 	}
 }
+
+func TestCommandSummaryNeedsAttentionDespiteExitZero(t *testing.T) {
+	got := summary(Report{
+		Command:  "sync",
+		ExitCode: 0,
+		Events:   []ui.Event{{V: 1, Kind: "notice", Severity: "attention", Summary: "NOT PUSHED: origin/dev kept moving; retried next run"}},
+	}, "/state/run")
+	if !strings.HasPrefix(got, "dots sync needs attention\n") {
+		t.Fatalf("summary hid the attention result: %s", got)
+	}
+}

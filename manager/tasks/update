@@ -205,48 +205,32 @@ abort_invalid_config() {
 
 validate_update_config || abort_invalid_config
 
-# Reload after sync so maintenance runs from the newly adopted source.
+# Sync first, then reload so maintenance runs from the synced configuration.
+# Whatever the sync outcome, the remaining stages still run; its attention
+# lines are repeated in the final summary.
 if [[ "${DOTS_SOURCE_SYNC_DONE:-0}" != 1 ]]; then
     sync_result=0
-    sync_log=""
     if [[ "$plain_output" -eq 1 ]]; then printf 'Working: Sync configuration\n'; fi
-    if [[ "$plain_output" -eq 1 ]] && ! dots_up_event_sink_enabled && [[ -n "${DOTS_UP_RUN_DIR:-}" && ( ! -t 0 || ! -t 1 ) ]]; then
-        sync_log="$DOTS_UP_RUN_DIR/stages/source-sync.log"
-        if ! { : > "$sync_log" && chmod 600 "$sync_log"; }; then
-            printf 'Warning: could not create the source sync log; showing its output directly.\n' >&2
-            sync_log=""
-        fi
-    fi
     if dots_up_event_sink_enabled; then
         start_event_stage source-sync 'Source & settings' 'Sync configuration' hidden
     fi
-    if [[ -n "$sync_log" ]]; then
-        setup_mise exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$SETUP_ROOT" > "$sync_log" 2>&1 || sync_result=$?
-    else
-        setup_mise exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$SETUP_ROOT" || sync_result=$?
+    sync_output="$(setup_mise exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$SETUP_ROOT" 2>&1)" || sync_result=$?
+    printf '%s\n' "$sync_output"
+    if [[ -n "${DOTS_UP_RUN_DIR:-}" ]]; then
+        (umask 077; printf '%s\n' "$sync_output" > "$DOTS_UP_RUN_DIR/stages/source-sync.log") || true
     fi
-    case "$sync_result" in
-        0|3) ;;
-        *)
-            setup_error 'source synchronization failed; dependent updates stopped'
-            if [[ -n "$sync_log" ]]; then
-                printf 'Recent output:\n' >&2
-                tail -n 30 "$sync_log" >&2 || true
-                printf 'Full log: %s\n' "$sync_log" >&2
-            fi
-            emit_event "$(event_json --arg id source-sync --arg summary 'Source sync failed; updates stopped' --argjson code "$sync_result" '{v:1,kind:"stage_end",id:$id,status:"failed",exit_code:$code,summary:$summary}')"
-            exit "$sync_result"
-            ;;
-    esac
-    if [[ "$sync_result" -eq 3 ]]; then
-        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: source sync deferred; see the source sync log for details.\n'; fi
-        emit_event "$(event_json --arg summary 'Source sync deferred; see the source sync log for details' '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
-        emit_event "$(event_json --arg id source-sync --arg summary 'Source sync deferred' '{v:1,kind:"stage_end",id:$id,status:"attention",exit_code:0,summary:$summary}')"
+    # Attention: a header that did not complete, an uppercase notice line, or a crash.
+    sync_attention="$(printf '%s\n' "$sync_output" | grep -E '^dots sync: (stopped|skipped|failed)|^  [A-Z][A-Z ]+[ :(]' || true)"
+    if [[ "$sync_result" -ne 0 && -z "$sync_attention" ]]; then sync_attention="dots sync exited $sync_result"; fi
+    if [[ -n "$sync_attention" ]]; then
+        if [[ "$plain_output" -eq 1 ]]; then printf 'Result: needs attention\n'; fi
+        emit_event "$(event_json --arg summary "Source sync: ${sync_attention%%$'\n'*}" '{v:1,kind:"notice",severity:"attention",summary:$summary}')"
+        emit_event "$(event_json --arg id source-sync --arg summary 'Source sync needs attention' '{v:1,kind:"stage_end",id:$id,status:"attention",exit_code:0,summary:$summary}')"
     else
         if [[ "$plain_output" -eq 1 ]]; then printf 'Result: completed\n'; fi
-        emit_event "$(event_json --arg id source-sync --arg summary 'Source synchronized' '{v:1,kind:"stage_end",id:$id,status:"ok",exit_code:0,summary:$summary}')"
+        emit_event "$(event_json --arg id source-sync --arg summary "${sync_output%%$'\n'*}" '{v:1,kind:"stage_end",id:$id,status:"ok",exit_code:0,summary:$summary}')"
     fi
-    export DOTS_SOURCE_SYNC_DONE=1 DOTS_SOURCE_SYNC_RESULT="$sync_result"
+    export DOTS_SOURCE_SYNC_DONE=1 DOTS_SOURCE_SYNC_ATTENTION="$sync_attention"
     exec "$(resolve_mise_bin)" -C "$SETUP_ROOT" -E "$SETUP_ENVIRONMENTS" exec -- bash "$DOTS_HOME/tasks/update" "$@"
 fi
 
@@ -581,11 +565,11 @@ if ! run_stage 'Post-update settings checkpoint' setup_mise bootstrap dotfiles s
     setup_error "post-update settings checkpoint failed"
 fi
 
+if [[ -n "${DOTS_SOURCE_SYNC_ATTENTION:-}" ]]; then
+    printf '\nSource sync needs attention:\n%s\n' "$DOTS_SOURCE_SYNC_ATTENTION"
+    deferred+=("source sync")
+fi
 if [[ "${#failures[@]}" -eq 0 ]]; then
-    if [[ "${DOTS_SOURCE_SYNC_RESULT:-0}" == 3 ]]; then
-        printf '\nUpdate report: completed; source sync deferred; see the source sync log for details.\n'
-        exit 0
-    fi
     if [[ "${#deferred[@]}" -gt 0 ]]; then
         printf '\nUpdate report: completed; needs attention: '
         printf '%s; ' "${deferred[@]}"

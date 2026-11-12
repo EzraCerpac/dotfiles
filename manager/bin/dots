@@ -52,8 +52,8 @@ Your machine setup, from any directory.
 
   dots up [--mas] [--plain|--verbose] [--no-wait] [--last]
                                    Sync configuration, then update tools and plugins
-  dots sync [--source-only]        Share dev; --source-only advances reviewed main
-  dots publish [--all | --bookmark NAME]   Review source changes and open/update a PR
+  dots sync                       Save, merge and share configuration through dev
+  dots publish [--all | --bookmark NAME]   Open/update a PR from the JJ workspace you are in
   dots atuin-bundle [ARGS...]       Securely prepare the Atuin-only bundle
   dots atuin-login [--browser]     Finish Atuin login, including two-factor/Hub steps
   dots status                     Inspect files, tools and backup health
@@ -90,7 +90,7 @@ progress, --verbose shows full subprocess output, and --last reopens the saved r
 Bare tool names use mise's preferred backend and latest version.
 brew: names prefer formulas and resolve to casks when no formula exists.
 New requests are recorded after installation; failures ask before recording.
-Ordinary sync shares public source through dev; publish reviews main-based tasks.
+Sync shares public source through dev; publish reviews main-based JJ tasks.
 Backup publishes only private settings.
 HELP
     local root names name
@@ -225,23 +225,18 @@ if (($#)); then shift; fi
 [[ "$command_name" != uninstall ]] || command_name=remove
 case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 case "$command_name" in
-    sync) [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; } ;;
-    status|backup|plan) [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; } ;;
+    sync|status|backup|plan) [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; } ;;
 esac
 # Shared flags belong to the frontend, never to the maintenance backend.
 if [[ "$backend_mode" -eq 0 && "$command_name" != up && "$command_name" != update && "$command_name" != plan ]]; then
-    source_only=0
-    [[ "$command_name" != sync || "${1:-}" != --source-only ]] || source_only=1
-    if [[ "$source_only" -eq 0 ]]; then
-        resolve_renderer
-        if renderer_supported; then
-            exec "$renderer" --root "$root" --home "$DOTS_HOME" --command "$command_name" ${frontend_args[@]+"${frontend_args[@]}"} -- "$@"
-        fi
-        case "$command_name" in
-            menu) usage; exit 0 ;;
-            reports) echo 'dots: report browser is unavailable; install the current dots-up renderer' >&2; exit 2 ;;
-        esac
+    resolve_renderer
+    if renderer_supported; then
+        exec "$renderer" --root "$root" --home "$DOTS_HOME" --command "$command_name" ${frontend_args[@]+"${frontend_args[@]}"} -- "$@"
     fi
+    case "$command_name" in
+        menu) usage; exit 0 ;;
+        reports) echo 'dots: report browser is unavailable; install the current dots-up renderer' >&2; exit 2 ;;
+    esac
 fi
 if [[ "$command_name" == up || "$command_name" == update ]]; then
     set -- ${frontend_args[@]+"${frontend_args[@]}"} "$@"
@@ -332,27 +327,14 @@ case "$command_name" in
         fi
         exit "$result"
         ;;
-    sync)
-        [[ $# -eq 0 || ( $# -eq 1 && "$1" == --source-only ) ]] || { echo 'dots: sync accepts only --source-only' >&2; exit 2; }
-        ;;
-    status|backup|plan)
+    sync|status|backup|plan)
         [[ $# -eq 0 ]] || { echo "dots: $command_name takes no arguments" >&2; exit 2; }
         ;;
 esac
 case "$command_name" in
     up|update) exec_in_setup bash "$DOTS_HOME/tasks/update" "$@" ;;
-    sync)
-        if [[ "${1:-}" == --source-only ]]; then
-            if [[ -n "${DOTS_EXPECTED_MAIN:-}" ]]; then
-                [[ "$DOTS_EXPECTED_MAIN" =~ ^[a-f0-9]{40}$ ]] || { echo 'dots: DOTS_EXPECTED_MAIN needs a full lowercase commit ID' >&2; exit 2; }
-                set -- "$@" --expected-main "$DOTS_EXPECTED_MAIN"
-            fi
-            export MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1
-            exec "$mise_bin" -C "$root" exec -- /usr/bin/env MISE_AUTO_INSTALL=0 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_UPDATE=0 MISE_NO_HOOKS=1 node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" "$@"
-        fi
-        exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" "$@"
-        ;;
-    publish) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/tasks/publish.mjs" "$root" "$@" ;;
+    sync) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/lib/source-repo.mjs" sync "$root" ;;
+    publish) exec "$mise_bin" -C "$root" exec -- node "$DOTS_HOME/tasks/publish.mjs" "$root" "$PWD" "$@" ;;
     atuin-bundle) exec "$mise_bin" -C "$root" exec -- bash "$DOTS_HOME/bootstrap/atuin-bundle" "$@" ;;
     atuin-login)
         login_args=(enroll --root "$root")

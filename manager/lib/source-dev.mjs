@@ -1,270 +1,288 @@
-// Automatic live-source exchange. Task worktrees never enter this path.
+// Stateless live-source sync. Git refs and the files on disk are the only truth:
+// unpushed work is exactly origin/dev..dev. Task worktrees never enter this path.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { SourceDeferred, validateIncoming, validateIncomingIgnores } from './source-repo.mjs';
+import { validateIncoming, validateIncomingIgnores } from './source-repo.mjs';
 
-const privatePath = name => /^(config\.local\.toml|miserc\.toml|config\.host-[^/]+\.toml|mise(?:\.[^/]+)?\.lock|locks|\.setup-state)(\/|$)/i.test(name);
-const trailer = 'Dots-Saves: ';
-const same = (a, b) => a?.blob === b?.blob && a?.mode === b?.mode;
-const deferred = message => { throw new SourceDeferred(message); };
+export const privatePath = name => /^(config\.local\.toml|miserc\.toml|config\.host-[^/]+\.toml|mise(?:\.[^/]+)?\.lock|locks|\.setup-state)(\/|$)/i.test(name);
+const ZERO = '0'.repeat(40);
+const short = commit => commit.slice(0, 12);
+const firstLine = text => String(text || '').split('\n').map(line => line.trim()).find(Boolean)?.slice(0, 160) || 'unknown error';
 
-export function syncDev(root, { gitDir, hasJj, miseBin }) {
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-dev-'));
-  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never',
-    GIT_SSH_COMMAND: 'ssh -oBatchMode=yes -oConnectTimeout=10' };
-  const run = (bin, args, options = {}) => {
-    const result = spawnSync(bin, args, { cwd: root, env, encoding: 'utf8', timeout: 30000, maxBuffer: 64 * 1024 * 1024, ...options });
-    if (result.error || result.status !== 0) deferred(`${bin} operation deferred (exit ${result.status ?? 'timeout'}); source retained`);
-    return options.encoding === null ? result.stdout : result.stdout?.trim() || '';
+export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = os.hostname().split('.')[0] }) {
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-sync-'));
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never', GIT_LITERAL_PATHSPECS: '1',
+    GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND || 'ssh -oBatchMode=yes -oConnectTimeout=10' };
+  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY']) delete env[key];
+  const lines = [];
+  const raw = (bin, args, options = {}) => spawnSync(bin, args, { cwd: root, env, encoding: 'utf8', timeout: 60000, maxBuffer: 64 * 1024 * 1024, ...options });
+  const tryGit = (args, options) => raw('git', args, options);
+  const git = (args, options) => {
+    const result = tryGit(args, options);
+    if (result.error || result.status !== 0) throw new Error(`git ${args[0]} failed: ${firstLine(result.stderr) || result.error?.message}`);
+    return options?.encoding === null ? result.stdout : result.stdout.trim();
   };
-  const git = (...args) => run('git', args);
-  const optional = (...args) => {
-    const result = spawnSync('git', args, { cwd: root, env, encoding: 'utf8', timeout: 30000 });
-    return result.status === 0 ? result.stdout.trim() : null;
+  const withIndex = file => ({ env: { ...env, GIT_INDEX_FILE: file } });
+  const rev = name => { const r = tryGit(['rev-parse', '--verify', '-q', `${name}^{commit}`]); return r.status === 0 ? r.stdout.trim() : null; };
+  const tree = commit => git(['rev-parse', `${commit}^{tree}`]);
+  const isAncestor = (a, b) => tryGit(['merge-base', '--is-ancestor', a, b]).status === 0;
+  const count = range => Number(tryGit(['rev-list', '--count', ...range]).stdout?.trim() || 0);
+  const commitTree = (treeId, parents, message) => git(['-c', 'commit.gpgsign=false', 'commit-tree', treeId, ...parents.flatMap(p => ['-p', p]), '-m', message]);
+  const nul = text => text.split('\0').filter(Boolean);
+
+  // gitleaks over a commit range, reported by file and line, never by content.
+  const scan = range => {
+    const report = path.join(scratch, `gitleaks-${Date.now()}.json`);
+    const args = ['git', '--no-banner', '--redact', '--exit-code', '1', '--report-format', 'json', '--report-path', report,
+      `--log-opts=--diff-merges=first-parent ${range.join(' ')}`];
+    if (fs.existsSync(path.join(root, '.gitleaks.toml'))) args.push('--config', path.join(root, '.gitleaks.toml'));
+    if (fs.existsSync(path.join(root, '.gitleaksignore'))) args.push('--gitleaks-ignore-path', path.join(root, '.gitleaksignore'));
+    const result = raw(gitleaks, [...args, root], { timeout: 300000 });
+    if (result.error) return { error: result.error.code === 'ENOENT' ? 'gitleaks is not installed' : result.error.message };
+    if (result.status === 0) return { findings: [] };
+    if (result.status !== 1) return { error: `gitleaks exited ${result.status}` };
+    try {
+      const findings = JSON.parse(fs.readFileSync(report, 'utf8')).map(f => ({ file: f.File, line: f.StartLine, rule: f.RuleID, commit: f.Commit }));
+      return findings.length ? { findings } : { error: 'gitleaks reported findings it did not list' };
+    } catch { return { error: 'gitleaks report unreadable' }; }
   };
-  const jj = (...args) => run('jj', ['-R', root, ...args]);
-  const tree = rev => {
-    const entries = {};
-    for (const line of run('git', ['ls-tree', '-rz', rev], { encoding: 'utf8' }).split('\0').filter(Boolean)) {
-      const match = line.match(/^(\d+) blob ([a-f0-9]+)\t([\s\S]+)$/);
-      if (!match) deferred('Unsupported source tree entry');
-      const [, mode, blob, name] = match;
-      if (privatePath(name)) deferred('Tracked private settings require manual reconciliation');
-      entries[name] = { mode, blob, time: null, machine: '' };
+
+  // Merge without touching live files. On a conflicting hunk the published side
+  // (theirs) wins; binary, type and delete conflicts take its file whole. Both
+  // parents stay in history, so the losing version remains recoverable.
+  const merge = (ours, theirs, label) => {
+    if (!theirs || ours === theirs || isAncestor(theirs, ours)) return ours;
+    if (isAncestor(ours, theirs)) return theirs;
+    // A file/directory conflict moves the file aside to PATH~COMMIT; resolve it at PATH.
+    const original = name => name.replace(new RegExp(`~(?:${ours}|${theirs})(?:_\\d+)?$`), '');
+    const conflicts = nul(tryGit(['merge-tree', '--write-tree', '-z', '--name-only', ours, theirs]).stdout || '').slice(1).map(original);
+    const resolved = tryGit(['merge-tree', '--write-tree', '-z', '--name-only', '-X', 'theirs', ours, theirs]);
+    if (resolved.status > 1 || resolved.error) throw new Error(`cannot merge ${label}: ${firstLine(resolved.stderr)}`);
+    const [mergedTree, ...remaining] = resolved.stdout.split('\0\0')[0].split('\0').filter(Boolean);
+    let result = mergedTree;
+    if (resolved.status === 1) {
+      const index = path.join(scratch, 'merge-index');
+      git(['read-tree', mergedTree], withIndex(index));
+      // Everything at or under each conflicted path becomes the published version.
+      const paths = [...new Set(remaining.map(original))];
+      const drop = [...remaining, ...nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', mergedTree, '--', ...paths]))];
+      const published = nul(git(['ls-tree', '-r', '-z', '--full-tree', theirs, '--', ...paths])).map(entry => {
+        const [meta, name] = entry.split('\t');
+        const [mode, , oid] = meta.split(' ');
+        return `${mode} ${oid}\t${name}\0`;
+      });
+      const input = drop.map(name => `0 ${ZERO}\t${name}\0`).join('') + published.join('');
+      git(['update-index', '-z', '--index-info'], { ...withIndex(index), input });
+      result = git(['write-tree'], withIndex(index));
     }
-    const message = git('show', '-s', '--format=%B', rev);
-    const encoded = message.split('\n').find(line => line.startsWith(trailer))?.slice(trailer.length);
-    if (encoded) {
-      let saves;
-      try { saves = JSON.parse(Buffer.from(encoded, 'base64').toString()); }
-      catch { deferred('Invalid saved-time metadata'); }
-      for (const [name, entry] of Object.entries(entries)) if (same(entry, saves[name])) Object.assign(entry, saves[name]);
+    const has = (commit, name) => tryGit(['cat-file', '-e', `${commit}:${name}`]).status === 0;
+    for (const name of new Set(conflicts)) {
+      const yours = has(ours, name);
+      if (!yours && !has(theirs, name)) continue; // merge artifact
+      lines.push(`CONFLICT kept published: ${name}  (yours: ${yours ? `git show ${short(ours)}:${name}` : `deleted in ${short(ours)}`})`);
     }
-    return entries;
+    return commitTree(result, [ours, theirs], `Merge ${label} (${host})`);
   };
-  const writeTree = entries => {
-    const indexEnv = { ...env, GIT_INDEX_FILE: path.join(scratch, 'index') };
-    run('git', ['read-tree', '--empty'], { env: indexEnv });
-    run('git', ['update-index', '-z', '--index-info'], { env: indexEnv, input: Object.entries(entries).map(([name, e]) => `${e.mode} ${e.blob}\t${name}\0`).join('') });
-    return run('git', ['write-tree'], { env: indexEnv });
-  };
-  const scanTree = entries => {
-    const directory = path.join(scratch, 'scan');
-    fs.rmSync(directory, { recursive: true, force: true });
-    fs.mkdirSync(directory);
-    // No source-controlled symlink is followed while preparing the scan.
-    for (const [name, entry] of Object.entries(entries)) {
-      const target = path.join(directory, name);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, run('git', ['cat-file', 'blob', entry.blob], { encoding: null }));
-    }
-    run('gitleaks', ['dir', '--no-banner', '--redact', '--config', path.join(root, '.gitleaks.toml'), '--gitleaks-ignore-path', path.join(root, '.gitleaksignore'), directory]);
-  };
-  const commit = (entries, parents, subject) => {
-    scanTree(entries); // Never put flagged content in snapshot ancestry.
-    return run('git', ['-c', 'commit.gpgsign=false', 'commit-tree', writeTree(entries), ...parents.flatMap(p => ['-p', p])],
-      { input: `${subject}\n\n${trailer}${Buffer.from(JSON.stringify(entries)).toString('base64')}\n` });
-  };
-  const sourceRevision = () => hasJj
-    ? jj('--ignore-working-copy', 'log', '-r', '@', '--no-graph', '-T', 'commit_id')
-    : git('rev-parse', 'HEAD');
-  const disk = previous => {
-    const names = run('git', ['ls-files', '-cz', '--others', '--exclude-standard'], { env: { ...env, GIT_INDEX_FILE: path.join(gitDir, 'index') } }).split('\0').filter(Boolean);
-    const entries = {};
-    for (const name of new Set(names)) {
-      if (privatePath(name)) continue;
-      const filename = path.join(root, name);
-      let stat;
-      try { stat = fs.lstatSync(filename); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-      if (!stat.isFile() && !stat.isSymbolicLink()) deferred('Unsupported source file type');
-      const content = stat.isSymbolicLink() ? Buffer.from(fs.readlinkSync(filename)) : fs.readFileSync(filename);
-      const blob = run('git', ['hash-object', '-w', '--stdin'], { input: content });
-      const mode = stat.isSymbolicLink() ? '120000' : stat.mode & 0o111 ? '100755' : '100644';
-      const entry = { blob, mode, time: null, machine: '' };
-      if (same(entry, previous[name])) Object.assign(entry, previous[name]);
-      else if (state.applied) Object.assign(entry, { time: stat.mtimeMs, machine: state.machine });
-      else entry.observedTime = stat.mtimeMs;
-      // First adoption cannot distinguish an old save from an old checkout.
-      entries[name] = entry;
-    }
-    return entries;
-  };
-  const localSignature = () => fs.readdirSync(root).filter(name => privatePath(name) && !['locks', '.setup-state'].includes(name)).sort().map(name => {
-    const stat = fs.lstatSync(path.join(root, name), { bigint: true });
-    return [name, String(stat.ino), String(stat.mtimeNs), String(stat.ctimeNs), String(stat.size)];
-  });
-  const plausible = entry => entry && Number.isFinite(entry.time) && entry.time >= 946684800000 && entry.time <= Date.now() + 300000;
-  const newer = (a, b) => {
-    if (!plausible(a) || !plausible(b)) deferred('Conflict has unknown or implausible save times; both versions retained');
-    return a.time > b.time || (a.time === b.time && a.machine > b.machine) ? a : b;
-  };
-  const merge = (left, right) => {
-    if (left === right || optional('merge-base', '--is-ancestor', right, left) !== null) return left;
-    if (optional('merge-base', '--is-ancestor', left, right) !== null) return right;
-    const base = optional('merge-base', left, right);
-    if (!base) deferred('Shared dev has unrelated history');
-    const ancestor = tree(base), ours = tree(left), theirs = tree(right), merged = {};
-    for (const name of new Set([...Object.keys(ancestor), ...Object.keys(ours), ...Object.keys(theirs)])) {
-      const a = ancestor[name], l = ours[name], r = theirs[name];
-      let chosen;
-      if (same(l, r)) chosen = l && (plausible(l) && plausible(r) ? newer(l, r) : l);
-      else if (same(l, a)) chosen = r;
-      else if (same(r, a)) chosen = l;
-      else if (!l || !r) {
-        chosen = l || r;
-        console.log(`Kept edited content for ${name}; alternative retained in ${left} and ${right}.`);
-      } else if (l.mode !== r.mode || l.mode === '120000') {
-        deferred(`Type conflict for ${name}; alternatives retained in ${left} and ${right}`);
-      } else {
-        const filenames = [l, a, r].map((entry, i) => {
-          const filename = path.join(scratch, `merge-${i}`);
-          fs.writeFileSync(filename, entry ? run('git', ['cat-file', 'blob', entry.blob], { encoding: null }) : Buffer.alloc(0));
-          return filename;
-        });
-        const result = spawnSync('git', ['merge-file', '-p', ...filenames], { encoding: null, timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
-        if (result.status === 0) {
-          // A compatible merge inherits contributing saves, never merge time.
-          const latest = plausible(l) && plausible(r) ? newer(l, r) : { time: null, machine: '' };
-          chosen = { ...l, time: latest.time, machine: latest.machine,
-            blob: run('git', ['hash-object', '-w', '--stdin'], { input: result.stdout }) };
-        } else {
-          const winner = newer(l, r);
-          const resolved = spawnSync('git', ['merge-file', '-p', winner === l ? '--ours' : '--theirs', ...filenames], { encoding: null, timeout: 30000, maxBuffer: 64 * 1024 * 1024 });
-          if (resolved.status !== 0) deferred(`Cannot resolve text conflict for ${name}; alternatives retained`);
-          chosen = { ...winner, blob: run('git', ['hash-object', '-w', '--stdin'], { input: resolved.stdout }) };
-          console.log(`Save time selected ${name}; recover either version from ${left} or ${right}.`);
-        }
-      }
-      if (chosen) merged[name] = chosen;
-    }
-    return commit(merged, [left, right], 'Merge shared setup');
-  };
-  const statePath = path.join(gitDir, 'dots-dev.json');
-  let state = { machine: randomUUID() };
-  if (fs.existsSync(statePath)) state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  const persist = () => {
-    const temporary = `${statePath}.${process.pid}`;
-    fs.writeFileSync(temporary, JSON.stringify(state), { mode: 0o600 });
-    fs.renameSync(temporary, statePath);
-  };
+
   try {
-    const revision = sourceRevision();
-    // Only managed source history may be captured, never a task branch/stack.
-    const base = hasJj ? jj('--ignore-working-copy', 'log', '-r', '@-', '--no-graph', '-T', 'commit_id') : revision;
-    const adopt = process.env.DOTS_ADOPT_DEV_PARENT;
-    if (adopt && (!/^[a-f0-9]{40}$/.test(adopt) || adopt !== base || state.applied)) deferred('One-time adoption requires the exact inspected source parent and an unmanaged source');
-    if (!state.applied && !adopt && ![optional('rev-parse', '--verify', 'refs/remotes/origin/main'), optional('rev-parse', '--verify', 'refs/remotes/origin/dev')].includes(base)) deferred('Unpublished task history requires explicit adoption');
-    if (state.applied && base !== state.applied) deferred('Source revision moved outside managed dev; preserving task work');
-    if (!hasJj && run('git', ['diff', '--cached', '--name-only'], { env: { ...env, GIT_INDEX_FILE: path.join(gitDir, 'index') } })) deferred('Staged source requires manual reconciliation');
-    const originalDev = optional('rev-parse', '--verify', 'refs/heads/dev');
-    // JJ can advance a tracked bookmark when another checkout fetches origin.
-    const followedRemote = Boolean(state.devRef && originalDev && originalDev !== state.devRef
-      && originalDev === optional('rev-parse', '--verify', 'refs/remotes/origin/dev')
-      && optional('merge-base', '--is-ancestor', state.devRef, originalDev) !== null);
-    if (state.applied && originalDev !== state.devRef && !followedRemote) deferred('Local dev moved concurrently; preserving it');
-    if (!state.applied && !adopt && originalDev && base !== originalDev) deferred('Existing dev needs explicit adoption');
-    const captureBase = state.capture || state.applied || base;
-    const previous = tree(captureBase);
-    const captured = disk(previous);
-    const capturedTree = writeTree(captured);
-    const signature = JSON.stringify(captured), local = JSON.stringify(localSignature());
-    let candidate = state.queued || base;
-    if ((adopt || followedRemote) && originalDev) candidate = merge(candidate, originalDev);
-    if (capturedTree !== git('rev-parse', `${captureBase}^{tree}`)) {
-      // Compare with the last capture, so undoing a queued edit is a new save.
-      state.capture = commit(captured, [captureBase], 'Save local setup');
-      git('update-ref', 'refs/dots/capture', state.capture);
-      state.pending = true;
-      persist();
-    }
-    if (state.capture) candidate = merge(state.capture, candidate);
-    // Durable private pointer survives offline runs and failed validation.
-    git('update-ref', 'refs/dots/queue', candidate);
-    state.queued = candidate;
-    state.pending = true;
-    persist();
-    console.log(`Saved locally: ${candidate}; recovery: git show ${candidate}:PATH`);
-    let fetched = false;
-    optional('fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main');
-    try {
-      git('fetch', '--no-tags', 'origin', 'refs/heads/dev:refs/remotes/origin/dev');
-      fetched = true;
-    } catch {
-      // Bootstrap dev only after a successful bounded remote listing.
-      const listing = optional('ls-remote', '--heads', 'origin', 'dev');
-      if (listing === '') fetched = true;
-    }
-    let remote = fetched ? optional('rev-parse', '--verify', 'refs/remotes/origin/dev') : null;
-    if (remote) candidate = merge(candidate, remote);
-    // Dev carries everything: reviewed main merges in on every sync.
-    const main = optional('rev-parse', '--verify', 'refs/remotes/origin/main');
-    if (main) candidate = merge(candidate, main);
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const entries = tree(candidate);
-      scanTree(entries);
-      const outgoingBase = remote || optional('rev-parse', '--verify', 'refs/remotes/origin/main') || base;
-      run('gitleaks', ['git', '--no-banner', '--redact', '--config', path.join(root, '.gitleaks.toml'), '--gitleaks-ignore-path', path.join(root, '.gitleaksignore'),
-        `--log-opts=--diff-merges=first-parent ${outgoingBase}..${candidate}`, root]);
-      validateIncomingIgnores(root, gitDir, candidate, new Set(Object.keys(entries)), localSignature());
-      validateIncoming(root, gitDir, candidate, miseBin);
-      if (sourceRevision() !== revision || JSON.stringify(disk(previous)) !== signature || JSON.stringify(localSignature()) !== local) deferred('Source or local settings changed during sync; saved queue retained');
-      git('update-ref', 'refs/dots/queue', candidate);
-      state.queued = candidate;
-      persist();
-      if (!fetched) break;
-      try {
-        git('push', 'origin', `${candidate}:refs/heads/dev`);
-        state.pending = false;
-        break;
-      } catch {
-        state.pending = true;
-        if (attempt === 1) break;
-        try { git('fetch', '--no-tags', 'origin', 'refs/heads/dev:refs/remotes/origin/dev'); }
-        catch { break; }
-        remote = git('rev-parse', 'refs/remotes/origin/dev');
-        candidate = merge(candidate, remote);
+    // Copied dotfiles flow back into the source before it is captured.
+    const save = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save']);
+    if (save.error || save.status !== 0) lines.push(`SAVE FAILED: mise bootstrap dotfiles save (exit ${save.status ?? 'error'}); copied dotfiles not captured`);
+
+    // 2. The files' base is the commit the index was checked out from. It equals
+    // HEAD unless something moved dev without updating the files.
+    let dev = rev('HEAD');
+    const start = dev;
+    const indexTree = tryGit(['write-tree']).stdout?.trim();
+    let base = dev;
+    if (indexTree && indexTree !== tree(dev)) {
+      const candidates = [['log', '--format=%H %T', '-n', '2000', 'HEAD'], ['log', '--format=%H %T', '-n', '500', 'refs/remotes/origin/dev'],
+        ['log', '-g', '--format=%H %T', '-n', '200', 'refs/heads/dev'], ['log', '-g', '--format=%H %T', '-n', '200', 'HEAD']];
+      for (const args of candidates) {
+        const match = (tryGit(args).stdout || '').split('\n').find(line => line.endsWith(` ${indexTree}`));
+        if (match) { base = match.split(' ')[0]; break; }
       }
+      // A hand-staged index equal to an older commit looks the same; files on disk are still all captured.
+      if (base !== dev) lines.push(`dev moved outside sync (now ${short(dev)}), or the index was staged to match ${short(base)}; local files were merged onto dev, not reverted`);
     }
-    state.pending = !fetched || Boolean(state.pending);
-    persist();
-    run(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save']);
-    if (sourceRevision() !== revision || JSON.stringify(disk(previous)) !== signature || JSON.stringify(localSignature()) !== local) deferred('Concurrent edits retained; adoption deferred');
-    // CAS protects the shared local ref; never move main or a task bookmark.
-    git('update-ref', 'refs/heads/dev', candidate, originalDev || '0000000000000000000000000000000000000000');
-    state.devRef = candidate;
-    persist();
-    try {
-      if (hasJj) {
-        // Snapshot only after scanning. Gate the native advancement on that exact
-        // snapshot so a later edit cannot be overwritten by jj new.
-        const inspected = jj('log', '-r', '@', '--no-graph', '-T', 'commit_id');
-        if (JSON.stringify(disk(previous)) !== signature) deferred('Late edit retained; adoption deferred');
-        jj('new', `${candidate} & descendants(parents(@ & ${inspected}))`);
+
+    // 3-4. Snapshot every tracked or unignored file onto the base, leaving out
+    // private files and anything gitleaks flags.
+    const index = path.join(scratch, 'index');
+    if (fs.existsSync(path.join(gitDir, 'index'))) {
+      // Keep the index's own mtime: Git's racy-entry check compares against it.
+      const stat = fs.statSync(path.join(gitDir, 'index'));
+      fs.copyFileSync(path.join(gitDir, 'index'), index);
+      fs.utimesSync(index, stat.atime, stat.mtime);
+    }
+    if (base !== dev || !indexTree) git(['read-tree', base], withIndex(index));
+    git(['add', '-A', '--', '.'], withIndex(index));
+    const baseEntries = new Map(nul(git(['ls-tree', '-r', '-z', '--full-tree', base])).map(entry => { const [meta, name] = entry.split('\t'); return [name, meta.split(' ')]; }));
+    const restore = names => {
+      if (!names.length) return;
+      git(['update-index', '-z', '--index-info'], { ...withIndex(index), input: names.map(name => {
+        const entry = baseEntries.get(name);
+        return entry ? `${entry[0]} ${entry[2]}\t${name}\0` : `0 ${ZERO}\t${name}\0`;
+      }).join('') });
+    };
+    const changed = () => nul(git(['diff-index', '--cached', '-z', '--name-only', base], withIndex(index)));
+    restore(changed().filter(privatePath));
+    let pushable = true;
+    let snapshot = base, shared = 0;
+    const snapshotTree = () => git(['write-tree'], withIndex(index));
+    if (snapshotTree() !== tree(base)) {
+      const tentative = commitTree(snapshotTree(), [base], `Save local setup (${host})`);
+      const result = scan([`${base}..${tentative}`]);
+      if (result.error) {
+        restore(changed());
+        pushable = false;
+        lines.push(`NOT SHARED: ${result.error}; local edits kept on disk, nothing pushed`);
       } else {
-        // Native two-tree checkout refuses writes made after our last check.
-        const indexEnv = { ...env, GIT_INDEX_FILE: path.join(scratch, 'checkout-index') };
-        run('git', ['read-tree', capturedTree], { env: indexEnv });
-        run('git', ['update-index', '--refresh'], { env: indexEnv });
-        run('git', ['read-tree', '-m', '-u', capturedTree, candidate], { env: indexEnv });
-        run('git', ['read-tree', candidate], { env: { ...env, GIT_INDEX_FILE: path.join(gitDir, 'index') } });
-        git('symbolic-ref', 'HEAD', 'refs/heads/dev');
+        const flagged = [...new Set(result.findings.map(f => f.file))];
+        for (const f of result.findings) lines.push(`NOT SHARED (gitleaks ${f.rule}): ${f.file}:${f.line}`);
+        restore(flagged);
       }
-    } catch (error) {
-      // A failed checkout must not leave HEAD ahead of the applied baseline.
-      const rollback = originalDev
-        ? optional('update-ref', 'refs/heads/dev', originalDev, candidate)
-        : optional('update-ref', '-d', 'refs/heads/dev', candidate);
-      if (rollback !== null) { state.devRef = originalDev; persist(); }
-      throw error;
+      if (snapshotTree() !== tree(base)) {
+        shared = changed().length;
+        snapshot = tree(tentative) === snapshotTree() ? tentative : commitTree(snapshotTree(), [base], `Save local setup (${host})`);
+      }
     }
-    state.applied = candidate;
-    state.capture = candidate;
-    persist();
-    run(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes']);
-    console.log(`Shared dev: ${candidate}; ${state.pending ? 'Push pending; Saved locally' : 'pushed'}; parents retain all alternatives.`);
-    return candidate;
+    // Git's own lock protocol: never clobber an index another command holds.
+    const indexLock = path.join(gitDir, 'index.lock');
+    const lockIndex = () => { try { fs.closeSync(fs.openSync(indexLock, 'wx', 0o644)); return true; } catch { return false; } };
+    const commitIndex = () => {
+      const copy = `${index}.install`;
+      fs.copyFileSync(index, copy);
+      fs.utimesSync(copy, fs.statSync(index).atime, fs.statSync(index).mtime);
+      fs.renameSync(copy, indexLock);
+      fs.renameSync(indexLock, path.join(gitDir, 'index'));
+    };
+    const moveDev = (to, from) => tryGit(['update-ref', '-m', 'dots sync', 'refs/heads/dev', to, from]).status === 0;
+    // Record the snapshot under the index lock: dev moves first, and the index
+    // is installed only once dev points at the snapshot.
+    const record = () => {
+      if (!lockIndex()) return 'the Git index is locked (.git/index.lock)';
+      let held = true;
+      try {
+        if (!moveDev(snapshot, dev)) return 'dev is locked or moved (refs/heads/dev)';
+        try { commitIndex(); held = false; } catch (error) { moveDev(dev, snapshot); throw error; }
+        return null;
+      } finally { if (held) fs.rmSync(indexLock, { force: true }); }
+    };
+    if (base === dev && snapshot !== base) {
+      const failure = record();
+      if (!failure) dev = snapshot;
+      else { lines.push(`NOT SAVED: ${failure}; local edits kept on disk, rerun`); snapshot = base; shared = 0; }
+    }
+    // Commits another worktree put on dev are dev material and win over local files.
+    let local = base === dev ? snapshot : merge(snapshot, dev, 'local dev');
+
+    // 5. Fetch; an unreachable origin means work continues offline.
+    const fetch = () => {
+      const both = ['+refs/heads/dev:refs/remotes/origin/dev', '+refs/heads/main:refs/remotes/origin/main'];
+      if (tryGit(['fetch', '--no-tags', '--quiet', 'origin', ...both]).status === 0) return true;
+      const listing = tryGit(['ls-remote', '--heads', 'origin']);
+      if (listing.status !== 0) return false;
+      const heads = new Set(listing.stdout.split('\n').map(line => line.split('\t')[1]).filter(Boolean));
+      const wanted = both.filter(spec => heads.has(spec.slice(1).split(':')[0]));
+      return !wanted.length || tryGit(['fetch', '--no-tags', '--quiet', 'origin', ...wanted]).status === 0;
+    };
+    let online = fetch();
+    // A flagged existing commit blocks the push; local work still merges and applies.
+    const published = () => ['refs/remotes/origin/dev', 'refs/remotes/origin/main'].filter(rev).map(ref => `^${ref}`);
+    if (pushable && online && count([local, ...published()]) > 0) {
+      // Every unpublished commit, not only the merged tip, must leave private files alone.
+      let commit, leaked;
+      for (const token of nul(git(['log', '--format=%x01%H', '--name-only', '-z', local, ...published()]))) {
+        if (token.startsWith('\x01')) commit = token.slice(1);
+        else if (privatePath(token.replace(/^\n/, ''))) leaked = [commit, token.replace(/^\n/, '')]; // oldest wins
+      }
+      const result = leaked ? { error: `commit ${short(leaked[0])} changes private setup file ${leaked[1]}; remove it from local history` } : scan([local, ...published()]);
+      if (result.error) { pushable = false; lines.push(`NOT PUSHED: ${result.error}`); }
+      else if (result.findings.length) {
+        pushable = false;
+        for (const f of result.findings) lines.push(`NOT PUSHED (gitleaks ${f.rule}): commit ${short(f.commit || '')} ${f.file}:${f.line}; remove it from local history`);
+      }
+    }
+
+    // 6-8. Merge local with dev, then main; validate; push without force.
+    // Every attempt starts again from local, so main still wins over a racing dev.
+    let merged, pushed = false, valid = true, devNew = 0, mainNew = 0, rejected = false;
+    const notices = lines.length;
+    for (let attempt = 0; attempt <= 3; attempt++) {
+      lines.length = notices; // only the last attempt's conflicts are reported
+      const remoteDev = rev('refs/remotes/origin/dev'), remoteMain = rev('refs/remotes/origin/main');
+      devNew = remoteDev ? count([remoteDev, `^${local}`]) : 0;
+      merged = merge(local, remoteDev, 'shared dev');
+      mainNew = remoteMain ? count([remoteMain, `^${merged}`]) : 0;
+      merged = merge(merged, remoteMain, 'reviewed main');
+      try {
+        if (nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', merged])).some(privatePath)) throw new Error('it tracks private setup files');
+        const privateNames = fs.readdirSync(root).filter(privatePath);
+        validateIncomingIgnores(root, gitDir, merged, new Set(nul(git(['ls-tree', '-z', '--name-only', '--full-tree', merged]))), privateNames);
+        validateIncoming(root, gitDir, merged, miseBin);
+      } catch (error) {
+        valid = false;
+        lines.push(`INVALID merged config: ${firstLine(error.message)}; nothing pushed or applied`);
+        break;
+      }
+      if (!online || !pushable || merged === remoteDev) break;
+      if (tryGit(['push', '--quiet', 'origin', `${merged}:refs/heads/dev`]).status === 0) {
+        pushed = true;
+        tryGit(['update-ref', 'refs/remotes/origin/dev', merged]);
+        break;
+      }
+      rejected = attempt === 3;
+      if (!(online = fetch())) break;
+    }
+    if (rejected) lines.push('NOT PUSHED: origin/dev kept moving; retried next run');
+    if (!online) lines.push(`OFFLINE: ${count(['refs/heads/dev', ...published()])} commits unpushed, retried next run`);
+
+    // 9. Advance the live files from the snapshot to the merged commit. The
+    // two-tree checkout refuses to overwrite a file edited meanwhile. Files
+    // and dev move only while this run holds the real index lock, so the
+    // index it installs always matches them.
+    let applied = false;
+    if (valid && (merged !== dev || merged !== snapshot)) {
+      if (!lockIndex()) lines.push('NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun');
+      else {
+        let held = true;
+        try {
+          const checkout = index;
+          git(['read-tree', snapshot], withIndex(checkout));
+          tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));
+          if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
+            commitIndex(); held = false;
+            if (moveDev(merged, dev)) { dev = merged; applied = true; }
+            else lines.push('NOT RECORDED: dev moved during sync; files updated, rerun');
+            const stat = tryGit(['diff', '--shortstat', snapshot, merged]).stdout?.trim();
+            if (stat) lines.push(`changed on disk: ${stat}`);
+          } else {
+            const incoming = nul(git(['diff', '--name-only', '-z', snapshot, merged]));
+            const dirty = new Set(nul(tryGit(['diff-files', '--name-only', '-z'], withIndex(checkout)).stdout || ''));
+            const tracked = new Set(nul(git(['ls-tree', '-r', '-z', '--name-only', '--full-tree', snapshot])));
+            const blocked = incoming.filter(name => dirty.has(name) || (!tracked.has(name) && fs.existsSync(path.join(root, name))));
+            for (const name of blocked.length ? blocked : ['(unknown path)']) lines.push(`LATE EDIT: ${name} not updated; rerun`);
+          }
+        } finally { if (held) fs.rmSync(indexLock, { force: true }); }
+      }
+    } else if (valid) applied = true;
+    if (applied) {
+      const apply = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes']);
+      if (apply.error || apply.status !== 0) lines.push(`APPLY FAILED: mise bootstrap dotfiles apply (exit ${apply.status ?? 'error'})`);
+    }
+
+    const files = `${shared} file${shared === 1 ? '' : 's'}`;
+    const parts = [
+      !shared ? 'no local changes'
+        : pushed ? `shared ${files}`
+        : tryGit(['merge-base', '--is-ancestor', snapshot, 'refs/heads/dev']).status === 0 ? `saved ${files} locally`
+        : `kept ${files} on disk`,
+      !online ? 'offline' : `${applied ? 'pulled' : 'fetched'} dev +${devNew}, main +${mainNew}${applied ? '' : ' (not applied)'}`,
+      pushed ? `pushed ${merged.slice(0, 7)}` : (online && valid && pushable && merged === rev('refs/remotes/origin/dev') ? 'nothing to push' : 'not pushed'),
+    ];
+    return { header: `dots sync: ${parts.join(' · ')}`, lines, before: start, after: dev };
   } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
 }
