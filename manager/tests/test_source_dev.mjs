@@ -92,11 +92,14 @@ test('a local edit is shared and private files stay local', available, t => {
   const f = fixture(t);
   f.write(f.a, 'new', 'ordinary public edit\n');
   f.write(f.a, 'config.local.toml', '[env]\nPRIVATE="yes"\n');
+  // Directory-only ignore rules (/.setup-state/, /locks/) must cover real directories.
+  f.write(f.a, '.setup-state/state.json', '{}\n');
+  f.write(f.a, 'locks/tool.lock', 'held\n');
   const { text } = f.sync(f.a);
   assert.match(text, /^dots sync: shared 1 file · pulled dev \+0, main \+0 · pushed [0-9a-f]{7}$/);
   assert.equal(f.remote(), f.dev(f.a));
   assert.equal(git(f.a, 'symbolic-ref', 'HEAD'), 'refs/heads/dev');
-  assert(!git(f.a, 'ls-tree', '-r', '--name-only', 'dev').includes('config.local.toml'));
+  assert.doesNotMatch(git(f.a, 'ls-tree', '-r', '--name-only', 'dev'), /config\.local\.toml|\.setup-state|locks/);
   assert.match(git(f.a, 'log', '-1', '--format=%s', 'dev'), /^Save local setup \(/);
   f.clean(f.a);
 });
