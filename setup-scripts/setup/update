@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # Transition shim. An updater from before the manager moved re-executes this
 # path after it synchronizes source; hand over to the moved updater.
-exec bash "$(dirname "${BASH_SOURCE[0]}")/../../manager/bin/dots" internal update "$@"
+exec bash "$(dirname "${BASH_SOURCE[0]}")/../local/dots" internal update "$@"

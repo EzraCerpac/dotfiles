@@ -1,6 +1,6 @@
 """Parse every deployed or executed shell source of this configuration without running it.
 
-The manager has its own syntax test (manager/tests). Rendered Tera templates
+The dots manager is tested in its own repository. Rendered Tera templates
 are excluded; their output is exercised by the template tests. Each interpreter is optional so the suite still runs on hosts
 that lack Fish or zsh.
 """

@@ -1,7 +1,7 @@
 # Convert a live checkout for stateless sync
 
 `dots sync` works on one shape only: `~/.config/mise` is a plain Git checkout with `HEAD` on `dev`
-(see [the sync guide](../manager/docs/sync.md#checkout-shape)).
+(see [the sync guide](https://github.com/EzraCerpac/dots/blob/main/docs/sync.md#checkout-shape)).
 It stops with a message when it finds `.jj`, `.git/dots-dev.json`, a detached `HEAD`, or another branch.
 Convert each existing machine once, by hand, over SSH.
 Steps 1 to 5 change no tracked file in the checkout, only Git refs, the Git index and the legacy state;
@@ -131,18 +131,15 @@ git diff --stat
 Check: the branch line reads `## dev...origin/dev`, and `git diff --stat` lists the same tracked edits as step 2.
 `git status` also shows staged changes: those are other machines' work that the sync applies. Leave them alone.
 
-## 6. Sync once with the new manager
+## 6. Sync once with the released manager
 
-The manager in the checkout is still the old one until this sync updates the files, so run the new code from a scratch worktree of `origin/main`.
+The checkout's old files predate the [dots release](dots-release.md), so run the pinned release's sync directly.
 The old `config.toml` on disk has no `dots_source_repo` yet, so pass the expected `origin` directly:
 
 ```sh
 cd ~/.config/mise || exit 1
-git fetch -q origin main
-wt=$(mktemp -d)/main; git worktree add -q --detach "$wt" origin/main
-W=$wt O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
-  'const { syncSource } = await import(process.env.W + "/manager/lib/source-repo.mjs"); syncSource(process.cwd(), { expectedRemote: process.env.O })'
-git worktree remove --force "$wt"; rmdir "$(dirname "$wt")"
+W=$(~/.local/bin/mise x github:EzraCerpac/dots@0.3.0 -- dots internal home) O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
+  'const { syncSource } = await import(process.env.W + "/lib/source-repo.mjs"); syncSource(process.cwd(), { expectedRemote: process.env.O })'
 git status --short --branch | head -n 3
 ```
 
@@ -154,7 +151,7 @@ Herdr is archived, and the sync removes that table itself once the new files are
 The copy from step 1 and the one under `.git/dots-retired/` keep the old file.
 Any `CONFLICT` lines name versions that lost to the published side; recover them with the printed `git show` command if they mattered.
 `git status` is clean apart from files reported `NOT SHARED`.
-From now on run `dots up` or `dots sync` as usual.
+Finish with [the switch to the released manager](dots-release.md#switching-a-machine-from-the-in-repo-manager); from then on run `dots up` or `dots sync` as usual.
 Delete the backup (`.git/dots-legacy-*`) and `refs/dots-legacy/*` after a week of normal syncs.
 
 ## Undo
