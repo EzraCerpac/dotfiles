@@ -84,7 +84,9 @@ while it is a dangling link into this checkout. Call it from a mise
 `retired-declarations` is for a `[dotfiles.NAME]` table that a setup script
 once wrote into machines' `config.local.toml` or `config.host-*.toml` and whose
 source this configuration has since removed. Such a table would make every
-`dots sync` reject the configuration. Rows are `dotfiles.NAME<TAB>SOURCE`.
+`dots sync` reject the configuration. Rows are `dotfiles.NAME<TAB>SOURCE`,
+with `SOURCE` a plain relative path (no `.`, `..` or empty parts); other rows
+are ignored.
 Before validating the merged configuration, sync checks it with each local
 file's matching tables taken out: a table goes only when it is exactly
 `[dotfiles.NAME]`, its `source` is exactly `SOURCE`, nothing else defines it,

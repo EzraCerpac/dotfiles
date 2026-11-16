@@ -80,3 +80,21 @@ test('the list is TABLE<TAB>SOURCE rows under dotfiles, with comments', () => {
   ].join('\n');
   assert.deepEqual(parseRetiredList(list), [entry, { table: 'dotfiles."a b"', key: ['dotfiles', 'a b'], source: 'dotfiles/x' }]);
 });
+
+// Git looks a path up literally while the filesystem resolves it, so only a
+// canonical relative path can be checked for existence in a commit.
+test('a non-canonical source is not a list row', () => {
+  for (const source of ['templates/./herdr.tera', './templates/herdr.tera', 'templates/.', 'templates//herdr.tera',
+    'templates/', 'templates/../templates/herdr.tera', '/templates/herdr.tera', 'templates\\herdr.tera', '.']) {
+    assert.deepEqual(parseRetiredList(`dotfiles.herdr\t${source}`), [], source);
+  }
+  assert.deepEqual(parseRetiredList('dotfiles.herdr\ttemplates/.herdr/a..b.tera').map(e => e.source), ['templates/.herdr/a..b.tera']);
+});
+
+test('a local source is compared as written, never resolved', () => {
+  const listed = { ...entry, source: 'templates/x' };
+  for (const local of ['templates/./x', './templates/x', 'templates//x', 'templates/x/', 'templates\\\\x']) {
+    const text = `${BEFORE}\n[dotfiles.herdr]\nsource = "${local}"\n`;
+    assert.deepEqual(retire(text, [listed]), { text, removed: [] }, local);
+  }
+});

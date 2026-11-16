@@ -32,7 +32,9 @@ export function parseKey(text) {
 const same = (a, b) => a.length === b.length && a.every((part, i) => part === b[i]);
 const startsWith = (key, prefix) => key.length >= prefix.length && prefix.every((part, i) => key[i] === part);
 
-// Rows of TABLE<TAB>SOURCE; anything else is ignored.
+// Rows of TABLE<TAB>SOURCE; anything else is ignored. SOURCE must be a
+// canonical relative path: Git looks it up literally, the filesystem would
+// resolve ., empty and .. parts.
 export function parseRetiredList(text) {
   const entries = [];
   for (const line of String(text).split(/\r?\n/)) {
@@ -40,8 +42,8 @@ export function parseRetiredList(text) {
     const fields = line.split('\t');
     const key = fields.length === 2 ? parseKey(fields[0]) : null;
     const source = fields[1];
-    if (!key || key.length !== 2 || key[0] !== 'dotfiles' || !source || source.startsWith('/')
-      || source.split('/').some(part => part === '..' || part === '')) continue;
+    if (!key || key.length !== 2 || key[0] !== 'dotfiles' || !source || source.includes('\\')
+      || source.split('/').some(part => ['', '.', '..'].includes(part))) continue;
     entries.push({ table: fields[0].trim(), key, source });
   }
   return entries;
