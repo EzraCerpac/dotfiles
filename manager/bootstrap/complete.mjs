@@ -195,9 +195,13 @@ export function complete({ root, dotsHome, home, miseBin, env = process.env, run
       if (publicKey.status !== 0) throw new Error('Could not read the recovery public recipient');
       recipients = [...new Set([...recipients, ...publicKey.stdout.trim().split(/\s+/)])];
       const origin = readLocal('env.SETUP_HISTORY_ORIGIN') || defaultHistoryOrigin();
-      const args = ['--profile', role, '--machine-id', machineId, '--identity', hostIdentity, '--origin', origin, '--refresh'];
+      const args = ['--profile', role, '--machine-id', machineId, '--identity', hostIdentity, '--origin', origin];
       for (const recipient of recipients) args.push('--recipient', recipient);
-      script(manager('bootstrap/enroll-history'), args);
+      // The configuration declares the tracked files; status 3 means none
+      // names this host's profile yet.
+      const enrolled = scriptResult(manager('bootstrap/enroll-history'), args);
+      if (enrolled.status === 3) throw new Deferred(`Declare this host's tracked files with variants = [{ profile = "host-${machineId}" }], then rerun dots bootstrap`);
+      if (enrolled.status !== 0) throw new Error('bootstrap/enroll-history needs attention; rerun after resolving its message');
       // Configuration of the origin remains local. First publication remains dots backup.
       setLocal('history.origin.url', origin);
       setLocal('settings.history.sync', 'manual');

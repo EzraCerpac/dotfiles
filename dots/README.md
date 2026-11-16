@@ -10,7 +10,6 @@ never overwrites what is here.
 | `hooks/bootstrap.d/` | Executables `dots bootstrap` runs after installer exceptions |
 | `commands/NAME` | An executable run as `dots NAME [ARGS...]` (built-in commands win) |
 | `exceptions.tsv`, `exceptions/NAME` | Apps mise cannot install, each with its own recipe |
-| `history-files.tsv` | App-written files tracked in encrypted settings history |
 | `retired-dotfiles` | Removed dotfile targets whose dangling links may be deleted |
 
 Settings live in `[vars]` of `config.toml`: `dots_profiles` (required, the
@@ -72,10 +71,8 @@ package, so `dots add` refuses it. Bootstrap passes `--install-only`. Under
 `ITEM<TAB>BEFORE<TAB>AFTER` for what it verifiably installed (`not installed`
 as BEFORE) or updated.
 
-## History files and retired dotfiles
+## Retired dotfiles
 
-`history-files.tsv` rows are `PROFILE<TAB>~/PATH` (`base` for every profile);
-history enrollment tracks those that exist. `retired-dotfiles` lists one
-`~/PATH` per line; `lib/retire-dotfiles.sh` in the manager deletes each only
+`retired-dotfiles` lists one `~/PATH` per line; `lib/retire-dotfiles.sh` in the manager deletes each only
 while it is a dangling link into this checkout. Call it from a mise
 `post-dotfiles` hook: `bash "$DOTS_HOME/lib/retire-dotfiles.sh" "$DOTS_ROOT"`.

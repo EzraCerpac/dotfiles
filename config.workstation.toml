@@ -366,3 +366,19 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink" }
 "~/.ssh/config" = { source = "templates/.ssh/config.tera", mode = "template" }
 "~/.config/fish/conf.d/10-macos.fish" = { source = "dotfiles/.config/fish/conf.d/10-macos.fish", mode = "symlink", variants = [{ os = "macos" }] }
+
+# App-written files kept in encrypted settings history. Each machine saves its
+# own copy on its own history branch: list its host-<machine-id> profile in
+# variants (the stream name in history, so never change an existing one).
+"~/.codex/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/aegis/config.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/karabiner/karabiner.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/atuin/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/gitlogue-saver/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/Library/Preferences/com.superlogical.rex.plist" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/lazyvim.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/lazy-lock.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/spell/en.utf-8.add" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/fish/fish_variables" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.cli-proxy-api/config.yaml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.wakatime.cfg" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }

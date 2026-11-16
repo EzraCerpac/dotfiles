@@ -24,3 +24,14 @@ btop = { version = "latest", os = ["linux/x64"] }
 [bootstrap.hooks]
 pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/manager/bin/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh"'
 post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
+
+# App-written files kept in encrypted settings history. Each machine saves its
+# own copy on its own history branch: list its host-<machine-id> profile in
+# variants (the stream name in history, so never change an existing one).
+[dotfiles]
+"~/.codex/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }
+"~/.config/fish/fish_variables" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }
+"~/.config/atuin/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }
+"~/.config/nvim/lazyvim.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }
+"~/.config/nvim/lazy-lock.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }
+"~/.config/nvim/spell/en.utf-8.add" = { mode = "track", encrypt = true, variants = [{ profile = "host-cerpacnas" }] }

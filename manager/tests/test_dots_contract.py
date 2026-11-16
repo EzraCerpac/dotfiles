@@ -6,6 +6,7 @@ fake mise, a temporary HOME and no network. Nothing touches the real machine.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import stat
@@ -463,34 +464,51 @@ class ExceptionManifestTests(ContractTestCase):
 
 
 @requires("age-keygen")
-class HistoryFilesTests(ContractTestCase):
-    def enroll(self, manifest: str) -> subprocess.CompletedProcess[str]:
-        write(self.f.config / "dots/history-files.tsv", manifest)
-        for name in ("shared", "laptop", "server"):
-            write(self.f.home / ".config" / name, f"{name}\n")
+class EnrollHistoryTests(ContractTestCase):
+    """enroll-history keeps the host's keys and secures its declared track entries."""
+
+    def enroll(self, *paths: str) -> subprocess.CompletedProcess[str]:
+        # The fake mise answers `dotfiles paths --json` with these track entries.
+        entries = [{"path": path, "mode": "track"} for path in paths]
+        fake = write(self.f.base / "bin/paths-mise", FAKE_MISE.replace(
+            "    ls) printf '{}\\n' ;;",
+            "    --quiet) [[ \"$*\" != *'dotfiles paths --json'* ]] || printf '%s\\n' \"$FAKE_PATHS\"; exit 0 ;;\n"
+            "    ls) printf '{}\\n' ;;"), 0o755)
         key = self.f.base / "keys/key.txt"
-        key.parent.mkdir()
-        subprocess.run(["age-keygen", "-o", str(key)], capture_output=True, check=True)
+        key.parent.mkdir(exist_ok=True)
+        if not key.exists():
+            subprocess.run(["age-keygen", "-o", str(key)], capture_output=True, check=True)
         return subprocess.run(
             ["bash", str(self.f.manager / "bootstrap/enroll-history"), "--profile", "laptop", "--machine-id", "fx",
-             "--identity", str(key)],
-            cwd=self.f.config, env={**self.f.env, "MISE_CONFIG_DIR": str(self.f.config)},
+             "--identity", str(key), "--recipient", "age1peer"],
+            cwd=self.f.config, env={**self.f.env, "MISE_CONFIG_DIR": str(self.f.config), "SETUP_MISE_BIN": str(fake),
+                                    "FAKE_PATHS": json.dumps({"entries": entries})},
             capture_output=True, text=True, timeout=60, check=False)
 
-    def test_profile_rows_select_the_tracked_files(self) -> None:
-        result = self.enroll("# comment\nbase\t~/.config/shared\nlaptop\t~/.config/laptop\n"
-                             "server\t~/.config/server\nlaptop\t~/.config/missing\n")
+    def test_secures_declared_files_and_keeps_the_recipients(self) -> None:
+        tracked = write(self.f.home / ".config/app/state", "state\n", 0o644)
+        result = self.enroll("~/.config/app/state", "~/.config/app/missing")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        variant = (self.f.config / "config.host-fx.toml").read_text()
-        self.assertIn('[dotfiles."~/.config/shared"]', variant)
-        self.assertIn('[dotfiles."~/.config/laptop"]', variant)
-        self.assertNotIn("server", variant)
-        self.assertNotIn("missing", variant)
+        self.assertEqual(stat.S_IMODE(tracked.stat().st_mode), 0o600)
+        self.assertIn("Secured 1 tracked history files", result.stdout)
+        log = self.f.log.read_text()
+        self.assertIn("--append --type list --file", log)
+        self.assertIn("history.encryption.recipients age1peer", log)
+        self.assertFalse((self.f.config / "config.host-fx.toml").exists())
 
-    def test_unknown_profile_row_stops(self) -> None:
-        result = self.enroll("desktop\t~/.config/laptop\n")
+    def test_a_host_without_declared_files_is_deferred(self) -> None:
+        result = self.enroll()
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertIn('add { profile = "host-fx" }', result.stdout)
+
+    def test_a_symlinked_tracked_path_stops(self) -> None:
+        target = write(self.f.base / "outside", "outside\n", 0o644)
+        (self.f.home / ".config").mkdir(exist_ok=True)
+        (self.f.home / ".config/link").symlink_to(target)
+        result = self.enroll("~/.config/link")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("invalid history file row", result.stderr)
+        self.assertIn("refusing symlink history path", result.stderr)
+        self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o644)
 
 
 @requires("jq")
@@ -533,7 +551,7 @@ class InitTests(ContractTestCase):
         self.assertIn('dots_profiles = "default"\n', (fresh / "config.toml").read_text())
         for directory in ("hooks/update.d", "hooks/bootstrap.d", "commands", "exceptions"):
             self.assertTrue((fresh / "dots" / directory).is_dir(), directory)
-        for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles"):
+        for name in ("README.md", "exceptions.tsv", "retired-dotfiles"):
             self.assertEqual((fresh / "dots" / name).read_text(), (self.f.manager / "init" / name).read_text())
         self.assertEqual((fresh / ".gitleaks.toml").read_text(), (self.f.manager / "init/gitleaks.toml").read_text())
         self.assertEqual((fresh / ".gitignore").read_text(), (self.f.manager / "init/gitignore").read_text())

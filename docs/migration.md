@@ -59,7 +59,7 @@ part of a source replacement.
 
 The final setup root is `~/.config/mise`. Use `dots internal profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
 
-`dots internal enroll-history` prepares encrypted exact-file tracking locally. It does not create a checkpoint or contact the private remote; review the selected paths and recipients before the first save.
+The tracked files are `mode = "track"` entries in the role configuration with one `host-<machine-id>` variant per machine (see [docs/history.md](history.md)). `dots internal enroll-history` prepares this host's identity and recipients locally. It does not create a checkpoint or contact the private remote; review `mise dot paths` and the recipients before the first save.
 
 ## Intended daily workflows
 
@@ -81,10 +81,10 @@ dots restore
 | Add a global symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink -g <target>` | Adds a link shared across profiles. |
 | Add a profile-specific symlink | `mise -C ~/.config/mise bootstrap dotfiles add --mode symlink --path ~/.config/mise/config.<profile>.toml <target>` | Writes the entry to that profile's configuration file. Replace `<profile>` with `workstation`, `nas`, or `delftblue`. |
 | Publish private settings | `dots backup` | Saves local settings and explicitly publishes native mise history. Network publication is manual. |
-| Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes host enrollment, and secures tracked files. It never publishes local defaults. |
+| Restore private settings | `dots restore` | Fetches first, reviews status, applies native conflict checks and the initial remote checkpoint, refreshes the host's history keys, and secures tracked files. It never publishes local defaults. |
 | Replace an unconnected local history store | `dots restore --initialize-history` | Use only after inspecting the store and choosing to replace it. The task stages and validates the remote clone, then moves the old store to a protected sibling backup. |
 
-`setup:secrets` handles only the WakaTime ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Enroll exact app-written files separately with `dots internal enroll-history`.
+`setup:secrets` handles only the WakaTime ciphertext for the workstation profile. It validates decrypted content and installs regular files with mode `0600`; it is not native history enrollment or a general app-state backup. Exact app-written files are tracked separately, through the native track entries.
 
 The planned `dots up` dashboard adds `--plain` for plain output,
 `--verbose` for detailed output, `--no-wait` to skip the final wait,
@@ -101,7 +101,7 @@ stage and continues. An interactive run can prompt through `sudo -v`. A deferred
 stage is not a failure; updater failures are collected and make the final task
 result nonzero.
 
-Recovery starts in fetch-only mode and uses native rollback checks to materialize the first remote checkpoint. After the files arrive, `setup:restore` refreshes the current host's encrypted exact-file enrollment and reapplies mode `0600`. Mise shares permission metadata across host variants, so every host variant of an enrolled logical path must use the same `0600` mode. Git, Node, and the age identity must already be available; restore does not install prerequisites. Do not save or publish until the task completes successfully.
+Recovery starts in fetch-only mode and uses native rollback checks to materialize the first remote checkpoint. After the files arrive, `setup:restore` refreshes the current host's history identity and recipients and reapplies mode `0600`. Mise shares permission metadata across host variants, so every host variant of an enrolled logical path must use the same `0600` mode. Git, Node, and the age identity must already be available; restore does not install prerequisites. Do not save or publish until the task completes successfully.
 
 Use `--initialize-history` only when an existing local mise history store is not connected to the configured private repository. The task keeps the old store in a `repo.git.pre-restore.*` sibling directory with mode `0700`; retain it until the recovered history is reviewed. The flag is not needed for a machine with no local history store.
 
