@@ -103,6 +103,15 @@
 [tag]
 	gpgSign = true
 {%- endif %}
+# gh supplies GitHub tokens on every role (a headless NAS cannot answer a
+# keychain prompt); the empty helper keeps the keychain out of it.
+# The mise shim path survives gh upgrades, unlike `gh auth setup-git`'s.
+[credential "https://github.com"]
+	helper =
+	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
 {%- if vars.profile != "nas" %}
 # Workstation integrations: LFS and per-service credentials.
 [filter "lfs"]
@@ -115,14 +124,6 @@
 [credential "https://git.overleaf.com"]
 	helper = cache
 	username = e.cerpac@student.tudelft.nl
-# gh supplies GitHub tokens; the empty helper keeps the keychain out of it.
-# The mise shim path survives gh upgrades, unlike `gh auth setup-git`'s.
-[credential "https://github.com"]
-	helper =
-	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
-[credential "https://gist.github.com"]
-	helper =
-	helper = !{{ env.HOME }}/.local/share/mise/shims/gh auth git-credential
 {%- if os() == "macos" %}
 [credential]
 	helper = osxkeychain
