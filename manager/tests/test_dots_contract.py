@@ -25,9 +25,9 @@ MANAGER = Path(__file__).resolve().parents[1]
 # from the string in the --file it was given, runs `exec -- COMMAND` directly,
 # simulates source sync with FAKE_SYNC, and succeeds for every other
 # subcommand without doing anything. For settings history it answers
-# `dotfiles paths --json` with FAKE_PATHS, an entry's encrypt key with
-# FAKE_ENCRYPT (default true), the origin branch with FAKE_BRANCH and
-# `settings get` with FAKE_SETTING.
+# `dotfiles paths --json` with FAKE_PATHS (default no entries), a dotfiles.*
+# key from the TOML in the --file it was given (which must exist), the origin
+# branch with FAKE_BRANCH and `settings get` with FAKE_SETTING.
 FAKE_MISE = r"""#!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FAKE_MISE_LOG"
 while [[ "${1:-}" == -C || "${1:-}" == -E ]]; do shift 2; done
@@ -45,7 +45,18 @@ import sys, tomllib
 value = tomllib.load(open(sys.argv[1], "rb")).get("vars", {}).get(sys.argv[2])
 sys.exit(1) if not isinstance(value, str) else print(value)
 ' "$4" "${key#vars.}" ;;
-                *.encrypt) printf '%s\n' "${FAKE_ENCRYPT:-true}" ;;
+                dotfiles.*)
+                    [[ "${3:-}" == --file && -f "${4:-}" ]] || exit 1
+                    exec python3 -c '
+import sys, tomllib
+value = tomllib.load(open(sys.argv[1], "rb"))
+path = tomllib.loads(sys.argv[2] + " = 0")  # the dotted key, parsed as TOML
+while isinstance(path, dict):
+    (part, path), = path.items()
+    if not isinstance(value, dict) or part not in value: sys.exit(1)
+    value = value[part]
+print(str(value).lower() if isinstance(value, bool) else "table" if isinstance(value, dict) else value)
+' "$4" "$key" ;;
                 history.origin.branch) [[ -n "${FAKE_BRANCH:-}" ]] || exit 1; printf '%s\n' "$FAKE_BRANCH" ;;
                 *) exit 1 ;;
             esac
@@ -61,7 +72,7 @@ sys.exit(1) if not isinstance(value, str) else print(value)
             fi
         done
         exec "$@" ;;
-    bootstrap) [[ "$*" != *'dotfiles paths --json'* ]] || printf '%s\n' "${FAKE_PATHS:-}" ;;
+    bootstrap) [[ "$*" != *'dotfiles paths --json'* ]] || printf '%s\n' "${FAKE_PATHS-{\"entries\": []\}}" ;;
     ls) printf '{}\n' ;;
     settings) [[ "${2:-}" == get && -n "${FAKE_SETTING:-}" ]] || exit 1; printf '%s\n' "$FAKE_SETTING" ;;
     which) exit 1 ;;
@@ -70,8 +81,14 @@ esac
 """
 
 
-def history_paths(*paths: str, variant: str = "host-fx") -> str:
-    """`mise dotfiles paths --json` with one track entry per path, declared in config.host-fx.toml."""
+def history_paths(home: Path, *paths: str, variant: str = "host-fx", encrypt: bool = True,
+                  absolute: bool = False) -> str:
+    """Declare each path in HOME's config.host-fx.toml (by its absolute target with
+    ABSOLUTE) and return what `mise dotfiles paths --json` reports for them."""
+    scope = f', variants = [{{ profile = "{variant}" }}]' if variant else ""
+    keys = [str(home / path[2:]) if absolute else path for path in paths]
+    write(home / ".config/mise/config.host-fx.toml", "[dotfiles]\n" + "".join(
+        f'{json.dumps(key)} = {{ mode = "track", encrypt = {str(encrypt).lower()}{scope} }}\n' for key in keys))
     entries = [{"path": path, "mode": "track", "declared_in": "~/.config/mise/config.host-fx.toml",
                 **({"variant": variant} if variant else {})} for path in paths]
     return json.dumps({"entries": entries})
@@ -481,7 +498,7 @@ class ExceptionManifestTests(ContractTestCase):
 class EnrollHistoryTests(ContractTestCase):
     """enroll-history keeps the host's keys and secures its declared track entries."""
 
-    def enroll(self, *paths: str, variant: str = "host-fx", encrypt: str = "true") -> subprocess.CompletedProcess[str]:
+    def enroll(self, *paths: str, variant: str = "host-fx", encrypt: bool = True) -> subprocess.CompletedProcess[str]:
         # bootstrap_mise passes --quiet --cd DIR --env ENV; the fake drops them.
         fake = write(self.f.base / "bin/quiet-mise", FAKE_MISE.replace(
             "    ls) printf '{}\\n' ;;",
@@ -495,7 +512,7 @@ class EnrollHistoryTests(ContractTestCase):
             ["bash", str(self.f.manager / "bootstrap/enroll-history"), "--profile", "laptop", "--machine-id", "fx",
              "--identity", str(key), "--recipient", "age1peer"],
             cwd=self.f.config, env={**self.f.env, "MISE_CONFIG_DIR": str(self.f.config), "SETUP_MISE_BIN": str(fake),
-                                    "FAKE_PATHS": history_paths(*paths, variant=variant), "FAKE_ENCRYPT": encrypt},
+                                    "FAKE_PATHS": history_paths(self.f.home, *paths, variant=variant, encrypt=encrypt)},
             capture_output=True, text=True, timeout=60, check=False)
 
     def test_secures_declared_files_and_keeps_the_recipients(self) -> None:
@@ -516,7 +533,7 @@ class EnrollHistoryTests(ContractTestCase):
 
     def test_an_unencrypted_effective_entry_stops_before_anything_is_prepared(self) -> None:
         tracked = write(self.f.home / ".config/app/state", "state\n", 0o644)
-        result = self.enroll("~/.config/app/state", encrypt="false")
+        result = self.enroll("~/.config/app/state", encrypt=False)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("history entry ~/.config/app/state in ~/.config/mise/config.host-fx.toml is not encrypted",
                       result.stderr)
@@ -547,8 +564,8 @@ class HistorySaveGuardTests(ContractTestCase):
     def test_backup_refuses_an_unencrypted_entry_before_saving(self) -> None:
         result = subprocess.run(["bash", str(self.f.manager / "tasks/backup")], cwd=self.f.config,
                                 env={**self.f.env, "SETUP_PROFILE": "laptop", "SETUP_MACHINE_ID": "fx",
-                                     "FAKE_SETTING": "manual", "FAKE_BRANCH": "host-fx", "FAKE_ENCRYPT": "false",
-                                     "FAKE_PATHS": history_paths("~/.config/app/state")},
+                                     "FAKE_SETTING": "manual", "FAKE_BRANCH": "host-fx",
+                                     "FAKE_PATHS": history_paths(self.f.home, "~/.config/app/state", encrypt=False)},
                                 capture_output=True, text=True, timeout=60, check=False)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("history entry ~/.config/app/state in ~/.config/mise/config.host-fx.toml is not encrypted",
@@ -556,15 +573,37 @@ class HistorySaveGuardTests(ContractTestCase):
         self.assertNotIn("dotfiles save", self.f.log.read_text())
 
     def test_update_refuses_an_unencrypted_entry_before_its_checkpoint(self) -> None:
-        result = self.f.update(FAKE_ENCRYPT="false", FAKE_PATHS=history_paths("~/.config/app/state", variant=""))
+        result = self.f.update(FAKE_PATHS=history_paths(self.f.home, "~/.config/app/state", variant="", encrypt=False))
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("pre-update settings checkpoint failed; no updates were started", result.stderr)
         self.assertNotIn("dotfiles save", self.f.log.read_text())
 
     def test_update_saves_encrypted_entries(self) -> None:
-        result = self.f.update(FAKE_PATHS=history_paths("~/.config/app/state", variant=""))
+        # An unscoped entry has an empty variant field; it must not shift the declaring file.
+        result = self.f.update(FAKE_PATHS=history_paths(self.f.home, "~/.config/app/state", variant=""))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.f.log.read_text().count("bootstrap dotfiles save"), 2)
+
+    def guard(self, inventory: str, host: str = "") -> subprocess.CompletedProcess[str]:
+        return self.f.bash(f'run() {{ "$SETUP_MISE_BIN" "$@"; }}; setup_tracked_history_paths run {host}',
+                           FAKE_PATHS=inventory)
+
+    def test_an_absolute_declaration_reported_under_home_is_found(self) -> None:
+        inventory = history_paths(self.f.home, "~/.config/app/state", absolute=True)
+        result = self.guard(inventory, "host-fx")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"{self.f.home}/.config/app/state\n")
+        history_paths(self.f.home, "~/.config/app/state", absolute=True, encrypt=False)
+        self.assertEqual(self.guard(inventory, "host-fx").returncode, 2)
+
+    def test_a_missing_inventory_stops(self) -> None:
+        for inventory in ("", "{}", '{"entries": {}}', '{"entries": []}\n{"entries": []}'):
+            with self.subTest(inventory=inventory):
+                result = self.guard(inventory)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("could not read the tracked history entries", result.stderr)
+        empty = self.guard('{"entries": []}')
+        self.assertEqual((empty.returncode, empty.stdout), (0, ""), empty.stderr)
 
 
 @requires("jq")
