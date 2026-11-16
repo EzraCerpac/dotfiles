@@ -31,8 +31,7 @@ A change that breaks one of these is worth a comment at any size.
 
 - Skipping a test when a tool CI always installs is missing.
 - Locks or repeated checks for races between two concurrent runs by the same
-  user, or inside a documented manual procedure, unless data can be lost
-  without any message.
+  user, or inside a documented manual procedure, unless data can be lost.
 - Automating a one-off migration: documented manual steps are preferred.
 - Style, naming and comment wording.
 - Added abstraction, options or fallbacks the behaviour does not need: flag
