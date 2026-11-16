@@ -138,7 +138,7 @@ The old `config.toml` on disk has no `dots_source_repo` yet, so pass the expecte
 
 ```sh
 cd ~/.config/mise || exit 1
-W=$(~/.local/bin/mise x github:EzraCerpac/dots@0.3.0 -- dots internal home) O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
+W=$(~/.local/bin/mise x github:EzraCerpac/dots@0.3.1 -- dots internal home) O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
   'const { syncSource } = await import(process.env.W + "/lib/source-repo.mjs"); syncSource(process.cwd(), { expectedRemote: process.env.O })'
 git status --short --branch | head -n 3
 ```
@@ -151,7 +151,7 @@ Herdr is archived, and the sync removes that table itself once the new files are
 The copy from step 1 and the one under `.git/dots-retired/` keep the old file.
 Any `CONFLICT` lines name versions that lost to the published side; recover them with the printed `git show` command if they mattered.
 `git status` is clean apart from files reported `NOT SHARED`.
-Finish with [the switch to the released manager](dots-release.md#switching-a-machine-from-the-in-repo-manager); from then on run `dots up` or `dots sync` as usual.
+From then on run `dots up` or `dots sync` as usual.
 Delete the backup (`.git/dots-legacy-*`) and `refs/dots-legacy/*` after a week of normal syncs.
 
 ## Undo
