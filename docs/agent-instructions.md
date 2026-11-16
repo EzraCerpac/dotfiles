@@ -27,7 +27,7 @@ mise -C ~/.config/mise bootstrap dotfiles diff ~/.claude/settings.json
 mise -C ~/.config/mise bootstrap dotfiles apply ~/.claude/settings.json
 ```
 
-Merging never deletes a key. To drop an owned key, remove it from the template and delete it once on each macOS host, for example `jq 'del(.KEY)' ~/.claude/settings.json > /tmp/s.json && cat /tmp/s.json > ~/.claude/settings.json`. Merge edits take no `variants`, so off macOS the template renders only `$schema`: a host without the file gets one holding just that key.
+Merging never deletes a key. To drop an owned key, remove it from the template and delete it once on each macOS host, for example `tmp=$(mktemp) && jq 'del(.KEY)' ~/.claude/settings.json > "$tmp" && cat "$tmp" > ~/.claude/settings.json; rm -f "$tmp"`. Merge edits take no `variants`, so off macOS the template renders only `$schema`: a host without the file gets one holding just that key.
 
 ## Shared skills
 
