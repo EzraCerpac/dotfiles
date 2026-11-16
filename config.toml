@@ -161,6 +161,8 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 # target, never over an existing or restored file.
 "~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }
 "~/.config/nvim/lazyvim.json" = { source = "seeds/.config/nvim/lazyvim.json", mode = "copy", permissions = "0600", create_if_missing = true }
+"~/.config/aegis/config.json" = { source = "seeds/.config/aegis/config.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos", profile = "workstation" }] }
+"~/.config/karabiner/karabiner.json" = { source = "seeds/.config/karabiner/karabiner.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos", profile = "workstation" }] }
 "~/.codex/app-settings/git-commit-prompt.md" = { source = "dotfiles/.codex/app-settings/git-commit-prompt.md", mode = "symlink" }
 "~/.codex/app-settings/git-pr-prompt.md" = { source = "dotfiles/.codex/app-settings/git-pr-prompt.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "copy" }

@@ -64,6 +64,19 @@ class DotfileDeclarationTests(unittest.TestCase):
         undeclared = sorted(tracked(*MANAGED_TREES) - declared - INDIRECT.keys())
         self.assertEqual(undeclared, [], "declare these in a config file, archive them, or explain them in INDIRECT")
 
+    def test_history_entries_are_encrypted_per_machine_streams(self) -> None:
+        # Each machine keeps its own encrypted stream, named by its host profile.
+        for key, entry in declarations().items():
+            if entry.get("mode") != "track":
+                continue
+            with self.subTest(entry=key):
+                self.assertIs(entry.get("encrypt"), True)
+                variants = entry.get("variants", [])
+                self.assertTrue(variants)
+                for variant in variants:
+                    self.assertEqual(set(variant), {"profile"})
+                    self.assertRegex(variant["profile"], r"^host-[a-z0-9][a-z0-9-]*$")
+
     def test_indirect_sources_are_still_referenced(self) -> None:
         for source in INDIRECT:
             with self.subTest(source=source):

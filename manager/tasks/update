@@ -336,7 +336,13 @@ run_stage() {
     return 0
 }
 
-if ! run_stage 'Pre-update settings checkpoint' setup_mise bootstrap dotfiles save; then
+# A checkpoint saves every tracked file; refuse one that is not encrypted.
+settings_checkpoint() {
+    setup_tracked_history_paths setup_mise >/dev/null || return $?
+    setup_mise bootstrap dotfiles save
+}
+
+if ! run_stage 'Pre-update settings checkpoint' settings_checkpoint; then
     setup_error "pre-update settings checkpoint failed; no updates were started"
     exit 1
 fi
@@ -561,7 +567,7 @@ fi
 # self-update is disabled; the migration will switch ownership before relying on it.
 run_stage "standalone mise" setup_mise self-update --yes || true
 
-if ! run_stage 'Post-update settings checkpoint' setup_mise bootstrap dotfiles save; then
+if ! run_stage 'Post-update settings checkpoint' settings_checkpoint; then
     setup_error "post-update settings checkpoint failed"
 fi
 

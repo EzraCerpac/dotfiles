@@ -76,7 +76,7 @@ separate file contents but share tracked-file permission metadata, so every
 enrolled encrypted regular file follows the same `0600` policy. If restore stops
 after installing a history store, a private pending marker lets the next
 restore resume this seed step instead of treating the store as established. It
-refreshes the selected host's exact-file enrollment after the files arrive,
+refreshes the selected host's history identity and recipients after the files arrive,
 then filters native `dotfiles paths --json` entries to `mode = "track"` before
 applying permissions. It requires Git, the age identity, and Node to be already
 available; restore keeps auto-install disabled and does not install

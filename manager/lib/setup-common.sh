@@ -273,3 +273,49 @@ setup_require_history_branch() {
     fi
     printf '%s\n' "$expected"
 }
+
+# Print the target of every active mode = "track" entry, one per line, after
+# checking that the file declaring it (the one mise uses after local overrides)
+# sets encrypt = true and, with HOST_PROFILE, that its variant is that profile.
+# Stops with status 2 naming the entry and its file, before anything is saved.
+#   setup_tracked_history_paths MISE_RUNNER [HOST_PROFILE]
+setup_tracked_history_paths() {
+    local runner="$1" host="${2:-}" json entries path variant declared file target key found encrypt
+    json="$("$runner" bootstrap dotfiles paths --json)" || return $?
+    # Exactly one object with an entries array; fields joined by US so an
+    # empty variant stays an empty field.
+    entries="$(jq -rs 'if length == 1 and (.[0] | type) == "object" and (.[0].entries | type) == "array"
+        then .[0].entries[] | select(.mode == "track") | [.path, (.variant // ""), (.declared_in // "")] | join("\u001f")
+        else error("no tracked-path inventory") end' <<< "$json" 2>/dev/null)" || {
+        setup_error 'could not read the tracked history entries'
+        return 2
+    }
+    while IFS=$'\x1f' read -r path variant declared; do
+        [[ -n "$path" ]] || continue
+        file="$declared"
+        [[ "$file" == "~/"* ]] && file="$HOME/${file#\~/}"
+        target="$path"
+        [[ "$target" == "~/"* ]] && target="$HOME/${target#\~/}"
+        # mise reports a target under HOME as ~/...; the file may declare
+        # either spelling, and every spelling it declares must be encrypted.
+        found=0
+        for key in "$path" "$target"; do
+            key="${key//\\/\\\\}"
+            key="dotfiles.\"${key//\"/\\\"}\""
+            "$runner" config get --file "$file" "$key" >/dev/null 2>&1 || continue
+            found=1
+            encrypt="$("$runner" config get --file "$file" "$key.encrypt" 2>/dev/null || true)"
+            [[ "$encrypt" == true ]] || break
+            [[ "$path" != "$target" ]] || break
+        done
+        if [[ "$found" != 1 || "$encrypt" != true ]]; then
+            setup_error "history entry $path in $declared is not encrypted; set encrypt = true there"
+            return 2
+        fi
+        if [[ -n "$host" && "$variant" != "$host" ]]; then
+            setup_error "history entry $path in $declared does not use variants = [{ profile = \"$host\" }]"
+            return 2
+        fi
+        printf '%s\n' "$target"
+    done <<< "$entries"
+}

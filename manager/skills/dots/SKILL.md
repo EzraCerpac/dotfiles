@@ -67,7 +67,9 @@ Put the file under `dotfiles/` in the configuration and declare it:
 Use `mode = "template"` with a `.tera` source for per-machine values, and `variants = [{ os = "macos" }]` or `{ profile = "laptop" }` to restrict it.
 When you remove a declaration, add its target to `dots/retired-dotfiles` so stale links get cleaned up.
 When you remove a source that a setup script once declared in machines' `config.local.toml` or `config.host-*.toml`, add `dotfiles.NAME<TAB>SOURCE` to `dots/retired-declarations` in the same commit, or every such machine's sync rejects it.
-App-written files that must not be linked go in `dots/history-files.tsv` (`PROFILE<TAB>~/PATH`), which tracks them in encrypted settings history.
+App-written files that must not be linked are tracked in encrypted settings history instead, one stream per machine:
+`"~/.config/app/state.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-MACHINE_ID" }] }`.
+List every machine that keeps the file as its own `{ profile = "host-MACHINE_ID" }` variant; never change or remove an existing one, since it names that machine's stream in history.
 
 ## Hooks, commands and installer exceptions
 

@@ -92,7 +92,7 @@ class DotfileFixtures(unittest.TestCase):
                 targets = []
                 for target, entry in entries.items():
                     if 'source' not in entry:
-                        continue  # permissions-only; see the Claude settings test
+                        continue  # settings history or permissions-only; see the Claude settings test
                     source = fixture / entry['source']
                     self.assertTrue(source.is_file(), str(source))
                     target = fixture / 'destinations' / target.removeprefix('~/')

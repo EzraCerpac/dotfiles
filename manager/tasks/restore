@@ -354,7 +354,7 @@ fi
 
 printf '\nApplying the current host file-permission policy...\n'
 history_identity="${SETUP_AGE_IDENTITY:-$HOME/.config/age/keys.txt}"
-printf 'Refreshing encrypted exact-file enrollment for host %s...\n' "$SETUP_MACHINE_ID"
+printf 'Refreshing encrypted history keys for host %s...\n' "$SETUP_MACHINE_ID"
 SETUP_PROFILE="$SETUP_PROFILE" \
 SETUP_MACHINE_ID="$SETUP_MACHINE_ID" \
 SETUP_HISTORY_ORIGIN="$SETUP_HISTORY_ORIGIN" \
@@ -364,8 +364,7 @@ MISE_CONFIG_DIR="$SETUP_ROOT" \
         --profile "$SETUP_PROFILE" \
         --machine-id "$SETUP_MACHINE_ID" \
         --identity "$history_identity" \
-        --origin "$SETUP_HISTORY_ORIGIN" \
-        --refresh
+        --origin "$SETUP_HISTORY_ORIGIN"
 printf 'Securing the exact current-host tracked paths...\n'
 if ! setup_mise exec -- node -e 'process.exit(0)' >/dev/null 2>&1; then
     setup_error 'Node must already be available in the selected mise profile to parse exact tracked history paths'

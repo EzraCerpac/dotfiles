@@ -290,8 +290,6 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.codex/rules/macos.rules" = { source = "dotfiles/.codex/rules/macos.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/portless.rules" = { source = "dotfiles/.codex/rules/portless.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
-"~/.config/aegis/config.json" = { source = "seeds/.config/aegis/config.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos" }] }
-"~/.config/karabiner/karabiner.json" = { source = "seeds/.config/karabiner/karabiner.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }
@@ -372,3 +370,19 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.zshrc" = { source = "dotfiles/.zshrc", mode = "symlink" }
 "~/.ssh/config" = { source = "templates/.ssh/config.tera", mode = "template" }
 "~/.config/fish/conf.d/10-macos.fish" = { source = "dotfiles/.config/fish/conf.d/10-macos.fish", mode = "symlink", variants = [{ os = "macos" }] }
+
+# App-written files kept in encrypted settings history. Each machine saves its
+# own copy on its own history branch: list its host-<machine-id> profile in
+# variants (the stream name in history, so never change an existing one).
+"~/.codex/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/aegis/config.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/karabiner/karabiner.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/atuin/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/gitlogue-saver/config.toml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/Library/Preferences/com.superlogical.rex.plist" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/lazyvim.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/lazy-lock.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/nvim/spell/en.utf-8.add" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.config/fish/fish_variables" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.cli-proxy-api/config.yaml" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }
+"~/.wakatime.cfg" = { mode = "track", encrypt = true, variants = [{ profile = "host-mac-primary" }] }

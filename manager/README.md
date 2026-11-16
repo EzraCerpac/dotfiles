@@ -168,12 +168,13 @@ Everything `dots` reads there:
 | --- | --- |
 | `config.toml` | Base mise configuration, always loaded; its `[vars]` holds the `dots` settings |
 | `config.PROFILE.toml` | Additions for one profile, loaded with `mise -E PROFILE` |
-| `dots/` | Hooks, commands, installer exceptions, history files, retired dotfiles and retired local declarations: see [the `dots/` reference](init/README.md) |
+| `dots/` | Hooks, commands, installer exceptions, retired dotfiles and retired local declarations: see [the `dots/` reference](init/README.md) |
 | `.gitleaks.toml`, `.gitleaksignore` | Secret-scan rules for `dots sync` |
 | `encrypted/bootstrap.PROFILE.json.age` | That profile's private bootstrap bundle; `dots bootstrap` uses it when present |
 | `encrypted/atuin.json.age` | Atuin enrollment bundle from `dots atuin-bundle` |
 | `tests/run` | The configuration's own tests, for `dots test` |
-| `miserc.toml`, `config.local.toml`, `config.host-ID.toml` | Written on each machine (profile, machine name, history settings) |
+| `miserc.toml`, `config.local.toml` | Written on each machine (profile, machine name, history settings) |
+| `config.host-ID.toml` | Optional additions for one machine, loaded with its `host-ID` profile |
 | `.gitignore` | Must ignore those files and mise lockfiles; `dots sync` refuses to share them |
 
 [The `dots/` reference](init/README.md) is also what `dots init` copies to `dots/README.md`.
@@ -197,10 +198,24 @@ dots_atuin_username = "you"                  # the only Atuin account enrollment
                                              # account already logged in, else logs in as the one the bundle names
 ```
 
+### Settings history
+
+`dots backup` and `dots restore` keep app-written files in mise's encrypted dotfile history, in the private `dots_state_repo` on one `host-ID` branch per machine.
+Declare each such file as a native track entry with one `host-ID` profile variant per machine that keeps it:
+
+```toml
+# config.laptop.toml
+[dotfiles]
+"~/.config/app/state.json" = { mode = "track", encrypt = true, variants = [{ profile = "host-my-laptop" }] }
+```
+
+The variant names that machine's stream in history (`home@host-my-laptop/…`), so another machine never applies it, even from the wrong branch; never rename or remove one that has history.
+A machine selects its `host-ID` profile next to its role, and bootstrap and restore keep its age identity and recipients in `config.local.toml` and set its tracked files to mode `0600`.
+
 ### Bootstrap
 
 `dots bootstrap` runs `mise bootstrap` with `DOTS_HOME` and `DOTS_ROOT` exported.
-Two pieces of mise configuration connect it to `dots`: a hook in each profile file that records the profile, and a `bootstrap` task, which mise runs as the last bootstrap step, for the completion step (private inputs, installer exceptions, `dots/hooks/bootstrap.d`, Atuin, history enrollment and Tailscale):
+Two pieces of mise configuration connect it to `dots`: a hook in each profile file that records the profile, and a `bootstrap` task, which mise runs as the last bootstrap step, for the completion step (private inputs, installer exceptions, `dots/hooks/bootstrap.d`, Atuin, settings history and Tailscale):
 
 ```toml
 # config.laptop.toml

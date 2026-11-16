@@ -4,11 +4,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { validateIncoming, validateIncomingIgnores } from './source-repo.mjs';
 import { RETIRED_LIST, localDeclarationFile, parseRetiredList, retireDeclarations } from './retired-declarations.mjs';
 
 export const privatePath = name => /^(config\.local\.toml|miserc\.toml|config\.host-[^/]+\.toml|mise(?:\.[^/]+)?\.lock|locks|\.setup-state)(\/|$)/i.test(name);
 const ZERO = '0'.repeat(40);
+const SETUP_COMMON = fileURLToPath(new URL('./setup-common.sh', import.meta.url));
+// The save guard dots up uses: every tracked file must be declared encrypted.
+const GUARD = 'source "$0" && bin=$1 dir=$2 && run() { "$bin" -C "$dir" "$@"; } && setup_tracked_history_paths run >/dev/null';
 const short = commit => commit.slice(0, 12);
 const firstLine = text => String(text || '').split('\n').map(line => line.trim()).find(Boolean)?.slice(0, 160) || 'unknown error';
 
@@ -142,8 +146,16 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
 
   try {
     // Copied dotfiles flow back into the source before it is captured.
-    const save = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save']);
-    if (save.error || save.status !== 0) lines.push(`SAVE FAILED: mise bootstrap dotfiles save (exit ${save.status ?? 'error'}); copied dotfiles not captured`);
+    const guard = raw('bash', ['-c', GUARD, SETUP_COMMON, miseBin, root]);
+    if (guard.error || guard.status !== 0) {
+      // The guard's own reason is its last line, after anything mise printed.
+      const reason = String(guard.stderr || guard.error?.message || '').trim().split('\n').pop().replace(/^setup: /, '');
+      lines.push(`SAVE REFUSED: ${reason || 'unknown error'}; nothing saved`);
+    }
+    else {
+      const save = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'save']);
+      if (save.error || save.status !== 0) lines.push(`SAVE FAILED: mise bootstrap dotfiles save (exit ${save.status ?? 'error'}); copied dotfiles not captured`);
+    }
 
     // 2. The files' base is the commit the index was checked out from. It equals
     // HEAD unless something moved dev without updating the files.

@@ -59,6 +59,9 @@ function fixture(t) {
   fs.writeFileSync(miseBin, `#!/bin/sh
 set -eu
 case "$*" in
+  *'dotfiles paths --json'*) if [ -n "\${DEV_TEST_PATHS:-}" ]; then echo "$DEV_TEST_PATHS"; else echo '{"entries": []}'; fi ;;
+  *'.encrypt'*) exit 1 ;;
+  *'dotfiles save'*) if [ -n "\${DEV_TEST_SAVED:-}" ]; then touch "$DEV_TEST_SAVED"; fi ;;
   *'config ls'*)
     if [ -n "\${DEV_TEST_MUTATE:-}" ]; then echo late > "$DEV_TEST_MUTATE"; fi
     if grep -q INVALID "$2/config.toml"; then echo 'invalid config' >&2; exit 1; fi ;;
@@ -131,6 +134,20 @@ test('a local edit is shared and private files stay local', available, t => {
   assert.doesNotMatch(git(f.a, 'ls-tree', '-r', '--name-only', 'dev'), /config\.local\.toml|\.setup-state|locks/);
   assert.match(git(f.a, 'log', '-1', '--format=%s', 'dev'), /^Save local setup \(/);
   f.clean(f.a);
+});
+
+test('sync saves nothing while a tracked file is not declared encrypted', available, t => {
+  const f = fixture(t);
+  const saved = path.join(f.dir, 'saved');
+  process.env.DEV_TEST_SAVED = saved;
+  const { text } = f.sync(f.a);
+  assert(fs.existsSync(saved), 'an encrypted (here: empty) inventory is saved');
+  fs.rmSync(saved);
+  process.env.DEV_TEST_PATHS = JSON.stringify({ entries: [{ path: '~/.app', mode: 'track', declared_in: path.join(f.a, 'config.toml') }] });
+  const refused = f.sync(f.a);
+  assert.equal(text, 'dots sync: no local changes · pulled dev +0, main +0 · nothing to push');
+  assert.match(refused.text, /\n {2}SAVE REFUSED: history entry ~\/\.app in .*config\.toml is not encrypted; set encrypt = true there; nothing saved$/);
+  assert(!fs.existsSync(saved), 'mise bootstrap dotfiles save ran');
 });
 
 test('a remote change arrives on disk', available, t => {
