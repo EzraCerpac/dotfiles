@@ -46,18 +46,32 @@ Check: it prints the backup directory, the history commit, and every tracked fil
 
 The old `enroll-history` wrote a header comment and, per file, a `[dotfiles."~/PATH"]` table holding exactly
 `mode = "track"`, `encrypt = true` and `variants = [{ profile = "host-<id>" }]`.
-This block removes those and keeps everything else, such as `[tools]`; it deletes the file only when nothing else is left.
+This block removes only tables of exactly that shape and keeps every other line byte for byte,
+such as `[tools]`, comments, or a table with another variant or an extra key; it deletes the file only when nothing else is left.
 
 ```sh
 cd ~/.config/mise || exit 1
 id=$(mise config get --file config.local.toml env.SETUP_MACHINE_ID); f=config.host-$id.toml
 H=${MISE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/mise}/history; B=$(ls -d "$H"/declarations-* | tail -n 1); echo "$B"
 awk -v id="$id" '
-  function flush() { if (n && !generated) printf "%s", kept; kept = ""; n = 0 }
-  /^\[/ { flush(); if ($0 ~ /^\[dotfiles\./) { n = 1; generated = 1; kept = $0 "\n"; next } }
-  n { kept = kept $0 "\n"
-      if ($0 != "" && $0 != "mode = \"track\"" && $0 != "encrypt = true" &&
-          $0 != "variants = [{ profile = \"host-" id "\" }]") generated = 0
+  # A table is generated only if its header is [dotfiles."PATH"] and it holds each of
+  # these three lines once and nothing else. Comments and blank lines after a table
+  # go with what follows; a comment between its lines keeps the table.
+  function flush() {
+    if (n && !(m == 1 && e == 1 && v == 1 && !other)) printf "%s", body
+    printf "%s", tail; body = tail = ""; n = 0
+  }
+  /^\[/ { flush()
+    if ($0 ~ /^\[dotfiles\./) { n = 1; m = e = v = other = 0; body = $0 "\n"
+      if ($0 !~ /^\[dotfiles\."[^"]*"\]$/) other = 1
+      next } }
+  n { if ($0 == "" || $0 ~ /^[ \t]*#/) { tail = tail $0 "\n"; next }
+      if (tail ~ /#/) other = 1
+      body = body tail $0 "\n"; tail = ""
+      if ($0 == "mode = \"track\"") m++
+      else if ($0 == "encrypt = true") e++
+      else if ($0 == "variants = [{ profile = \"host-" id "\" }]") v++
+      else other = 1
       next }
   $0 == "# Encrypted exact-file history entries for host-" id "." { next }
   { print }
