@@ -8,7 +8,7 @@ Small changes (instruction text, a config line) go straight into the live checko
 
 Use `dots status`, `dots up`, `dots backup`, and `dots restore` for routine maintenance. Updates must not prune packages or restart services. The one exception is Capd: macOS `dots up` may rebuild and reinstall a changed `EzraCerpac/capd` `main` and restore its running state, and does nothing when it is already current; NAS updates skip it.
 
-This repository is public. `miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored; app-written settings live in the private `dotfiles-state` repository. Claude Code `settings.json` renders from a template (see `docs/agent-instructions.md`). Never commit keys or app state.
+This repository is public. `miserc.toml`, `config.local.toml`, and `config.host-*.toml` are local and ignored; app-written settings live in the private `dotfiles-state` repository. Claude Code `settings.json` takes only the keys its template owns (see `docs/agent-instructions.md`). Never commit keys or app state.
 
 Roles are `workstation` and `nas`. Preserve host exceptions, services, system software, app data, and signed local desktop builds. Read `docs/agent-instructions.md` before changing agent instructions and `docs/migration.md` before changing installer exceptions or moving an app.
 

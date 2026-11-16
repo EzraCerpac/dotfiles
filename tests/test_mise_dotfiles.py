@@ -189,6 +189,43 @@ class DotfileFixtures(unittest.TestCase):
                     self.assertEqual(written.read_bytes(), (ROOT / entry['source']).read_bytes())
                     self.assertEqual(written.stat().st_mode & 0o777, 0o600)
 
+    def test_claude_settings_keep_claudes_own_keys(self):
+        entry = tomllib.loads((ROOT / 'config.toml').read_text())['dotfiles']['~/.claude/settings.json/shared']
+        self.assertEqual((entry['merge'], entry['template'], entry['permissions']), (True, 'tera', '0600'))
+        with tempfile.TemporaryDirectory(prefix='mise-claude-') as tmp:
+            fixture = Path(tmp).resolve()
+            settings = fixture / 'home/.claude/settings.json'
+            settings.parent.mkdir(parents=True)
+            # Claude's own writes beside an owned key it changed.
+            settings.write_text(json.dumps({'theme': 'dark', 'model': 'opus', 'permissions': {'allow': ['Bash(ls:*)']},
+                                            'enabledPlugins': {'other@market': True}}, indent=2) + '\n')
+            settings.chmod(0o600)
+            (fixture / 'config.toml').write_text('[vars]\nprofile = "nas"\n[dotfiles]\n' + json.dumps(str(settings) + '/shared')
+                                                  + ' = { source = ' + json.dumps(str(ROOT / entry['source'])) + ', template = "tera", merge = true }\n')
+            env = {key: os.environ[key] for key in ('PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM') if key in os.environ}
+            for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
+                env[f'MISE_{name}_DIR'] = str(fixture if name == 'CONFIG' else fixture / name.lower())
+            (fixture / 'empty-system-config').mkdir()
+            env.update(HOME=str(fixture / 'home'), MISE_TRUSTED_CONFIG_PATHS=str(fixture), MISE_SYSTEM_CONFIG_DIR=str(fixture / 'empty-system-config'),
+                       MISE_CEILING_PATHS=str(fixture), MISE_ENV='', MISE_AUTO_ENV='0', MISE_NO_ENV='1',
+                       MISE_AUTO_INSTALL='0', MISE_NO_HOOKS='1', MISE_AUTO_UPDATE='0')
+            result = subprocess.run([MISE, '-C', str(fixture), 'bootstrap', 'dotfiles', 'apply', '--yes'], env=env,
+                                    cwd=fixture, text=True, capture_output=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            merged = json.loads(settings.read_text())
+            self.assertEqual(merged['model'], 'opus')
+            self.assertEqual(merged['permissions']['allow'], ['Bash(ls:*)'])
+            self.assertTrue(merged['enabledPlugins']['other@market'])
+            self.assertEqual(settings.stat().st_mode & 0o777, 0o600)
+            if platform.system() == 'Darwin':
+                self.assertEqual(merged['theme'], 'auto')
+                self.assertEqual(merged['permissions']['defaultMode'], 'auto')
+                self.assertTrue(merged['enabledPlugins']['frontend-design@claude-plugins-official'])
+                self.assertIn('macOS NAS', '\n'.join(merged['autoMode']['environment']))
+            else:
+                self.assertEqual(merged['theme'], 'dark')
+                self.assertNotIn('autoMode', merged)
+
 
 if __name__ == '__main__':
     unittest.main()
