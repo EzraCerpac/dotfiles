@@ -221,7 +221,7 @@ dots apply ~/.ssh/config
 | Path | Purpose |
 | --- | --- |
 | `config.toml` and `config.<role>.toml` | Global mise settings, tools, bootstrap declarations, and machine profiles |
-| `dots/` | How this setup plugs into `dots`: update and bootstrap hooks, the `houseatlas` command, installer exceptions and their recipes, history files, retired dotfiles ([reference](dots/README.md)) |
+| `dots/` | How this setup plugs into `dots`: update and bootstrap hooks, the `houseatlas` command, installer exceptions and their recipes, retired dotfiles and retired declarations ([reference](dots/README.md)) |
 | `setup-tasks.toml` and `setup-scripts/` | Setup tasks, available with `mise -C ~/.config/mise run` without adding them to project task lists |
 | `dotfiles/` | Native symlink sources; editing a linked target edits this source |
 | `templates/` | Files rendered with Tera when `edit --apply` or apply is requested |

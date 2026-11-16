@@ -18,12 +18,7 @@ CONFIGS = ("config.toml", "config.workstation.toml", "config.nas.toml")
 MANAGED_TREES = ("dotfiles", "templates", "seeds")
 
 # Sources used by something other than a [dotfiles] declaration.
-INDIRECT = {
-    "seeds/.codex/config.toml": "seeded once by setup-scripts/local/seed-configs.sh",
-    "seeds/.config/aegis/config.json": "seeded once by setup-scripts/local/seed-configs.sh",
-    "seeds/.config/karabiner/karabiner.json": "seeded once by setup-scripts/local/seed-configs.sh",
-    "seeds/.config/nvim/lazyvim.json": "seeded once by setup-scripts/local/seed-configs.sh",
-}
+INDIRECT: dict[str, str] = {}
 
 
 def declarations() -> dict[str, dict]:

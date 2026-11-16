@@ -1,5 +1,9 @@
-{#- Claude Code user settings for every managed host. Claude may rewrite the
-    deployed file (e.g. /config); edit this source and reapply instead. -#}
+{#- The keys this repository owns in Claude Code user settings. mise merges
+    them into ~/.claude/settings.json (merge = true): an owned key is reset
+    on apply, an array here replaces Claude's whole, and every key not
+    listed here stays Claude's. A key deleted here is not deleted from the
+    file. Off macOS this renders only $schema, since edits take no variants. -#}
+{%- if os() == "macos" %}
 {
   "permissions": {
     "defaultMode": "auto"
@@ -77,3 +81,6 @@
     ]
   }
 }
+{%- else %}
+{ "$schema": "https://json.schemastore.org/claude-code-settings.json" }
+{%- endif %}

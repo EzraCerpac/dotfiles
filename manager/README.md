@@ -168,7 +168,7 @@ Everything `dots` reads there:
 | --- | --- |
 | `config.toml` | Base mise configuration, always loaded; its `[vars]` holds the `dots` settings |
 | `config.PROFILE.toml` | Additions for one profile, loaded with `mise -E PROFILE` |
-| `dots/` | Hooks, commands, installer exceptions and retired dotfiles: see [the `dots/` reference](init/README.md) |
+| `dots/` | Hooks, commands, installer exceptions, retired dotfiles and retired local declarations: see [the `dots/` reference](init/README.md) |
 | `.gitleaks.toml`, `.gitleaksignore` | Secret-scan rules for `dots sync` |
 | `encrypted/bootstrap.PROFILE.json.age` | That profile's private bootstrap bundle; `dots bootstrap` uses it when present |
 | `encrypted/atuin.json.age` | Atuin enrollment bundle from `dots atuin-bundle` |
