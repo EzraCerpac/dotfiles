@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from lib.prereq import requires
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -82,6 +83,7 @@ def replace_host_file(directory: Path) -> subprocess.CompletedProcess[str]:
                           cwd=directory, capture_output=True, text=True, check=False)
 
 
+@requires("awk")
 class HostDeclarationCleanupTests(unittest.TestCase):
     def test_removes_only_generated_tables(self) -> None:
         local = ("# Encrypted exact-file history entries for host-mac-primary.\n" + KEPT_TOP
