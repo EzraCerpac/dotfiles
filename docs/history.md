@@ -59,7 +59,10 @@ The NAS uses the same shape with `--profile nas`, `--machine-id cerpacnas`,
 and its own `~/.config/age/keys.txt`; adding the Mac's recovery public recipient
 lets the Mac's recovery key decrypt NAS checkpoints. The task secures this
 host's tracked files at mode `0600`, refuses symlinks, and exits with status 3
-when no entry names this host's profile.
+when no entry names this host's profile. It stops on any active track entry
+whose declaring file (`mise dot paths` shows it) does not set `encrypt = true`
+or that does not use this host's variant; `dots backup` and the `dots up`
+checkpoints refuse to save in the same case.
 
 Review the declarations before network publication:
 

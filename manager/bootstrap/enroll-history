@@ -106,17 +106,12 @@ for recipient in "${recipients[@]}"; do
     bootstrap_append_local history.encryption.recipients "$recipient" list
 done
 
-# The tracked files are this host's active track declarations. Secure them at
-# mode 0600; history-permissions.sh refuses symlinks and paths outside HOME.
+# The tracked files are this host's active track declarations. Each must be
+# encrypted and scoped to this host, or a save would store it in plaintext or in
+# another stream. Secure them at mode 0600; history-permissions.sh refuses
+# symlinks and paths outside HOME.
 host_profile="$(bootstrap_history_branch)" || exit $?
-tracked="$(bootstrap_mise bootstrap dotfiles paths --json | node -e '
-const document = JSON.parse(require("fs").readFileSync(0, "utf8"));
-if (!Array.isArray(document.entries)) throw new Error("mise dotfiles paths JSON has no entries array");
-for (const entry of document.entries) {
-  if (entry.mode !== "track") continue;
-  const target = entry.path.startsWith("~/") ? process.env.HOME + entry.path.slice(1) : entry.path;
-  process.stdout.write(target + "\n");
-}')" || exit $?
+tracked="$(setup_tracked_history_paths bootstrap_mise "$host_profile")" || exit $?
 if [[ -z "$tracked" ]]; then
     printf 'No tracked files declared for %s; add { profile = "%s" } to the variants of its mode = "track" entries.\n' \
         "$host_profile" "$host_profile"

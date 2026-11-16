@@ -273,3 +273,35 @@ setup_require_history_branch() {
     fi
     printf '%s\n' "$expected"
 }
+
+# Print the target of every active mode = "track" entry, one per line, after
+# checking that the file declaring it (the one mise uses after local overrides)
+# sets encrypt = true and, with HOST_PROFILE, that its variant is that profile.
+# Stops with status 2 naming the entry and its file, before anything is saved.
+#   setup_tracked_history_paths MISE_RUNNER [HOST_PROFILE]
+setup_tracked_history_paths() {
+    local runner="$1" host="${2:-}" json entries path variant declared file key encrypt
+    json="$("$runner" bootstrap dotfiles paths --json)" || return $?
+    entries="$(jq -r '.entries[]? | select(.mode == "track") | [.path, (.variant // ""), (.declared_in // "")] | @tsv' <<< "$json")" || {
+        setup_error 'could not read the tracked history entries'
+        return 2
+    }
+    while IFS=$'\t' read -r path variant declared; do
+        [[ -n "$path" ]] || continue
+        file="$declared"
+        [[ "$file" == "~/"* ]] && file="$HOME/${file#\~/}"
+        key="${path//\\/\\\\}"
+        key="${key//\"/\\\"}"
+        encrypt="$("$runner" config get --file "$file" "dotfiles.\"$key\".encrypt" 2>/dev/null || true)"
+        if [[ "$encrypt" != true ]]; then
+            setup_error "history entry $path in $declared is not encrypted; set encrypt = true there"
+            return 2
+        fi
+        if [[ -n "$host" && "$variant" != "$host" ]]; then
+            setup_error "history entry $path in $declared does not use variants = [{ profile = \"$host\" }]"
+            return 2
+        fi
+        [[ "$path" == "~/"* ]] && path="$HOME/${path#\~/}"
+        printf '%s\n' "$path"
+    done <<< "$entries"
+}
