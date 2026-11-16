@@ -533,7 +533,7 @@ class InitTests(ContractTestCase):
         self.assertIn('dots_profiles = "default"\n', (fresh / "config.toml").read_text())
         for directory in ("hooks/update.d", "hooks/bootstrap.d", "commands", "exceptions"):
             self.assertTrue((fresh / "dots" / directory).is_dir(), directory)
-        for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles"):
+        for name in ("README.md", "exceptions.tsv", "history-files.tsv", "retired-dotfiles", "retired-declarations"):
             self.assertEqual((fresh / "dots" / name).read_text(), (self.f.manager / "init" / name).read_text())
         self.assertEqual((fresh / ".gitleaks.toml").read_text(), (self.f.manager / "init/gitleaks.toml").read_text())
         self.assertEqual((fresh / ".gitignore").read_text(), (self.f.manager / "init/gitignore").read_text())

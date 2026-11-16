@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { syncSource, withRepositoryLock } from '../lib/source-repo.mjs';
-import { requires } from './lib/prereq.mjs';
+import { miseBinary, requires } from './lib/prereq.mjs';
 
 const available = requires('git');
 function run(bin, args, cwd, options = {}) {
@@ -62,6 +62,14 @@ case "$*" in
   *'config ls'*)
     if [ -n "\${DEV_TEST_MUTATE:-}" ]; then echo late > "$DEV_TEST_MUTATE"; fi
     if grep -q INVALID "$2/config.toml"; then echo 'invalid config' >&2; exit 1; fi ;;
+  *'dotfiles apply'*)
+    # Like mise: every source a local declaration names must exist.
+    for file in "$2"/config.local.toml "$2"/config.host-*.toml; do
+      [ -f "$file" ] || continue
+      for source in $(sed -n 's/^source = "\\(.*\\)"$/\\1/p' "$file"); do
+        [ -e "$2/$source" ] || { echo "sources do not exist: $source" >&2; exit 1; }
+      done
+    done ;;
 esac
 `);
   fs.chmodSync(miseBin, 0o755);
@@ -79,6 +87,27 @@ esac
   const clean = root => assert.equal(git(root, 'status', '--porcelain'), '', `${root} has uncommitted changes`);
   return { dir, a, b, origin, sync, write, dev, remote, clean, gitleaks };
 }
+
+// An older host: its tree still has the Herdr template and its local config the
+// declaration an old setup script appended. The incoming commit archives the
+// template and, when LISTED, retires the declaration.
+const HERDR = '\n[dotfiles.herdr]\nsource = "templates/herdr.tera"\nmode = "template"\nvariants = [{ os = "macos", target = "~/.config/herdr/config.toml" }, { os = "linux", target = "~/.config/herdr/config.toml" }]\n';
+const KEPT = '# this machine\n[env]\nSETUP_PROFILE = "laptop"\n';
+function olderHost(f, { listed = true, file = 'config.local.toml', local = KEPT + HERDR } = {}) {
+  f.write(f.b, 'templates/herdr.tera', 'theme = "{{ \'dark\' }}"\n'); f.sync(f.b); f.sync(f.a);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+  f.write(f.a, file, local); fs.chmodSync(path.join(f.a, file), 0o600);
+  fs.rmSync(path.join(f.b, 'templates'), { recursive: true });
+  if (listed) f.write(f.b, 'dots/retired-declarations', '# Retired local declarations.\ndotfiles.herdr\ttemplates/herdr.tera\n');
+  assert.match(f.sync(f.b).text, /pushed/);
+  return local;
+}
+const unchangedLocal = (f, file, local, stat) => {
+  assert.equal(read(f.a, file), local);
+  assert.equal(fs.statSync(path.join(f.a, file)).mtimeMs, stat.mtimeMs);
+  assert(!fs.existsSync(path.join(f.a, '.git/dots-retired')), 'no backup without a removal');
+};
+const RETIRED = file => new RegExp(`\\n {2}RETIRED local declaration \\[dotfiles\\.herdr\\] from ${file.replace(/\./g, '\\.')} \\(source templates/herdr\\.tera no longer exists\\); deployed files left in place, backup (\\.git/dots-retired/${file.replace(/\./g, '\\.')}\\.\\d{8}T\\d{6}Z)$`);
 
 test('a clean checkout syncs as a no-op', available, t => {
   const f = fixture(t); const before = f.dev(f.a);
@@ -504,4 +533,107 @@ test('a stale lock is reclaimed by one process only and each run releases only i
   fs.rmSync(lock, { recursive: true });
   withRepositoryLock(f.a, () => fs.writeFileSync(owner, live));
   assert.equal(fs.readFileSync(owner, 'utf8'), live);
+});
+
+test('a retired local declaration goes once the commit that retires it is on disk', available, t => {
+  const f = fixture(t); const local = olderHost(f);
+  f.write(f.a, 'config.host-laptop.toml', '[env]\nHOST = "1"\n');
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.equal(text.match(/^dots sync: /gm).length, 1);
+  assert.match(text, /^dots sync: no local changes · pulled dev \+1, main \+0 · nothing to push\n {2}changed on disk: 2 files changed/);
+  const backup = text.match(RETIRED('config.local.toml'))?.[1];
+  assert(backup, text);
+  assert.equal(read(f.a, 'config.local.toml'), KEPT);
+  assert.equal(fs.statSync(path.join(f.a, 'config.local.toml')).mode & 0o777, 0o600);
+  assert.equal(read(f.a, backup), local);
+  assert.equal(fs.statSync(path.join(f.a, backup)).mode & 0o777, 0o600);
+  assert.equal(read(f.a, 'config.host-laptop.toml'), '[env]\nHOST = "1"\n');
+  assert(!fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+  f.clean(f.a);
+  const again = f.sync(f.a);
+  assert.equal(again.text, 'dots sync: no local changes · pulled dev +0, main +0 · nothing to push');
+  assert.equal(read(f.a, 'config.local.toml'), KEPT);
+});
+
+test('without a retired-declarations entry the declaration still fails validation', available, t => {
+  const f = fixture(t); const local = olderHost(f, { listed: false });
+  const stat = fs.statSync(path.join(f.a, 'config.local.toml'));
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.match(text, /^dots sync: no local changes · fetched dev \+1, main \+0 \(not applied\) · not pushed\n {2}INVALID merged config: [^\n]*sources do not exist: templates\/herdr\.tera; nothing pushed or applied$/);
+  unchangedLocal(f, 'config.local.toml', local, stat);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+});
+
+test('a declaration the user pointed elsewhere is not retired', available, t => {
+  const f = fixture(t); const local = olderHost(f, { local: KEPT + HERDR.replace('templates/herdr.tera', 'text') });
+  const stat = fs.statSync(path.join(f.a, 'config.local.toml'));
+  const { text } = f.sync(f.a);
+  assert.match(text, /^dots sync: no local changes · pulled dev \+1, main \+0 · nothing to push\n {2}changed on disk: [^\n]*$/);
+  unchangedLocal(f, 'config.local.toml', local, stat);
+});
+
+test('a retired declaration stays while the merged config is invalid for another reason', available, t => {
+  const f = fixture(t); const local = olderHost(f);
+  const stat = fs.statSync(path.join(f.a, 'config.local.toml'));
+  f.write(f.a, 'config.toml', 'INVALID\n');
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.match(text, /\n {2}INVALID merged config: [^\n]*invalid config; nothing pushed or applied$/);
+  assert.doesNotMatch(text, /RETIRED/);
+  unchangedLocal(f, 'config.local.toml', local, stat);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+});
+
+test('a retired declaration stays until the files advance', available, t => {
+  const f = fixture(t); const local = olderHost(f, { file: 'config.host-laptop.toml' });
+  const stat = fs.statSync(path.join(f.a, 'config.host-laptop.toml'));
+  const lock = path.join(f.a, '.git/index.lock');
+  fs.writeFileSync(lock, '');
+  const { code, text } = f.sync(f.a);
+  assert.equal(code, 0);
+  assert.match(text, /^dots sync: no local changes · fetched dev \+1, main \+0 \(not applied\) · nothing to push\n {2}NOT APPLIED: [^\n]*$/);
+  unchangedLocal(f, 'config.host-laptop.toml', local, stat);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+  fs.rmSync(lock);
+  assert.match(f.sync(f.a).text, RETIRED('config.host-laptop.toml'));
+  assert.equal(read(f.a, 'config.host-laptop.toml'), KEPT);
+});
+
+// The same upgrade against real mise: its own validation rejects the stale
+// declaration, and its apply leaves the rendered file in place.
+test('upgrading an older host with real mise', requires('git', 'mise'), async t => {
+  for (const listed of [true, false]) {
+    await t.test(listed ? 'one sync retires the listed declaration' : 'an unlisted declaration still fails validation', t => {
+      const f = fixture(t);
+      const home = path.join(f.dir, 'home'), system = path.join(f.dir, 'system');
+      fs.mkdirSync(system);
+      Object.assign(process.env, { HOME: home, MISE_CONFIG_DIR: f.a, MISE_DATA_DIR: path.join(f.dir, 'data'), MISE_STATE_DIR: path.join(f.dir, 'state'),
+        MISE_CACHE_DIR: path.join(f.dir, 'cache'), MISE_SYSTEM_CONFIG_DIR: system, MISE_TRUSTED_CONFIG_PATHS: f.a,
+        MISE_CEILING_PATHS: fs.realpathSync(os.tmpdir()), MISE_AUTO_INSTALL: '0', MISE_NO_HOOKS: '1', MISE_AUTO_UPDATE: '0' });
+      const sync = root => f.sync(root, { miseBin: miseBinary() });
+      f.write(f.b, 'templates/herdr.tera', 'theme = "{{ \'dark\' }}"\n'); sync(f.b); sync(f.a);
+      f.write(f.a, 'config.local.toml', KEPT + HERDR); fs.chmodSync(path.join(f.a, 'config.local.toml'), 0o600);
+      assert.match(sync(f.a).text, /^dots sync: no local changes/);
+      const deployed = path.join(home, '.config/herdr/config.toml');
+      assert.equal(fs.readFileSync(deployed, 'utf8'), 'theme = "dark"\n');
+      fs.rmSync(path.join(f.b, 'templates'), { recursive: true });
+      if (listed) f.write(f.b, 'dots/retired-declarations', 'dotfiles.herdr\ttemplates/herdr.tera\n');
+      assert.match(sync(f.b).text, /pushed/);
+      const { code, text } = sync(f.a);
+      assert.equal(code, 0);
+      if (listed) {
+        assert.match(text, /^dots sync: no local changes · pulled dev \+1, main \+0 · nothing to push\n/);
+        assert.match(text, RETIRED('config.local.toml'));
+        assert.doesNotMatch(text, /APPLY FAILED/);
+        assert.equal(read(f.a, 'config.local.toml'), KEPT);
+      } else {
+        assert.match(text, /\n {2}INVALID merged config: [^\n]*sources do not exist[^\n]*; nothing pushed or applied$/);
+        assert.equal(read(f.a, 'config.local.toml'), KEPT + HERDR);
+        assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+      }
+      assert.equal(fs.readFileSync(deployed, 'utf8'), 'theme = "dark"\n');
+    });
+  }
 });

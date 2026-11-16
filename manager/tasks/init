@@ -81,7 +81,7 @@ fi
 for directory in dots dots/hooks dots/hooks/update.d dots/hooks/bootstrap.d dots/commands dots/exceptions; do
     make_dir "$directory"
 done
-for file in dots/README.md dots/exceptions.tsv dots/history-files.tsv dots/retired-dotfiles; do
+for file in dots/README.md dots/exceptions.tsv dots/history-files.tsv dots/retired-dotfiles dots/retired-declarations; do
     copy_template "$file"
 done
 # dots sync scans every snapshot with the configuration's gitleaks rules and

@@ -28,8 +28,10 @@ Machine-local files (`miserc.toml`, `config.local.toml`, `config.host-*.toml`, m
    Binary, file-type and delete conflicts take the published file whole.
    Both parents stay in history, so the losing version remains recoverable.
 6. Validates the merged configuration with this machine's local files; an invalid result is neither pushed nor applied.
+   Local `[dotfiles.NAME]` tables that the merged `dots/retired-declarations` retires are validated as already removed (see [the `dots/` reference](../init/README.md#history-files-retired-dotfiles-and-retired-declarations)).
 7. Pushes without force, merging and retrying up to three times when `origin/dev` moved meanwhile.
-8. Moves the live files from the local commit to the merged one with a two-tree checkout, which refuses to overwrite a file edited during the run, then runs `mise bootstrap dotfiles apply`.
+8. Moves the live files from the local commit to the merged one with a two-tree checkout, which refuses to overwrite a file edited during the run.
+   Only then does it remove those retired tables from the local files, and runs `mise bootstrap dotfiles apply`.
 
 Commits pushed straight to `origin/dev` from a task worktree are fine: the next sync merges them.
 A `dev` moved with plumbing in another worktree of the live checkout is merged too, not reverted.
@@ -70,6 +72,7 @@ Lower-case lines are information.
 | `NOT RECORDED: dev moved during sync; files updated, rerun` | Another process moved `dev` during the run. Run sync again. |
 | `SAVE FAILED: mise bootstrap dotfiles save (exit N); copied dotfiles not captured` | Copied dotfiles were not saved back. Run `mise bootstrap dotfiles save` to see why. |
 | `APPLY FAILED: mise bootstrap dotfiles apply (exit N)` | The configuration advanced but dotfiles were not applied. Run `dots apply` to see why. |
+| `RETIRED local declaration [TABLE] from FILE (source SOURCE no longer exists); deployed files left in place, backup PATH` | The merged configuration retires this table and the files it pointed into are gone, so the run removed exactly that table from the machine-local `FILE`; the deployed file and app data are untouched, and `PATH` holds the file as it was. Nothing to do; restore from `PATH` if you had customized the table. A manager from before this line existed cannot do this: it reports `INVALID merged config` instead, so remove the table by hand once there. |
 | `changed on disk: STAT` | Files the run updated. |
 | `dev moved outside sync (now COMMIT), or the index was staged to match COMMIT; ...` | The Git index matched an older commit, so local files were treated as based on it and merged onto `dev`. Nothing on disk is lost, but a revert staged by hand is undone; commit such a revert instead. |
 

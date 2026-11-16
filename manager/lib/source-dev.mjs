@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { validateIncoming, validateIncomingIgnores } from './source-repo.mjs';
+import { RETIRED_LIST, localDeclarationFile, parseRetiredList, retireDeclarations } from './retired-declarations.mjs';
 
 export const privatePath = name => /^(config\.local\.toml|miserc\.toml|config\.host-[^/]+\.toml|mise(?:\.[^/]+)?\.lock|locks|\.setup-state)(\/|$)/i.test(name);
 const ZERO = '0'.repeat(40);
@@ -84,6 +85,42 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       lines.push(`CONFLICT kept published: ${name}  (yours: ${yours ? `git show ${short(ours)}:${name}` : `deleted in ${short(ours)}`})`);
     }
     return commitTree(result, [ours, theirs], `Merge ${label} (${host})`);
+  };
+
+  // Local config files as COMMIT's dots/retired-declarations would leave them:
+  // name -> { text, removed }, for files where something matched.
+  const retiredFor = commit => {
+    const list = tryGit(['cat-file', 'blob', `${commit}:${RETIRED_LIST}`]);
+    const entries = list.status === 0 ? parseRetiredList(list.stdout) : [];
+    const plans = new Map();
+    if (!entries.length) return plans;
+    const exists = name => tryGit(['cat-file', '-e', `${commit}:${name}`]).status === 0;
+    for (const name of fs.readdirSync(root).filter(localDeclarationFile)) {
+      const file = path.join(root, name);
+      if (!fs.lstatSync(file).isFile()) continue;
+      const bytes = fs.readFileSync(file), text = bytes.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(bytes)) continue; // not UTF-8: leave it to validation
+      const plan = retireDeclarations(text, entries, exists);
+      if (plan.removed.length) plans.set(name, plan);
+    }
+    return plans;
+  };
+  // Only once the files on disk are COMMIT's: the old files still have the
+  // source, so the declaration stays valid until then. Deployed files stay.
+  const retire = commit => {
+    for (const [name, { text, removed }] of retiredFor(commit)) {
+      const file = path.join(root, name), backups = path.join(gitDir, 'dots-retired');
+      const mode = fs.statSync(file).mode & 0o777;
+      fs.mkdirSync(backups, { recursive: true, mode: 0o700 });
+      const backup = path.join(backups, `${name}.${new Date().toISOString().replace(/[-:]|\.\d+/g, '')}`);
+      fs.copyFileSync(file, backup); fs.chmodSync(backup, 0o600);
+      const temp = path.join(backups, `${name}.new-${process.pid}`);
+      try { fs.writeFileSync(temp, text, { mode }); fs.chmodSync(temp, mode); fs.renameSync(temp, file); }
+      finally { fs.rmSync(temp, { force: true }); }
+      for (const entry of removed) {
+        lines.push(`RETIRED local declaration [${entry.table}] from ${name} (source ${entry.source} no longer exists); deployed files left in place, backup ${path.relative(root, backup)}`);
+      }
+    }
   };
 
   try {
@@ -223,7 +260,10 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
         // A directory is probed as NAME/ so directory-only rules (/locks/) match it.
         const privateNames = fs.readdirSync(root, { withFileTypes: true }).map(e => e.name + (e.isDirectory() ? '/' : '')).filter(privatePath);
         validateIncomingIgnores(root, gitDir, merged, new Set(nul(git(['ls-tree', '-z', '--name-only', '--full-tree', merged]))), privateNames);
-        validateIncoming(root, gitDir, merged, miseBin);
+        // Retired local declarations are validated as already gone; the files
+        // themselves change only once the merged commit is on disk.
+        const retired = new Map([...retiredFor(merged)].map(([name, plan]) => [name, plan.text]));
+        validateIncoming(root, gitDir, merged, miseBin, retired);
       } catch (error) {
         valid = false;
         lines.push(`INVALID merged config: ${firstLine(error.message)}; nothing pushed or applied`);
@@ -245,7 +285,7 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     // two-tree checkout refuses to overwrite a file edited meanwhile. Files
     // and dev move only while this run holds the real index lock, so the
     // index it installs always matches them.
-    let applied = false;
+    let applied = false, advanced = false;
     if (valid && (merged !== dev || merged !== snapshot)) {
       if (!lockIndex()) lines.push('NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun');
       else {
@@ -255,7 +295,7 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
           git(['read-tree', snapshot], withIndex(checkout));
           tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));
           if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
-            commitIndex(); held = false;
+            commitIndex(); held = false; advanced = true;
             if (moveDev(merged, dev)) { dev = merged; applied = true; }
             else lines.push('NOT RECORDED: dev moved during sync; files updated, rerun');
             const stat = tryGit(['diff', '--shortstat', snapshot, merged]).stdout?.trim();
@@ -269,7 +309,8 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
           }
         } finally { if (held) fs.rmSync(indexLock, { force: true }); }
       }
-    } else if (valid) applied = true;
+    } else if (valid) applied = advanced = true;
+    if (advanced) retire(merged);
     if (applied) {
       const apply = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes']);
       if (apply.error || apply.status !== 0) lines.push(`APPLY FAILED: mise bootstrap dotfiles apply (exit ${apply.status ?? 'error'})`);
