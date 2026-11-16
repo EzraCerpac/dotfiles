@@ -10,8 +10,8 @@ For anyone reviewing a pull request here, human or automated.
   `nas`. Host exceptions, services, system software and app data are kept.
 - Updates never prune packages or restart services (Capd on macOS is the one
   documented exception).
-- `manager/` is generic and depends on nothing outside itself; its tests pass
-  from a copy of that directory alone.
+- The `dots` manager is not here: it lives in EzraCerpac/dots, and this
+  repository changes it only by moving the release pinned in `config.toml`.
 - A tracked history file is never saved unless it is declared `encrypt = true`.
 - `main` is reviewed; every machine syncs the shared `dev` branch, which merges
   `main`. A merged pull request reaches every machine on its next `dots up`.

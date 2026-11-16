@@ -22,7 +22,8 @@ for dir in "$shared"/*/; do
     name="${dir##*/}"
     [[ -f "$dir/SKILL.md" ]] || continue
     dest="$claude/$name"
-    if [[ -L "$dest" && "$(readlink "$dest")" == "$dir" ]]; then
+    # dots links its own skill into both folders; same target, nothing to do.
+    if [[ -L "$dest" && "$(cd -P -- "$dest" && pwd -P)" == "$(cd -P -- "$dir" && pwd -P)" ]]; then
         continue
     elif [[ -e "$dest" || -L "$dest" ]]; then
         echo "Kept existing ~/.claude/skills/$name; not linking the shared copy"

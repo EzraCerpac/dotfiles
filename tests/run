@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run this configuration's test suites: tests/run [python|node ...]
 #
-# These test the configuration (declarations, docs, scripts). The dots manager
-# has its own suite: manager/tests/run. A suite is skipped (exit status 77)
+# These test the configuration (declarations, docs, scripts); the dots manager
+# is tested in its own repository, EzraCerpac/dots. A suite is skipped (exit status 77)
 # when its runtime is missing. The run is isolated from the caller's Git and JJ
 # configuration so personal settings (signing, pagers, default branches) cannot
 # change fixture behavior.
@@ -12,8 +12,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
 # Report suites to the dots up dashboard when the manager is at hand (dots test
 # exports DOTS_HOME); a direct run without it prints only the plain summary.
-events="${DOTS_HOME:-$root/manager}/lib/dots-up-events.sh"
-if [[ -f "$events" ]]; then
+events="${DOTS_HOME:-}/lib/dots-up-events.sh"
+if [[ -n "${DOTS_HOME:-}" && -f "$events" ]]; then
     source "$events"
 else
     dots_up_emit_item() { :; }

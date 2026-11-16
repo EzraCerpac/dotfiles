@@ -2,12 +2,27 @@
 
 from __future__ import annotations
 
+import subprocess
 import tomllib
 import unittest
 from pathlib import Path
 
+from lib import prereq
+
 ROOT = Path(__file__).resolve().parents[1]
-MANAGER = ROOT / "manager"
+
+PINNED = tomllib.loads((ROOT / "config.toml").read_text())["tools"]["github:EzraCerpac/dots"]
+
+
+def pinned_dots_home() -> Path | None:
+    """The installed dots release config.toml pins, or None when it is not installed."""
+    mise = prereq.mise_binary()
+    if mise is None:
+        return None
+    result = subprocess.run([mise, "where", f"github:EzraCerpac/dots@{PINNED}"],
+                            capture_output=True, text=True, check=False, cwd=ROOT.parent)
+    home = Path(result.stdout.strip())
+    return home if result.returncode == 0 and (home / "init").is_dir() else None
 
 
 class DotsConfigurationTests(unittest.TestCase):
@@ -26,9 +41,11 @@ class DotsConfigurationTests(unittest.TestCase):
                 macos = tomllib.loads(config.read_text()).get("bootstrap", {}).get("macos", {})
                 self.assertLessEqual(set(macos), {"launchd"}, "move these tables under [bootstrap.settings.macos]")
 
-    @unittest.skipUnless((MANAGER / "init").is_dir(), "the manager is not in this checkout")
     def test_dots_readme_is_the_shipped_template(self) -> None:
-        self.assertEqual((ROOT / "dots/README.md").read_text(), (MANAGER / "init/README.md").read_text())
+        home = pinned_dots_home()
+        if home is None:
+            self.skipTest(f"dots {PINNED} is not installed (mise install github:EzraCerpac/dots@{PINNED})")
+        self.assertEqual((ROOT / "dots/README.md").read_text(), (home / "init/README.md").read_text())
 
 
 if __name__ == "__main__":

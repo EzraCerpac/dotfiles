@@ -2,7 +2,7 @@
 
 `~/.config/mise` is the live setup source: plain Git with `HEAD` on `dev`, never JJ. Native mise deploys `dotfiles/` as symlinks or copies: edit the source, and for copy-mode files and templates reapply only that target through native mise. Never run chezmoi against these destinations.
 
-Two things live here. `manager/` is the `dots` manager, generic code that will move to its own repository: it must not depend on anything outside `manager/` (its tests run from a copy of that directory alone). Everything else is this personal configuration: `config*.toml`, `dotfiles/`, `templates/`, `setup-scripts/`, and `dots/` (hooks, commands and installer exceptions that plug into the manager). Read [manager/skills/dots/SKILL.md](manager/skills/dots/SKILL.md) before using `dots` or changing either side; [manager/README.md](manager/README.md) documents the commands.
+This is a personal configuration for the `dots` manager, which lives in its own repository, [EzraCerpac/dots](https://github.com/EzraCerpac/dots); `config.toml` pins the release every machine runs ([dots release](docs/dots-release.md)). Everything here is configuration: `config*.toml`, `dotfiles/`, `templates/`, `setup-scripts/`, and `dots/` (hooks, commands and installer exceptions that plug into the manager). Read the `dots` skill (`$(dots internal home)/skills/dots/SKILL.md`) before using `dots` or changing `dots/`; [the manager's README](https://github.com/EzraCerpac/dots#readme) documents the commands. Manager changes go to EzraCerpac/dots and reach this setup by moving the pin.
 
 Small changes (instruction text, a config line) go straight into the live checkout: edit, then run `dots up`, which commits them and pushes to shared `dev`. Pushing a commit straight to `origin/dev` from a task worktree is fine too. Larger or risky changes use a task worktree (Git) and a PR into `main`, which stays reviewed. Every sync merges `main` into `dev` (published side wins conflicts), so a merged PR goes live on the next `dots up`; don't run it while another agent has uncommitted edits in the live checkout. If sync stops because the checkout is in the wrong shape, follow [sync migration](docs/sync-migration.md).
 
@@ -12,7 +12,7 @@ This repository is public. `miserc.toml`, `config.local.toml`, and `config.host-
 
 Roles are `workstation` and `nas`. Preserve host exceptions, services, system software, app data, and signed local desktop builds. Read `docs/agent-instructions.md` before changing agent instructions and `docs/migration.md` before changing installer exceptions or moving an app.
 
-Tests: `tests/run` for this configuration, `manager/tests/run` for the manager ([testing](docs/testing.md)).
+Tests: `tests/run` ([testing](docs/testing.md)); the manager is tested in its own repository.
 
 For cloud tasks that touch the NASes or HouseAtlas, read [Cloud NAS access](docs/cloud-nas-access.md) first. It does not authorize logins, service changes, or broader network access.
 

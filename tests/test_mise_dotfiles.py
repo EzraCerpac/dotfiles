@@ -79,7 +79,7 @@ class DotfileFixtures(unittest.TestCase):
         for role in ('workstation', 'nas'):
             with self.subTest(role=role), tempfile.TemporaryDirectory(prefix='mise-dotfiles-') as tmp:
                 fixture = Path(tmp).resolve()
-                for directory in ('dotfiles', 'templates', 'seeds', 'manager'):
+                for directory in ('dotfiles', 'templates', 'seeds'):
                     shutil.copytree(ROOT / directory, fixture / directory, symlinks=True)
                 base = (ROOT / 'config.toml').read_text().split('[tools]')[0]
                 # Shared configuration precedes task/hook declarations.
