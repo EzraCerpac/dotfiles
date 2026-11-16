@@ -12,6 +12,7 @@ never overwrites what is here.
 | `exceptions.tsv`, `exceptions/NAME` | Apps mise cannot install, each with its own recipe |
 | `history-files.tsv` | App-written files tracked in encrypted settings history |
 | `retired-dotfiles` | Removed dotfile targets whose dangling links may be deleted |
+| `retired-declarations` | Stale declarations sync removes from machines' local config |
 
 Settings live in `[vars]` of `config.toml`: `dots_profiles` (required, the
 profiles you select with `mise -E`, as space-separated words),
@@ -72,10 +73,25 @@ package, so `dots add` refuses it. Bootstrap passes `--install-only`. Under
 `ITEM<TAB>BEFORE<TAB>AFTER` for what it verifiably installed (`not installed`
 as BEFORE) or updated.
 
-## History files and retired dotfiles
+## History files, retired dotfiles and retired declarations
 
 `history-files.tsv` rows are `PROFILE<TAB>~/PATH` (`base` for every profile);
 history enrollment tracks those that exist. `retired-dotfiles` lists one
 `~/PATH` per line; `lib/retire-dotfiles.sh` in the manager deletes each only
 while it is a dangling link into this checkout. Call it from a mise
 `post-dotfiles` hook: `bash "$DOTS_HOME/lib/retire-dotfiles.sh" "$DOTS_ROOT"`.
+
+`retired-declarations` is for a `[dotfiles.NAME]` table that a setup script
+once wrote into machines' `config.local.toml` or `config.host-*.toml` and whose
+source this configuration has since removed. Such a table would make every
+`dots sync` reject the configuration. Rows are `dotfiles.NAME<TAB>SOURCE`,
+with `SOURCE` a plain relative path (no `.`, `..` or empty parts); other rows
+are ignored.
+Before validating the merged configuration, sync checks it with each local
+file's matching tables taken out: a table goes only when it is exactly
+`[dotfiles.NAME]`, its `source` is exactly `SOURCE`, nothing else defines it,
+and `SOURCE` does not exist in the merged configuration. The file itself
+changes only once the merged files are on disk; the rest of it, its mode and
+the deployed file stay as they were, and a copy goes to
+`.git/dots-retired/`. A rendered template is a regular file and is never
+deleted. Add the row in the same commit that removes the source.

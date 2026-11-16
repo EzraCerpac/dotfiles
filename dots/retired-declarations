@@ -1,0 +1,6 @@
+# Declarations setup scripts once wrote into machines' config.local.toml or
+# config.host-*.toml, as dotfiles.NAME<TAB>SOURCE. Before validating, dots sync
+# drops [dotfiles.NAME] from those files only while its source is exactly SOURCE
+# and SOURCE no longer exists; deployed files are never deleted.
+# Herdr (archive/herdr): setup-scripts/local/shell-select.sh appended this table.
+dotfiles.herdr	templates/.config/herdr/config.tera

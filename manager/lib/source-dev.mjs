@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { validateIncoming, validateIncomingIgnores } from './source-repo.mjs';
+import { RETIRED_LIST, localDeclarationFile, parseRetiredList, retireDeclarations } from './retired-declarations.mjs';
 
 export const privatePath = name => /^(config\.local\.toml|miserc\.toml|config\.host-[^/]+\.toml|mise(?:\.[^/]+)?\.lock|locks|\.setup-state)(\/|$)/i.test(name);
 const ZERO = '0'.repeat(40);
@@ -84,6 +85,59 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
       lines.push(`CONFLICT kept published: ${name}  (yours: ${yours ? `git show ${short(ours)}:${name}` : `deleted in ${short(ours)}`})`);
     }
     return commitTree(result, [ours, theirs], `Merge ${label} (${host})`);
+  };
+
+  // Retired local declarations. Invariant: once the files on disk are at a
+  // commit that retires declarations, each one is gone from exactly the bytes
+  // validated without it, or a NOT RETIRED line says it is still there. The
+  // checkout runs only while every local config file is still the bytes the
+  // validated plan was read from (NOT APPLIED otherwise), and the plan is
+  // written only over those same bytes; a writer racing in between gets
+  // NOT RETIRED, never a silent stale declaration.
+  const localInputs = () => new Map(fs.readdirSync(root).filter(localDeclarationFile)
+    .filter(name => fs.lstatSync(path.join(root, name)).isFile()).map(name => [name, fs.readFileSync(path.join(root, name))]));
+  // COMMIT's plan, or null when it retires nothing: the local files it read
+  // (inputs, name -> bytes) and, where something matched, name -> { text, removed }.
+  const retiredFor = commit => {
+    const list = tryGit(['cat-file', 'blob', `${commit}:${RETIRED_LIST}`]);
+    const entries = list.status === 0 ? parseRetiredList(list.stdout) : [];
+    if (!entries.length) return null;
+    const exists = name => tryGit(['cat-file', '-e', `${commit}:${name}`]).status === 0;
+    const inputs = localInputs(), plans = new Map();
+    for (const [name, bytes] of inputs) {
+      const text = bytes.toString('utf8');
+      if (!Buffer.from(text, 'utf8').equals(bytes)) continue; // not UTF-8: leave it to validation
+      const plan = retireDeclarations(text, entries, exists);
+      if (plan.removed.length) plans.set(name, plan);
+    }
+    return { inputs, plans };
+  };
+  // Local files that changed since RETIREMENT read them.
+  const changedSince = retirement => {
+    if (!retirement) return [];
+    const now = localInputs();
+    return [...new Set([...retirement.inputs.keys(), ...now.keys()])].filter(name => !now.get(name)?.equals(retirement.inputs.get(name))).sort();
+  };
+  // Only once the files on disk are the retiring commit's: the old files still
+  // have the source, so the declaration stays valid until then. Deployed files stay.
+  const retire = retirement => {
+    for (const [name, { text, removed }] of retirement?.plans || []) {
+      const file = path.join(root, name), backups = path.join(gitDir, 'dots-retired');
+      if (!localInputs().get(name)?.equals(retirement.inputs.get(name))) {
+        for (const entry of removed) lines.push(`NOT RETIRED: local declaration [${entry.table}] in ${name}, which changed during sync; rerun, or remove the table by hand`);
+        continue;
+      }
+      const mode = fs.statSync(file).mode & 0o777;
+      fs.mkdirSync(backups, { recursive: true, mode: 0o700 });
+      const backup = path.join(backups, `${name}.${new Date().toISOString().replace(/[-:]|\.\d+/g, '')}`);
+      fs.copyFileSync(file, backup); fs.chmodSync(backup, 0o600);
+      const temp = path.join(backups, `${name}.new-${process.pid}`);
+      try { fs.writeFileSync(temp, text, { mode }); fs.chmodSync(temp, mode); fs.renameSync(temp, file); }
+      finally { fs.rmSync(temp, { force: true }); }
+      for (const entry of removed) {
+        lines.push(`RETIRED local declaration [${entry.table}] from ${name} (source ${entry.source} no longer exists); deployed files left in place, backup ${path.relative(root, backup)}`);
+      }
+    }
   };
 
   try {
@@ -209,7 +263,7 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
 
     // 6-8. Merge local with dev, then main; validate; push without force.
     // Every attempt starts again from local, so main still wins over a racing dev.
-    let merged, pushed = false, valid = true, devNew = 0, mainNew = 0, rejected = false;
+    let merged, retirement = null, pushed = false, valid = true, devNew = 0, mainNew = 0, rejected = false;
     const notices = lines.length;
     for (let attempt = 0; attempt <= 3; attempt++) {
       lines.length = notices; // only the last attempt's conflicts are reported
@@ -223,7 +277,10 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
         // A directory is probed as NAME/ so directory-only rules (/locks/) match it.
         const privateNames = fs.readdirSync(root, { withFileTypes: true }).map(e => e.name + (e.isDirectory() ? '/' : '')).filter(privatePath);
         validateIncomingIgnores(root, gitDir, merged, new Set(nul(git(['ls-tree', '-z', '--name-only', '--full-tree', merged]))), privateNames);
-        validateIncoming(root, gitDir, merged, miseBin);
+        // Retired local declarations are validated as already gone; the files
+        // themselves change only once the merged commit is on disk.
+        retirement = retiredFor(merged);
+        validateIncoming(root, gitDir, merged, miseBin, new Map([...retirement?.plans || []].map(([name, plan]) => [name, plan.text])));
       } catch (error) {
         valid = false;
         lines.push(`INVALID merged config: ${firstLine(error.message)}; nothing pushed or applied`);
@@ -245,7 +302,7 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
     // two-tree checkout refuses to overwrite a file edited meanwhile. Files
     // and dev move only while this run holds the real index lock, so the
     // index it installs always matches them.
-    let applied = false;
+    let applied = false, advanced = false;
     if (valid && (merged !== dev || merged !== snapshot)) {
       if (!lockIndex()) lines.push('NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun');
       else {
@@ -254,8 +311,11 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
           const checkout = index;
           git(['read-tree', snapshot], withIndex(checkout));
           tryGit(['update-index', '-q', '--refresh'], withIndex(checkout));
-          if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
-            commitIndex(); held = false;
+          // Advance only over the local files the retirement was validated with.
+          const late = changedSince(retirement);
+          if (late.length) lines.push(`NOT APPLIED: ${late.join(', ')} changed during sync; files not updated, rerun`);
+          else if (tryGit(['read-tree', '-m', '-u', snapshot, merged], withIndex(checkout)).status === 0) {
+            commitIndex(); held = false; advanced = true;
             if (moveDev(merged, dev)) { dev = merged; applied = true; }
             else lines.push('NOT RECORDED: dev moved during sync; files updated, rerun');
             const stat = tryGit(['diff', '--shortstat', snapshot, merged]).stdout?.trim();
@@ -269,7 +329,8 @@ export function syncDev(root, { gitDir, miseBin, gitleaks = 'gitleaks', host = o
           }
         } finally { if (held) fs.rmSync(indexLock, { force: true }); }
       }
-    } else if (valid) applied = true;
+    } else if (valid) applied = advanced = true;
+    if (advanced) retire(retirement);
     if (applied) {
       const apply = raw(miseBin, ['-C', root, 'bootstrap', 'dotfiles', 'apply', '--yes']);
       if (apply.error || apply.status !== 0) lines.push(`APPLY FAILED: mise bootstrap dotfiles apply (exit ${apply.status ?? 'error'})`);

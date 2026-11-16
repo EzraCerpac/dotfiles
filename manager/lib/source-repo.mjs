@@ -218,7 +218,8 @@ export function validateIncomingIgnores(root, gitDir, incoming, incomingFiles, l
   } finally { fs.rmSync(preview, { recursive: true }); }
 }
 
-export function validateIncoming(root, gitDir, commit, miseBin) {
+// OVERRIDES maps a local file name to the contents to validate in its place.
+export function validateIncoming(root, gitDir, commit, miseBin, overrides = new Map()) {
   const preview = fs.mkdtempSync(path.join(os.tmpdir(), 'dots-source-preview-'));
   try {
     const archive = spawnSync('git', [`--git-dir=${gitDir}`, 'archive', commit], { maxBuffer: 64 * 1024 * 1024 });
@@ -233,6 +234,7 @@ export function validateIncoming(root, gitDir, commit, miseBin) {
       // refuses archive-controlled symlinks instead of following their targets.
       fs.copyFileSync(source, path.join(preview, name), fs.constants.COPYFILE_EXCL);
       fs.chmodSync(path.join(preview, name), 0o600);
+      if (overrides.has(name)) fs.writeFileSync(path.join(preview, name), overrides.get(name));
     }
     const env = { ...miseEnvironment(preview), MISE_TRUSTED_CONFIG_PATHS: preview };
     command(miseBin, ['-C', preview, 'config', 'ls', '--json'], preview, { env });
