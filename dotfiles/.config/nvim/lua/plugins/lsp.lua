@@ -271,6 +271,11 @@ return {
     "chomosuke/typst-preview.nvim",
     opts = function(_, opts)
       opts = opts or {}
+      local patched_tinymist = vim.fn.expand("~/.local/share/tinymist-patched/bin/tinymist")
+      if vim.fn.executable(patched_tinymist) == 1 then
+        opts.dependencies_bin = opts.dependencies_bin or {}
+        opts.dependencies_bin.tinymist = patched_tinymist
+      end
       require("custom.typst_main").setup_preview(opts)
       opts.get_root = function(path_of_main_file)
         local env_root = os.getenv("TYPST_ROOT")
