@@ -154,6 +154,10 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 ".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.driehuisnas.md" = { source = "dotfiles/.codex/AGENTS.driehuisnas.md", mode = "symlink", variants = [{ os = "macos", profile = "nas", target = "~/.codex/AGENTS.md" }] }
+# Defaults for app-written settings: written only when nothing is at the
+# target, never over an existing or restored file.
+"~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }
+"~/.config/nvim/lazyvim.json" = { source = "seeds/.config/nvim/lazyvim.json", mode = "copy", permissions = "0600", create_if_missing = true }
 "~/.codex/app-settings/git-commit-prompt.md" = { source = "dotfiles/.codex/app-settings/git-commit-prompt.md", mode = "symlink" }
 "~/.codex/app-settings/git-pr-prompt.md" = { source = "dotfiles/.codex/app-settings/git-pr-prompt.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "copy" }

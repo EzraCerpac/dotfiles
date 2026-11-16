@@ -275,7 +275,7 @@ value = true
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/manager/bin/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/seed-configs.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
+pre-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/manager/bin/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh" && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/private-permissions.sh" --prepare-source'
 post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # Managed files: individual links preserve application-owned neighbors.
@@ -290,6 +290,8 @@ post-dotfiles = 'export SETUP_PROFILE=workstation; bash "${MISE_CONFIG_DIR:-$HOM
 "~/.codex/rules/macos.rules" = { source = "dotfiles/.codex/rules/macos.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/portless.rules" = { source = "dotfiles/.codex/rules/portless.rules", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.codex/rules/rift.rules" = { source = "dotfiles/.codex/rules/rift.rules", mode = "symlink", variants = [{ os = "macos" }] }
+"~/.config/aegis/config.json" = { source = "seeds/.config/aegis/config.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos" }] }
+"~/.config/karabiner/karabiner.json" = { source = "seeds/.config/karabiner/karabiner.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-mode-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-mode-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aegis/aegis-aerospace-notify" = { source = "dotfiles/.config/aegis/aegis-aerospace-notify", mode = "symlink", variants = [{ os = "macos" }] }
 "~/.config/aerospace/aerospace.toml" = { source = "dotfiles/.config/aerospace/aerospace.toml", mode = "symlink", variants = [{ os = "macos" }] }

@@ -176,10 +176,6 @@ run = "./dotfiles/.local/bin/kbd hud-reload"
 description = "Regenerate keymap images"
 run = "./dotfiles/.local/bin/kbd layout-images"
 
-["local:seed-configs"]
-run = "bash setup-scripts/local/seed-configs.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
 ["local:finish-dotfiles"]
 run = "bash setup-scripts/local/finish-dotfiles.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
