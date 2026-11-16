@@ -1,5 +1,6 @@
 # Shared settings. The base is always loaded; select workstation or nas with -E.
-min_version = "2026.10.3"
+# [bootstrap.settings.macos] needs 2026.11.8; older mise ignores it.
+min_version = "2026.11.8"
 
 [settings]
 dotfiles.root = "~/.config/mise/dotfiles"
