@@ -91,6 +91,8 @@ class DotfileFixtures(unittest.TestCase):
                 lines = [base, '[dotfiles]']
                 targets = []
                 for target, entry in entries.items():
+                    if 'source' not in entry:
+                        continue  # permissions-only; see the Claude settings test
                     source = fixture / entry['source']
                     self.assertTrue(source.is_file(), str(source))
                     target = fixture / 'destinations' / target.removeprefix('~/')
@@ -190,8 +192,11 @@ class DotfileFixtures(unittest.TestCase):
                     self.assertEqual(written.stat().st_mode & 0o777, 0o600)
 
     def test_claude_settings_keep_claudes_own_keys(self):
-        entry = tomllib.loads((ROOT / 'config.toml').read_text())['dotfiles']['~/.claude/settings.json/shared']
+        dotfiles = tomllib.loads((ROOT / 'config.toml').read_text())['dotfiles']
+        entry = dotfiles['~/.claude/settings.json/shared']
         self.assertEqual((entry['merge'], entry['template'], entry['permissions']), (True, 'tera', '0600'))
+        # A merge sets the mode only when it creates the file; this keeps it private.
+        self.assertEqual(dotfiles['~/.claude/settings.json'], {'permissions': '0600', 'variants': [{'os': 'macos'}]})
         with tempfile.TemporaryDirectory(prefix='mise-claude-') as tmp:
             fixture = Path(tmp).resolve()
             settings = fixture / 'home/.claude/settings.json'
@@ -199,9 +204,10 @@ class DotfileFixtures(unittest.TestCase):
             # Claude's own writes beside an owned key it changed.
             settings.write_text(json.dumps({'theme': 'dark', 'model': 'opus', 'permissions': {'allow': ['Bash(ls:*)']},
                                             'enabledPlugins': {'other@market': True}}, indent=2) + '\n')
-            settings.chmod(0o600)
+            settings.chmod(0o644)  # as Claude Code may rewrite it
             (fixture / 'config.toml').write_text('[vars]\nprofile = "nas"\n[dotfiles]\n' + json.dumps(str(settings) + '/shared')
-                                                  + ' = { source = ' + json.dumps(str(ROOT / entry['source'])) + ', template = "tera", merge = true }\n')
+                                                  + ' = { source = ' + json.dumps(str(ROOT / entry['source'])) + ', template = "tera", merge = true }\n'
+                                                  + json.dumps(str(settings)) + ' = { permissions = "0600", variants = [{ os = "macos" }] }\n')
             env = {key: os.environ[key] for key in ('PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM') if key in os.environ}
             for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
                 env[f'MISE_{name}_DIR'] = str(fixture if name == 'CONFIG' else fixture / name.lower())
@@ -216,7 +222,7 @@ class DotfileFixtures(unittest.TestCase):
             self.assertEqual(merged['model'], 'opus')
             self.assertEqual(merged['permissions']['allow'], ['Bash(ls:*)'])
             self.assertTrue(merged['enabledPlugins']['other@market'])
-            self.assertEqual(settings.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(settings.stat().st_mode & 0o777, 0o600 if platform.system() == 'Darwin' else 0o644)
             if platform.system() == 'Darwin':
                 self.assertEqual(merged['theme'], 'auto')
                 self.assertEqual(merged['permissions']['defaultMode'], 'auto')

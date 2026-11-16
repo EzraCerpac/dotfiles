@@ -151,6 +151,8 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.claude/CLAUDE.md" = { source = "dotfiles/.claude/CLAUDE.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }, { os = "macos", profile = "nas" }] }
 # Owns only its keys; Claude keeps the rest (plugins, /model, statusLine).
 "~/.claude/settings.json/shared" = { source = "templates/.claude/settings.json.tera", template = "tera", merge = true, permissions = "0600" }
+# A merge sets the mode only when it creates the file; Claude may rewrite it 0644.
+"~/.claude/settings.json" = { permissions = "0600", variants = [{ os = "macos" }] }
 "~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
 ".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
