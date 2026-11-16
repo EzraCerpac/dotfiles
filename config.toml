@@ -1,5 +1,6 @@
 # Shared settings. The base is always loaded; select workstation or nas with -E.
-min_version = "2026.10.3"
+# [bootstrap.settings.macos] needs 2026.11.8; older mise ignores it.
+min_version = "2026.11.8"
 
 [settings]
 dotfiles.root = "~/.config/mise/dotfiles"
@@ -148,11 +149,18 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink" }
 "~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template" }
 "~/.claude/CLAUDE.md" = { source = "dotfiles/.claude/CLAUDE.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }, { os = "macos", profile = "nas" }] }
-"~/.claude/settings.json" = { source = "templates/.claude/settings.json.tera", mode = "template", permissions = "0600", variants = [{ os = "macos" }] }
+# Owns only its keys; Claude keeps the rest (plugins, /model, statusLine).
+"~/.claude/settings.json/shared" = { source = "templates/.claude/settings.json.tera", template = "tera", merge = true, permissions = "0600" }
+# A merge sets the mode only when it creates the file; Claude may rewrite it 0644.
+"~/.claude/settings.json" = { permissions = "0600", variants = [{ os = "macos" }] }
 "~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
 ".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.driehuisnas.md" = { source = "dotfiles/.codex/AGENTS.driehuisnas.md", mode = "symlink", variants = [{ os = "macos", profile = "nas", target = "~/.codex/AGENTS.md" }] }
+# Defaults for app-written settings: written only when nothing is at the
+# target, never over an existing or restored file.
+"~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }
+"~/.config/nvim/lazyvim.json" = { source = "seeds/.config/nvim/lazyvim.json", mode = "copy", permissions = "0600", create_if_missing = true }
 "~/.codex/app-settings/git-commit-prompt.md" = { source = "dotfiles/.codex/app-settings/git-commit-prompt.md", mode = "symlink" }
 "~/.codex/app-settings/git-pr-prompt.md" = { source = "dotfiles/.codex/app-settings/git-pr-prompt.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "copy" }
