@@ -72,7 +72,7 @@ print(str(value).lower() if isinstance(value, bool) else "table" if isinstance(v
             fi
         done
         exec "$@" ;;
-    bootstrap) [[ "$*" != *'dotfiles paths --json'* ]] || printf '%s\n' "${FAKE_PATHS-{\"entries\": []\}}" ;;
+    bootstrap) none='{"entries": []}'; [[ "$*" != *'dotfiles paths --json'* ]] || printf '%s\n' "${FAKE_PATHS-$none}" ;;
     ls) printf '{}\n' ;;
     settings) [[ "${2:-}" == get && -n "${FAKE_SETTING:-}" ]] || exit 1; printf '%s\n' "$FAKE_SETTING" ;;
     which) exit 1 ;;
