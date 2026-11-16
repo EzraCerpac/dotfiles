@@ -79,7 +79,7 @@ class DotfileFixtures(unittest.TestCase):
         for role in ('workstation', 'nas'):
             with self.subTest(role=role), tempfile.TemporaryDirectory(prefix='mise-dotfiles-') as tmp:
                 fixture = Path(tmp).resolve()
-                for directory in ('dotfiles', 'templates', 'manager'):
+                for directory in ('dotfiles', 'templates', 'seeds'):
                     shutil.copytree(ROOT / directory, fixture / directory, symlinks=True)
                 base = (ROOT / 'config.toml').read_text().split('[tools]')[0]
                 # Shared configuration precedes task/hook declarations.
@@ -91,13 +91,19 @@ class DotfileFixtures(unittest.TestCase):
                 lines = [base, '[dotfiles]']
                 targets = []
                 for target, entry in entries.items():
+                    if 'source' not in entry:
+                        continue  # settings history or permissions-only; see the Claude settings test
                     source = fixture / entry['source']
                     self.assertTrue(source.is_file(), str(source))
                     target = fixture / 'destinations' / target.removeprefix('~/')
-                    targets.append((target, source, entry['mode']))
+                    # A merge edit is keyed by its file plus an id.
+                    mode = 'merge' if 'merge' in entry else entry['mode']
+                    targets.append((target.parent if mode == 'merge' else target, source, mode))
                     # Platform filtering is tested in the actual Linux matrix.
-                    lines.append(json.dumps(str(target)) + ' = {source = ' + json.dumps(str(source))
-                                 + ', mode = ' + json.dumps(entry['mode']) + '}')
+                    fields = {**entry, 'source': str(source)}
+                    fields.pop('variants', None)
+                    lines.append(json.dumps(str(target)) + ' = {'
+                                 + ', '.join(f'{key} = {json.dumps(value)}' for key, value in fields.items()) + '}')
                 selected = shared['bootstrap']['dotfile_groups']
                 lines += ['[bootstrap]', 'dotfile_groups = ' + json.dumps(selected)]
                 for name in selected:
@@ -148,6 +154,83 @@ class DotfileFixtures(unittest.TestCase):
                 self.assertTrue(neighbor.exists())
                 mise('bootstrap', 'dotfiles', 'apply')
                 self.assertTrue(target.is_symlink())
+
+    def test_seeds_are_written_only_where_nothing_exists(self):
+        configs = [tomllib.loads((ROOT / name).read_text()) for name in ('config.toml', 'config.workstation.toml', 'config.nas.toml')]
+        seeds = {target: entry for config in configs for target, entry in config.get('dotfiles', {}).items()
+                 if entry.get('create_if_missing')}
+        self.assertEqual(sorted(seeds), ['~/.codex/config.toml', '~/.config/aegis/config.json',
+                                         '~/.config/karabiner/karabiner.json', '~/.config/nvim/lazyvim.json'])
+        with tempfile.TemporaryDirectory(prefix='mise-seeds-') as tmp:
+            fixture = Path(tmp).resolve()
+            home = fixture / 'home'
+            lines = ['[dotfiles]']
+            for target, entry in seeds.items():
+                self.assertEqual((entry['mode'], entry['permissions']), ('copy', '0600'))
+                lines.append(json.dumps(str(home / target.removeprefix('~/'))) + ' = { source = '
+                             + json.dumps(str(ROOT / entry['source'])) + ', mode = "copy", permissions = "0600", create_if_missing = true }')
+            (fixture / 'config.toml').write_text('\n'.join(lines))
+            kept = home / '.config/nvim/lazyvim.json'
+            kept.parent.mkdir(parents=True)
+            kept.write_text('{"extras": []}\n')
+            env = {key: os.environ[key] for key in ('PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM') if key in os.environ}
+            for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
+                env[f'MISE_{name}_DIR'] = str(fixture if name == 'CONFIG' else fixture / name.lower())
+            (fixture / 'empty-system-config').mkdir()
+            env.update(HOME=str(home), MISE_TRUSTED_CONFIG_PATHS=str(fixture), MISE_SYSTEM_CONFIG_DIR=str(fixture / 'empty-system-config'),
+                       MISE_CEILING_PATHS=str(fixture), MISE_ENV='', MISE_AUTO_ENV='0', MISE_NO_ENV='1',
+                       MISE_AUTO_INSTALL='0', MISE_NO_HOOKS='1', MISE_AUTO_UPDATE='0')
+            for _ in range(2):
+                result = subprocess.run([MISE, '-C', str(fixture), 'bootstrap', 'dotfiles', 'apply', '--yes'], env=env,
+                                        cwd=fixture, text=True, capture_output=True, timeout=60)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(kept.read_text(), '{"extras": []}\n')
+            for target, entry in seeds.items():
+                written = home / target.removeprefix('~/')
+                if written != kept:
+                    self.assertEqual(written.read_bytes(), (ROOT / entry['source']).read_bytes())
+                    self.assertEqual(written.stat().st_mode & 0o777, 0o600)
+
+    def test_claude_settings_keep_claudes_own_keys(self):
+        dotfiles = tomllib.loads((ROOT / 'config.toml').read_text())['dotfiles']
+        entry = dotfiles['~/.claude/settings.json/shared']
+        self.assertEqual((entry['merge'], entry['template'], entry['permissions']), (True, 'tera', '0600'))
+        # A merge sets the mode only when it creates the file; this keeps it private.
+        self.assertEqual(dotfiles['~/.claude/settings.json'], {'permissions': '0600', 'variants': [{'os': 'macos'}]})
+        with tempfile.TemporaryDirectory(prefix='mise-claude-') as tmp:
+            fixture = Path(tmp).resolve()
+            settings = fixture / 'home/.claude/settings.json'
+            settings.parent.mkdir(parents=True)
+            # Claude's own writes beside an owned key it changed.
+            settings.write_text(json.dumps({'theme': 'dark', 'model': 'opus', 'permissions': {'allow': ['Bash(ls:*)']},
+                                            'enabledPlugins': {'other@market': True}}, indent=2) + '\n')
+            settings.chmod(0o644)  # as Claude Code may rewrite it
+            (fixture / 'config.toml').write_text('[vars]\nprofile = "nas"\n[dotfiles]\n' + json.dumps(str(settings) + '/shared')
+                                                  + ' = { source = ' + json.dumps(str(ROOT / entry['source'])) + ', template = "tera", merge = true }\n'
+                                                  + json.dumps(str(settings)) + ' = { permissions = "0600", variants = [{ os = "macos" }] }\n')
+            env = {key: os.environ[key] for key in ('PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM') if key in os.environ}
+            for name in ('CONFIG', 'DATA', 'STATE', 'CACHE'):
+                env[f'MISE_{name}_DIR'] = str(fixture if name == 'CONFIG' else fixture / name.lower())
+            (fixture / 'empty-system-config').mkdir()
+            env.update(HOME=str(fixture / 'home'), MISE_TRUSTED_CONFIG_PATHS=str(fixture), MISE_SYSTEM_CONFIG_DIR=str(fixture / 'empty-system-config'),
+                       MISE_CEILING_PATHS=str(fixture), MISE_ENV='', MISE_AUTO_ENV='0', MISE_NO_ENV='1',
+                       MISE_AUTO_INSTALL='0', MISE_NO_HOOKS='1', MISE_AUTO_UPDATE='0')
+            result = subprocess.run([MISE, '-C', str(fixture), 'bootstrap', 'dotfiles', 'apply', '--yes'], env=env,
+                                    cwd=fixture, text=True, capture_output=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            merged = json.loads(settings.read_text())
+            self.assertEqual(merged['model'], 'opus')
+            self.assertEqual(merged['permissions']['allow'], ['Bash(ls:*)'])
+            self.assertTrue(merged['enabledPlugins']['other@market'])
+            self.assertEqual(settings.stat().st_mode & 0o777, 0o600 if platform.system() == 'Darwin' else 0o644)
+            if platform.system() == 'Darwin':
+                self.assertEqual(merged['theme'], 'auto')
+                self.assertEqual(merged['permissions']['defaultMode'], 'auto')
+                self.assertTrue(merged['enabledPlugins']['frontend-design@claude-plugins-official'])
+                self.assertIn('macOS NAS', '\n'.join(merged['autoMode']['environment']))
+            else:
+                self.assertEqual(merged['theme'], 'dark')
+                self.assertNotIn('autoMode', merged)
 
 
 if __name__ == '__main__':

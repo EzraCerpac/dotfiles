@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Run the dots release config.toml pins, installing it first if needed. mise
+# bootstrap runs its dotfiles hooks before its tools step, and hooks do not get
+# mise or the declared tools on PATH, so a fresh machine reaches dots this way.
+set -euo pipefail
+mise_bin="${DOTS_MISE_BIN:-$HOME/.local/bin/mise}"
+[[ -x "$mise_bin" ]] || mise_bin=mise
+exec "$mise_bin" x github:EzraCerpac/dots -- dots "$@"

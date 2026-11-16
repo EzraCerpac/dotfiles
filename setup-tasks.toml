@@ -45,23 +45,23 @@ run = "node setup-scripts/local/concierge-nas.mjs rebuild"
 
 ["setup:status"]
 description = "Inspect setup health"
-run = "bash manager/bin/dots internal status"
+run = "dots internal status"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:update"]
 description = "Update the machine setup"
 raw = true
-run = "bash manager/bin/dots internal update"
+run = "dots internal update"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:backup"]
 description = "Backup the machine setup"
-run = "bash manager/bin/dots internal backup"
+run = "dots internal backup"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:restore"]
 description = "Restore the machine setup"
-run = "bash manager/bin/dots internal restore"
+run = "dots internal restore"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:test"]
@@ -176,10 +176,6 @@ run = "./dotfiles/.local/bin/kbd hud-reload"
 description = "Regenerate keymap images"
 run = "./dotfiles/.local/bin/kbd layout-images"
 
-["local:seed-configs"]
-run = "bash setup-scripts/local/seed-configs.sh"
-dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
-
 ["local:finish-dotfiles"]
 run = "bash setup-scripts/local/finish-dotfiles.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
@@ -194,11 +190,11 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 
 ["setup:profile"]
-run = "bash manager/bin/dots internal profile"
+run = "dots internal profile"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:enroll-history"]
-run = "bash manager/bin/dots internal enroll-history"
+run = "dots internal enroll-history"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:aerospace-local-build"]
@@ -206,12 +202,12 @@ run = "bash setup-scripts/local/aerospace-local-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:install-exceptions"]
-run = "bash manager/bin/dots internal exceptions"
+run = "dots internal exceptions"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 [bootstrap]
 description = "Complete private recovery, installation, services, and account enrollment"
-run = "bash manager/bin/dots internal complete"
+run = "dots internal complete"
 raw = true
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 

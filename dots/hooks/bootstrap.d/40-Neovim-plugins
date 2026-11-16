@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Initialize Neovim once private settings and missing public defaults exist.
+# Initialize Neovim once private settings exist; dotfiles seeded lazyvim.json.
 set -euo pipefail
 root="${DOTS_ROOT:?run through dots}"
 deferred() {
@@ -8,8 +8,8 @@ deferred() {
 }
 [[ "${DOTS_PRIVATE_READY:-0}" == 1 ]] || deferred
 if [[ "${DOTS_RESTORED:-0}" == 1 ]]; then
-    # Neovim must not create a default lazyvim.json before the restored host's
-    # missing public defaults are seeded (seeding only creates missing files).
-    env -u SETUP_RESTORE_MACHINE_ID bash "$root/setup-scripts/local/seed-configs.sh" >/dev/null || deferred
+    # A restore can remove a seed its checkpoint recorded as absent; put it back
+    # (create_if_missing leaves an existing file alone) before Neovim writes its default.
+    MISE_CONFIG_DIR="$root" mise bootstrap dotfiles apply --yes "$HOME/.config/nvim/lazyvim.json" >/dev/null || deferred
 fi
 exec bash "$root/setup-scripts/setup/nvim-initialize"

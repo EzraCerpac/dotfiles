@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Review settings for this repository; everything else stays at the defaults.
+language: en-US
+reviews:
+  profile: chill
+knowledge_base:
+  code_guidelines:
+    # Project promises and what not to raise; AGENTS.md is read by default.
+    filePatterns:
+      - "REVIEW.md"

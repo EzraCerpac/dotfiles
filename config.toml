@@ -1,5 +1,6 @@
 # Shared settings. The base is always loaded; select workstation or nas with -E.
-min_version = "2026.10.3"
+# [bootstrap.settings.macos] needs 2026.11.8; older mise ignores it.
+min_version = "2026.11.8"
 
 [settings]
 dotfiles.root = "~/.config/mise/dotfiles"
@@ -92,18 +93,9 @@ gitleaks = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", 
 codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
 
-# Prebuilt dashboard; release tags are separate from the setup source history.
-[tools."github:EzraCerpac/dotfiles"]
-version = "latest"
-version_prefix = "dots-up-v"
-rename_exe = "dots-up"
-os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"]
-
-[tools."github:EzraCerpac/dotfiles".platforms]
-macos-arm64 = { asset_pattern = "dots-up-darwin-arm64" }
-macos-x64 = { asset_pattern = "dots-up-darwin-amd64" }
-linux-arm64 = { asset_pattern = "dots-up-linux-arm64" }
-linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
+# The dots manager (https://github.com/EzraCerpac/dots), with its dots-up
+# renderer. Pinned: a new release is adopted by changing this version.
+"github:EzraCerpac/dots" = "0.3.0"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
@@ -135,8 +127,6 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.agents/skills/sol-loop/SKILL.md" = { source = "dotfiles/.agents/skills/sol-loop/SKILL.md", mode = "copy" }
 "~/.agents/skills/sembr/SKILL.md" = { source = "dotfiles/.agents/skills/sembr/SKILL.md", mode = "copy" }
 "~/.agents/skills/takeover/SKILL.md" = { source = "dotfiles/.agents/skills/takeover/SKILL.md", mode = "copy" }
-# The dots manager ships its own skill; it is linked into Claude Code like the others.
-"~/.agents/skills/dots/SKILL.md" = { source = "manager/skills/dots/SKILL.md", mode = "copy" }
 
 # Personal implementation planning skill; individual links preserve neighboring state.
 "~/.codex/skills/implementation-planning/SKILL.md" = { source = "dotfiles/.codex/skills/implementation-planning/SKILL.md", mode = "copy" }
@@ -148,11 +138,20 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.bash_profile" = { source = "dotfiles/.bash_profile", mode = "symlink" }
 "~/.bashrc" = { source = "templates/.bashrc.tera", mode = "template" }
 "~/.claude/CLAUDE.md" = { source = "dotfiles/.claude/CLAUDE.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }, { os = "macos", profile = "nas" }] }
-"~/.claude/settings.json" = { source = "templates/.claude/settings.json.tera", mode = "template", permissions = "0600", variants = [{ os = "macos" }] }
+# Owns only its keys; Claude keeps the rest (plugins, /model, statusLine).
+"~/.claude/settings.json/shared" = { source = "templates/.claude/settings.json.tera", template = "tera", merge = true, permissions = "0600" }
+# A merge sets the mode only when it creates the file; Claude may rewrite it 0644.
+"~/.claude/settings.json" = { permissions = "0600", variants = [{ os = "macos" }] }
 "~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
 ".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
 ".codex/AGENTS.driehuisnas.md" = { source = "dotfiles/.codex/AGENTS.driehuisnas.md", mode = "symlink", variants = [{ os = "macos", profile = "nas", target = "~/.codex/AGENTS.md" }] }
+# Defaults for app-written settings: written only when nothing is at the
+# target, never over an existing or restored file.
+"~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }
+"~/.config/nvim/lazyvim.json" = { source = "seeds/.config/nvim/lazyvim.json", mode = "copy", permissions = "0600", create_if_missing = true }
+"~/.config/aegis/config.json" = { source = "seeds/.config/aegis/config.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos", profile = "workstation" }] }
+"~/.config/karabiner/karabiner.json" = { source = "seeds/.config/karabiner/karabiner.json", mode = "copy", permissions = "0600", create_if_missing = true, variants = [{ os = "macos", profile = "workstation" }] }
 "~/.codex/app-settings/git-commit-prompt.md" = { source = "dotfiles/.codex/app-settings/git-commit-prompt.md", mode = "symlink" }
 "~/.codex/app-settings/git-pr-prompt.md" = { source = "dotfiles/.codex/app-settings/git-pr-prompt.md", mode = "symlink" }
 "~/.codex/skills/jj-waltz/SKILL.md" = { source = "dotfiles/.codex/skills/jj-waltz/SKILL.md", mode = "copy" }
@@ -182,7 +181,6 @@ linux-x64 = { asset_pattern = "dots-up-linux-amd64" }
 "~/.config/starship.toml" = { source = "dotfiles/.config/starship.toml", mode = "symlink" }
 "~/.editorconfig" = { source = "dotfiles/.editorconfig", mode = "symlink" }
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
-"~/.local/bin/dots" = { source = "manager/bin/dots", mode = "symlink" }
 "~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
 "~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }

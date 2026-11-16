@@ -20,15 +20,17 @@ To check drift on demand, compare each deployed file with its source using `diff
 
 ## Claude settings
 
-`~/.claude/settings.json` on every macOS host renders from `templates/.claude/settings.json.tera` (mode 0600). The NAS profile gets its own host-containment line. Claude Code may rewrite the deployed file; carry intended changes back into the template and reapply only that target:
+`templates/.claude/settings.json.tera` holds the keys this repository owns in `~/.claude/settings.json` on every macOS host; the NAS profile gets its own host-containment line. mise merges them into the file (`merge = true`) and leaves every other key to Claude Code, so plugins it enables, `/model`, `statusLine` and other settings it writes survive an apply. An owned key Claude changes is reset on the next apply, and an owned array (the `autoMode` lists) replaces Claude's whole. Change an owned key in the template and reapply only that file:
 
 ```sh
 mise -C ~/.config/mise bootstrap dotfiles diff ~/.claude/settings.json
 mise -C ~/.config/mise bootstrap dotfiles apply ~/.claude/settings.json
 ```
 
+Merging never deletes a key. To drop an owned key, remove it from the template and delete it once on each macOS host, for example `tmp=$(mktemp) && jq 'del(.KEY)' ~/.claude/settings.json > "$tmp" && cat "$tmp" > ~/.claude/settings.json; rm -f "$tmp"`. Merge edits take no `variants`, so off macOS the template renders only `$schema`: a host without the file gets one holding just that key.
+
 ## Shared skills
 
 Installers such as `rex skill setup` and `npx skills` write to `~/.agents/skills`, which Codex reads but Claude Code does not. Every dotfiles apply runs `setup-scripts/local/link-agent-skills.sh`, which links each shared skill directory into `~/.claude/skills/<name>`. A skill Claude already has under that name is kept, and links to removed shared skills are pruned. Run the script directly to link a newly installed skill without a full apply.
 
-The `dots` skill comes from the manager, `manager/skills/dots/SKILL.md`; `config.toml` copies it to `~/.agents/skills/dots/SKILL.md` like the skills under `dotfiles/.agents/skills`, and the same script links it for Claude.
+The `dots` skill ships with the [dots release](dots-release.md), which links it into `~/.agents/skills/dots` and `~/.claude/skills/dots` itself on every run; the script finds both links pointing at the same skill and leaves them alone.

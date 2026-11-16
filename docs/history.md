@@ -35,7 +35,15 @@ dots internal profile \
   --origin git@github.com:EzraCerpac/dotfiles-state.git
 ```
 
-Enroll exact files with that host's identity. `--recipient` accepts a public
+The tracked files are native `[dotfiles]` track entries in
+`config.workstation.toml` and `config.nas.toml`. Each entry lists, as
+`{ profile = "host-<machine-id>" }` variants, the machines that keep that file.
+The variant is the file's stream in history (`home@host-mac-primary/...`):
+never rename or remove one that has history, and add a new machine by adding its
+own variant. Missing files are listed with 0 files and saved once they exist;
+paths outside HOME are reported as invalid.
+
+Prepare the host's age identity and recipients. `--recipient` accepts a public
 age recipient for recovery or another machine; it never accepts a private key:
 
 ```sh
@@ -49,9 +57,15 @@ dots internal enroll-history \
 
 The NAS uses the same shape with `--profile nas`, `--machine-id cerpacnas`,
 and its own `~/.config/age/keys.txt`; adding the Mac's recovery public recipient
-lets the Mac's recovery key decrypt NAS checkpoints. Missing role defaults are skipped, explicit
-`--file` paths must exist, symlinks are refused, and tracked files are secured
-at mode `0600` after declarations are accepted.
+lets the Mac's recovery key decrypt NAS checkpoints. The task secures this
+host's tracked files at mode `0600`, refuses symlinks, and exits with status 3
+when no entry names this host's profile. It stops on any active track entry
+whose declaring file (`mise dot paths` shows it) does not set `encrypt = true`
+or that does not use this host's variant; `dots backup` refuses to save in the
+same case. `dots sync` and the `dots up` checkpoints refuse only an entry that
+is not encrypted: mise saves only the entries active on this host, so another
+host's entry is never saved here. They do not check `history.origin.branch`;
+enrollment sets it to this host's branch and only `dots backup` confirms it.
 
 Review the declarations before network publication:
 
@@ -85,10 +99,15 @@ mise bootstrap dotfiles origin set "$origin" \
 ```
 
 Use `host-cerpacnas` for CerpacNAS. This is an explicit one-time preparation;
-bootstrap and enrollment do not create remote branches or publish history.
+bootstrap and `enroll-history` do not create remote branches or publish history.
 Never push a host checkpoint to `main`. The first `origin set` may publish the
 already reviewed local checkpoint on the pre-created host branch, so review
 before running it.
+
+Machines enrolled before the track entries moved into the shared
+configuration also keep generated copies in their ignored
+`config.host-<machine-id>.toml`. They are identical and harmless; remove them
+with [the declaration cleanup](history-declarations.md).
 
 ## Back up deliberately
 
@@ -118,8 +137,8 @@ first. Use `--initialize-history` only when deliberately replacing it; the task
 keeps the old bare store in a protected sibling backup. If the requested host
 branch is absent, restore stops before replacing the local store.
 
-After recovery, enrollment refreshes the current host's encrypted exact-file
-entries and restores the `0600` permission policy. Keep the private Mac key on
+After recovery, restore refreshes the current host's identity and recipients
+and restores the `0600` permission policy. Keep the private Mac key on
 the Mac and the private NAS key on the NAS.
 
 ## Bootstrap bundle boundary
