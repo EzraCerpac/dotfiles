@@ -48,11 +48,14 @@ The old `enroll-history` wrote a header comment and, per file, a `[dotfiles."~/P
 `mode = "track"`, `encrypt = true` and `variants = [{ profile = "host-<id>" }]`.
 This block removes only tables of exactly that shape and keeps every other line byte for byte,
 such as `[tools]`, comments, or a table with another variant or an extra key; it deletes the file only when nothing else is left.
+It stops if the file changed since step 2, and the new file keeps the original's mode.
 
 ```sh
 cd ~/.config/mise || exit 1
 id=$(mise config get --file config.local.toml env.SETUP_MACHINE_ID); f=config.host-$id.toml
 H=${MISE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/mise}/history; B=$(ls -d "$H"/declarations-* | tail -n 1); echo "$B"
+cmp -s "$B/$f" "$f" || { echo "$f changed since step 2: start again from step 2"; exit 1; }
+cp -p "$B/$f" "$f.new" || exit 1  # the original's mode, before any content is written
 awk -v id="$id" '
   # A table is generated only if its header is [dotfiles."PATH"] and it holds each of
   # these three lines once and nothing else. Comments and blank lines after a table
@@ -76,7 +79,7 @@ awk -v id="$id" '
   $0 == "# Encrypted exact-file history entries for host-" id "." { next }
   { print }
   END { flush() }' "$B/$f" > "$f.new" || exit 1
-if grep -q '[^[:space:]]' "$f.new"; then chmod 644 "$f.new" && mv "$f.new" "$f"; echo "kept:"; cat "$f"; else rm "$f.new" "$f"; echo "removed $f"; fi
+if grep -q '[^[:space:]]' "$f.new"; then mv "$f.new" "$f"; echo "kept:"; cat "$f"; else rm "$f.new" "$f"; echo "removed $f"; fi
 mise dot paths --json | jq -S '[.entries[] | {path, mode, variant, files}] | sort' > "$B/after.json"
 diff "$B/before.json" "$B/after.json" && echo "same tracked files"
 mise dot paths

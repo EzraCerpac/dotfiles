@@ -494,7 +494,7 @@ class ExceptionManifestTests(ContractTestCase):
         self.assertIn("brew:tap/x/pinned-tool@1 is held by installer exception 'pinned'", result.stderr)
 
 
-@requires("age-keygen")
+@requires("age-keygen", "jq")
 class EnrollHistoryTests(ContractTestCase):
     """enroll-history keeps the host's keys and secures its declared track entries."""
 

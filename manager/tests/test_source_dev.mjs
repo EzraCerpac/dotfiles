@@ -7,7 +7,8 @@ import test from 'node:test';
 import { syncSource, withRepositoryLock } from '../lib/source-repo.mjs';
 import { miseBinary, requires } from './lib/prereq.mjs';
 
-const available = requires('git');
+// Every sync runs the encrypted-history guard, which reads mise's inventory with jq.
+const available = requires('git', 'jq');
 function run(bin, args, cwd, options = {}) {
   const r = spawnSync(bin, args, { cwd, encoding: 'utf8', ...options });
   assert.equal(r.status, 0, `${bin} ${args.join(' ')}: ${r.stderr}`);
@@ -328,7 +329,7 @@ test('an unpushed commit that ever tracked a private file blocks the push', avai
   assert.equal(f.remote(), before);
 });
 
-test('the real gitleaks reports a token by file and line only', requires('git', 'gitleaks'), t => {
+test('the real gitleaks reports a token by file and line only', requires('git', 'jq', 'gitleaks'), t => {
   const f = fixture(t);
   fs.copyFileSync(new URL('../init/gitleaks.toml', import.meta.url), path.join(f.a, '.gitleaks.toml'));
   const token = ['ghp', 'R8tq3LwVn5Xk2Jc9Hy7Pd4Mb6Fz1Sa0Gu3Ee'].join('_');
@@ -667,7 +668,7 @@ exit 0
 
 // The same upgrade against real mise: its own validation rejects the stale
 // declaration, and its apply leaves the rendered file in place.
-test('upgrading an older host with real mise', requires('git', 'mise'), async t => {
+test('upgrading an older host with real mise', requires('git', 'jq', 'mise'), async t => {
   for (const listed of [true, false]) {
     await t.test(listed ? 'one sync retires the listed declaration' : 'an unlisted declaration still fails validation', t => {
       const f = fixture(t);
