@@ -15,3 +15,7 @@ Roles are `workstation` and `nas`. Preserve host exceptions, services, system so
 Tests: `tests/run` for this configuration, `manager/tests/run` for the manager ([testing](docs/testing.md)).
 
 For cloud tasks that touch the NASes or HouseAtlas, read [Cloud NAS access](docs/cloud-nas-access.md) first. It does not authorize logins, service changes, or broader network access.
+
+## Code Review Rules
+
+When reviewing a pull request, read [REVIEW.md](REVIEW.md) first and follow it.
