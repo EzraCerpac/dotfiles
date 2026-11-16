@@ -91,6 +91,8 @@ class DotfileFixtures(unittest.TestCase):
                 lines = [base, '[dotfiles]']
                 targets = []
                 for target, entry in entries.items():
+                    if entry['mode'] == 'track':
+                        continue  # settings history: nothing to deploy
                     source = fixture / entry['source']
                     self.assertTrue(source.is_file(), str(source))
                     target = fixture / 'destinations' / target.removeprefix('~/')
