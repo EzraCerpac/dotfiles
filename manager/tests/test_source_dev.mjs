@@ -656,10 +656,11 @@ test('upgrading an older host with real mise', requires('git', 'mise'), async t 
       const f = fixture(t);
       const home = path.join(f.dir, 'home'), system = path.join(f.dir, 'system');
       fs.mkdirSync(system);
+      const miseBin = miseBinary(); // resolved before HOME changes
       Object.assign(process.env, { HOME: home, MISE_CONFIG_DIR: f.a, MISE_DATA_DIR: path.join(f.dir, 'data'), MISE_STATE_DIR: path.join(f.dir, 'state'),
         MISE_CACHE_DIR: path.join(f.dir, 'cache'), MISE_SYSTEM_CONFIG_DIR: system, MISE_TRUSTED_CONFIG_PATHS: f.a,
         MISE_CEILING_PATHS: fs.realpathSync(os.tmpdir()), MISE_AUTO_INSTALL: '0', MISE_NO_HOOKS: '1', MISE_AUTO_UPDATE: '0' });
-      const sync = root => f.sync(root, { miseBin: miseBinary() });
+      const sync = root => f.sync(root, { miseBin });
       f.write(f.b, 'templates/herdr.tera', 'theme = "{{ \'dark\' }}"\n'); sync(f.b); sync(f.a);
       f.write(f.a, 'config.local.toml', KEPT + HERDR); fs.chmodSync(path.join(f.a, 'config.local.toml'), 0o600);
       assert.match(sync(f.a).text, /^dots sync: no local changes/);
