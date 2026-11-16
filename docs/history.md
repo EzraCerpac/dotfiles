@@ -65,7 +65,7 @@ or that does not use this host's variant; `dots backup` refuses to save in the
 same case. `dots sync` and the `dots up` checkpoints refuse only an entry that
 is not encrypted: mise saves only the entries active on this host, so another
 host's entry is never saved here. They do not check `history.origin.branch`;
-only `dots backup` and enrollment confirm it names this host's branch.
+enrollment sets it to this host's branch and only `dots backup` confirms it.
 
 Review the declarations before network publication:
 
