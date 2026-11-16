@@ -601,6 +601,53 @@ test('a retired declaration stays until the files advance', available, t => {
   assert.equal(read(f.a, 'config.host-laptop.toml'), KEPT);
 });
 
+// A sub-table that makes the declaration unretirable, as an editor would save it.
+const VARIANT = '\n[[dotfiles.herdr.variants]]\nos = "linux"\n';
+const INVALID_HERDR = /\n {2}INVALID merged config: [^\n]*sources do not exist: templates\/herdr\.tera; nothing pushed or applied$/;
+
+test('a local file edited while it is validated holds the files back', available, t => {
+  const f = fixture(t); const local = olderHost(f);
+  const marker = path.join(f.dir, 'edited'), miseBin = path.join(f.dir, 'mise-editing');
+  fs.writeFileSync(miseBin, `#!/bin/sh
+case "$*" in *'config ls'*) [ -e '${marker}' ] || { : > '${marker}'; printf '%s' '${VARIANT}' >> '${path.join(f.a, 'config.local.toml')}'; } ;; esac
+exec '${path.join(f.dir, 'mise')}' "$@"
+`);
+  fs.chmodSync(miseBin, 0o755);
+  const { code, text } = f.sync(f.a, { miseBin });
+  assert.equal(code, 0);
+  assert.equal(text, 'dots sync: no local changes · fetched dev +1, main +0 (not applied) · nothing to push\n  NOT APPLIED: config.local.toml changed during sync; files not updated, rerun');
+  assert.equal(read(f.a, 'config.local.toml'), local + VARIANT);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')), 'the tree did not advance');
+  assert(!fs.existsSync(path.join(f.a, '.git/dots-retired')));
+  // The next run validates the edited file, which now needs a hand.
+  assert.match(f.sync(f.a).text, INVALID_HERDR);
+  assert(fs.existsSync(path.join(f.a, 'templates/herdr.tera')));
+  f.write(f.a, 'config.local.toml', local);
+  assert.match(f.sync(f.a).text, RETIRED('config.local.toml'));
+  assert.equal(read(f.a, 'config.local.toml'), KEPT);
+});
+
+test('a local file edited once the files advance is reported, not silently kept', available, t => {
+  const f = fixture(t); const local = olderHost(f);
+  // Git runs this hook as sync moves dev to the merged commit, after the checkout.
+  const hook = path.join(f.a, '.git/hooks/reference-transaction');
+  fs.writeFileSync(hook, `#!/bin/sh
+[ "$1" = committed ] && grep -q ' refs/heads/dev$' && printf '%s' '${VARIANT}' >> '${path.join(f.a, 'config.local.toml')}'
+exit 0
+`);
+  fs.chmodSync(hook, 0o755);
+  const { code, text } = f.sync(f.a);
+  fs.rmSync(hook);
+  assert.equal(code, 0);
+  assert.equal(text.match(/^dots sync: /gm).length, 1);
+  assert.match(text, /^dots sync: no local changes · pulled dev \+1, main \+0 · nothing to push\n/);
+  assert.match(text, /\n {2}NOT RETIRED: local declaration \[dotfiles\.herdr\] in config\.local\.toml, which changed during sync; rerun, or remove the table by hand\n/);
+  assert.doesNotMatch(text, /RETIRED local/);
+  assert.equal(read(f.a, 'config.local.toml'), local + VARIANT);
+  assert(!fs.existsSync(path.join(f.a, '.git/dots-retired')));
+  assert.match(f.sync(f.a).text, INVALID_HERDR);
+});
+
 // The same upgrade against real mise: its own validation rejects the stale
 // declaration, and its apply leaves the rendered file in place.
 test('upgrading an older host with real mise', requires('git', 'mise'), async t => {

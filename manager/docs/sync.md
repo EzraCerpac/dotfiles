@@ -31,6 +31,7 @@ Machine-local files (`miserc.toml`, `config.local.toml`, `config.host-*.toml`, m
    Local `[dotfiles.NAME]` tables that the merged `dots/retired-declarations` retires are validated as already removed (see [the `dots/` reference](../init/README.md#history-files-retired-dotfiles-and-retired-declarations)).
 7. Pushes without force, merging and retrying up to three times when `origin/dev` moved meanwhile.
 8. Moves the live files from the local commit to the merged one with a two-tree checkout, which refuses to overwrite a file edited during the run.
+   When it retires tables, it moves only while the local files are still the ones it validated.
    Only then does it remove those retired tables from the local files, and runs `mise bootstrap dotfiles apply`.
 
 Commits pushed straight to `origin/dev` from a task worktree are fine: the next sync merges them.
@@ -69,6 +70,8 @@ Lower-case lines are information.
 | `INVALID merged config: ERROR; nothing pushed or applied` | The merged configuration fails mise's checks with this machine's local files. Fix the error (locally or upstream) and sync again; local work is already committed on `dev`. |
 | `LATE EDIT: PATH not updated; rerun` | A file changed while the run was updating files, so the run left it alone. Run sync again. |
 | `NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun` | Another Git command held the index, so the run left the files and `dev` alone; anything it pushed arrives on the next run. Run sync again once that command finishes; remove a lock left by a crashed Git command by hand. |
+| `NOT APPLIED: FILE changed during sync; files not updated, rerun` | A machine-local config file changed after the merged configuration retiring a declaration was validated against it, so the run left the files and `dev` alone; anything it pushed arrives on the next run. Run sync again. |
+| `NOT RETIRED: local declaration [TABLE] in FILE, which changed during sync; rerun, or remove the table by hand` | `FILE` changed between the file update and the removal, so the run left it alone and the table may name a source that is gone. Run sync again; if it then reports `INVALID merged config`, remove the table from `FILE` by hand. |
 | `NOT RECORDED: dev moved during sync; files updated, rerun` | Another process moved `dev` during the run. Run sync again. |
 | `SAVE FAILED: mise bootstrap dotfiles save (exit N); copied dotfiles not captured` | Copied dotfiles were not saved back. Run `mise bootstrap dotfiles save` to see why. |
 | `APPLY FAILED: mise bootstrap dotfiles apply (exit N)` | The configuration advanced but dotfiles were not applied. Run `dots apply` to see why. |
