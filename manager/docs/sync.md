@@ -68,6 +68,7 @@ Lower-case lines are information.
 | `LATE EDIT: PATH not updated; rerun` | A file changed while the run was updating files, so the run left it alone. Run sync again. |
 | `NOT APPLIED: the Git index is locked (.git/index.lock); files not updated, rerun` | Another Git command held the index, so the run left the files and `dev` alone; anything it pushed arrives on the next run. Run sync again once that command finishes; remove a lock left by a crashed Git command by hand. |
 | `NOT RECORDED: dev moved during sync; files updated, rerun` | Another process moved `dev` during the run. Run sync again. |
+| `SAVE REFUSED: history entry PATH in FILE is not encrypted; ...; nothing saved` | A tracked file is not declared with `encrypt = true` (or the tracked-path inventory could not be read), so nothing was saved. Fix the declaration and sync again. |
 | `SAVE FAILED: mise bootstrap dotfiles save (exit N); copied dotfiles not captured` | Copied dotfiles were not saved back. Run `mise bootstrap dotfiles save` to see why. |
 | `APPLY FAILED: mise bootstrap dotfiles apply (exit N)` | The configuration advanced but dotfiles were not applied. Run `dots apply` to see why. |
 | `changed on disk: STAT` | Files the run updated. |
