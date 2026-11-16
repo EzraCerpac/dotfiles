@@ -41,7 +41,8 @@ and the run stops after the sync (`manager/tasks/update: No such file or directo
 Nothing is removed or half-applied, and the steps below finish the switch whether or not that run happened:
 
 ```sh
-rm -rf ~/.agents/skills/dots    # the old copy; the release links its own skill
+# Set the old copied skill aside (the release links its own); delete the backup once you have checked it.
+[ -L ~/.agents/skills/dots ] || [ ! -e ~/.agents/skills/dots ] || mv ~/.agents/skills/dots ~/.agents/skills/dots.before-release
 [ ! -L ~/.claude/skills/dots ] || rm ~/.claude/skills/dots
 ~/.local/bin/mise x github:EzraCerpac/dots@0.3.0 -- dots up
 ```
