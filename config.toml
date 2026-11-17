@@ -99,7 +99,7 @@ codex = "latest"
 
 # The dots manager (https://github.com/EzraCerpac/dots), with its dots-up
 # renderer. Pinned: a new release is adopted by changing this version.
-"github:EzraCerpac/dots" = "0.3.3"
+"github:EzraCerpac/dots" = "0.3.4"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
