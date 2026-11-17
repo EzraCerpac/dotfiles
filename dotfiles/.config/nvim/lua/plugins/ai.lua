@@ -1,3 +1,5 @@
+local codex_model = "gpt-6.2-sol"
+
 return {
   {
     -- https://github.com/teocns/neocursor.nvim
@@ -25,7 +27,7 @@ return {
                 default = {
                   "codex-acp",
                   "-c",
-                  'model="gpt-6-astra"',
+                  string.format('model="%s"', codex_model),
                   "-c",
                   'model_reasoning_effort="low"',
                   "-c",
@@ -37,7 +39,7 @@ return {
               defaults = {
                 auth_method = "chatgpt",
                 session_config_options = {
-                  model = "gpt-6-astra",
+                  model = codex_model,
                 },
               },
             })
@@ -48,7 +50,7 @@ return {
         chat = {
           adapter = {
             name = "codex",
-            model = "gpt-6-astra",
+            model = codex_model,
           },
           tools = {
             ["create_file"] = { opts = { require_approval_before = false } },

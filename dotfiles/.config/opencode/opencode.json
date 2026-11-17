@@ -24,7 +24,7 @@
   },
   "agent": {
     "explore": {
-      "model": "github-copilot/gpt-5.4-mini"
+      "model": "github-copilot/gpt-6-luna"
     }
   }
 }

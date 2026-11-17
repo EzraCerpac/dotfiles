@@ -17,12 +17,15 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
-Unless the task is extremely small, delegate heavily: tell each subagent what to do, which model and reasoning effort fit the task, and what to return. Limit the work you do yourself. Choose models by strength:
-- gpt-6.1-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
-- gpt-6.1-terra for browser and desktop computer use, visual inspection, and drafting, writing or revision. Consider it for straightforward, bounded implementation. It is most often the best choice and it is FAST.
-- gpt-6.1-sol for complex implementation, architecture-sensitive changes, difficult debugging, and computer-use tasks that require stronger technical judgment.
-- Never spawn gpt-6-astra as a subagent.
-- Claude agents: use Opus for frontend and UI design and substantial writing.
+Unless the task is extremely small, delegate independent work.
+Give each subagent a specific task, an appropriate model and reasoning effort, and a clear deliverable.
+Choose a model available in the current harness.
+
+- Use gpt-6.2-sol at medium effort for bounded implementation, research, and general-purpose workers. Use high effort for code review or difficult debugging.
+- Use gpt-6.1-terra for browser and desktop work, visual inspection, and checks that depend on seeing the result.
+- Use gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when the problem warrants deeper reasoning.
+- Use Luna for mechanical inventories and log triage where the harness offers it.
+- Use Claude Opus for frontend and UI design and substantial writing.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 

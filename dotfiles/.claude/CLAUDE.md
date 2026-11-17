@@ -28,9 +28,10 @@ Unless the task is extremely small, delegate heavily: tell each subagent what to
 - Opus does frontend and UI design and any substantial writing.
 - Sonnet suits routine implementation and research subagents that do not need Opus-level judgement.
 - Haiku is the cheap native choice for search, file inventories, log triage and other read-only fan-out.
-- Never spawn Fable or Astra as a subagent.
+- Use Codex gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when deeper reasoning is warranted.
+- Never spawn Fable as a subagent.
 
-Before calling a large change done, have gpt-6.1-sol review it through Codex, then fix or explain each finding. Brief narrowly, ask for concise findings with file:line references, and spot-check results you build on. Effort: high by default, xhigh for hard problems. Sol is extremely strict, so consider if all findings are worth adressing. Don't let perfect be the enemy of good and beware of scope creap.
+Before calling a large change done, have the latest available GPT Sol review it through Codex at high effort. Use xhigh for hard problems. Ask for concise findings with file and line references. Check each finding, fix material issues, and explain any finding you set aside.
 
 # Tools and formatting
 
