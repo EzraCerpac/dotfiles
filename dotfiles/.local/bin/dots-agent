@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# DOTS_AGENT_COMMAND: ask which coding agent takes the issue, then start it
+# interactively with the issue as its first message.
+set -euo pipefail
+
+prompt="${1:?usage: dots-agent PROMPT}"
+have_claude=0 have_codex=0
+command -v claude >/dev/null 2>&1 && have_claude=1
+command -v codex >/dev/null 2>&1 && have_codex=1
+
+if ((have_claude && have_codex)); then
+    printf 'Hand this issue to [c]laude (Enter) or code[x]? ' >/dev/tty
+    IFS= read -rsn1 key </dev/tty || key=q
+    printf '\n' >/dev/tty
+    case "$key" in
+        c | C | '') exec claude "$prompt" ;;
+        x | X) exec codex "$prompt" ;;
+        *) echo 'dots-agent: cancelled' >&2; exit 1 ;;
+    esac
+fi
+((have_claude)) && exec claude "$prompt"
+((have_codex)) && exec codex "$prompt"
+echo 'dots-agent: neither claude nor codex is installed' >&2
+exit 127
