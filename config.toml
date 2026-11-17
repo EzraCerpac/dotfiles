@@ -51,6 +51,10 @@ aegis_version = "1.1.0"
 rift_local_revision = "b6cda064c6841c0cf20042e26bcdafb6bb2f9a64"
 rift_signing_identity = "Rift Local Code Signing"
 
+[env]
+# The dots dashboard's `A` key asks whether claude or codex takes the issue.
+DOTS_AGENT_COMMAND = "~/.local/bin/dots-agent"
+
 # Small, portable command-line tools available on every managed host. Keep
 # workstation-only runtimes and applications in config.workstation.toml.
 [tools]
@@ -95,7 +99,7 @@ codex = "latest"
 
 # The dots manager (https://github.com/EzraCerpac/dots), with its dots-up
 # renderer. Pinned: a new release is adopted by changing this version.
-"github:EzraCerpac/dots" = "0.3.1"
+"github:EzraCerpac/dots" = "0.3.4"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
@@ -183,6 +187,7 @@ codex = "latest"
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
 "~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
 "~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
+"~/.local/bin/dots-agent" = { source = "dotfiles/.local/bin/dots-agent", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 
 [bootstrap.hooks]
