@@ -89,6 +89,10 @@ if [[ "$-" == *i* ]]; then
         source <(carapace _carapace bash)
     fi
 
+    if command -v dots >/dev/null 2>&1; then
+        eval "$(command dots completions bash 2>/dev/null)"
+    fi
+
     if command -v eza >/dev/null 2>&1; then
         alias ls='eza --icons=auto --group-directories-first --git'
         alias la='eza -a --icons=auto --group-directories-first --git'
