@@ -28,3 +28,6 @@ Change the version in `config.toml` through a pull request.
 The next `dots up` installs it with the other newly declared tools and reports `dots A -> B, used from the next run`;
 that run finishes on the old version, and the next one uses the new one.
 The old version stays installed, because updates never prune.
+
+After merging a manager change, publish the release and roll it out to every dots-managed machine.
+Verify `dots --version` in a fresh login on each machine and report any offline machine as pending.
