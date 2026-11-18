@@ -5,11 +5,11 @@ The manager lives in its own repository, [EzraCerpac/dots](https://github.com/Ez
 `config.toml` pins the version every machine runs:
 
 ```toml
-"github:EzraCerpac/dots" = "0.3.4"
+"github:EzraCerpac/dots" = "0.3.5"
 ```
 
 mise installs it like any other tool and puts `dots` and its `dots-up` renderer on `PATH`.
-`dots --version` prints the version and how it was installed, for example `dots 0.3.4 (mise)`.
+`dots --version` prints the version and how it was installed, for example `dots 0.3.5 (mise)`.
 The release links its own agent skill into `~/.claude/skills/dots` and `~/.agents/skills/dots` whenever it runs.
 
 ## How the configuration reaches it
