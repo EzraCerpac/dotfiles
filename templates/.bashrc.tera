@@ -90,7 +90,7 @@ if [[ "$-" == *i* ]]; then
     fi
 
     if command -v dots >/dev/null 2>&1; then
-        eval "$(command dots completions bash 2>/dev/null)"
+        eval "$(MISE_SAFE=1 MISE_NO_ENV=1 MISE_NO_HOOKS=1 MISE_OFFLINE=1 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_INSTALL=0 command dots completions bash 2>/dev/null)"
     fi
 
     if command -v eza >/dev/null 2>&1; then
