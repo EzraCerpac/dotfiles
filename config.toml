@@ -146,10 +146,7 @@ codex = "latest"
 "~/.claude/settings.json/shared" = { source = "templates/.claude/settings.json.tera", template = "tera", merge = true, permissions = "0600" }
 # A merge sets the mode only when it creates the file; Claude may rewrite it 0644.
 "~/.claude/settings.json" = { permissions = "0600", variants = [{ os = "macos" }] }
-"~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
-".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
-".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
-".codex/AGENTS.driehuisnas.md" = { source = "dotfiles/.codex/AGENTS.driehuisnas.md", mode = "symlink", variants = [{ os = "macos", profile = "nas", target = "~/.codex/AGENTS.md" }] }
+"~/.codex/AGENTS.md" = { source = "templates/.codex/AGENTS.md.tera", mode = "template", variants = [{ os = "macos", profile = "workstation" }, { os = "linux", profile = "workstation" }, { os = "linux", profile = "nas" }, { os = "macos", profile = "nas" }] }
 # Defaults for app-written settings: written only when nothing is at the
 # target, never over an existing or restored file.
 "~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }

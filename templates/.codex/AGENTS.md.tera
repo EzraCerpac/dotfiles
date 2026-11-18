@@ -17,12 +17,19 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
-Unless the task is extremely small, delegate heavily: tell each subagent what to do, which model and reasoning effort fit the task, and what to return. Limit the work you do yourself. Choose models by strength:
-- gpt-6.1-luna (the default subagent model) for bulk read-only work: research, sweeps, diagnostics, log triage. Run as many in parallel as useful, consider it free.
-- gpt-6.1-terra for browser and desktop computer use, visual inspection, and drafting, writing or revision. Consider it for straightforward, bounded implementation. It is most often the best choice and it is FAST.
-- gpt-6.1-sol for complex implementation, architecture-sensitive changes, difficult debugging, and computer-use tasks that require stronger technical judgment.
-- Never spawn gpt-6-astra as a subagent.
-- Claude agents: use Opus for frontend and UI design and substantial writing.
+Unless the task is extremely small, delegate independent work.
+Give each subagent a specific task, an appropriate model and reasoning effort, and a clear deliverable.
+Choose a model available in the current harness.
+
+- Use gpt-6.2-sol at medium effort for bounded implementation, research, and general-purpose workers. Use high effort for code review or difficult debugging.
+- Use gpt-6.1-terra for browser and desktop work, visual inspection, and checks that depend on seeing the result.
+- Use gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when the problem warrants deeper reasoning.
+- Use Luna for mechanical inventories and log triage where the harness offers it.
+- Use Claude Opus for frontend and UI design and substantial writing.
+
+Subagents already have access to the applicable `AGENTS.md`, `CLAUDE.md`,
+and skills in their environment.
+Refer to them by name when needed and keep the brief focused on the task.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
@@ -43,8 +50,27 @@ For file and directory discovery, prefer fd over find.
 Prefer using the in-app browser over external browsers.
 
 Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
+Talk to me ELI5 by default and go deeper if I ask.
+
+Even as a subagent, delegate independent work under the same rules.
+
 <!-- End shared Codex policy -->
+{%- if vars.profile == "nas" %}
+
+## {% if os() == "macos" %}Driehuis NAS{% else %}CerpacNAS{% endif %} host notes
+
+For personal reminders, read `personal-concierge:apple-reminders` before acting and follow its access checks, list rules, duplicate check, alarms, and read-back. Keep a simple reminder request scoped to that reminder; use `personal-concierge:activity-concierge` for requested cross-source reviews.
+
+Thesis execution on the NAS is retired at Ezra's request. Preserve retained thesis checkouts, research, data, and history; do not start thesis validation lanes, experiments, benchmarks, or manuscript builds here. Current thesis implementation and acceptance belong to the existing Mac owner. Other authorized NAS projects may use their established native remote host and project workflow.
+{%- elif os() == "macos" %}
 
 ## Mac host notes
+{%- endif %}
+{%- if os() == "macos" %}
 
 Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
+{%- endif %}
+{%- if vars.profile == "nas" %}
+
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
+{% endif %}
