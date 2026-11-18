@@ -12,10 +12,6 @@ This repository is public. `miserc.toml`, `config.local.toml`, and `config.host-
 
 Roles are `workstation` and `nas`. Preserve host exceptions, services, system software, app data, and signed local desktop builds. Read `docs/agent-instructions.md` before changing agent instructions and `docs/migration.md` before changing installer exceptions or moving an app.
 
-Subagents already have access to the applicable `AGENTS.md`, `CLAUDE.md`,
-and skills in their environment.
-Refer to them by name when needed and keep the brief focused on the task.
-
 Tests: `tests/run` ([testing](docs/testing.md)); the manager is tested in its own repository.
 
 For cloud tasks that touch the NASes or HouseAtlas, read [Cloud NAS access](docs/cloud-nas-access.md) first. It does not authorize logins, service changes, or broader network access.
