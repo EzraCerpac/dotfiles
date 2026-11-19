@@ -48,10 +48,6 @@ jobs:
           curl -fsSL https://mise.run | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
-          # The dots release config.toml pins: tests compare dots/README.md with its template.
-          dots_version="$(sed -n 's/^"github:EzraCerpac\/dots" = "\(.*\)"$/\1/p' config.toml)"
-          # A freshly published dots release can precede the mise version mirror.
-          MISE_USE_VERSIONS_HOST=false mise use --global "github:EzraCerpac/dots@$dots_version"
           tools=(node@latest python@3.13 uv@latest jj@latest age@latest gitleaks@latest)
           if [[ "$RUNNER_OS" == Linux ]]; then
             tools+=(github:fish-shell/fish-shell@latest)
@@ -65,7 +61,7 @@ jobs:
       - name: Tool versions
         run: |
           mise --version
-          for tool in node python3 uv jj age gitleaks dots fish zsh; do
+          for tool in node python3 uv jj age gitleaks jq fish zsh; do
             printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo missing)"
           done
 

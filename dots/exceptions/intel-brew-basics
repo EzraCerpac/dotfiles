@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
 
 # Intel macOS only: mise's brew bootstrap backend skips darwin/amd64
 # (upstream jdx/mise#10968), so these formulae need an explicit owner there.
@@ -10,14 +9,9 @@ if [[ "$(uname -s)" != Darwin || "$(uname -m)" != x86_64 ]]; then
     exit 0
 fi
 
-brew_bin="$(find_real_brew)" || {
-    echo "A standard-prefix Homebrew installation is required for exception intel-brew-basics" >&2
-    exit 1
-}
-
 for formula in fish git; do
-    update_brew_formula_exception "$formula" "${1:-}"
+    dots brew update-formula "$formula" "$@"
 done
 if [[ "${SETUP_PROFILE:-}" == nas ]]; then
-    update_brew_formula_exception btop "${1:-}"
+    dots brew update-formula btop "$@"
 fi

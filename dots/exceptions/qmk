@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
-update_brew_formula_exception qmk/qmk/qmk "${1:-}"
+dots brew update-formula qmk/qmk/qmk "$@"

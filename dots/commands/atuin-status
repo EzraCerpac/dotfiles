@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec dots mise exec -- uv run --no-project python "${DOTS_ROOT:?run through dots atuin-status}/dots/lib/atuin.py" status "$@"

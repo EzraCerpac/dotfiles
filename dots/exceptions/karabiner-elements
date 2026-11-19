@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
-hold_brew_cask_exception \
+dots brew hold-cask \
     karabiner-elements \
     16.0.0 \
     "${KARABINER_APP_PATH:-/Applications/Karabiner-Elements.app}" \

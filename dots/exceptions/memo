@@ -1,4 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
-update_brew_formula_exception antoniorodr/memo/memo "${1:-}"
+dots brew update-formula antoniorodr/memo/memo "$@"

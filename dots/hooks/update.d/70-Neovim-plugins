@@ -2,8 +2,6 @@
 # Initialize Neovim, then update Lazy.nvim plugins without bootstrapping Lazy.
 # Runs after installer exceptions: one of them builds Neovim on the NAS.
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/setup-common.sh"
-setup_init || exit $?
 
 # Report each plugin whose checked-out revision changed through DOTS_CHANGES.
 lazy_root="${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/lazy"
@@ -28,7 +26,7 @@ report_changes() {
 }
 trap 'report_changes; rm -f "$guard_script" "$before_revisions" "$after_revisions"' EXIT
 
-setup_mise exec -- bash "$SETUP_ROOT/setup-scripts/setup/nvim-initialize"
+dots mise exec -- bash "${DOTS_ROOT:?run through dots}/setup-scripts/setup/nvim-initialize"
 
 cat > "$guard_script" <<'LUA'
 local lazy_path = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -39,8 +37,8 @@ vim.opt.rtp:prepend(lazy_path)
 require("lazy.core.config").defaults.install.missing = false
 LUA
 chmod 600 "$guard_script"
-SETUP_LAZY_UPDATE_SCRIPT="$SETUP_ROOT/setup-scripts/setup/lazy-update.lua" \
+SETUP_LAZY_UPDATE_SCRIPT="${DOTS_ROOT:?run through dots}/setup-scripts/setup/lazy-update.lua" \
     SETUP_LAZY_GUARD_SCRIPT="$guard_script" \
-    setup_mise exec -- nvim --headless \
+    dots mise exec -- nvim --headless \
         --cmd 'lua dofile(vim.env.SETUP_LAZY_GUARD_SCRIPT)' \
         -c 'lua dofile(vim.env.SETUP_LAZY_UPDATE_SCRIPT)' -c qa

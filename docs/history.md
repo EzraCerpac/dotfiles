@@ -29,7 +29,7 @@ new encrypted checkpoint; it does not re-encrypt older commits.
 Persist the role and machine ID first:
 
 ```sh
-dots internal profile \
+dots profile \
   --profile workstation \
   --machine-id mac-primary \
   --origin git@github.com:EzraCerpac/dotfiles-state.git
@@ -47,7 +47,7 @@ Prepare the host's age identity and recipients. `--recipient` accepts a public
 age recipient for recovery or another machine; it never accepts a private key:
 
 ```sh
-dots internal enroll-history \
+dots enroll-history \
   --profile workstation \
   --machine-id mac-primary \
   --identity ~/.config/age/keys.txt \

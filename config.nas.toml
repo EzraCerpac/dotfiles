@@ -22,7 +22,7 @@ btop = { version = "latest", os = ["linux/x64"] }
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh"'
+pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/dots" bootstrap persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh"'
 post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # App-written files kept in encrypted settings history. Each machine saves its
