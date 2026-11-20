@@ -5,7 +5,7 @@ The manager lives in its own repository, [EzraCerpac/dots](https://github.com/Ez
 `config.toml` pins the version every machine runs:
 
 ```toml
-"github:EzraCerpac/dots" = "0.4.0"
+"github:EzraCerpac/dots" = "0.5.0"
 ```
 
 mise installs it like any other tool and puts `dots` on `PATH`.
