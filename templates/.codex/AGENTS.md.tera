@@ -55,7 +55,22 @@ Talk to me ELI5 by default and go deeper if I ask.
 Even as a subagent, delegate independent work under the same rules.
 
 <!-- End shared Codex policy -->
+{%- if vars.profile == "nas" %}
+
+## {% if os() == "macos" %}Driehuis NAS{% else %}CerpacNAS{% endif %} host notes
+
+For personal reminders, read `personal-concierge:apple-reminders` before acting and follow its access checks, list rules, duplicate check, alarms, and read-back. Keep a simple reminder request scoped to that reminder; use `personal-concierge:activity-concierge` for requested cross-source reviews.
+
+Thesis execution on the NAS is retired at Ezra's request. Preserve retained thesis checkouts, research, data, and history; do not start thesis validation lanes, experiments, benchmarks, or manuscript builds here. Current thesis implementation and acceptance belong to the existing Mac owner. Other authorized NAS projects may use their established native remote host and project workflow.
+{%- elif os() == "macos" %}
 
 ## Mac host notes
+{%- endif %}
+{%- if os() == "macos" %}
 
 Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
+{%- endif %}
+{%- if vars.profile == "nas" %}
+
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
+{% endif %}

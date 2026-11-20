@@ -4,19 +4,35 @@ Edit the reviewed source for a specific instruction file. Apply only that file's
 
 | Host/client | Source | Deployed target |
 | --- | --- | --- |
-| Mac Codex | `~/.config/mise/dotfiles/.codex/AGENTS.md` | linked `~/.codex/AGENTS.md` |
+| Mac and Linux workstation Codex | `templates/.codex/AGENTS.md.tera` | rendered `~/.codex/AGENTS.md` |
 | Mac OpenCode | `~/.config/mise/dotfiles/.config/opencode/AGENTS.md` | linked `~/.config/opencode/AGENTS.md` |
 | Mac Claude | `~/.config/mise/dotfiles/.claude/CLAUDE.md` | linked `~/.claude/CLAUDE.md` |
-| CerpacNAS Codex | `/root/.config/mise/dotfiles/.codex/AGENTS.cerpacnas.md` | linked `/root/.codex/AGENTS.md` |
+| CerpacNAS Codex | `templates/.codex/AGENTS.md.tera` | rendered `/root/.codex/AGENTS.md` |
 | CerpacNAS OpenCode | standalone `/root/.config/opencode/AGENTS.md` | same file; host exception |
-| Driehuis Codex | `/Users/server/.config/mise/dotfiles/.codex/AGENTS.driehuisnas.md` | linked `/Users/server/.codex/AGENTS.md` |
+| Driehuis Codex | `templates/.codex/AGENTS.md.tera` | rendered `/Users/server/.codex/AGENTS.md` |
 | Driehuis Claude | `/Users/server/.config/mise/dotfiles/.claude/CLAUDE.md` (same source as Mac) | linked `/Users/server/.claude/CLAUDE.md` |
 
-Codex globals contain the same inline block between `Shared Codex policy` markers, followed by host notes. The macOS workstation role selects `AGENTS.md`; Linux workstations select `AGENTS.linux.md` with the common block and no Keychain guidance; the NAS role selects `AGENTS.cerpacnas.md` on Linux and `AGENTS.driehuisnas.md` on macOS through native mise destination variants. All four sources are tracked in the same public tree, so updating source does not replace a NAS adapter with Mac policy. Role selection remains mandatory. Retain NAS reminder clauses, actual host/tool availability, macOS-only Keychain guidance, and service/project ownership. NAS thesis execution is retired; research repositories, data and history remain. These files do not change model, context, access or approval settings. OpenCode's workstation-only source declaration does not establish a NAS deployment; retain the CerpacNAS standalone route. Old chezmoi/Projects-dotfiles copies and protected snapshots are recovery material, not alternative authority for these links.
+Edit the shared Codex policy and host notes in `templates/.codex/AGENTS.md.tera`.
+Mise renders it for the selected `workstation` or `nas` role on macOS and Linux.
+The template adds the Keychain note on macOS and the reminder,
+thesis-retirement and Code Mode notes for NASes.
+The first apply replaces the old symlink with a regular file.
 
-The seven routes above are the only instruction files this setup manages; installed presence does not establish loading, enablement or historical use. Update the shared block and all four Codex sources together when changing the common block, and preserve host notes.
+Retain actual host and tool availability and service and project ownership.
+NAS thesis execution is retired, and research repositories, data and history remain.
+Instruction files do not change model, context, access or approval settings.
+Retain the CerpacNAS standalone OpenCode route.
+Old chezmoi/Projects-dotfiles copies and protected snapshots are recovery material.
 
-To check drift on demand, compare each deployed file with its source using `diff` and `readlink` (over `ssh` for the NAS hosts) without reading anything else under the home directory. A local shell does not retarget a native Codex task to another host. Selected instruction ownership was verified on 2026-10-05; package/service/machine acceptance is a separate question.
+Check or apply just the Codex file on the target machine with its usual mise profile:
+
+```sh
+mise -C ~/.config/mise bootstrap dotfiles diff ~/.codex/AGENTS.md
+MISE_NO_HOOKS=1 mise -C ~/.config/mise bootstrap dotfiles apply ~/.codex/AGENTS.md
+```
+
+For linked Claude and OpenCode files, use `readlink` and `diff` to check drift.
+A local shell does not retarget a native Codex task to another host.
 
 ## Claude settings
 

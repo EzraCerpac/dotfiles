@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${DOTS_BUNDLE_FD:-}" ]]; then
+    [[ "$DOTS_BUNDLE_FD" =~ ^[0-9]+$ ]] || exit 2
+    eval "exec ${DOTS_BUNDLE_FD}<&-"
+    unset DOTS_BUNDLE_FD
+fi
+exec uv run --no-project python "${DOTS_ROOT:?run through dots}/dots/lib/atuin.py" enroll --root "$DOTS_ROOT"

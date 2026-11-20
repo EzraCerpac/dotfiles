@@ -33,9 +33,6 @@ dots_state_repo = "EzraCerpac/dotfiles-state"
 # Casks that update themselves although Homebrew lacks auto_updates for them;
 # dots up still installs them when missing.
 dots_self_updating_casks = "codexbar"
-# dots publish starts pull request text with a note that a model writes on
-# this person's behalf.
-dots_publish_on_behalf_of = "Ezra"
 # The only Atuin account enrollment accepts.
 dots_atuin_username = "EzraCerpac"
 name = "Ezra Cerpac"
@@ -50,10 +47,6 @@ aegis_url = "https://github.com/CCMurphy-dev/Aegis/releases/download/v1.1.0/Aegi
 aegis_version = "1.1.0"
 rift_local_revision = "b6cda064c6841c0cf20042e26bcdafb6bb2f9a64"
 rift_signing_identity = "Rift Local Code Signing"
-
-[env]
-# The dots dashboard's `A` key asks whether claude or codex takes the issue.
-DOTS_AGENT_COMMAND = "~/.local/bin/dots-agent"
 
 # Small, portable command-line tools available on every managed host. Keep
 # workstation-only runtimes and applications in config.workstation.toml.
@@ -92,14 +85,13 @@ starship = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", 
 tmux = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 "vfox:jdx/vfox-eza" = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 zoxide = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
-# `dots publish` refuses to push until gitleaks has scanned the commits.
+# dots sync scans outgoing configuration changes with gitleaks.
 gitleaks = { version = "latest", os = ["macos/arm64", "macos/x64", "linux/x64", "linux/arm64"] }
 codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
 
-# The dots manager (https://github.com/EzraCerpac/dots), with its dots-up
-# renderer. Pinned: a new release is adopted by changing this version.
-"github:EzraCerpac/dots" = "0.4.0"
+# The dots manager (https://github.com/EzraCerpac/dots).
+"github:EzraCerpac/dots" = "0.5.0"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.
@@ -146,10 +138,7 @@ codex = "latest"
 "~/.claude/settings.json/shared" = { source = "templates/.claude/settings.json.tera", template = "tera", merge = true, permissions = "0600" }
 # A merge sets the mode only when it creates the file; Claude may rewrite it 0644.
 "~/.claude/settings.json" = { permissions = "0600", variants = [{ os = "macos" }] }
-"~/.codex/AGENTS.md" = { source = "dotfiles/.codex/AGENTS.md", mode = "symlink", variants = [{ os = "macos", profile = "workstation" }] }
-".codex/AGENTS.linux.md" = { source = "dotfiles/.codex/AGENTS.linux.md", mode = "symlink", variants = [{ os = "linux", profile = "workstation", target = "~/.codex/AGENTS.md" }] }
-".codex/AGENTS.cerpacnas.md" = { source = "dotfiles/.codex/AGENTS.cerpacnas.md", mode = "symlink", variants = [{ os = "linux", profile = "nas", target = "~/.codex/AGENTS.md" }] }
-".codex/AGENTS.driehuisnas.md" = { source = "dotfiles/.codex/AGENTS.driehuisnas.md", mode = "symlink", variants = [{ os = "macos", profile = "nas", target = "~/.codex/AGENTS.md" }] }
+"~/.codex/AGENTS.md" = { source = "templates/.codex/AGENTS.md.tera", mode = "template", variants = [{ os = "macos", profile = "workstation" }, { os = "linux", profile = "workstation" }, { os = "linux", profile = "nas" }, { os = "macos", profile = "nas" }] }
 # Defaults for app-written settings: written only when nothing is at the
 # target, never over an existing or restored file.
 "~/.codex/config.toml" = { source = "seeds/.codex/config.toml", mode = "copy", permissions = "0600", create_if_missing = true }
@@ -187,7 +176,6 @@ codex = "latest"
 "~/.gitignore" = { source = "dotfiles/home.gitignore", mode = "symlink" }
 "~/.local/bin/rex" = { source = "dotfiles/.local/bin/rex", mode = "symlink" }
 "~/.local/bin/rex-project" = { source = "dotfiles/.local/bin/rex-project", mode = "symlink" }
-"~/.local/bin/dots-agent" = { source = "dotfiles/.local/bin/dots-agent", mode = "symlink" }
 "~/.local/bin/kbd" = { source = "dotfiles/.local/bin/kbd", mode = "symlink", variants = [{ os = "macos" }] }
 
 [bootstrap.hooks]

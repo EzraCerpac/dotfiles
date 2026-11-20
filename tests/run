@@ -10,14 +10,6 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 readonly root
-# Report suites to the dots up dashboard when the manager is at hand (dots test
-# exports DOTS_HOME); a direct run without it prints only the plain summary.
-events="${DOTS_HOME:-}/lib/dots-up-events.sh"
-if [[ -n "${DOTS_HOME:-}" && -f "$events" ]]; then
-    source "$events"
-else
-    dots_up_emit_item() { :; }
-fi
 readonly all_suites=(python node)
 
 usage() {
@@ -54,19 +46,9 @@ record() {
     esac
 }
 
-# Suite fixtures create their own subprocesses and dashboard protocols. Only this
-# runner owns the live supervisor connection; never lend its descriptors or nonce
-# to a fixture that may close inherited file descriptors.
-run_fixture() (
-    unset DOTS_HOME DOTS_ROOT
-    unset DOTS_UP_EVENT_FD DOTS_UP_ACK_FD DOTS_UP_STREAM_NONCE DOTS_UP_EVENT_JQ
-    unset DOTS_UP_RUN_DIR DOTS_UP_RUN_STARTED DOTS_UP_PLAIN DOTS_UP_VERBOSE
-    "$@"
-)
-
 run_python() {
     local status=0
-    run_fixture python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
+    python3 -m unittest discover -s "$root/tests" -p 'test_*.py' || status=$?
     record python "$status"
 }
 
@@ -82,23 +64,13 @@ run_node() {
         record node 77
         return
     fi
-    run_fixture node --test "${files[@]}" || status=$?
+    node --test "${files[@]}" || status=$?
     record node "$status"
 }
 
 for suite in "${suites[@]}"; do
     printf '\n### %s\n' "$suite"
-    dots_up_emit_item "suite:$suite" "Test suites" "$suite" unknown "running"
-    failures_before=${#failed[@]}
-    skips_before=${#skipped[@]}
     "run_$suite"
-    if (( ${#failed[@]} > failures_before )); then
-        dots_up_emit_item "suite:$suite" "Test suites" "$suite" failed "failed"
-    elif (( ${#skipped[@]} > skips_before )); then
-        dots_up_emit_item "suite:$suite" "Test suites" "$suite" attention "completed with skips"
-    else
-        dots_up_emit_item "suite:$suite" "Test suites" "$suite" ok "completed"
-    fi
 done
 
 printf '\n### summary\n'

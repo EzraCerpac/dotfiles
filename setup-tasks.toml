@@ -45,29 +45,29 @@ run = "node setup-scripts/local/concierge-nas.mjs rebuild"
 
 ["setup:status"]
 description = "Inspect setup health"
-run = "dots internal status"
+run = "dots status"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:update"]
 description = "Update the machine setup"
 raw = true
-run = "dots internal update"
+run = "dots up"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:backup"]
 description = "Backup the machine setup"
-run = "dots internal backup"
+run = "dots backup"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:restore"]
 description = "Restore the machine setup"
-run = "dots internal restore"
+run = "dots restore"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:test"]
 description = "Run the setup repository's test suites"
 raw = true
-run = "bash tests/run"
+run = "dots test"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:secrets"]
@@ -190,11 +190,11 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 
 ["setup:profile"]
-run = "dots internal profile"
+run = "dots profile"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["setup:enroll-history"]
-run = "dots internal enroll-history"
+run = "dots enroll-history"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:aerospace-local-build"]
@@ -202,12 +202,13 @@ run = "bash setup-scripts/local/aerospace-local-build.sh"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 ["local:install-exceptions"]
-run = "dots internal exceptions"
+run = "dots exceptions"
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 
 [bootstrap]
 description = "Complete private recovery, installation, services, and account enrollment"
-run = "dots internal complete"
+# The installer saves the selection after native bootstrap; completion needs it now.
+run = "dots bootstrap persist-selected && exec dots bootstrap complete"
 raw = true
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 

@@ -5,26 +5,16 @@ umask 077
 [[ "$(uname -s)" == Darwin ]] || exit 0
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-SETUP_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd -P)"
-# NOTE: setup-scripts/local/common is intentionally not sourced here. Bootstrap hooks
-# run before any profile is persisted on fresh clones, so this prerequisite
-# must work without SETUP_PROFILE.
+# The native package hook can run before the profile and tools are installed.
 setup_error() {
     printf 'setup: %s\n' "$*" >&2
 }
-if [[ "$(uname -s)" != Darwin ]]; then
-    echo "this task requires macOS" >&2
-    exit 1
-fi
-
-# shellcheck source=/dev/null
-source "${DOTS_HOME:-$(bash "$SCRIPT_DIR/dots" internal home)}/lib/brew-exception.sh"
 
 readonly installer_commit="8949852f785a3bacaba2a979d0790337950b0a4a"
 readonly installer_sha256="25548e1da7930c1563dbbe2cb05834a4131c4da09234540b6fdac812fda3c287"
 readonly installer_url="https://raw.githubusercontent.com/Homebrew/install/${installer_commit}/install.sh"
 
-if brew_bin="$(find_real_brew)"; then
+if brew_bin="$(bash "$SCRIPT_DIR/dots" brew path)"; then
     printf 'Homebrew is already available: %s\n' "$brew_bin"
     exit 0
 fi
@@ -81,7 +71,7 @@ if ! /bin/bash "$installer"; then
     exit 1
 fi
 
-if ! brew_bin="$(find_real_brew)"; then
+if ! brew_bin="$(bash "$SCRIPT_DIR/dots" brew path)"; then
     setup_error "the installer completed, but no working Homebrew was found in /opt/homebrew or /usr/local"
     exit 1
 fi
