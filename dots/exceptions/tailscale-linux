@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$(uname -s)" == Linux ]] || exit 0
-source "${DOTS_HOME:-$(dots internal home)}/lib/dots-up-events.sh"
-source "${DOTS_HOME:-$(dots internal home)}/lib/setup-common.sh"
-SETUP_CONFIG_ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"
-setup_init
 source /etc/os-release
 if [[ "$ID" != fedora ]]; then
     echo 'Deferred: automatic Tailscale installation is currently verified on Fedora; install the vendor client on this distribution, then rerun dots bootstrap.'
-    dots_up_emit_notice attention "Automatic Tailscale updates are verified on Fedora, not ${ID}; install the vendor client manually." 'Install Tailscale from its vendor instructions, then rerun dots up.' 'installer exception: tailscale-linux'
-    exit 0
+    exit 3
 fi
-resource="$SETUP_ROOT/resources/tailscale-fedora"
-mise_bin="$(resolve_mise_bin)"
+resource="${DOTS_ROOT:?run through dots}/resources/tailscale-fedora"
+mise_bin="${DOTS_MISE_BIN:-${SETUP_MISE_BIN:-$HOME/.local/bin/mise}}"
+[[ -x "$mise_bin" ]] || mise_bin=mise
 native() {
     MISE_CONFIG_DIR="$resource" MISE_ENV='' MISE_TRUSTED_CONFIG_PATHS="$resource" "$mise_bin" -C "$resource" "$@"
 }
@@ -36,4 +32,5 @@ elif [[ -d /run/systemd/system ]]; then
     fi
 else
     echo 'Deferred: Tailscale is installed; this host has no running systemd supervisor to start tailscaled.'
+    exit 3
 fi

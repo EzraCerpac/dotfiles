@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "$(dirname "$0")/common"
 [[ "$(uname -s)" == Linux ]] || exit 0
 
 # A new distro account may already have vendor shell defaults. Only adopt
 # exact /etc/skel copies; independently edited files stay for native conflict review.
-command -v cmp >/dev/null || { setup_error "diffutils is required to compare vendor defaults"; exit 1; }
+command -v cmp >/dev/null || { echo 'setup: diffutils is required to compare vendor defaults' >&2; exit 1; }
 backup_dir=""
 for name in .bashrc .bash_profile .zshrc .zprofile; do
     target="$HOME/$name"

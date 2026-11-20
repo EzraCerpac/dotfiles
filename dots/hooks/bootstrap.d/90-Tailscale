@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec "${DOTS_ROOT:?run through dots}/dots/commands/tailscale-login"

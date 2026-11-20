@@ -5,20 +5,20 @@ The manager lives in its own repository, [EzraCerpac/dots](https://github.com/Ez
 `config.toml` pins the version every machine runs:
 
 ```toml
-"github:EzraCerpac/dots" = "0.4.0"
+"github:EzraCerpac/dots" = "0.5.0"
 ```
 
-mise installs it like any other tool and puts `dots` and its `dots-up` renderer on `PATH`.
-`dots --version` prints the version and how it was installed, for example `dots 0.4.0 (mise)`.
-The release links its own agent skill into `~/.claude/skills/dots` and `~/.agents/skills/dots` whenever it runs.
+mise installs it like any other tool and puts `dots` on `PATH`.
+`dots --version` prints the installed version.
 
 ## How the configuration reaches it
 
-Tasks in `setup-tasks.toml` call `dots internal …`, since mise puts the declared tools on a task's `PATH`.
-Scripts that `dots` itself runs (hooks, commands, installer exceptions) get `DOTS_HOME`.
+Tasks in `setup-tasks.toml` call the public `dots` commands,
+since mise puts the declared tools on a task's `PATH`.
+Hooks, commands and installer exceptions use the running `dots` on `PATH`.
 
 `mise bootstrap` runs its dotfiles hooks before its tools step, and a hook gets neither mise nor the declared tools on `PATH`.
-So the bootstrap hooks and `setup-scripts/local/common` reach the manager through `setup-scripts/local/dots`,
+The native bootstrap hooks can reach the manager through `setup-scripts/local/dots`,
 which runs `mise x github:EzraCerpac/dots -- dots …` and so installs the pinned release on first use.
 A new machine therefore needs nothing beyond the command in the [README](../README.md#start-a-new-machine).
 

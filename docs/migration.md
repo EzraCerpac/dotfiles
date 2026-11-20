@@ -57,9 +57,9 @@ Keep remaining app transfers staged and individually reviewed. Do not run
 `--adopt` over the existing setup, run a broad bootstrap, or transfer casks as
 part of a source replacement.
 
-The final setup root is `~/.config/mise`. Use `dots internal profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
+The final setup root is `~/.config/mise`. Use `dots profile` to persist exactly one explicit role and stable host ID in the ignored local `miserc.toml` and `config.local.toml`: `workstation`, `nas`, or `delftblue`. The role is never selected from a hostname. Keep private history connection details and machine-local values in ignored local mise configuration. See [docs/history.md](history.md) for exact-file enrollment.
 
-The tracked files are `mode = "track"` entries in the role configuration with one `host-<machine-id>` variant per machine (see [docs/history.md](history.md)). `dots internal enroll-history` prepares this host's identity and recipients locally. It does not create a checkpoint or contact the private remote; review `mise dot paths` and the recipients before the first save.
+The tracked files are `mode = "track"` entries in the role configuration with one `host-<machine-id>` variant per machine (see [docs/history.md](history.md)). `dots enroll-history` prepares this host's identity and recipients locally. It does not create a checkpoint or contact the private remote; review `mise dot paths` and the recipients before the first save.
 
 ## Intended daily workflows
 

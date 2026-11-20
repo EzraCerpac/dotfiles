@@ -8,6 +8,8 @@ SETUP_PROFILE = "nas"
 # Keep the NAS additions intentionally small. The common command-line base is
 # declared in config.toml and remains available alongside these tools.
 btop = { version = "latest", os = ["linux/x64"] }
+# Mason creates Python virtual environments for the CMake tools.
+python = { version = "3.13", os = ["linux/x64", "linux/arm64"] }
 
 # NAS system packages stay outside bootstrap ownership. Preserve the host's
 # existing Git (CerpacNAS uses ~/.local/share/git-modern); Fish is in base.
@@ -22,7 +24,7 @@ btop = { version = "latest", os = ["linux/x64"] }
 
 
 [bootstrap.hooks]
-pre-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/dots" internal persist-selected && bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh"'
+pre-dotfiles = 'bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/adopt-skeletons.sh"'
 post-dotfiles = 'export SETUP_PROFILE=nas; bash "${MISE_CONFIG_DIR:-$HOME/.config/mise}/setup-scripts/local/finish-dotfiles.sh"'
 
 # App-written files kept in encrypted settings history. Each machine saves its

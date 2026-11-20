@@ -5,10 +5,13 @@ and DriehuisNAS. Ctrl-R searches shared history; Up/Down still recall only this
 terminal session. At an empty prompt, `?` opens Atuin AI. Within a command,
 `?` remains a normal character.
 
-Bootstrap uses the separate `encrypted/atuin.json.age` bundle for enrollment.
+The Atuin bootstrap hook uses the separate `encrypted/atuin.json.age` bundle
+for enrollment.
 Each machine decrypts it with its own age identity; passwords and history keys
-are never passed as command arguments. The initial `dots atuin-bundle` wizard
-accepts authorized public recipients and asks for the password without echoing it.
+are never passed as command arguments. To use an identity outside the default
+location, set `SETUP_AGE_IDENTITY` before bootstrap. The `dots atuin-bundle`
+command accepts authorized public recipients and asks for the password without
+echoing it.
 It captures the existing history key locally and writes ciphertext only.
 
 A new host must have its own age identity, and an enrolled host must include its
@@ -25,7 +28,7 @@ and synchronization finish. The history key still comes from your encrypted
 bundle; you do not need to reveal or paste it. Then rerun `dots bootstrap` to
 finish any deferred setup stages. Already-correct logins and history are preserved.
 
-`dots status` reports Atuin installation, history login, last synchronization,
+`dots atuin-status` reports Atuin installation, history login, last synchronization,
 and AI readiness separately. An enabled AI binding does not prove Hub login:
 complete the native Atuin Hub linking/browser flow if it asks for one.
 
