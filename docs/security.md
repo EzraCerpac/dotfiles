@@ -13,14 +13,23 @@ user-global ignore patterns cannot hide managed files. The block at the end of
 both directions: such files stay ignored, and no managed file is ignored.
 Commit private inputs only as age ciphertext under `encrypted/`.
 
-## `dots publish` scans before it pushes
+## `dots sync` scans before it shares
 
-Before asking for confirmation, `dots publish` runs gitleaks over every commit
-it is about to publish (`main@origin..` the published revision). A token
-added in one commit and removed in the next is still refused: once pushed,
-both commits are public. Findings are printed with the secret redacted, and
-nothing is pushed. gitleaks is part of the base profile; if it is missing,
-publishing stops and `dots up` installs it.
+`dots sync`, and the sync stage of `dots up`, scan local edits with gitleaks
+and this repository's `.gitleaks.toml` before they can reach `dev`. A flagged
+file stays on disk and out of the shared commit, and the remaining edits are
+scanned again; only a clean result becomes `dev`. When the flagged file is the
+source of a dotfile you just adopted, its new declaration stays on this machine
+too. Without a working gitleaks, or when a scan fails, nothing is shared or
+pushed. gitleaks is declared in the base configuration, so `dots up` installs
+it.
+
+Before each push, sync also checks the outgoing commits, those that no
+published branch contains yet. A token added in one commit and removed in the
+next still blocks the push: once pushed, both commits are public. A commit that
+ever tracked a machine-local file blocks it too, and sync never rewrites the
+branch to remove either. [The sync guide](https://github.com/EzraCerpac/dots/blob/v0.5.0/docs/sync.md)
+describes a run step by step.
 
 CI scans the complete history on every pull request with the same
 `.gitleaks.toml`. Both scans include merge diffs, so content that only a

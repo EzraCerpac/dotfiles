@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
-hold_brew_cask_exception \
+if [[ "$(uname -s)" != Darwin ]]; then
+    # The v0.4 updater exports DOTS_HOME and treats exit 4 as an error here.
+    [[ -z "${DOTS_HOME:-}" ]] && exit 4
+    exit 0
+fi
+dots brew hold-cask \
     karabiner-elements \
     16.0.0 \
     "${KARABINER_APP_PATH:-/Applications/Karabiner-Elements.app}" \

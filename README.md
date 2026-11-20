@@ -50,7 +50,7 @@ also needs the private history credentials and the machine's age key; see
 [settings recovery](docs/history.md). Existing nonempty setup directories need
 reconciliation before adoption; this command is for a fresh setup.
 
-Before applying a changed setup, run `dots plan` to inspect mise's native plan.
+Before applying a changed setup, run `dots mise bootstrap plan` to inspect mise's native plan.
 To set up a machine reachable over SSH, use `dots remote my-new-box --profile nas`.
 This installs mise and adopts the repository permanently on that host. Use
 `--profile workstation` for another development computer. SSH must already work;
@@ -92,7 +92,7 @@ On the other machine, run `dots up` to fetch shared `dev`, apply ordinary dotfil
 and update tools.
 Open a new shell to load changed shell configuration.
 Use `dots sync` for configuration without software upgrades,
-or `dots apply ~/.ssh/config` to render one locally edited template.
+or `dots mise bootstrap dotfiles apply ~/.ssh/config` to render one locally edited template.
 
 ### Sync, dev and main
 
@@ -102,8 +102,7 @@ or `dots apply ~/.ssh/config` to render one locally edited template.
 These machines need Git 2.43 or newer for sync.
 
 Pushing a commit straight to `origin/dev` from a task worktree is fine; the next sync merges it.
-Reviewed changes go to `main` through a pull request from a task branch or JJ workspace, never from the live checkout.
-`dots publish` runs in the JJ workspace you are standing in.
+Reviewed changes go to `main` through an ordinary Git pull request from a task branch outside the live checkout, such as a task worktree, while `dots sync` keeps sharing `dev`.
 A machine still on JJ or the old sync state is converted once by hand: see [sync migration](docs/sync-migration.md).
 
 ## Update this computer
@@ -215,7 +214,7 @@ out of this public repository:
 
 ```sh
 mise config set --file ~/.config/mise/config.local.toml vars.delftblue_netid YOUR_NETID
-dots apply ~/.ssh/config
+dots mise bootstrap dotfiles apply ~/.ssh/config
 ```
 
 ## Source layout

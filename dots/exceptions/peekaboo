@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-source "${DOTS_HOME:-$(dots internal home)}/lib/brew-exception.sh"
-update_brew_formula_exception steipete/tap/peekaboo "${1:-}"
+if [[ "$(uname -s)" != Darwin ]]; then
+    # The v0.4 updater exports DOTS_HOME and treats exit 4 as an error here.
+    [[ -z "${DOTS_HOME:-}" ]] && exit 4
+    exit 0
+fi
+dots brew update-formula steipete/tap/peekaboo "$@"

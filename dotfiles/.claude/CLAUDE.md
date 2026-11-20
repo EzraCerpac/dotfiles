@@ -31,6 +31,10 @@ Unless the task is extremely small, delegate heavily: tell each subagent what to
 - Use Codex gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when deeper reasoning is warranted.
 - Never spawn Fable as a subagent.
 
+Subagents already have access to the applicable `AGENTS.md`, `CLAUDE.md`,
+and skills in their environment.
+Refer to them by name when needed and keep the brief focused on the task.
+
 Before calling a large change done, have the latest available GPT Sol review it through Codex at high effort. Use xhigh for hard problems. Ask for concise findings with file and line references. Check each finding, fix material issues, and explain any finding you set aside.
 
 # Tools and formatting

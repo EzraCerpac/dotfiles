@@ -1,4 +1,5 @@
 local lazy = require("lazy")
+local cache = require("lazy.core.cache")
 local config = require("lazy.core.config")
 local plugin = require("lazy.core.plugin")
 
@@ -47,6 +48,7 @@ local function initialize()
       if not current or not current._.installed then
         error("plugin checkout still missing: " .. item.name)
       end
+      cache.reset(current.dir)
     end
     plugin.load()
   end

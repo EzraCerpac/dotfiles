@@ -4,15 +4,27 @@
 # and preserve the selected mise environment in nested tool invocations.
 common_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 setup_root="$(cd -- "${common_dir}/../.." && pwd -P)"
-# These scripts act on the checkout they live in, also when run from a task
-# worktree, so name it; then find the pinned dots release, whose
-# lib/setup-common.sh holds the shared helpers.
 export DOTS_ROOT="${DOTS_ROOT:-$setup_root}"
-DOTS_HOME="${DOTS_HOME:-$(bash "$common_dir/dots" internal home)}"
-# shellcheck source=/dev/null
-source "$DOTS_HOME/lib/setup-common.sh"
-SETUP_ROOT=""
-setup_init || return $?
+SETUP_ROOT="$DOTS_ROOT"
+
+setup_dots() {
+    if command -v dots >/dev/null 2>&1; then
+        dots "$@"
+    else
+        bash "$common_dir/dots" "$@"
+    fi
+}
+
+SETUP_PROFILE="${SETUP_PROFILE:-${DOTS_PROFILE:-$(setup_dots profile)}}" || return $?
+export SETUP_PROFILE
+
+setup_error() {
+    printf 'setup: %s\n' "$*" >&2
+}
+
+setup_mise() {
+    setup_dots mise "$@"
+}
 
 mise_exec() {
     setup_mise exec -- "$@"

@@ -32,12 +32,15 @@ jobs:
       MISE_YES: "1"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Install system packages (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends rsync zsh
+          sudo apt-get install -y -qq --no-install-recommends jq rsync zsh
 
       - name: Install system packages (macOS)
         if: runner.os == 'macOS'
@@ -48,9 +51,7 @@ jobs:
           curl -fsSL https://mise.run | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
-          # The dots release config.toml pins: tests compare dots/README.md with its template.
-          dots_version="$(sed -n 's/^"github:EzraCerpac\/dots" = "\(.*\)"$/\1/p' config.toml)"
-          tools=(node@latest python@3.13 uv@latest jj@latest age@latest gitleaks@latest "github:EzraCerpac/dots@$dots_version")
+          tools=(node@latest python@3.13 uv@latest jj@latest age@latest gitleaks@latest)
           if [[ "$RUNNER_OS" == Linux ]]; then
             tools+=(github:fish-shell/fish-shell@latest)
           fi
@@ -63,7 +64,7 @@ jobs:
       - name: Tool versions
         run: |
           mise --version
-          for tool in node python3 uv jj age gitleaks dots fish zsh; do
+          for tool in node python3 uv jj age gitleaks jq fish zsh; do
             printf '%-8s %s\n' "$tool" "$(command -v "$tool" || echo missing)"
           done
 
@@ -80,6 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
           # Scan every commit: a secret removed later is still public.
           fetch-depth: 0
 
@@ -92,3 +95,63 @@ jobs:
       - name: Scan history with the repository's gitleaks config
         # Include merge diffs, which `git log` omits by default.
         run: gitleaks git --no-banner --redact --verbose --log-opts='--all --full-history --diff-merges=first-parent' .
+
+  bootstrap:
+    name: Bootstrap (Linux, ${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [workstation, nas]
+    steps:
+      - name: Install container prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            build-essential ca-certificates curl git jq libssl-dev pkg-config rsync unzip xz-utils
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Adopt the profile with the published dots archive
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          fixture="$(mktemp -d)"
+          version="$(sed -n 's/^"github:EzraCerpac\/dots" = "\(.*\)"$/\1/p' config.toml)"
+          archive="dots-$version-linux-amd64.tar.gz"
+          release="https://github.com/EzraCerpac/dots/releases/download/v$version"
+          git init --bare --initial-branch=dev "$fixture/source.git"
+          git -C "$fixture/source.git" config receive.shallowUpdate true
+          git -c safe.directory="$PWD" push "$fixture/source.git" HEAD:refs/heads/dev
+          mkdir -p "$fixture/home/.local/bin" "$fixture/tmp"
+          cd "$fixture"
+          curl -fsSLO "$release/$archive"
+          curl -fsSLO "$release/SHA256SUMS"
+          awk -v file="$archive" '$2 == file' SHA256SUMS | sha256sum --check
+          curl -fsSLo install.sh "https://raw.githubusercontent.com/EzraCerpac/dots/v$version/install.sh"
+          curl -fsSL https://mise.run | MISE_INSTALL_PATH="$fixture/home/.local/bin/mise" sh
+
+          env -i HOME="$fixture/home" TMPDIR="$fixture/tmp" PATH="$fixture/home/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            XDG_CONFIG_HOME="$fixture/home/.config" XDG_DATA_HOME="$fixture/data" \
+            XDG_STATE_HOME="$fixture/state" XDG_CACHE_HOME="$fixture/cache" \
+            MISE_YES=1 GIT_CONFIG_NOSYSTEM=1 \
+            FIXTURE="$fixture" PROFILE="$PROFILE" VERSION="$version" ARCHIVE="$archive" bash -euo pipefail <<'SH'
+          git config --global url."file://$FIXTURE/source.git".insteadOf https://github.com/EzraCerpac/dotfiles
+          sh "$FIXTURE/install.sh" --version "$VERSION" --archive "$FIXTURE/$ARCHIVE" \
+            --from https://github.com/EzraCerpac/dotfiles --profile "$PROFILE" 2>&1 | tee "$FIXTURE/bootstrap.log"
+          grep -E '^Bootstrap result: .*, 0 failed\.$' "$FIXTURE/bootstrap.log"
+          cd "$XDG_CONFIG_HOME/mise"
+          test "$(dots profile)" = "$PROFILE"
+          selected="$(mise config get --file config.local.toml env.SETUP_MACHINE_ID)"
+          test -n "$selected"
+          # The installer persists again after completion. Its final selection must agree.
+          grep -F "Selected mise profile $PROFILE for host $selected." "$FIXTURE/bootstrap.log" | test "$(wc -l)" -eq 2
+          test -L "$HOME/.bash_profile"
+          SH

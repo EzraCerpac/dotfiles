@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="${DOTS_ROOT:?run through dots atuin-login}"
+args=(enroll --root "$root")
+while (($#)); do
+    case "$1" in
+        --identity|--identity=*)
+            if [[ "$1" == --identity=* ]]; then
+                identity="${1#--identity=}"
+            else
+                shift
+                identity="${1:-}"
+            fi
+            [[ -n "$identity" ]] || { echo 'dots atuin-login: --identity needs a key path' >&2; exit 2; }
+            case "$identity" in /*|"~/"*) ;; *) identity="$PWD/$identity" ;; esac
+            args+=(--identity "$identity")
+            ;;
+        *) args+=("$1") ;;
+    esac
+    shift
+done
+exec dots mise exec -- uv run --no-project python "$root/dots/lib/atuin.py" "${args[@]}"

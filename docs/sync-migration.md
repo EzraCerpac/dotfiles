@@ -133,15 +133,9 @@ Check: the branch line reads `## dev...origin/dev`, and `git diff --stat` lists 
 
 ## 6. Sync once with the released manager
 
-The checkout's old files predate the [dots release](dots-release.md), so run the pinned release's sync directly.
-The old `config.toml` on disk has no `dots_source_repo` yet, so pass the expected `origin` directly:
-
-```sh
-cd ~/.config/mise || exit 1
-W=$(~/.local/bin/mise x github:EzraCerpac/dots@0.3.1 -- dots internal home) O=$(git config --get remote.origin.url) mise exec -- node --input-type=module -e \
-  'const { syncSource } = await import(process.env.W + "/lib/source-repo.mjs"); syncSource(process.cwd(), { expectedRemote: process.env.O })'
-git status --short --branch | head -n 3
-```
+The checkout's old files predate the [dots release](dots-release.md).
+Use the original 0.3.1 migration procedure for this one-time sync.
+[Run the original step 6](https://github.com/EzraCerpac/dotfiles/blob/c36cfc4f57f13ee13b6bbf65633e024df3028a75/docs/sync-migration.md#6-sync-once-with-the-released-manager).
 
 Check: one `dots sync:` block that ends in `pushed …` or `nothing to push`.
 A `dots sync: stopped` line or an `INVALID merged config` line means nothing was pushed or applied: stop and run [Undo](#undo).

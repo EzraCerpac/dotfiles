@@ -30,6 +30,20 @@ During authorized coding work in JJ checkouts, agents may recover inspected pre-
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
 
+Unless the task is extremely small, delegate independent work.
+Give each subagent a specific task, an appropriate model and reasoning effort, and a clear deliverable.
+Choose a model available in the current harness.
+
+- Use gpt-6.2-sol at medium effort for bounded implementation, research, and general-purpose workers. Use high effort for code review or difficult debugging.
+- Use gpt-6.1-terra for browser and desktop work, visual inspection, and checks that depend on seeing the result.
+- Use gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when the problem warrants deeper reasoning.
+- Use Luna for mechanical inventories and log triage where the harness offers it.
+- Use Claude Opus for frontend and UI design and substantial writing.
+
+Subagents already have access to the applicable `AGENTS.md`, `CLAUDE.md`,
+and skills in their environment.
+Refer to them by name when needed and keep the brief focused on the task.
+
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
 Use uv for Python. Follow a project's declared package manager and existing lockfile workflow, including npm, pnpm or yarn. Prefer bun for new TypeScript projects and projects that already use it, when bun is available on the selected host. Do not migrate an existing project or install bun solely to satisfy this preference. Prefer the built-in browser for visual web checks and the most direct API or CLI for semantic work. For local web servers, use the linked Portless installation and its skill when available on the selected host.
@@ -54,3 +68,22 @@ Talk to me ELI5 by default and go deeper if I ask.
 Even as a subagent, delegate independent work under the same rules.
 
 <!-- End shared Codex policy -->
+{%- if vars.profile == "nas" %}
+
+## {% if os() == "macos" %}Driehuis NAS{% else %}CerpacNAS{% endif %} host notes
+
+For personal reminders, read `personal-concierge:apple-reminders` before acting and follow its access checks, list rules, duplicate check, alarms, and read-back. Keep a simple reminder request scoped to that reminder; use `personal-concierge:activity-concierge` for requested cross-source reviews.
+
+Thesis execution on the NAS is retired at Ezra's request. Preserve retained thesis checkouts, research, data, and history; do not start thesis validation lanes, experiments, benchmarks, or manuscript builds here. Current thesis implementation and acceptance belong to the existing Mac owner. Other authorized NAS projects may use their established native remote host and project workflow.
+{%- elif os() == "macos" %}
+
+## Mac host notes
+{%- endif %}
+{%- if os() == "macos" %}
+
+Sandboxed `gh` cannot read OAuth credentials stored in macOS Keychain, so it may falsely report missing or invalid authentication. Before declaring GitHub unavailable or reauthenticating, rerun the same `gh` command with `sandbox_permissions: "require_escalated"`.
+{%- endif %}
+{%- if vars.profile == "nas" %}
+
+In Code Mode, minimize unnecessary outer model round trips. For long-running deterministic work, prefer a single blocking or event-driven wait when available; do not wake the model merely to poll or report progress. If polling is unavoidable, use intervals appropriate to the expected duration. Do not repeat completed checks unless relevant state has changed or re-verification is justified, and do not expand task or verification scope unnecessarily. These rules must not reduce task scope, reasoning depth, verification, tool coverage, or answer quality.
+{% endif %}

@@ -31,11 +31,12 @@ The bundle's external identity path is remembered separately from the new
 machine's history key. Keep that external key available when applying the bundle
 again; a missing key defers private setup without replacing existing files.
 
-For unattended account enrollment, the bundle's version-1 JSON `secrets` object
-may also contain `tailscale_auth_key` and `github_token`. Create it from a private
+For unattended Tailscale enrollment, include `tailscale_auth_key` in the
+bundle's version-1 JSON `secrets` object. Create it from a private
 JSON file with `dots bundle create --input /private/path/inputs.json --output /tmp/bootstrap.json.age --recipient age1...`.
 Use a fresh one-use Tailscale key when preparing a machine; expired keys require
-replacement or browser login. Do not put private JSON or identities in this repository.
+replacement or browser login with `dots tailscale-login`.
+Do not put private JSON or identities in this repository.
 
 `mise dot` is mise's native dotfile interface. For example,
 `mise dot edit ~/.config/fish/config.fish` opens the managed source, and

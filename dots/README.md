@@ -17,8 +17,8 @@ Settings live in `[vars]` of `config.toml`: `dots_profiles` (required, the
 profiles you select with `mise -E`, as space-separated words),
 `dots_source_repo` and `dots_state_repo` (GitHub `OWNER/NAME` of this
 configuration and of its private settings history), and the optional
-`dots_self_updating_casks`, `dots_publish_on_behalf_of` and
-`dots_atuin_username`.
+`dots_self_updating_casks`.
+The Atuin scripts read this configuration's optional `dots_atuin_username`.
 
 ## Hooks
 
@@ -30,12 +30,14 @@ name without a leading number or extension, dashes and underscores as spaces:
 (`30-Backups@server`) applies only to that profile; other profiles do not list
 it at all.
 
-Every hook gets `DOTS_ROOT` (this configuration), `DOTS_HOME` (the manager) and
-`DOTS_PROFILE`. Update hooks also get `DOTS_TOOLS_OK=1` and
+Every hook gets `DOTS_ROOT` (this configuration) and `DOTS_PROFILE`.
+Update hooks also get `DOTS_TOOLS_OK=1` and
 `DOTS_TOOLS_UPGRADED=1` when those stages succeeded, and `DOTS_CHANGES`: append
 `ITEM<TAB>BEFORE<TAB>AFTER` lines to it and `dots up` shows them as changes in
 the hook's report. Bootstrap hooks also get `DOTS_PRIVATE_READY=1` once private
 settings are recovered and `DOTS_RESTORED=1` when this run restored them.
+`DOTS_BUNDLE_FD` points to a read-only descriptor holding the JSON object of
+bundle secrets. Each hook receives its own descriptor.
 
 Exit 0 means completed, 3 deferred (needs attention), 4 skipped, anything else
 failed. For example, `hooks/update.d/50-Fonts@laptop`:
@@ -52,8 +54,8 @@ printf 'fonts\t%s\t%s\n' "$before" "$(fc-list | wc -l)" >> "$DOTS_CHANGES"
 ## Commands
 
 `dots NAME ARGS...` runs `commands/NAME` with the arguments unchanged, in the
-caller's directory, with `DOTS_ROOT`, `DOTS_HOME` and `DOTS_PROFILE` set. It runs
-before mise loads the setup. `dots help` and the `dots` menu list commands.
+caller's directory, with `DOTS_ROOT` and `DOTS_PROFILE` set. It runs
+before mise loads the setup. `dots help` and bare `dots` list commands.
 
 ## Installer exceptions
 
@@ -74,9 +76,9 @@ as BEFORE) or updated.
 
 ## Retired dotfiles and retired declarations
 
-`retired-dotfiles` lists one `~/PATH` per line; `lib/retire-dotfiles.sh` in the manager deletes each only
-while it is a dangling link into this checkout. Call it from a mise
-`post-dotfiles` hook: `bash "$DOTS_HOME/lib/retire-dotfiles.sh" "$DOTS_ROOT"`.
+`retired-dotfiles` lists one `~/PATH` per line. `dots retire-dotfiles` deletes
+each only while it is a dangling link into this checkout. Call it from a mise
+`post-dotfiles` hook.
 
 `retired-declarations` is for a `[dotfiles.NAME]` table that a setup script
 once wrote into machines' `config.local.toml` or `config.host-*.toml` and whose
