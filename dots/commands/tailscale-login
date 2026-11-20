@@ -18,17 +18,17 @@ Enroll the local machine in Tailscale.
 
 Usage: dots tailscale-login
 
-When the local backend already reports BackendState=Running, this is a no-op
-and preserves the current identity and network preferences.  Otherwise the
-bootstrap hook uses tailscale_auth_key from the encrypted bootstrap bundle
-through a private 0600 temporary file and runs:
+An already connected client is left alone. A stopped enrolled client resumes
+with its saved preferences. For enrollment, the bootstrap hook uses
+tailscale_auth_key from the encrypted bootstrap bundle through a private
+0600 temporary file and runs:
 
   tailscale up --auth-key=file:<temporary-file>
 
 The key is never passed as a command-line value, printed, or exported to the
 Tailscale process.  If the key is missing or expired, an interactive terminal
-may run `tailscale up` for browser login.  Non-interactive runs defer this
-step and return exit code 3.
+may run `tailscale up` for browser login. Non-interactive runs bound the
+connection wait and defer any remaining login or device approval.
 
 Exit codes:
   0  already connected or enrollment completed
@@ -94,15 +94,25 @@ resolve_cli() {
     [[ -n "$cli_path" && -x "$cli_path" ]]
 }
 
-tailscale_exec() {
-    # SETUP_TAILSCALE_AUTH_KEY is unset below before any child is started.  The
-    # -u is a second guard against accidentally exposing a parent export.
+tailscale_exec() (
+    unset SETUP_TAILSCALE_AUTH_KEY
     if [[ "$cli_is_mac" -eq 1 ]]; then
-        env -u SETUP_TAILSCALE_AUTH_KEY TAILSCALE_BE_CLI=1 "$cli_path" "$@"
-    else
-        env -u SETUP_TAILSCALE_AUTH_KEY "$cli_path" "$@"
+        export TAILSCALE_BE_CLI=1
     fi
-}
+    if [[ "${backend_state:-}" == Stopped && "$#" -eq 1 && "$1" == up ]] && ! interactive_terminal; then
+        # Even --timeout changes bare up into a preference-setting command.
+        exec uv run --no-project python -c '
+import subprocess
+import sys
+
+try:
+    raise SystemExit(subprocess.run(sys.argv[1:], timeout=30, check=False).returncode)
+except subprocess.TimeoutExpired:
+    raise SystemExit(124)
+' "$cli_path" "$@"
+    fi
+    exec "$cli_path" "$@"
+)
 
 parse_backend_state() {
     local json_file="$1" state=''
@@ -213,6 +223,10 @@ if [[ "$status_rc" -eq 0 && "$backend_state" == Running ]]; then
     printf 'Tailscale is already connected; preserving current identity and network settings.\n'
     exit 0
 fi
+if [[ "$backend_state" == NeedsMachineAuth ]]; then
+    defer_step 'approve this device in the Tailscale admin console, then rerun enrollment'
+    exit $?
+fi
 
 if [[ "$status_rc" -ne 0 ]]; then
     # A not-yet-enrolled client commonly returns a non-zero status code while
@@ -280,32 +294,51 @@ run_browser_login() {
     esac
 }
 
-if [[ "$valid_auth_key" -eq 1 ]]; then
-    auth_file="$tmp_dir/auth-key"
-    if ! printf '%s\n' "$auth_key" >"$auth_file" || ! chmod 600 "$auth_file"; then
-        bootstrap_error 'could not stage the Tailscale auth key privately'
-        exit "$EXIT_USAGE"
+if [[ "$backend_state" == Stopped || "$valid_auth_key" -eq 1 ]]; then
+    up_args=(up)
+    if [[ "$backend_state" != Stopped ]]; then
+        auth_file="$tmp_dir/auth-key"
+        if ! printf '%s\n' "$auth_key" >"$auth_file" || ! chmod 600 "$auth_file"; then
+            bootstrap_error 'could not stage the Tailscale auth key privately'
+            exit "$EXIT_USAGE"
+        fi
+        up_args+=("--auth-key=file:$auth_file")
+        if ! interactive_terminal; then
+            up_args+=(--timeout=30s)
+        fi
     fi
     auth_key=''
 
     up_out="$tmp_dir/up.out"
     up_err="$tmp_dir/up.err"
     up_rc=0
-    if tailscale_exec up "--auth-key=file:$auth_file" >"$up_out" 2>"$up_err"; then
+    if tailscale_exec "${up_args[@]}" >"$up_out" 2>"$up_err"; then
         up_rc=0
     else
         up_rc=$?
     fi
     if [[ "$up_rc" -eq 0 ]]; then
-        printf 'Tailscale enrollment completed with the supplied auth key.\n'
+        if [[ "$backend_state" == Stopped ]]; then
+            printf 'Tailscale resumed with its saved preferences.\n'
+        else
+            printf 'Tailscale enrollment completed with the supplied auth key.\n'
+        fi
         exit 0
+    fi
+    if [[ "$up_rc" -eq 124 ]] || grep -Fq 'timeout waiting for Tailscale service to enter a Running state' "$up_err" "$up_out"; then
+        defer_step 'Tailscale has not connected yet. Check its status, complete any device approval, and rerun enrollment'
+        exit $?
     fi
 
     failure="$(cat "$up_out" "$up_err" 2>/dev/null | classify_failure /dev/stdin)"
     case "$failure" in
         auth)
             if ! interactive_terminal; then
-                defer_step 'the supplied Tailscale auth key is missing or expired; rerun in a terminal for browser login'
+                if [[ "$backend_state" == Stopped ]]; then
+                    defer_step 'the saved Tailscale login needs attention; rerun in a terminal'
+                else
+                    defer_step 'the supplied Tailscale auth key is missing or expired; rerun in a terminal for browser login'
+                fi
                 exit $?
             fi
             run_browser_login

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$(uname -s)" == Darwin ]] || exit 4
+if [[ "$(uname -s)" != Darwin ]]; then
+    # The v0.4 updater exports DOTS_HOME and treats exit 4 as an error here.
+    [[ -z "${DOTS_HOME:-}" ]] && exit 4
+    exit 0
+fi
 for formula in osx-cross/arm/arm-none-eabi-binutils osx-cross/arm/arm-none-eabi-gcc@9 osx-cross/avr/avr-gcc@9; do
     dots brew update-formula "$formula" "$@"
 done

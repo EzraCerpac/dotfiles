@@ -89,7 +89,7 @@ def configured_account(root: Path | None) -> str | None:
     try:
         result = subprocess.run(
             [mise, "-C", str(root), "config", "get", "--file", str(root / "config.toml"), "vars.dots_atuin_username"],
-            env={**os.environ, "MISE_AUTO_INSTALL": "0"},
+            env={**clean_env(), "MISE_AUTO_INSTALL": "0", "NO_COLOR": "1"},
             text=True,
             capture_output=True,
             timeout=COMMAND_TIMEOUT,
@@ -97,18 +97,23 @@ def configured_account(root: Path | None) -> str | None:
         )
     except OSError:
         raise AtuinError("mise is needed to read [vars] dots_atuin_username")
-    account = result.stdout.strip() if result.returncode == 0 else ""
-    if account and not USERNAME.fullmatch(account):
+    if result.returncode != 0:
+        if result.stderr.startswith("mise ERROR Key not found: vars.dots_atuin_username in "):
+            return None
+        raise AtuinError("could not read [vars] dots_atuin_username")
+    account = result.stdout.strip()
+    if not USERNAME.fullmatch(account):
         raise AtuinError("[vars] dots_atuin_username is not a valid Atuin username")
-    return account or None
+    return account
 
 
 def run_atuin(
-    *args: str, timeout: int = COMMAND_TIMEOUT, ensure_session: bool = False
+    *args: str, timeout: int = COMMAND_TIMEOUT, ensure_session: bool = False,
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [executable("atuin"), *args],
-        env=clean_env(ensure_session=ensure_session),
+        env={**clean_env(ensure_session=ensure_session), **(extra_env or {})},
         text=True,
         capture_output=True,
         timeout=timeout,
@@ -262,7 +267,8 @@ def decrypt_bundle(path: Path, identity: Path, account: str | None) -> dict[str,
 
 
 def remote_state() -> tuple[str | None, str | None, str]:
-    result = run_atuin("status")
+    # Atuin hides the account from status when auto_sync is disabled.
+    result = run_atuin("status", extra_env={"ATUIN_AUTO_SYNC": "true"})
     text = f"{result.stdout}\n{result.stderr}"
     username = None
     matched = re.search(r"(?im)^\s*Username:\s*([A-Za-z0-9._-]{1,64})\s*$", text)
@@ -398,7 +404,7 @@ def native_login(account: str, history_key: str, password: str, *, browser: bool
                 factor_attempts += 1
                 deadline = time.monotonic() + LOGIN_TIMEOUT
                 transcript.clear()
-            elif browser and "open this url" in lower:
+            elif browser and ("open this url" in lower or "opened your browser" in lower):
                 # Only expose the native Hub authorization link. Never relay
                 # the PTY transcript: it can contain the echoed history key.
                 candidates = re.findall(r"https://[^\s\x1b<>]+", transcript.decode(errors="ignore"))

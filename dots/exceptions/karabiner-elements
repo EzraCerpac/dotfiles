@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$(uname -s)" == Darwin ]] || exit 4
+if [[ "$(uname -s)" != Darwin ]]; then
+    # The v0.4 updater exports DOTS_HOME and treats exit 4 as an error here.
+    [[ -z "${DOTS_HOME:-}" ]] && exit 4
+    exit 0
+fi
 dots brew hold-cask \
     karabiner-elements \
     16.0.0 \

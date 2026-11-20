@@ -45,7 +45,12 @@ if sys.argv[1:] == ["status", "--json"]:
     sys.exit(0)
 
 assert sys.argv[1] == "up"
-assert len(sys.argv) == 3 and sys.argv[2].startswith("--auth-key=file:")
+if os.environ["FIXTURE_STATE"] == "Stopped":
+    assert sys.argv[1:] == ["up"]
+    Path(os.environ["FIXTURE_CALL"]).write_text("resume")
+    sys.exit(0)
+assert len(sys.argv) == 4 and sys.argv[2].startswith("--auth-key=file:")
+assert sys.argv[3] == "--timeout=30s"
 key_file = Path(sys.argv[2].split(":", 1)[1])
 assert stat.S_IMODE(key_file.stat().st_mode) == 0o600
 assert key_file.read_text() == "fixture-key\\n"
@@ -53,18 +58,28 @@ Path(os.environ["FIXTURE_CALL"]).write_text(str(key_file))
 if os.environ["FIXTURE_EXPIRED"] == "1":
     print("expired auth key: " + key_file.read_text(), file=sys.stderr)
     sys.exit(1)
+if os.environ["FIXTURE_APPROVAL"] == "1":
+    print("Approve device: " + key_file.read_text(), file=sys.stderr)
+    print("timeout waiting for Tailscale service to enter a Running state", file=sys.stderr)
+    sys.exit(1)
 """
         )
         self.cli.chmod(0o755)
+        uv = self.base / "uv"
+        uv.write_text('#!/bin/sh\n[ "$1 $2 $3" = "run --no-project python" ] || exit 2\nshift 3\nexec python3 "$@"\n')
+        uv.chmod(0o755)
         self.call = self.base / "call"
 
-    def run_hook(self, state: str, *, expired: bool = False, key: str = KEY) -> subprocess.CompletedProcess[str]:
+    def run_hook(
+        self, state: str, *, expired: bool = False, approval: bool = False, key: str = KEY
+    ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryFile() as bundle:
             bundle.write(json.dumps({"tailscale_auth_key": key}).encode())
             bundle.seek(0)
             fd = bundle.fileno()
             env = {
                 **os.environ,
+                "PATH": f"{self.base}{os.pathsep}{os.environ['PATH']}",
                 "DOTS_ROOT": str(ROOT),
                 "DOTS_BUNDLE_FD": str(fd),
                 "DOTS_PRIVATE_READY": "1",
@@ -74,6 +89,7 @@ if os.environ["FIXTURE_EXPIRED"] == "1":
                 "FIXTURE_FD": str(fd),
                 "FIXTURE_STATE": state,
                 "FIXTURE_EXPIRED": str(int(expired)),
+                "FIXTURE_APPROVAL": str(int(approval)),
                 "FIXTURE_CALL": str(self.call),
             }
             return subprocess.run(
@@ -96,6 +112,24 @@ if os.environ["FIXTURE_EXPIRED"] == "1":
         result = self.run_hook("NeedsLogin", expired=True)
         self.assertEqual(result.returncode, 3, result.stderr)
         self.assertFalse(Path(self.call.read_text()).exists())
+        self.assertNotIn(KEY, result.stdout + result.stderr)
+
+    def test_device_approval_timeout_defers_without_printing_key(self) -> None:
+        result = self.run_hook("NeedsLogin", approval=True)
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertIn("device approval", result.stderr)
+        self.assertNotIn(KEY, result.stdout + result.stderr)
+        self.assertFalse(Path(self.call.read_text()).exists())
+
+    def test_pending_device_approval_does_not_rekey(self) -> None:
+        result = self.run_hook("NeedsMachineAuth")
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertFalse(self.call.exists())
+
+    def test_stopped_client_uses_bare_resume_even_with_a_key(self) -> None:
+        result = self.run_hook("Stopped")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.call.read_text(), "resume")
         self.assertNotIn(KEY, result.stdout + result.stderr)
 
     def test_trailing_newline_in_key_defers_without_using_it(self) -> None:

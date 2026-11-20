@@ -33,6 +33,18 @@ class AtuinAccountTest(unittest.TestCase):
         with mock.patch.dict(os.environ, {"DOTS_MISE_BIN": mise_binary()}):
             self.assertEqual(atuin.configured_account(self.config('[vars]\ndots_atuin_username = "someone"\n')), "someone")
             self.assertIsNone(atuin.configured_account(self.config("[vars]\n")))
+            with self.assertRaisesRegex(atuin.AtuinError, "could not read"):
+                atuin.configured_account(self.config("[vars\n"))
+            with self.assertRaisesRegex(atuin.AtuinError, "not a valid Atuin username"):
+                atuin.configured_account(self.config('[vars]\ndots_atuin_username = ""\n'))
+
+    def test_status_reports_identity_with_auto_sync_disabled(self) -> None:
+        result = subprocess.CompletedProcess([], 0, "Username: someone\n", "")
+        with mock.patch.dict(os.environ, {"ATUIN_AUTO_SYNC": "false"}):
+            with mock.patch.object(atuin, "run_atuin", return_value=result) as status:
+                self.assertEqual(atuin.remote_state(), ("someone", None, "ready"))
+            status.assert_called_once_with("status", extra_env={"ATUIN_AUTO_SYNC": "true"})
+            self.assertEqual(os.environ["ATUIN_AUTO_SYNC"], "false")
 
     def test_bundle_must_name_the_configured_account_when_set(self) -> None:
         self.assertEqual(atuin.validate_bundle(BUNDLE, None)["username"], "someone")
