@@ -5,8 +5,8 @@ workstation profile adds language runtimes, specialist tools, and desktop
 applications. `dots` is
 the short interface to the setup; ordinary `mise` commands still work inside
 individual projects. The `dots` manager lives in its own repository,
-[EzraCerpac/dots](https://github.com/EzraCerpac/dots), which documents every command; `config.toml` pins
-the release this setup runs ([dots release](docs/dots-release.md)). This README
+[EzraCerpac/dots](https://github.com/EzraCerpac/dots), which documents every command; `config.toml` has
+this setup follow its latest release ([dots release](docs/dots-release.md)). This README
 covers how this setup uses it.
 
 Run `dots` in an interactive terminal to browse commands and review their options.
@@ -251,5 +251,5 @@ The role selection and private history origin belong in ignored local mise confi
 | Secret scanning, signing, leaked-credential rotation | [Security](docs/security.md) |
 | Window managers | [Runbook](docs/window-manager-runbook.md) |
 | Settings history internals | [History](docs/history.md) |
-| The `dots` manager and its commands | [EzraCerpac/dots](https://github.com/EzraCerpac/dots); this setup's pin: [dots release](docs/dots-release.md) |
+| The `dots` manager and its commands | [EzraCerpac/dots](https://github.com/EzraCerpac/dots); how this setup follows its releases: [dots release](docs/dots-release.md) |
 | How this setup got here (chezmoi hook map, validation logs) | [Setup history](docs/history/README.md) |

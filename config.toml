@@ -91,7 +91,7 @@ codex = "latest"
 "aqua:librespeed/speedtest-cli" = "latest"
 
 # The dots manager (https://github.com/EzraCerpac/dots).
-"github:EzraCerpac/dots" = "0.5.0"
+"github:EzraCerpac/dots" = "latest"
 
 # Native macOS integration. Linux Fish is a user-space tool above; Linux
 # workstation Git packages are declared in config.workstation.toml.

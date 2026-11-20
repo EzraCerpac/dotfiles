@@ -123,10 +123,26 @@ jobs:
           PROFILE: ${{ matrix.profile }}
         run: |
           set -euo pipefail
-          fixture="$(mktemp -d)"
           version="$(sed -n 's/^"github:EzraCerpac\/dots" = "\(.*\)"$/\1/p' config.toml)"
+          releases="https://github.com/EzraCerpac/dots/releases"
+          if [[ "$version" == latest ]]; then
+            redirect="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$releases/latest")"
+            version="${redirect#"$releases/tag/v"}"
+            if [[ "$version" == "$redirect" ]]; then
+              echo 'GitHub did not redirect to an EzraCerpac/dots v-prefixed release tag.' >&2
+              exit 1
+            fi
+          fi
+          number='(0|[1-9][0-9]*)'
+          identifier="($number|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+          version_pattern="^$number\.$number\.$number(-$identifier(\.$identifier)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
+          if [[ ! "$version" =~ $version_pattern ]]; then
+            echo 'Expected a concrete dots release version.' >&2
+            exit 1
+          fi
           archive="dots-$version-linux-amd64.tar.gz"
-          release="https://github.com/EzraCerpac/dots/releases/download/v$version"
+          release="$releases/download/v$version"
+          fixture="$(mktemp -d)"
           git init --bare --initial-branch=dev "$fixture/source.git"
           git -C "$fixture/source.git" config receive.shallowUpdate true
           git -c safe.directory="$PWD" push "$fixture/source.git" HEAD:refs/heads/dev
