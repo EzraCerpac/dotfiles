@@ -207,7 +207,8 @@ dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}
 
 [bootstrap]
 description = "Complete private recovery, installation, services, and account enrollment"
-run = "dots bootstrap complete"
+# The installer saves the selection after native bootstrap; completion needs it now.
+run = "dots bootstrap persist-selected && exec dots bootstrap complete"
 raw = true
 dir = "{{ get_env(name='MISE_CONFIG_DIR', default=env.HOME ~ '/.config/mise') }}"
 

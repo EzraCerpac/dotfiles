@@ -72,3 +72,4 @@
 ~/.config/herdr/plugins/config/herdr-picker-plus/config.toml
 # The dots manager now comes from its release, which mise puts on PATH.
 ~/.local/bin/dots
+~/.local/bin/dots-agent

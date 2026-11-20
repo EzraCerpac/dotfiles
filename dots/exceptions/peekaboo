@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$(uname -s)" == Darwin ]] || exit 4
 dots brew update-formula steipete/tap/peekaboo "$@"

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$(uname -s)" == Darwin ]] || exit 4
 dots brew hold-cask \
     karabiner-elements \
     16.0.0 \

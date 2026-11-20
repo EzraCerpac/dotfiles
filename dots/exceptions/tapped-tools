@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$(uname -s)" == Darwin ]] || exit 4
 for formula in felixkratz/formulae/borders dastrobu/tap/mail-mcp ezracerpac/tap/typst-time-machine; do
     dots brew update-formula "$formula" "$@"
 done

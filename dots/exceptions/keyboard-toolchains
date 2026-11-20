@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$(uname -s)" == Darwin ]] || exit 4
 for formula in osx-cross/arm/arm-none-eabi-binutils osx-cross/arm/arm-none-eabi-gcc@9 osx-cross/avr/avr-gcc@9; do
     dots brew update-formula "$formula" "$@"
 done

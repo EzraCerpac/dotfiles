@@ -5,12 +5,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=setup-scripts/local/common
 source "${SCRIPT_DIR}/common"
-
-
 # mise keeps links whose declarations were removed. Every dotfiles apply runs
 # this hook from the incoming source, including the apply at the end of a sync
-# still executed by the previous source's code, so retirement lives here.
-setup_dots retire-dotfiles
+# still executed by the previous dots release. Resolve the incoming pin.
+bash "${SCRIPT_DIR}/dots" retire-dotfiles
 
 # Expose skills installed for all agents (~/.agents/skills) to Claude Code.
 bash "${SCRIPT_DIR}/link-agent-skills.sh"
