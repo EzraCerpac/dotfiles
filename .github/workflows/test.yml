@@ -128,7 +128,7 @@ jobs:
           archive="dots-$version-linux-amd64.tar.gz"
           release="https://github.com/EzraCerpac/dots/releases/download/v$version"
           git init --bare --initial-branch=dev "$fixture/source.git"
-          git push "$fixture/source.git" HEAD:dev
+          git -c safe.directory="$PWD" push "$fixture/source.git" HEAD:refs/heads/dev
           mkdir -p "$fixture/home/.local/bin" "$fixture/tmp"
           cd "$fixture"
           curl -fsSLO "$release/$archive"
@@ -145,8 +145,7 @@ jobs:
           git config --global url."file://$FIXTURE/source.git".insteadOf https://github.com/EzraCerpac/dotfiles
           sh "$FIXTURE/install.sh" --version "$VERSION" --archive "$FIXTURE/$ARCHIVE" \
             --from https://github.com/EzraCerpac/dotfiles --profile "$PROFILE" 2>&1 | tee "$FIXTURE/bootstrap.log"
-          grep -F 'Bootstrap result:' "$FIXTURE/bootstrap.log"
-          grep -F '0 failed' "$FIXTURE/bootstrap.log"
+          grep -E '^Bootstrap result: .*, 0 failed\.$' "$FIXTURE/bootstrap.log"
           cd "$XDG_CONFIG_HOME/mise"
           test "$(dots profile)" = "$PROFILE"
           selected="$(mise config get --file config.local.toml env.SETUP_MACHINE_ID)"
