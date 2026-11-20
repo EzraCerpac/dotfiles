@@ -10,6 +10,7 @@ readonly EXIT_USAGE=2
 readonly EXIT_DEFERRED=3
 readonly EXIT_AUTH_FAILURE=21
 readonly EXIT_NETWORK_FAILURE=22
+readonly LOCAL_ACCESS_DENIED='^[[:space:]]*(access denied:|failed to connect to local tailscaled .*access denied:)'
 EXIT_BACKEND_FAILURE=23
 
 usage() {
@@ -53,6 +54,12 @@ defer_step() {
     return "$EXIT_DEFERRED"
 }
 
+defer_operator_access() {
+    local command
+    printf -v command 'sudo %q set --operator="$USER"' "$cli_path"
+    defer_step "Tailscale requires local operator access. If authorized, run $command from this account, then rerun dots tailscale-login"
+}
+
 if (($#)); then
     case "$1" in
         -h|--help) usage; exit 0 ;;
@@ -68,16 +75,16 @@ is_unattended() {
     [[ -n "${CI:-}" ]]
 }
 
-interactive_terminal() {
-    is_unattended && return 1
-    [[ -t 0 && -t 1 ]]
-}
+# Decide before any child redirects output away from the terminal.
+interactive=0
+if ! is_unattended && [[ -t 0 && -t 1 ]]; then
+    interactive=1
+fi
 
+platform="$(uname -s 2>/dev/null || true)"
 cli_path=''
 cli_is_mac=0
 resolve_cli() {
-    local platform
-    platform="$(uname -s 2>/dev/null || true)"
     if [[ -n "${TAILSCALE_CLI:-}" ]]; then
         cli_path="$TAILSCALE_CLI"
         [[ "$platform" == Darwin ]] && cli_is_mac=1
@@ -99,7 +106,7 @@ tailscale_exec() (
     if [[ "$cli_is_mac" -eq 1 ]]; then
         export TAILSCALE_BE_CLI=1
     fi
-    if [[ "${backend_state:-}" == Stopped && "$#" -eq 1 && "$1" == up ]] && ! interactive_terminal; then
+    if [[ "$interactive" -eq 0 && "${backend_state:-}" == Stopped && "$#" -eq 1 && "$1" == up ]]; then
         # Even --timeout changes bare up into a preference-setting command.
         exec uv run --no-project python -c '
 import subprocess
@@ -136,9 +143,11 @@ PY
 }
 
 classify_failure() {
-    local output_file="$1" text
-    text="$(cat "$output_file" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
-    if grep -Eq 'auth(entication)?|auth key|expired|invalid key|unauthori[sz]ed|forbidden|permission denied|logged out|not logged in|login required|needs login|(^|[^0-9])(401|403)([^0-9]|$)' <<< "$text"; then
+    local text
+    text="$(cat "$@" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)"
+    if [[ "$platform" == Linux ]] && grep -Eq "$LOCAL_ACCESS_DENIED" <<< "$text"; then
+        printf 'operator\n'
+    elif grep -Eq 'auth(entication)?|auth key|expired|invalid key|unauthori[sz]ed|forbidden|permission denied|logged out|not logged in|login required|needs login|(^|[^0-9])(401|403)([^0-9]|$)' <<< "$text"; then
         printf 'auth\n'
     elif grep -Eq 'network|timed out|timeout|dns|no route|unreachable|connection|control plane|control server|tls|temporary failure|cannot reach' <<< "$text"; then
         printf 'network\n'
@@ -150,10 +159,11 @@ classify_failure() {
 }
 
 print_safe_stream() {
-    # Keep browser login output visible while retaining the full diagnostic in
-    # the private temporary directory. Browser login receives no auth key, but
-    # retain the same defensive redaction as captured output.
-    awk '{gsub(/tskey-[^[:space:]]+/, "[REDACTED]"); print; fflush()}'
+    # A LocalAPI denial is followed by sudo hints that can echo the CLI arguments.
+    awk -v platform="$platform" -v denied="$LOCAL_ACCESS_DENIED" '
+        platform == "Linux" && (blocked || tolower($0) ~ denied) {blocked = 1; next}
+        {gsub(/tskey-[^[:space:]]+/, "[REDACTED]"); print; fflush()}
+    '
 }
 
 unset auth_key bundle_key
@@ -175,13 +185,12 @@ if [[ -n "${DOTS_BUNDLE_FD:-}" ]]; then
     # Bash 3.2 cannot close a variable descriptor without eval.
     eval "exec ${bundle_fd}<&-"
     # A bootstrap in a container cannot start the service through systemd.
-    if [[ "$(uname -s)" == Linux && ! -d /run/systemd/system ]]; then
+    if [[ "$platform" == Linux && ! -d /run/systemd/system ]]; then
         EXIT_BACKEND_FAILURE=$EXIT_DEFERRED
     fi
 fi
 
 if ! resolve_cli; then
-    platform="$(uname -s 2>/dev/null || true)"
     if [[ "$platform" == Linux ]]; then
         missing_message='Linux Tailscale client not found (`tailscale`); install Tailscale through the host package setup, then rerun enrollment'
     elif [[ "$platform" == Darwin ]]; then
@@ -189,7 +198,7 @@ if ! resolve_cli; then
     else
         missing_message='the Tailscale CLI is unavailable; install or enable Tailscale, then rerun enrollment'
     fi
-    if is_unattended || ! interactive_terminal; then
+    if [[ "$interactive" -eq 0 ]]; then
         defer_step "$missing_message in a terminal"
         exit $?
     fi
@@ -229,6 +238,11 @@ if [[ "$backend_state" == NeedsMachineAuth ]]; then
 fi
 
 if [[ "$status_rc" -ne 0 ]]; then
+    status_failure="$(classify_failure "$status_out" "$status_err")"
+    if [[ "$status_failure" == operator ]]; then
+        defer_operator_access
+        exit $?
+    fi
     # A not-yet-enrolled client commonly returns a non-zero status code while
     # still providing a useful BackendState. Those states are expected input
     # to `tailscale up`; an error without a known state means that the local
@@ -238,9 +252,6 @@ if [[ "$status_rc" -ne 0 ]]; then
             :
             ;;
         *)
-            status_diag="$tmp_dir/status.diag"
-            cat "$status_out" "$status_err" >"$status_diag"
-            status_failure="$(classify_failure "$status_diag")"
             case "$status_failure" in
                 auth)
                     :
@@ -264,29 +275,26 @@ if [[ -n "$auth_key" && "$auth_key" != *$'\n'* && "$auth_key" != *$'\r'* && "$au
 fi
 
 run_browser_login() {
-    if ! interactive_terminal; then
+    if [[ "$interactive" -eq 0 ]]; then
         defer_step 'browser login requires an interactive terminal; rerun enrollment after attaching to the machine'
         return $?
     fi
 
     printf 'Tailscale needs browser sign-in. Complete the browser and macOS system approval prompts, then return here.\n'
-    local login_out="$tmp_dir/login.out" login_err="$tmp_dir/login.err" login_rc=0 failure
-    # Stream the login URL while `tailscale up` waits for the browser. The
-    # files retain the complete diagnostic for classification; only the
-    # terminal stream is redacted.
-    if tailscale_exec up \
-        > >(tee "$login_out" | print_safe_stream) \
-        2> >(tee "$login_err" | print_safe_stream >&2); then
+    local login_log="$tmp_dir/login.log" login_rc=0 failure
+    # Drain the stream before classifying the captured diagnostic.
+    if tailscale_exec up 2>&1 | tee "$login_log" | print_safe_stream >&2; then
         login_rc=0
     else
-        login_rc=$?
+        login_rc="${PIPESTATUS[0]}"
     fi
     if [[ "$login_rc" -eq 0 ]]; then
         printf 'Tailscale browser enrollment completed.\n'
         return 0
     fi
-    failure="$(cat "$login_out" "$login_err" 2>/dev/null | classify_failure /dev/stdin)"
+    failure="$(classify_failure "$login_log")"
     case "$failure" in
+        operator) defer_operator_access ;;
         auth) bootstrap_error 'browser authentication failed'; return "$EXIT_AUTH_FAILURE" ;;
         network) bootstrap_error 'browser enrollment could not reach the Tailscale control plane'; return "$EXIT_NETWORK_FAILURE" ;;
         backend) bootstrap_error 'the local Tailscale backend is unavailable'; return "$EXIT_BACKEND_FAILURE" ;;
@@ -303,7 +311,7 @@ if [[ "$backend_state" == Stopped || "$valid_auth_key" -eq 1 ]]; then
             exit "$EXIT_USAGE"
         fi
         up_args+=("--auth-key=file:$auth_file")
-        if ! interactive_terminal; then
+        if [[ "$interactive" -eq 0 ]]; then
             up_args+=(--timeout=30s)
         fi
     fi
@@ -330,10 +338,11 @@ if [[ "$backend_state" == Stopped || "$valid_auth_key" -eq 1 ]]; then
         exit $?
     fi
 
-    failure="$(cat "$up_out" "$up_err" 2>/dev/null | classify_failure /dev/stdin)"
+    failure="$(classify_failure "$up_out" "$up_err")"
     case "$failure" in
+        operator) defer_operator_access; exit $? ;;
         auth)
-            if ! interactive_terminal; then
+            if [[ "$interactive" -eq 0 ]]; then
                 if [[ "$backend_state" == Stopped ]]; then
                     defer_step 'the saved Tailscale login needs attention; rerun in a terminal'
                 else
