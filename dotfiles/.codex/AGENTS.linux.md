@@ -1,6 +1,19 @@
 <!-- Shared Codex policy: agentic-cleanup-20261005 -->
 Use /visualize heavily to show information in a nice way.
 
+If you get stuck, feel like you are not making progress,
+or hit a blocker, ask Fable 5.2 for help.
+
+Unless the task is extremely small, delegate independent work.
+Give each subagent a specific task, an appropriate model and reasoning effort, and a clear deliverable.
+Choose a model available in the current harness.
+
+- Use gpt-6.2-sol at medium effort for bounded implementation, research, and general-purpose workers. Use high effort for code review or difficult debugging.
+- Use gpt-6.1-terra for browser and desktop work, visual inspection, and checks that depend on seeing the result.
+- Use gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when the problem warrants deeper reasoning.
+- Use Luna for mechanical inventories and log triage where the harness offers it.
+- Use Claude Opus for frontend and UI design and substantial writing.
+
 Offer useful suggestions while continuing authorized work. Pause for a change to the authorized goal or scope, a material unresolved decision that affects the task, or an actual approval boundary. Continue independent authorized work while a decision or approval is pending. Use the question tool when asking Ezra a question. When appropriate, suggest useful next steps; you are a teammate.
 
 Before saying done, run the smallest check that matches the task's risk and the user's actual success criterion. Normal tests or direct inspection are enough unless the task changes a browser UI, physical device, deployed service, performance claim, or other boundary the user will rely on. Do not add evidence packages, provenance tracking, receipts, digests, independent review, fresh replications, or extra acceptance gates unless the user requests them or they are necessary for publication, deployment, security, destructive work, or scientific claims being promoted as final evidence. Report material checks that remain open.
@@ -16,16 +29,6 @@ Before an authorized commit, run the project's quick `mise run format` task when
 During authorized coding work in JJ checkouts, agents may recover inspected pre-existing mutable divergence. Inspect all variants, affected descendants, bookmarks and other active work first. Use `jj converge --no-interactive` with explicit revisions for one change ID at a time. Check the operation diff, remaining divergence, file conflicts and bookmark targets afterwards; command success alone is not proof of recovery. Stop when recovery is ambiguous or would affect protected history or other active work. Read-only audits remain read-only. Consult the jj-waltz lifecycle reference for recovery details.
 
 Edit mise-managed jj config through its linked file or source. For deliberate direct config changes, use `jj config ... --file <path>` after checking loaded config paths. For stack tests, use `jj run --revision '<revset>' --ignore-changes --jobs 1 -- <command>`; use rewriting mode only for intended fixes, and `--ignore-errors` only when collecting all failures deliberately.
-
-Unless the task is extremely small, delegate independent work.
-Give each subagent a specific task, an appropriate model and reasoning effort, and a clear deliverable.
-Choose a model available in the current harness.
-
-- Use gpt-6.2-sol at medium effort for bounded implementation, research, and general-purpose workers. Use high effort for code review or difficult debugging.
-- Use gpt-6.1-terra for browser and desktop work, visual inspection, and checks that depend on seeing the result.
-- Use gpt-6.2-astra at high effort for a specific architecture decision, difficult diagnosis, or scientific argument. Use xhigh when the problem warrants deeper reasoning.
-- Use Luna for mechanical inventories and log triage where the harness offers it.
-- Use Claude Opus for frontend and UI design and substantial writing.
 
 Some AGENTS.md and other content is intentionally not tracked (see .git/info/exclude).
 
@@ -46,4 +49,8 @@ For file and directory discovery, prefer fd over find.
 Prefer using the in-app browser over external browsers.
 
 Describe the final change for a reviewer who has not seen the conversation. Lead with the concrete problem and resulting behavior. Use a before/after example when helpful. Include only relevant implementation detail, validation actually performed, and material limits. Keep simple changes to a short paragraph plus validation. Follow the repository PR template when present. Do not claim unrun tests passed or staged configuration is installed. Omit conversational history and abandoned approaches unless they explain a review-relevant tradeoff. Do not add scope, commits, files, or deployment claims absent from the diff and evidence.
+Talk to me ELI5 by default and go deeper if I ask.
+
+Even as a subagent, delegate independent work under the same rules.
+
 <!-- End shared Codex policy -->

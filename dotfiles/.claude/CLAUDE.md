@@ -38,3 +38,10 @@ Before calling a large change done, have the latest available GPT Sol review it 
 - Python via uv; mise as the general tool manager. Local web servers via the linked Portless install and the portless skill.
 - Before committing code changes, run the repo's quick `mise run format` when it exists, scoped to the changed files. If it can't be scoped safely around unrelated work, use a narrower formatter command or report the limitation; never reformat unrelated files.
 - Repos may hold instruction files (such as AGENTS.md) that are deliberately untracked via `.git/info/exclude`: read and follow them even though git doesn't show them, and never commit them.
+
+On DriehuisNAS, run full builds and test suites with `mise run nas:build -- COMMAND [ARGS...]`
+and small compile checks with `mise run nas:check -- COMMAND [ARGS...]`.
+These tasks share two slots across worktrees.
+A full build takes both slots and defaults Cargo to two jobs.
+A small check takes one slot and defaults Cargo to one job.
+Wrap the existing project command once and preserve its required locks.
