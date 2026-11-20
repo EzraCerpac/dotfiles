@@ -128,6 +128,7 @@ jobs:
           archive="dots-$version-linux-amd64.tar.gz"
           release="https://github.com/EzraCerpac/dots/releases/download/v$version"
           git init --bare --initial-branch=dev "$fixture/source.git"
+          git -C "$fixture/source.git" config receive.shallowUpdate true
           git -c safe.directory="$PWD" push "$fixture/source.git" HEAD:refs/heads/dev
           mkdir -p "$fixture/home/.local/bin" "$fixture/tmp"
           cd "$fixture"
