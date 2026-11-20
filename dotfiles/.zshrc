@@ -98,6 +98,10 @@ gitlogue-menu() {
     gitlogue-select menu "$@"
 }
 
+if (( $+commands[dots] )); then
+    source <(MISE_SAFE=1 MISE_NO_ENV=1 MISE_NO_HOOKS=1 MISE_OFFLINE=1 MISE_EXEC_AUTO_INSTALL=0 MISE_AUTO_INSTALL=0 command dots completions zsh 2>/dev/null)
+fi
+
 # OpenClaw Completion
 if command -v openclaw >/dev/null 2>&1; then
     source <(openclaw completion --shell zsh)
